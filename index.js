@@ -3109,6 +3109,45 @@ const uploadTemp = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 限制 10MB
 });
 
+// AI 請求輔助：逾時 + 重試（應對模型崩潰、Channel Error）
+async function fetchAIWithRetry(url, init, { timeoutMs = 180000, maxRetries = 2 } = {}) {
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const opts = { ...init, signal: controller.signal };
+    try {
+      const response = await fetch(url, opts);
+      clearTimeout(timeoutId);
+      if (response.ok) return response;
+      const errText = await response.text();
+      const isTransient =
+        response.status === 502 ||
+        response.status === 503 ||
+        /channel\s*error|crashed|exit\s*code\s*null/i.test(errText);
+      if (attempt < maxRetries && isTransient) {
+        console.warn(`[AI] 暫時性錯誤 (${response.status})，2s 後重試 (${attempt + 1}/${maxRetries})...`, errText.slice(0, 200));
+        await new Promise((r) => setTimeout(r, 2000));
+        continue;
+      }
+      if (/channel\s*error/i.test(errText)) throw new Error('AI 連線中斷 (Channel Error)，請稍後再試');
+      if (/crashed|exit\s*code\s*null/i.test(errText)) throw new Error('AI 模型暫時異常，請稍後再試');
+      throw new Error(`AI 回應錯誤: ${response.status}. ${errText.slice(0, 150)}`);
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') throw new Error('AI 請求逾時，請稍後再試');
+      if (attempt < maxRetries && (err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT' || err.message?.includes('fetch'))) {
+        console.warn(`[AI] 連線錯誤，2s 後重試 (${attempt + 1}/${maxRetries})...`, err.message);
+        lastError = err;
+        await new Promise((r) => setTimeout(r, 2000));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError || new Error('AI 請求失敗');
+}
+
 // AI 視覺辨識 API
 app.post('/api/vision-test', uploadTemp.single('image'), async (req, res) => {
   try {
@@ -3166,28 +3205,32 @@ app.post('/api/vision-test', uploadTemp.single('image'), async (req, res) => {
       
       const quickFeaturePrompt = `你是一位專業的植物形態學家。請快速分析圖片中的植物特徵，只提取關鍵識別特徵（生活型、葉序、葉形、花序、花色等），不要給出植物名稱。用簡短文字描述即可。`;
       
-      const quickResponse = await fetch(`${AI_API_URL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${AI_API_KEY}`
+      const quickResponse = await fetchAIWithRetry(
+        `${AI_API_URL}/chat/completions`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${AI_API_KEY}`
+          },
+          body: JSON.stringify({
+            model: AI_MODEL,
+            messages: [
+              { role: "system", content: quickFeaturePrompt },
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: "請快速提取這張圖片中植物的關鍵識別特徵（生活型、葉序、葉形、花序、花色等），用簡短文字描述。" },
+                  { type: "image_url", image_url: { url: dataUrl } }
+                ]
+              }
+            ],
+            max_tokens: 500,
+            temperature: 0.3
+          })
         },
-        body: JSON.stringify({
-          model: AI_MODEL,
-          messages: [
-            { role: "system", content: quickFeaturePrompt },
-            {
-              role: "user",
-              content: [
-                { type: "text", text: "請快速提取這張圖片中植物的關鍵識別特徵（生活型、葉序、葉形、花序、花色等），用簡短文字描述。" },
-                { type: "image_url", image_url: { url: dataUrl } }
-              ]
-            }
-          ],
-          max_tokens: 500,
-          temperature: 0.3
-        })
-      });
+        { timeoutMs: 180000, maxRetries: 2 }
+      );
       
       if (quickResponse.ok) {
         const quickData = await quickResponse.json();
@@ -3212,19 +3255,23 @@ app.post('/api/vision-test', uploadTemp.single('image'), async (req, res) => {
       const simpleSystem = req.body.systemPrompt || '你是一個友善的 AI 助手。請簡潔描述圖片中圈選的物體。';
       const simpleUser = req.body.userPrompt || '請描述這張圖片中圈選區域的物體是什麼，並用簡短文字介紹。';
 
-      const simpleResponse = await fetch(`${AI_API_URL}/chat/completions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AI_API_KEY}` },
-        body: JSON.stringify({
-          model: AI_MODEL,
-          messages: [
-            { role: 'system', content: simpleSystem },
-            { role: 'user', content: [{ type: 'text', text: simpleUser }, { type: 'image_url', image_url: { url: dataUrl } }] }
-          ],
-          max_tokens: 1000,
-          temperature: 0.3
-        })
-      });
+      const simpleResponse = await fetchAIWithRetry(
+        `${AI_API_URL}/chat/completions`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AI_API_KEY}` },
+          body: JSON.stringify({
+            model: AI_MODEL,
+            messages: [
+              { role: 'system', content: simpleSystem },
+              { role: 'user', content: [{ type: 'text', text: simpleUser }, { type: 'image_url', image_url: { url: dataUrl } }] }
+            ],
+            max_tokens: 1000,
+            temperature: 0.3
+          })
+        },
+        { timeoutMs: 180000, maxRetries: 2 }
+      );
 
       if (!simpleResponse.ok) {
         const errText = await simpleResponse.text();
@@ -3237,19 +3284,23 @@ app.post('/api/vision-test', uploadTemp.single('image'), async (req, res) => {
 
     // LM-only 模式（RAG 已停用）：使用前端傳來的 system/user prompt，只呼叫 LM
     console.log('📷 LM-only 模式：使用 prompt 呼叫 LM，不進行植物資料庫比對');
-    const aiResponse = await fetch(`${AI_API_URL}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AI_API_KEY}` },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: [{ type: 'text', text: finalUserPrompt }, { type: 'image_url', image_url: { url: dataUrl } }] }
-        ],
-        max_tokens: 2000,
-        temperature: 0
-      })
-    });
+    const aiResponse = await fetchAIWithRetry(
+      `${AI_API_URL}/chat/completions`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AI_API_KEY}` },
+        body: JSON.stringify({
+          model: AI_MODEL,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: [{ type: 'text', text: finalUserPrompt }, { type: 'image_url', image_url: { url: dataUrl } }] }
+          ],
+          max_tokens: 2000,
+          temperature: 0
+        })
+      },
+      { timeoutMs: 180000, maxRetries: 2 }
+    );
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
       throw new Error(`AI 辨識失敗: ${aiResponse.status}`);
@@ -3304,22 +3355,26 @@ app.post('/api/chat-text', async (req, res) => {
 
     console.log('🤖 正在呼叫 AI(文字):', AI_API_URL);
 
-    const aiResponse = await fetch(`${AI_API_URL}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${AI_API_KEY}`
+    const aiResponse = await fetchAIWithRetry(
+      `${AI_API_URL}/chat/completions`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${AI_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: AI_MODEL,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: finalUserPrompt }
+          ],
+          max_tokens: 600,
+          temperature: 0.7
+        })
       },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: finalUserPrompt }
-        ],
-        max_tokens: 600,
-        temperature: 0.7
-      })
-    });
+      { timeoutMs: 90000, maxRetries: 2 }
+    );
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
