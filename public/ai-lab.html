@@ -6,7 +6,7 @@
     <meta name="description" content="AI 視覺實驗室：自由探索與任務模式，框選拍照、AI 辨識，支援單手框選與多張照片組合。">
     <meta name="theme-color" content="#000">
     <title>AI 視覺實驗室</title>
-    <link rel="stylesheet" href="css/ai-lab.css?v=8">
+    <link rel="stylesheet" href="css/ai-lab.css?v=9">
     <link rel="stylesheet" href="css/mode-switch.css?v=2">
     <link
         rel="stylesheet"
@@ -30,6 +30,69 @@
 
         <!-- 單手框選：取景框 (可點擊畫面移動框的位置) -->
         <div id="reticleOverlay" class="reticle-overlay" aria-hidden="true"></div>
+
+        <!-- AR-VIEW 整合：任務導航狀態、箭頭與可點擊任務物件 -->
+        <div id="taskStatusBox" class="task-status-box hidden">
+            <div id="taskStatusText">等待任務導航...</div>
+            <div id="taskDebugText" class="task-debug-text"></div>
+        </div>
+        <div id="taskGuideArrow" class="task-guide-arrow hidden" aria-hidden="true"></div>
+        <div id="taskTargetObj" class="task-target-obj hidden" role="button" aria-label="點擊查看任務詳情">
+            <img id="taskTargetImg" src="" alt="任務封面">
+            <div class="task-target-label">點擊查看詳情</div>
+        </div>
+
+        <!-- 任務互動入口（類似 AR-VIEW 點封面後的視窗） -->
+        <div id="taskEncounterModal" class="task-encounter-modal hidden">
+            <div class="task-encounter-card">
+                <img id="taskEncounterCover" class="task-encounter-cover" src="" alt="">
+                <div id="taskEncounterTitle" class="task-encounter-title"></div>
+                <div class="task-encounter-actions">
+                    <button id="taskEncounterClose" class="btn secondary" type="button">關閉</button>
+                    <button id="taskEncounterStart" class="btn primary" type="button">✍️ 開始答題</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 任務答題 Modal -->
+        <div id="answerModal" class="answer-modal hidden">
+            <div class="answer-card">
+                <div class="answer-title" id="answerTaskName">任務標題</div>
+                <div class="answer-description" id="answerTaskDescription">任務描述</div>
+                <div id="answerInputContainer"></div>
+                <div class="answer-actions">
+                    <button class="btn secondary" id="btnAnswerCancel" type="button">取消</button>
+                    <button class="btn primary" id="btnAnswerSubmit" type="button">送出答案</button>
+                </div>
+                <div id="answerMessage" class="answer-message"></div>
+            </div>
+        </div>
+
+        <!-- 數字任務密碼鎖 -->
+        <div id="lockOverlay" class="lock-overlay hidden">
+            <div class="lock-card">
+                <div class="lock-title">🔒 旋轉密碼鎖</div>
+                <div class="lock-subtitle">轉動數字輪盤後按「確定解鎖」</div>
+                <div class="wheels" id="lockWheels"></div>
+                <div class="lock-actions">
+                    <button id="btnLockCancel" class="btn secondary" type="button">關閉</button>
+                    <button id="btnLockSubmit" class="btn primary" type="button">確定解鎖</button>
+                </div>
+                <div id="lockMsg" class="lock-msg"></div>
+            </div>
+        </div>
+
+        <!-- 任務完成 Modal -->
+        <div id="completionModal" class="completion-modal hidden">
+            <div class="completion-card">
+                <div class="completion-icon">🎉</div>
+                <div class="completion-title">任務完成！</div>
+                <div id="completionReward" class="completion-reward"></div>
+                <div class="completion-actions">
+                    <button id="btnCompletionClose" class="btn primary" type="button">完成</button>
+                </div>
+            </div>
+        </div>
 
         <!-- 透明地圖與位置資訊 -->
         <div class="mini-map-wrap">
@@ -186,6 +249,6 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
         crossorigin=""></script>
-    <script src="js/ai-lab.js?v=11"></script>
+    <script src="js/ai-lab.js?v=12"></script>
 </body>
 </html>

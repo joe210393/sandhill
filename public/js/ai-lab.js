@@ -310,9 +310,43 @@ document.addEventListener('DOMContentLoaded', () => {
         const taskIntroDescription = document.getElementById('taskIntroDescription');
         const taskIntroClose = document.getElementById('taskIntroClose');
         const taskBgm = document.getElementById('taskBgm');
+        const taskStatusBox = document.getElementById('taskStatusBox');
+        const taskStatusText = document.getElementById('taskStatusText');
+        const taskDebugText = document.getElementById('taskDebugText');
+        const taskGuideArrow = document.getElementById('taskGuideArrow');
+        const taskTargetObj = document.getElementById('taskTargetObj');
+        const taskTargetImg = document.getElementById('taskTargetImg');
+        const taskEncounterModal = document.getElementById('taskEncounterModal');
+        const taskEncounterCover = document.getElementById('taskEncounterCover');
+        const taskEncounterTitle = document.getElementById('taskEncounterTitle');
+        const taskEncounterClose = document.getElementById('taskEncounterClose');
+        const taskEncounterStart = document.getElementById('taskEncounterStart');
+        const answerModal = document.getElementById('answerModal');
+        const answerTaskName = document.getElementById('answerTaskName');
+        const answerTaskDescription = document.getElementById('answerTaskDescription');
+        const answerInputContainer = document.getElementById('answerInputContainer');
+        const answerMessage = document.getElementById('answerMessage');
+        const btnAnswerCancel = document.getElementById('btnAnswerCancel');
+        const btnAnswerSubmit = document.getElementById('btnAnswerSubmit');
+        const lockOverlay = document.getElementById('lockOverlay');
+        const lockWheels = document.getElementById('lockWheels');
+        const lockMsg = document.getElementById('lockMsg');
+        const btnLockCancel = document.getElementById('btnLockCancel');
+        const btnLockSubmit = document.getElementById('btnLockSubmit');
+        const completionModal = document.getElementById('completionModal');
+        const completionReward = document.getElementById('completionReward');
+        const btnCompletionClose = document.getElementById('btnCompletionClose');
 
         // 任務情境（來自 AR-VIEW／新增任務 API：由 URL taskId 載入；進入後先見相機，再自行找地點）
         let currentTask = null;
+        let currentTaskId = null;
+        let currentUserTaskId = null;
+        let targetLat = null;
+        let targetLng = null;
+        let navigationWatchId = null;
+        let deviceHeading = 0;
+        let taskReached = false;
+        let bgmAutoStarted = false;
 
         if (!video || !canvas) throw new Error('關鍵 DOM 元素遺失');
 
@@ -385,23 +419,375 @@ document.addEventListener('DOMContentLoaded', () => {
                 taskIntroDescription.textContent = task.description || '';
             }
             if (taskIntroBtn) taskIntroBtn.classList.remove('hidden');
+            if (taskTargetImg) {
+                taskTargetImg.src = task.ar_image_url || task.photoUrl || task.photo_url || '/images/mascot.png';
+            }
             // 不自動彈出景點介紹：與 AR-VIEW 一致，進入後先看到相機畫面，由使用者自行點 📋 查看
+        }
+
+        function getLoginUser() {
+            try { return JSON.parse(localStorage.getItem('loginUser') || 'null'); } catch (e) {}
+            try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) {}
+            return null;
+        }
+
+        async function fetchCurrentUserTaskId() {
+            if (!currentTaskId) return null;
+            const loginUser = getLoginUser();
+            if (!loginUser || !loginUser.username) return null;
+            try {
+                const res = await fetch(`/api/user-tasks?username=${encodeURIComponent(loginUser.username)}`);
+                const data = await res.json();
+                if (!data.success || !Array.isArray(data.tasks)) return null;
+                const t = data.tasks.find((x) => String(x.id) === String(currentTaskId));
+                if (!t) return null;
+                currentUserTaskId = t.user_task_id;
+                return currentUserTaskId;
+            } catch (err) {
+                console.warn('取得進行中任務失敗', err);
+                return null;
+            }
+        }
+
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+            const toRad = (v) => v * Math.PI / 180;
+            const R = 6371e3;
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        function calculateBearing(startLat, startLng, destLat, destLng) {
+            const toRad = (v) => v * Math.PI / 180;
+            const toDeg = (v) => v * 180 / Math.PI;
+            const y = Math.sin(toRad(destLng - startLng)) * Math.cos(toRad(destLat));
+            const x = Math.cos(toRad(startLat)) * Math.sin(toRad(destLat))
+                - Math.sin(toRad(startLat)) * Math.cos(toRad(destLat)) * Math.cos(toRad(destLng - startLng));
+            return (toDeg(Math.atan2(y, x)) + 360) % 360;
+        }
+
+        function updateTaskNavigationUI(distanceMeters, bearing) {
+            if (taskStatusBox) taskStatusBox.classList.remove('hidden');
+            if (taskStatusText) taskStatusText.textContent = `距離目標: ${Math.max(0, Math.round(distanceMeters))}m`;
+            if (taskDebugText) {
+                const diff = ((bearing - deviceHeading + 540) % 360) - 180;
+                taskDebugText.textContent = `方位:${Math.round(bearing)}° 手機:${Math.round(deviceHeading)}° 差:${Math.round(diff)}°`;
+            }
+            if (taskGuideArrow) {
+                const relative = bearing - deviceHeading;
+                taskGuideArrow.style.transform = `rotate(${relative}deg)`;
+                taskGuideArrow.classList.toggle('hidden', distanceMeters <= Math.max(6, (currentTask?.radius || 30) / 2));
+            }
+            if (taskTargetObj) {
+                const revealDistance = Math.max(8, currentTask?.radius || 30);
+                taskTargetObj.classList.toggle('hidden', distanceMeters > revealDistance);
+            }
+        }
+
+        function tryAutoPlayTaskBgm(distanceMeters) {
+            if (!taskBgm || !taskBgm.src || bgmAutoStarted) return;
+            const triggerDistance = Math.max(8, currentTask?.radius || 30);
+            if (distanceMeters > triggerDistance) return;
+            taskBgm.play().then(() => {
+                bgmAutoStarted = true;
+                if (taskBgmBtn) taskBgmBtn.textContent = '🔊';
+            }).catch(() => {
+                // iOS/Safari 常會擋自動播放，保留手動按鈕即可
+            });
+        }
+
+        function startTaskNavigation() {
+            if (!navigator.geolocation || targetLat == null || targetLng == null) return;
+            if (navigationWatchId !== null) {
+                navigator.geolocation.clearWatch(navigationWatchId);
+            }
+            navigationWatchId = navigator.geolocation.watchPosition((pos) => {
+                const { latitude, longitude } = pos.coords;
+                lastLatLng = { latitude, longitude };
+                if (mapInstance && mapMarker) {
+                    mapMarker.setLatLng([latitude, longitude]);
+                    mapInstance.setView([latitude, longitude], 16);
+                }
+                const distanceMeters = haversineDistance(latitude, longitude, targetLat, targetLng);
+                const bearing = calculateBearing(latitude, longitude, targetLat, targetLng);
+                updateTaskNavigationUI(distanceMeters, bearing);
+                tryAutoPlayTaskBgm(distanceMeters);
+                if (locationBar) {
+                    locationBar.textContent = `目前位置：距離任務 ${Math.round(distanceMeters)}m`;
+                }
+                taskReached = distanceMeters <= Math.max(6, currentTask?.radius || 30);
+            }, (err) => {
+                console.warn('任務導航定位失敗', err);
+                if (taskStatusText) taskStatusText.textContent = '定位失敗，請確認 GPS 已開啟';
+            }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 });
         }
 
         function loadTaskFromUrl() {
             const params = new URLSearchParams(window.location.search);
             const taskId = params.get('taskId');
             if (!taskId) return;
+            currentTaskId = taskId;
+            targetLat = parseFloat(params.get('lat'));
+            targetLng = parseFloat(params.get('lng'));
             fetch(`/api/tasks/${taskId}`)
                 .then(res => res.json())
                 .then(data => {
                     if (data.success && data.task) {
                         const task = data.task;
+                        if (task.lat && task.lng) {
+                            targetLat = Number(task.lat);
+                            targetLng = Number(task.lng);
+                        }
                         loadTaskBGM(task);
                         showTaskContext(task);
+                        setMode('mission', false);
+                        startTaskNavigation();
                     }
                 })
                 .catch(err => console.error('載入任務失敗:', err));
+        }
+
+        function openTaskEncounter() {
+            if (!currentTask || !taskEncounterModal) return;
+            if (taskEncounterCover) {
+                taskEncounterCover.src = currentTask.ar_image_url || currentTask.photoUrl || currentTask.photo_url || '/images/mascot.png';
+            }
+            if (taskEncounterTitle) {
+                taskEncounterTitle.textContent = currentTask.name || '任務';
+            }
+            if (taskEncounterStart) {
+                if (currentTask.task_type === 'location') taskEncounterStart.textContent = '📍 開始打卡';
+                else if (currentTask.task_type === 'number') taskEncounterStart.textContent = '🔒 開始解鎖';
+                else taskEncounterStart.textContent = '✍️ 開始答題';
+            }
+            taskEncounterModal.classList.remove('hidden');
+        }
+
+        function closeTaskEncounter() {
+            if (taskEncounterModal) taskEncounterModal.classList.add('hidden');
+        }
+
+        function initLockWheels(digits = 4) {
+            if (!lockWheels) return;
+            lockWheels.innerHTML = '';
+            for (let i = 0; i < digits; i += 1) {
+                const wheel = document.createElement('div');
+                wheel.className = 'wheel';
+                wheel.dataset.value = '0';
+                wheel.innerHTML = '<button class="btn-up" type="button">▲</button><div class="digit">0</div><button class="btn-down" type="button">▼</button>';
+                const digitEl = wheel.querySelector('.digit');
+                const setVal = (v) => {
+                    const nv = (v + 10) % 10;
+                    wheel.dataset.value = String(nv);
+                    digitEl.textContent = String(nv);
+                };
+                wheel.querySelector('.btn-up').onclick = () => setVal(Number(wheel.dataset.value) + 1);
+                wheel.querySelector('.btn-down').onclick = () => setVal(Number(wheel.dataset.value) - 1);
+                let startY = null;
+                wheel.addEventListener('pointerdown', (ev) => { startY = ev.clientY; wheel.setPointerCapture(ev.pointerId); });
+                wheel.addEventListener('pointermove', (ev) => {
+                    if (startY == null) return;
+                    const dy = ev.clientY - startY;
+                    if (Math.abs(dy) > 18) {
+                        setVal(Number(wheel.dataset.value) + (dy < 0 ? 1 : -1));
+                        startY = ev.clientY;
+                    }
+                });
+                wheel.addEventListener('pointerup', () => { startY = null; });
+                wheel.addEventListener('pointercancel', () => { startY = null; });
+                lockWheels.appendChild(wheel);
+            }
+        }
+
+        function getLockCode() {
+            return Array.from(lockWheels.querySelectorAll('.wheel')).map((w) => w.dataset.value || '0').join('');
+        }
+
+        function showCompletionModal(message) {
+            if (!completionModal) return;
+            if (completionReward) completionReward.innerHTML = message || '✅ 任務已完成';
+            completionModal.classList.remove('hidden');
+        }
+
+        function showAnswerModal(task) {
+            if (!answerModal || !task) return;
+            answerTaskName.textContent = task.name || '任務';
+            answerTaskDescription.textContent = task.description || '請根據提示完成任務';
+            answerInputContainer.innerHTML = '';
+            answerMessage.textContent = '';
+            btnAnswerSubmit.disabled = true;
+
+            if (task.task_type === 'multiple_choice') {
+                const choicesDiv = document.createElement('div');
+                choicesDiv.className = 'answer-choices';
+                let choices = [];
+                if (Array.isArray(task.options)) choices = task.options;
+                else if (typeof task.options === 'string') {
+                    try { choices = JSON.parse(task.options || '[]'); } catch (e) { choices = []; }
+                }
+                choices.forEach((choice) => {
+                    const node = document.createElement('div');
+                    node.className = 'answer-choice';
+                    node.textContent = choice;
+                    node.dataset.value = choice;
+                    node.onclick = () => {
+                        choicesDiv.querySelectorAll('.answer-choice').forEach((c) => c.classList.remove('selected'));
+                        node.classList.add('selected');
+                        btnAnswerSubmit.disabled = false;
+                    };
+                    choicesDiv.appendChild(node);
+                });
+                answerInputContainer.appendChild(choicesDiv);
+            } else if (task.task_type === 'photo') {
+                const group = document.createElement('div');
+                group.className = 'answer-input-group';
+                group.innerHTML = '<label>📸 上傳照片</label><input type="file" id="answerPhotoInput" accept="image/*" capture="environment"><img id="answerPhotoPreview" style="display:none;max-width:100%;margin-top:10px;border-radius:8px;">';
+                answerInputContainer.appendChild(group);
+                const input = document.getElementById('answerPhotoInput');
+                const preview = document.getElementById('answerPhotoPreview');
+                input.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        preview.src = ev.target.result;
+                        preview.style.display = 'block';
+                        btnAnswerSubmit.disabled = false;
+                    };
+                    reader.readAsDataURL(file);
+                });
+            } else {
+                const group = document.createElement('div');
+                group.className = 'answer-input-group';
+                group.innerHTML = '<label>✍️ 請輸入答案</label><input type="text" id="answerTextInput" autocomplete="off" placeholder="請輸入您的答案...">';
+                answerInputContainer.appendChild(group);
+                const input = document.getElementById('answerTextInput');
+                input.addEventListener('input', () => {
+                    btnAnswerSubmit.disabled = input.value.trim() === '';
+                });
+                setTimeout(() => input.focus(), 150);
+            }
+            answerModal.classList.remove('hidden');
+        }
+
+        async function submitTaskAnswer() {
+            if (!currentTask) return;
+            let answer = '';
+            if (currentTask.task_type === 'multiple_choice') {
+                const selected = document.querySelector('.answer-choice.selected');
+                if (!selected) {
+                    answerMessage.textContent = '❌ 請選擇一個答案';
+                    return;
+                }
+                answer = selected.dataset.value;
+            } else if (currentTask.task_type === 'photo') {
+                const photoInput = document.getElementById('answerPhotoInput');
+                if (!photoInput?.files?.[0]) {
+                    answerMessage.textContent = '❌ 請上傳照片';
+                    return;
+                }
+                const fd = new FormData();
+                fd.append('photo', photoInput.files[0]);
+                answerMessage.textContent = '📤 上傳照片中...';
+                const uploadRes = await fetch('/api/upload', { method: 'POST', body: fd });
+                const uploadData = await uploadRes.json();
+                if (!uploadData.success) {
+                    answerMessage.textContent = '❌ 上傳失敗';
+                    return;
+                }
+                answer = uploadData.url;
+            } else {
+                const input = document.getElementById('answerTextInput');
+                answer = input?.value?.trim() || '';
+                if (!answer) {
+                    answerMessage.textContent = '❌ 請輸入答案';
+                    return;
+                }
+            }
+
+            if (!currentUserTaskId) await fetchCurrentUserTaskId();
+            if (!currentUserTaskId) {
+                answerMessage.textContent = '❌ 找不到任務記錄';
+                return;
+            }
+            btnAnswerSubmit.disabled = true;
+            answerMessage.textContent = '⏳ 驗證中...';
+            const res = await fetch(`/api/user-tasks/${currentUserTaskId}/answer`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ answer })
+            });
+            const data = await res.json();
+            if (data.success && (data.isCompleted || (data.message && data.message.includes('已完成')))) {
+                answerModal.classList.add('hidden');
+                showCompletionModal(data.earnedItemName ? `🎁 獲得：${data.earnedItemName}` : '✅ 任務已完成');
+            } else {
+                answerMessage.textContent = '❌ ' + (data.message || '答案錯誤，請重試');
+                btnAnswerSubmit.disabled = false;
+            }
+        }
+
+        async function submitLockCode() {
+            if (!currentUserTaskId) await fetchCurrentUserTaskId();
+            if (!currentUserTaskId) {
+                lockMsg.textContent = '找不到任務記錄';
+                return;
+            }
+            lockMsg.textContent = '驗證中...';
+            const res = await fetch(`/api/user-tasks/${currentUserTaskId}/answer`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ answer: getLockCode() })
+            });
+            const data = await res.json();
+            if (data.success && data.isCompleted) {
+                lockOverlay.classList.add('hidden');
+                showCompletionModal(data.earnedItemName ? `🎁 獲得：${data.earnedItemName}` : '✅ 任務已完成');
+            } else {
+                lockMsg.textContent = data.message || '答案錯誤';
+            }
+        }
+
+        async function startTaskInteraction() {
+            closeTaskEncounter();
+            if (!currentTask) return;
+            if (currentTask.task_type === 'location') {
+                if (!lastLatLng) {
+                    Swal.fire({ icon: 'info', title: '尚未取得位置', text: '請先靠近任務地點後再試' });
+                    return;
+                }
+                const dist = haversineDistance(lastLatLng.latitude, lastLatLng.longitude, targetLat, targetLng);
+                if (dist > Math.max(6, currentTask.radius || 30)) {
+                    Swal.fire({ icon: 'warning', title: '還沒到任務地點', text: `目前距離約 ${Math.round(dist)}m` });
+                    return;
+                }
+                if (!currentUserTaskId) await fetchCurrentUserTaskId();
+                if (!currentUserTaskId) {
+                    Swal.fire({ icon: 'error', title: '找不到任務紀錄' });
+                    return;
+                }
+                const res = await fetch(`/api/user-tasks/${currentUserTaskId}/answer`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ answer: 'checked_in' })
+                });
+                const data = await res.json();
+                if (data.success && data.isCompleted) {
+                    showCompletionModal(data.earnedItemName ? `🎁 獲得：${data.earnedItemName}` : '📍 打卡成功');
+                } else {
+                    Swal.fire({ icon: 'warning', title: '打卡失敗', text: data.message || '請再試一次' });
+                }
+            } else if (currentTask.task_type === 'number') {
+                const digits = Math.max(2, Math.min(8, String(currentTask.correct_answer || '').trim().length || 4));
+                initLockWheels(digits);
+                lockMsg.textContent = '';
+                lockOverlay.classList.remove('hidden');
+            } else {
+                showAnswerModal(currentTask);
+            }
         }
 
         // 依矩形裁切並加入照片（供框選與手繪共用）
@@ -734,8 +1120,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 切換模式
-        function setMode(mode) {
+        function setMode(mode, showIntro = true) {
             log(`切換模式: ${mode}`);
+            if (mode === 'mission' && !currentTask) {
+                Swal.fire({
+                    icon: 'info',
+                    title: '尚未承接任務',
+                    text: '請先從任務詳情進入 AI 視覺探索，或使用自由探索模式。'
+                });
+                mode = 'free';
+            }
             currentMode = mode;
 
             // UI 按鈕狀態更新
@@ -751,7 +1145,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.className = `mode-${mode}`;
 
             const script = getActiveScript();
-            applyScript(script, true);
+            applyScript(script, showIntro);
         }
 
         // 啟動相機
@@ -1398,6 +1792,67 @@ document.addEventListener('DOMContentLoaded', () => {
                 taskIntroPanel.classList.add('hidden');
             });
         }
+        if (taskTargetObj) {
+            taskTargetObj.addEventListener('click', () => {
+                openTaskEncounter();
+            });
+        }
+        if (taskEncounterClose) {
+            taskEncounterClose.addEventListener('click', closeTaskEncounter);
+        }
+        if (taskEncounterStart) {
+            taskEncounterStart.addEventListener('click', () => {
+                startTaskInteraction().catch((err) => {
+                    console.error('開始任務互動失敗', err);
+                    Swal.fire({ icon: 'error', title: '任務互動失敗', text: err.message || '請稍後再試' });
+                });
+            });
+        }
+        if (btnAnswerCancel) {
+            btnAnswerCancel.addEventListener('click', () => {
+                answerModal.classList.add('hidden');
+            });
+        }
+        if (btnAnswerSubmit) {
+            btnAnswerSubmit.addEventListener('click', () => {
+                submitTaskAnswer().catch((err) => {
+                    console.error('提交任務答案失敗', err);
+                    answerMessage.textContent = '❌ 送出失敗';
+                    btnAnswerSubmit.disabled = false;
+                });
+            });
+        }
+        if (btnLockCancel) {
+            btnLockCancel.addEventListener('click', () => {
+                lockOverlay.classList.add('hidden');
+            });
+        }
+        if (btnLockSubmit) {
+            btnLockSubmit.addEventListener('click', () => {
+                submitLockCode().catch((err) => {
+                    console.error('送出密碼失敗', err);
+                    lockMsg.textContent = '連線失敗';
+                });
+            });
+        }
+        if (btnCompletionClose) {
+            btnCompletionClose.addEventListener('click', () => {
+                completionModal.classList.add('hidden');
+            });
+        }
+
+        window.addEventListener('deviceorientation', (event) => {
+            if (typeof event.webkitCompassHeading === 'number') {
+                deviceHeading = event.webkitCompassHeading;
+            } else if (event.alpha != null) {
+                deviceHeading = 360 - event.alpha;
+            }
+        }, true);
+        window.addEventListener('pointerdown', () => {
+            if (taskReached) {
+                tryAutoPlayTaskBgm(0);
+            }
+        });
 
         const AI_THINKING_STAGES = {
             upload: [
