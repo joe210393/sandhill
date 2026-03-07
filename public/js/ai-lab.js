@@ -296,6 +296,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const voiceStatus = document.getElementById('voiceStatus');
         const voiceSpeakToggle = document.getElementById('voiceSpeakToggle');
         const cameraContainer = document.querySelector('.camera-container');
+        const featureDockToggle = document.getElementById('featureDockToggle');
+        const featureDockMenu = document.getElementById('featureDockMenu');
+        const featureDrawerPanel = document.getElementById('featureDrawerPanel');
+        const dockModeBtn = document.getElementById('dockModeBtn');
+        const dockLangBtn = document.getElementById('dockLangBtn');
+        const dockZoomBtn = document.getElementById('dockZoomBtn');
+        const dockModePanel = document.getElementById('dockModePanel');
+        const dockLangPanel = document.getElementById('dockLangPanel');
+        const dockZoomPanel = document.getElementById('dockZoomPanel');
         let miniMapEl = document.getElementById('miniMap');
         let locationInfoEl = document.getElementById('locationInfo');
         let miniMapWrap = document.querySelector('.mini-map-wrap');
@@ -347,6 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let deviceHeading = 0;
         let taskReached = false;
         let bgmAutoStarted = false;
+        let orientationPermissionRequested = false;
 
         if (!video || !canvas) throw new Error('關鍵 DOM 元素遺失');
 
@@ -467,6 +477,45 @@ document.addEventListener('DOMContentLoaded', () => {
             const x = Math.cos(toRad(startLat)) * Math.sin(toRad(destLat))
                 - Math.sin(toRad(startLat)) * Math.cos(toRad(destLat)) * Math.cos(toRad(destLng - startLng));
             return (toDeg(Math.atan2(y, x)) + 360) % 360;
+        }
+
+        async function ensureOrientationPermission() {
+            if (orientationPermissionRequested) return;
+            orientationPermissionRequested = true;
+            try {
+                if (typeof DeviceOrientationEvent !== 'undefined'
+                    && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    if (permission !== 'granted') {
+                        console.warn('方向權限未授權');
+                    }
+                }
+            } catch (err) {
+                console.warn('請求方向權限失敗', err);
+            }
+        }
+
+        function closeDockPanels() {
+            if (featureDrawerPanel) featureDrawerPanel.classList.add('hidden');
+            if (dockModePanel) dockModePanel.classList.add('hidden');
+            if (dockLangPanel) dockLangPanel.classList.add('hidden');
+            if (dockZoomPanel) dockZoomPanel.classList.add('hidden');
+        }
+
+        function toggleDockPanel(panelName) {
+            const panels = {
+                mode: dockModePanel,
+                lang: dockLangPanel,
+                zoom: dockZoomPanel
+            };
+            const panel = panels[panelName];
+            if (!panel || !featureDrawerPanel) return;
+            const willOpen = panel.classList.contains('hidden');
+            closeDockPanels();
+            if (willOpen) {
+                featureDrawerPanel.classList.remove('hidden');
+                panel.classList.remove('hidden');
+            }
         }
 
         function updateTaskNavigationUI(distanceMeters, bearing) {
@@ -1163,8 +1212,10 @@ document.addEventListener('DOMContentLoaded', () => {
             modeBtns.forEach(btn => {
                 if (btn.dataset.mode === mode) {
                     btn.classList.add('active');
+                    btn.setAttribute('aria-pressed', 'true');
                 } else {
                     btn.classList.remove('active');
+                    btn.setAttribute('aria-pressed', 'false');
                 }
             });
 
@@ -1819,6 +1870,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 taskIntroPanel.classList.add('hidden');
             });
         }
+        if (featureDockToggle && featureDockMenu) {
+            featureDockToggle.addEventListener('click', async () => {
+                await ensureOrientationPermission();
+                const willOpen = featureDockMenu.classList.contains('hidden');
+                featureDockMenu.classList.toggle('hidden');
+                if (!willOpen) {
+                    closeDockPanels();
+                }
+                featureDockToggle.textContent = willOpen ? '×' : '☰';
+            });
+        }
+        if (dockModeBtn) {
+            dockModeBtn.addEventListener('click', async () => {
+                await ensureOrientationPermission();
+                toggleDockPanel('mode');
+            });
+        }
+        if (dockLangBtn) {
+            dockLangBtn.addEventListener('click', async () => {
+                await ensureOrientationPermission();
+                toggleDockPanel('lang');
+            });
+        }
+        if (dockZoomBtn) {
+            dockZoomBtn.addEventListener('click', async () => {
+                await ensureOrientationPermission();
+                toggleDockPanel('zoom');
+            });
+        }
         if (taskTargetObj) {
             taskTargetObj.addEventListener('click', () => {
                 openTaskEncounter();
@@ -1875,7 +1955,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 deviceHeading = 360 - event.alpha;
             }
         }, true);
-        window.addEventListener('pointerdown', () => {
+        window.addEventListener('pointerdown', async () => {
+            await ensureOrientationPermission();
             if (taskReached) {
                 tryAutoPlayTaskBgm(0);
             }

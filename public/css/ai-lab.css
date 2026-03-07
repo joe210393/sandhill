@@ -445,6 +445,20 @@ canvas#drawingCanvas {
 }
 
 @media (max-width: 480px) {
+    .feature-dock {
+        top: 16px;
+        left: 10px;
+        gap: 8px;
+    }
+
+    .feature-drawer-panel {
+        min-width: 148px;
+    }
+
+    .dock-panel {
+        padding: 8px;
+    }
+
     .task-status-box {
         top: 78px;
         min-width: 150px;
@@ -466,7 +480,7 @@ canvas#drawingCanvas {
 
     .header {
         top: 8px;
-        padding: 0 12px;
+        padding: 0 56px;
     }
 
     .status-pill {
@@ -481,8 +495,8 @@ canvas#drawingCanvas {
     }
 
     .top-controls {
-        top: 56px;
-        width: 94vw;
+        top: 60px;
+        width: 72vw;
     }
 
     .location-bar {
@@ -492,25 +506,6 @@ canvas#drawingCanvas {
     .mode-btn {
         padding: 6px 10px;
         font-size: 12px;
-    }
-
-    .director-toggle {
-        top: 110px;
-        right: 12px;
-        font-size: 11px;
-    }
-
-    .lang-selector {
-        top: 110px;
-        left: 12px;
-        font-size: 11px;
-        padding: 4px 8px;
-    }
-
-    .zoom-control {
-        top: 150px;
-        width: 92%;
-        justify-content: space-between;
     }
 
     .instruction {
@@ -543,9 +538,49 @@ canvas#drawingCanvas {
     width: 100%;
     padding: 0 20px;
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     z-index: 10;
+}
+
+.feature-dock {
+    position: absolute;
+    top: 20px;
+    left: 14px;
+    z-index: 30;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    pointer-events: auto;
+}
+
+.feature-dock-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.feature-drawer-panel {
+    min-width: 170px;
+}
+
+.dock-panel {
+    background: rgba(0, 0, 0, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    padding: 10px;
+    backdrop-filter: blur(10px);
+}
+
+.dock-panel.hidden,
+.feature-drawer-panel.hidden,
+.feature-dock-menu.hidden {
+    display: none !important;
+}
+
+.feature-dock-toggle {
+    background: rgba(0, 0, 0, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.22);
 }
 
 .top-controls {
@@ -553,35 +588,12 @@ canvas#drawingCanvas {
     top: 64px;
     left: 50%;
     transform: translateX(-50%);
-    width: min(92vw, 520px);
+    width: min(76vw, 360px);
     display: flex;
     flex-direction: column;
     gap: 8px;
     z-index: 20;
     pointer-events: none;
-}
-
-.control-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    pointer-events: auto;
-}
-
-.top-controls .mode-switcher {
-    position: static;
-    transform: none;
-    left: auto;
-    top: auto;
-    margin: 0 auto;
-    width: 100%;
-    justify-content: center;
-    pointer-events: auto;
-}
-
-.header-actions {
-    display: flex;
-    gap: 8px;
 }
 
 .icon-btn {
@@ -606,6 +618,14 @@ canvas#drawingCanvas {
     border-radius: 20px;
     font-size: 14px;
     backdrop-filter: blur(10px);
+}
+
+.dock-panel .mode-switcher {
+    position: static;
+    transform: none;
+    width: 100%;
+    justify-content: center;
+    pointer-events: auto;
 }
 
 .instruction {
