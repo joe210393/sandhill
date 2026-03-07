@@ -246,6 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let headingSource = 'none';
         let lastHeadingUpdateAt = 0;
         let lastGpsUpdateAt = 0;
+        let taskObjectVisible = false;
 
         // ------------------------------------------------
         // 3. DOM 元素選取 (DOM Elements)
@@ -591,26 +592,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const revealDistance = Math.max(8, currentTask?.radius || 30);
             const interactionDistance = Math.max(6, (currentTask?.radius || 30) / 2);
-            const fieldOfViewDeg = 90; // 進入大約正前方 90 度範圍才看得到物件
-            const halfFov = fieldOfViewDeg / 2;
-            const isInView = hasHeading && Math.abs(diff) <= halfFov;
+            const appearFovDeg = 30;
+            const keepVisibleFovDeg = 50;
+            const activeFovDeg = taskObjectVisible ? keepVisibleFovDeg : appearFovDeg;
+            const isInView = hasHeading && Math.abs(diff) <= activeFovDeg;
             const canRevealObject = distanceMeters <= revealDistance;
             const shouldShowObject = canRevealObject && isInView;
+            taskObjectVisible = shouldShowObject;
 
             if (taskGuideArrow) {
-                taskGuideArrow.style.transform = `rotate(${hasHeading ? diff : 0}deg)`;
+                taskGuideArrow.style.transform = `rotate(${hasHeading ? diff : 0}deg) translate(0, -100px)`;
                 taskGuideArrow.classList.toggle('hidden', shouldShowObject && distanceMeters <= revealDistance);
             }
             if (taskTargetObj) {
                 taskTargetObj.classList.toggle('hidden', !shouldShowObject);
                 if (shouldShowObject) {
-                    const normalized = Math.max(-1, Math.min(1, diff / halfFov));
-                    const leftPercent = 50 + normalized * 34; // 左右搜尋感
+                    const normalized = Math.max(-1, Math.min(1, diff / activeFovDeg));
+                    const xOffset = normalized * (window.innerWidth * 0.42);
                     const topPercent = distanceMeters <= interactionDistance ? 52 : 56;
                     const scale = distanceMeters <= interactionDistance ? 1.02 : 0.9;
-                    taskTargetObj.style.left = `${leftPercent}%`;
+                    taskTargetObj.style.left = '50%';
                     taskTargetObj.style.top = `${topPercent}%`;
-                    taskTargetObj.style.transform = `translate(-50%, -50%) scale(${scale})`;
+                    taskTargetObj.style.transform = `translate(${xOffset}px, -50%) scale(${scale})`;
                     taskTargetObj.style.opacity = '1';
                 }
             }
