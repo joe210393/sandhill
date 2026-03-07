@@ -1340,7 +1340,10 @@ success 或 fail (只能二選一，小寫)
                 resultPanel.classList.remove('active');
                 resultPanel.style.display = 'none';
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-                if (selectionInstruction) selectionInstruction.style.opacity = '1';
+                if (selectionInstruction) {
+                    selectionInstruction.style.opacity = '1';
+                    selectionInstruction.style.display = '';  // 讓「框內拍照」按鈕再次顯示，才能拍第二、三張
+                }
             });
         }
 
