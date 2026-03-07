@@ -353,6 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let targetLat = null;
         let targetLng = null;
         let navigationWatchId = null;
+        let navigationPollTimer = null;
         let deviceHeading = 0;
         let taskReached = false;
         let bgmAutoStarted = false;
@@ -518,6 +519,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        function handleOrientationEvent(event) {
+            if (typeof event.webkitCompassHeading === 'number' && !Number.isNaN(event.webkitCompassHeading)) {
+                deviceHeading = event.webkitCompassHeading;
+            } else if (event.alpha != null && !Number.isNaN(event.alpha)) {
+                deviceHeading = (360 - event.alpha + 360) % 360;
+            }
+        }
+
         function updateTaskNavigationUI(distanceMeters, bearing) {
             const diff = ((bearing - deviceHeading + 540) % 360) - 180;
             if (taskStatusBox) taskStatusBox.classList.remove('hidden');
@@ -580,6 +589,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (navigationWatchId !== null) {
                 navigator.geolocation.clearWatch(navigationWatchId);
             }
+            if (navigationPollTimer) {
+                clearInterval(navigationPollTimer);
+                navigationPollTimer = null;
+            }
             navigationWatchId = navigator.geolocation.watchPosition((pos) => {
                 const { latitude, longitude } = pos.coords;
                 lastLatLng = { latitude, longitude };
@@ -599,6 +612,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.warn('任務導航定位失敗', err);
                 if (taskStatusText) taskStatusText.textContent = '定位失敗，請確認 GPS 已開啟';
             }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 });
+
+            // iPhone/Safari 有時 watchPosition 更新不穩，補一層定時輪詢
+            navigationPollTimer = setInterval(() => {
+                navigator.geolocation.getCurrentPosition((pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    lastLatLng = { latitude, longitude };
+                    const distanceMeters = haversineDistance(latitude, longitude, targetLat, targetLng);
+                    const bearing = calculateBearing(latitude, longitude, targetLat, targetLng);
+                    updateTaskNavigationUI(distanceMeters, bearing);
+                    if (locationBar) {
+                        locationBar.textContent = `目前位置：距離任務 ${Math.round(distanceMeters)}m`;
+                    }
+                }, () => {}, { enableHighAccuracy: true, maximumAge: 1500, timeout: 6000 });
+            }, 2500);
         }
 
         function loadTaskFromUrl() {
@@ -1948,13 +1975,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        window.addEventListener('deviceorientation', (event) => {
-            if (typeof event.webkitCompassHeading === 'number') {
-                deviceHeading = event.webkitCompassHeading;
-            } else if (event.alpha != null) {
-                deviceHeading = 360 - event.alpha;
-            }
-        }, true);
+        window.addEventListener('deviceorientation', handleOrientationEvent, true);
+        window.addEventListener('deviceorientationabsolute', handleOrientationEvent, true);
         window.addEventListener('pointerdown', async () => {
             await ensureOrientationPermission();
             if (taskReached) {
