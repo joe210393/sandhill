@@ -635,7 +635,6 @@ document.addEventListener('DOMContentLoaded', () => {
             lastTaskBearing = bearing;
             const hasHeading = lastHeadingUpdateAt > 0;
             const diff = ((bearing - deviceHeading + 540) % 360) - 180;
-            if (taskStatusBox) taskStatusBox.classList.remove('hidden');
             renderTaskMetrics(distanceMeters, bearing);
 
             const revealDistance = Math.max(8, currentTask?.radius || 30);
