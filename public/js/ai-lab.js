@@ -240,6 +240,12 @@ document.addEventListener('DOMContentLoaded', () => {
         let mapMarker = null;
         let lastLocationText = '';
         let lastLatLng = null;
+        let lastTaskDistance = null;
+        let lastTaskBearing = null;
+        let lastHeading = 0;
+        let headingSource = 'none';
+        let lastHeadingUpdateAt = 0;
+        let lastGpsUpdateAt = 0;
 
         // ------------------------------------------------
         // 3. DOM 元素選取 (DOM Elements)
@@ -357,7 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let deviceHeading = 0;
         let taskReached = false;
         let bgmAutoStarted = false;
-        let orientationPermissionRequested = false;
+        let orientationPermissionState = 'idle';
 
         if (!video || !canvas) throw new Error('關鍵 DOM 元素遺失');
 
@@ -481,19 +487,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         async function ensureOrientationPermission() {
-            if (orientationPermissionRequested) return;
-            orientationPermissionRequested = true;
+            if (orientationPermissionState === 'granted' || orientationPermissionState === 'unsupported') {
+                return orientationPermissionState;
+            }
+            if (orientationPermissionState === 'requesting') {
+                return orientationPermissionState;
+            }
             try {
                 if (typeof DeviceOrientationEvent !== 'undefined'
                     && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    orientationPermissionState = 'requesting';
                     const permission = await DeviceOrientationEvent.requestPermission();
+                    orientationPermissionState = permission;
                     if (permission !== 'granted') {
                         console.warn('方向權限未授權');
                     }
+                } else {
+                    orientationPermissionState = 'unsupported';
                 }
             } catch (err) {
+                orientationPermissionState = 'error';
                 console.warn('請求方向權限失敗', err);
             }
+            renderTaskDebug();
+            return orientationPermissionState;
         }
 
         function closeDockPanels() {
@@ -519,32 +536,69 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        function handleOrientationEvent(event) {
-            if (typeof event.webkitCompassHeading === 'number' && !Number.isNaN(event.webkitCompassHeading)) {
-                deviceHeading = event.webkitCompassHeading;
-            } else if (event.alpha != null && !Number.isNaN(event.alpha)) {
-                deviceHeading = (360 - event.alpha + 360) % 360;
+        function renderTaskDebug(distanceMeters = lastTaskDistance, bearing = lastTaskBearing) {
+            if (!taskDebugText) return;
+            const gpsAge = lastGpsUpdateAt ? `${Math.round((Date.now() - lastGpsUpdateAt) / 1000)}s` : '--';
+            const headingAge = lastHeadingUpdateAt ? `${Math.round((Date.now() - lastHeadingUpdateAt) / 1000)}s` : '--';
+            const bearingText = Number.isFinite(bearing) ? `${Math.round(bearing)}°` : '--';
+            const headingText = lastHeadingUpdateAt ? `${Math.round(deviceHeading)}°` : '--';
+            const diffText = (Number.isFinite(bearing) && lastHeadingUpdateAt)
+                ? `${Math.round(((bearing - deviceHeading + 540) % 360) - 180)}°`
+                : '--';
+            taskDebugText.textContent = `方位:${bearingText} 手機:${headingText} 差:${diffText} | 權限:${orientationPermissionState} | 感測:${headingSource} | GPS:${gpsAge} | 方向:${headingAge}`;
+        }
+
+        function refreshTaskNavigationFromCache() {
+            if (!Number.isFinite(lastTaskDistance) || !Number.isFinite(lastTaskBearing)) {
+                renderTaskDebug();
+                return;
             }
+            updateTaskNavigationUI(lastTaskDistance, lastTaskBearing);
+        }
+
+        function handleOrientationEvent(event) {
+            let currentHeading = null;
+            if (typeof event.webkitCompassHeading === 'number' && !Number.isNaN(event.webkitCompassHeading)) {
+                currentHeading = event.webkitCompassHeading;
+                headingSource = 'webkitCompassHeading';
+            } else if (event.alpha != null && !Number.isNaN(event.alpha)) {
+                currentHeading = (360 - event.alpha + 360) % 360;
+                headingSource = 'alpha';
+            }
+            if (currentHeading == null) {
+                return;
+            }
+            let headingDiff = currentHeading - lastHeading;
+            if (headingDiff > 180) headingDiff -= 360;
+            if (headingDiff < -180) headingDiff += 360;
+            lastHeading += headingDiff * 0.15;
+            deviceHeading = (lastHeading + 360) % 360;
+            lastHeadingUpdateAt = Date.now();
+            if (orientationPermissionState === 'requesting' || orientationPermissionState === 'idle' || orientationPermissionState === 'error') {
+                orientationPermissionState = 'granted';
+            }
+            refreshTaskNavigationFromCache();
         }
 
         function updateTaskNavigationUI(distanceMeters, bearing) {
+            lastTaskDistance = distanceMeters;
+            lastTaskBearing = bearing;
+            const hasHeading = lastHeadingUpdateAt > 0;
             const diff = ((bearing - deviceHeading + 540) % 360) - 180;
             if (taskStatusBox) taskStatusBox.classList.remove('hidden');
             if (taskStatusText) taskStatusText.textContent = `距離目標: ${Math.max(0, Math.round(distanceMeters))}m`;
-            if (taskDebugText) {
-                taskDebugText.textContent = `方位:${Math.round(bearing)}° 手機:${Math.round(deviceHeading)}° 差:${Math.round(diff)}°`;
-            }
+            renderTaskDebug(distanceMeters, bearing);
 
             const revealDistance = Math.max(8, currentTask?.radius || 30);
             const interactionDistance = Math.max(6, (currentTask?.radius || 30) / 2);
             const fieldOfViewDeg = 90; // 進入大約正前方 90 度範圍才看得到物件
             const halfFov = fieldOfViewDeg / 2;
-            const isInView = Math.abs(diff) <= halfFov;
+            const isInView = hasHeading && Math.abs(diff) <= halfFov;
             const canRevealObject = distanceMeters <= revealDistance;
             const shouldShowObject = canRevealObject && isInView;
 
             if (taskGuideArrow) {
-                taskGuideArrow.style.transform = `rotate(${diff}deg)`;
+                taskGuideArrow.style.transform = `rotate(${hasHeading ? diff : 0}deg)`;
                 taskGuideArrow.classList.toggle('hidden', shouldShowObject && distanceMeters <= revealDistance);
             }
             if (taskTargetObj) {
@@ -562,7 +616,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (taskStatusText) {
-                if (shouldShowObject) {
+                if (!hasHeading) {
+                    taskStatusText.textContent = `距離目標: ${Math.max(0, Math.round(distanceMeters))}m（請點一下畫面啟用方向）`;
+                } else if (shouldShowObject) {
                     taskStatusText.textContent = distanceMeters <= interactionDistance
                         ? `已找到目標：${Math.round(distanceMeters)}m`
                         : `目標進入視野：${Math.round(distanceMeters)}m`;
@@ -596,6 +652,7 @@ document.addEventListener('DOMContentLoaded', () => {
             navigationWatchId = navigator.geolocation.watchPosition((pos) => {
                 const { latitude, longitude } = pos.coords;
                 lastLatLng = { latitude, longitude };
+                lastGpsUpdateAt = Date.now();
                 if (mapInstance && mapMarker) {
                     mapMarker.setLatLng([latitude, longitude]);
                     mapInstance.setView([latitude, longitude], 16);
@@ -618,6 +675,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 navigator.geolocation.getCurrentPosition((pos) => {
                     const { latitude, longitude } = pos.coords;
                     lastLatLng = { latitude, longitude };
+                    lastGpsUpdateAt = Date.now();
                     const distanceMeters = haversineDistance(latitude, longitude, targetLat, targetLng);
                     const bearing = calculateBearing(latitude, longitude, targetLat, targetLng);
                     updateTaskNavigationUI(distanceMeters, bearing);
