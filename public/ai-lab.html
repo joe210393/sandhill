@@ -6,7 +6,7 @@
     <meta name="description" content="AI 視覺實驗室：自由探索與任務模式，框選拍照、AI 辨識，支援單手框選與多張照片組合。">
     <meta name="theme-color" content="#000">
     <title>AI 視覺實驗室</title>
-    <link rel="stylesheet" href="css/ai-lab.css?v=9">
+    <link rel="stylesheet" href="css/ai-lab.css?v=10">
     <link rel="stylesheet" href="css/mode-switch.css?v=2">
     <link
         rel="stylesheet"
@@ -200,8 +200,20 @@
                 <button type="button" id="captureReticleBtn" class="capture-reticle-btn">框內拍照</button>
             </div>
 
+            <button id="floatingMicBtn" class="floating-mic-btn" type="button" aria-label="開啟語音提問">🎤</button>
+
             <!-- 語音聊天面板 -->
             <div id="voicePanel" class="voice-panel hidden">
+                <div class="voice-panel-header">
+                    <div class="voice-panel-title">語音看圖提問</div>
+                    <button id="voiceCloseBtn" class="voice-close-btn" type="button" aria-label="關閉語音面板">✕</button>
+                </div>
+                <div class="voice-helper-text">送出時會自動擷取目前圈圈中的畫面，並把圖片加上你的提問一起送給 AI。</div>
+                <textarea id="voiceDraftInput" class="voice-draft-input" placeholder="先說話轉文字，或直接輸入你想問 AI 的內容"></textarea>
+                <div class="voice-action-row">
+                    <button id="voiceRecordBtn" class="voice-action-btn secondary" type="button">🎙️ 開始說話</button>
+                    <button id="voiceSendBtn" class="voice-action-btn primary" type="button">送出提問</button>
+                </div>
                 <label class="voice-toggle">
                     <input id="voiceSpeakToggle" type="checkbox" checked>
                     AI 語音回覆
@@ -256,6 +268,6 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
         crossorigin=""></script>
-    <script src="js/ai-lab.js?v=12"></script>
+    <script src="js/ai-lab.js?v=13"></script>
 </body>
 </html>

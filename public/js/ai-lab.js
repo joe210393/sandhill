@@ -298,6 +298,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const zoomValue = document.getElementById('zoomValue');
         const zoomButtons = document.querySelectorAll('.zoom-btn');
         const voicePanel = document.getElementById('voicePanel');
+        const floatingMicBtn = document.getElementById('floatingMicBtn');
+        const voiceDraftInput = document.getElementById('voiceDraftInput');
+        const voiceRecordBtn = document.getElementById('voiceRecordBtn');
+        const voiceSendBtn = document.getElementById('voiceSendBtn');
+        const voiceCloseBtn = document.getElementById('voiceCloseBtn');
         const voiceUser = document.getElementById('voiceUser');
         const voiceAi = document.getElementById('voiceAi');
         const voiceStatus = document.getElementById('voiceStatus');
@@ -572,7 +577,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let headingDiff = currentHeading - lastHeading;
             if (headingDiff > 180) headingDiff -= 360;
             if (headingDiff < -180) headingDiff += 360;
-            lastHeading += headingDiff * 0.15;
+            lastHeading += headingDiff * 0.38;
             deviceHeading = (lastHeading + 360) % 360;
             lastHeadingUpdateAt = Date.now();
             if (orientationPermissionState === 'requesting' || orientationPermissionState === 'idle' || orientationPermissionState === 'error') {
@@ -954,11 +959,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // 依矩形裁切並加入照片（供框選與手繪共用）
-        function processSelectionFromRect(minX, minY, maxX, maxY) {
+        function captureSelectionDataUrlFromRect(minX, minY, maxX, maxY) {
             const width = maxX - minX;
             const height = maxY - minY;
-            if (width < 10 || height < 10) return;
+            if (width < 10 || height < 10) return null;
+            if (!video.videoWidth || !video.videoHeight) {
+                throw new Error('相機畫面尚未就緒');
+            }
 
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = video.videoWidth;
@@ -990,9 +997,20 @@ document.addEventListener('DOMContentLoaded', () => {
             finalCanvas.width = width;
             finalCanvas.height = height;
             const finalCtx = finalCanvas.getContext('2d');
+            finalCtx.drawImage(tempCanvas, sourceX, sourceY, sourceW, sourceH, 0, 0, width, height);
+            return finalCanvas.toDataURL('image/jpeg', 0.95);
+        }
+
+        function captureCurrentReticleDataUrl() {
+            const rect = getReticleRect();
+            return captureSelectionDataUrlFromRect(rect.minX, rect.minY, rect.maxX, rect.maxY);
+        }
+
+        // 依矩形裁切並加入照片（供框選與手繪共用）
+        function processSelectionFromRect(minX, minY, maxX, maxY) {
             try {
-                finalCtx.drawImage(tempCanvas, sourceX, sourceY, sourceW, sourceH, 0, 0, width, height);
-                const dataUrl = finalCanvas.toDataURL('image/jpeg', 0.95);
+                const dataUrl = captureSelectionDataUrlFromRect(minX, minY, maxX, maxY);
+                if (!dataUrl) return;
                 addPhotoToCollection(dataUrl);
             } catch (e) {
                 console.error('截圖失敗', e);
@@ -1083,8 +1101,36 @@ document.addEventListener('DOMContentLoaded', () => {
             if (voiceStatus && statusText !== undefined) voiceStatus.textContent = statusText;
         }
 
+        function openVoicePanel() {
+            if (voicePanel) voicePanel.classList.remove('hidden');
+        }
+
+        function setVoiceButtonsRecordingState(active) {
+            if (micBtn) micBtn.classList.toggle('active', active);
+            if (floatingMicBtn) floatingMicBtn.classList.toggle('active', active);
+            if (voiceRecordBtn) {
+                voiceRecordBtn.classList.toggle('active', active);
+                voiceRecordBtn.textContent = active ? '⏹️ 停止收音' : '🎙️ 開始說話';
+            }
+        }
+
+        function closeVoicePanel() {
+            stopVoiceRecognition();
+            if (voicePanel) voicePanel.classList.add('hidden');
+        }
+
+        function extractReplyText(rawText) {
+            const cleanedText = String(rawText || '').replace(/```(?:xml|json)?|```/gi, '').trim();
+            const replyMatch = cleanedText.match(/<reply>([\s\S]*?)<\/reply>/i);
+            const analysisMatch = cleanedText.match(/<analysis>([\s\S]*?)<\/analysis>/i);
+            return replyMatch
+                ? replyMatch[1].trim()
+                : (cleanedText || (analysisMatch ? analysisMatch[1].trim() : ''));
+        }
+
         let speechRecognition = null;
         let isRecording = false;
+        let speechRecognitionSupported = false;
 
         function stopVoiceRecognition() {
             if (speechRecognition && isRecording) {
@@ -1100,23 +1146,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             isRecording = false;
-            if (micBtn) micBtn.classList.remove('active');
-            if (voiceStatus) voiceStatus.textContent = '語音待命';
-            if (voicePanel) voicePanel.classList.add('hidden');
+            setVoiceButtonsRecordingState(false);
+            if (voiceStatus) voiceStatus.textContent = '可送出提問';
+        }
+
+        async function analyzeVisionQuestion(photoDataUrl, systemPrompt, userPrompt, gpsData) {
+            const response = await fetch(photoDataUrl);
+            const blob = await response.blob();
+            const formData = new FormData();
+            formData.append('image', blob, 'voice-capture.jpg');
+            formData.append('systemPrompt', systemPrompt);
+            formData.append('userPrompt', userPrompt);
+            formData.append('simpleMode', 'true');
+            formData.append('skipRag', 'true');
+            if (gpsData) {
+                formData.append('latitude', gpsData.latitude);
+                formData.append('longitude', gpsData.longitude);
+            }
+
+            const apiRes = await fetch('/api/vision-test', {
+                method: 'POST',
+                body: formData
+            });
+            if (!apiRes.ok) {
+                const errText = await apiRes.text();
+                throw new Error(errText || '視覺提問失敗');
+            }
+            return await apiRes.json();
         }
 
         async function sendVoiceChat(userText) {
             try {
-                updateVoicePanel(userText, '...', '送出中');
+                openVoicePanel();
+                updateVoicePanel(userText, '...', '擷取畫面中');
+                if (voiceSendBtn) voiceSendBtn.disabled = true;
+                const snapshot = captureCurrentReticleDataUrl();
+                if (!snapshot) {
+                    throw new Error('無法擷取圈內畫面');
+                }
+
                 let finalSystemPrompt = systemPromptInput && systemPromptInput.value ? systemPromptInput.value : '';
-                let finalUserPrompt = userPromptInput && userPromptInput.value ? userPromptInput.value : '';
                 if (!finalSystemPrompt || finalSystemPrompt.length < 10) {
                     const fallbackScript = getActiveScript();
                     finalSystemPrompt = fallbackScript ? fallbackScript.system : finalSystemPrompt;
-                }
-                if (!finalUserPrompt) {
-                    const fallbackScript = getActiveScript();
-                    finalUserPrompt = fallbackScript ? fallbackScript.user : finalUserPrompt;
                 }
 
                 const locationTextForPrompt = lastLocationText
@@ -1127,35 +1199,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     finalSystemPrompt += `\n\n【拍攝地點資訊】${locationTextForPrompt}`;
                 }
                 finalSystemPrompt += `\n\n【輸出語言】${getLanguageInstruction()}`;
-                finalSystemPrompt += `\n\n【回答規範】請不要在回覆中提及「我根據地點資訊/位置資訊推斷」或引用地名作為判斷依據。地點僅作為背景參考，回答要自然。`;
+                finalSystemPrompt += `\n\n【回答規範】你是即時視覺導覽助手。請根據取景框截圖與使用者提問，用自然、直接的口吻回答 2 到 4 句。不要輸出 XML、JSON、analysis、步驟清單。若看不清楚，就坦白說並給出重新拍攝建議。不要提到你是根據座標推斷。`;
 
-                const payload = {
-                    systemPrompt: finalSystemPrompt,
-                    userPrompt: finalUserPrompt,
-                    text: userText,
-                    locationText: locationTextForPrompt
-                };
-
-                const apiRes = await fetch('/api/chat-text', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (!apiRes.ok) {
-                    const errText = await apiRes.text();
-                    throw new Error(`伺服器錯誤: ${errText}`);
+                let gpsData = null;
+                try {
+                    const pos = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 2000, enableHighAccuracy: false });
+                    });
+                    gpsData = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+                    lastLatLng = gpsData;
+                } catch (gpsErr) {
+                    console.warn('語音提問略過 GPS', gpsErr);
                 }
-                const data = await apiRes.json();
+
+                const finalUserPrompt = `這是使用者目前在手機取景框中看到的畫面。請先理解畫面主體，再回答這個問題：${userText}${locationTextForPrompt ? `\n\n背景位置資訊：${locationTextForPrompt}` : ''}`;
+                updateVoicePanel(userText, '...', '送出中');
+                const data = await analyzeVisionQuestion(snapshot, finalSystemPrompt, finalUserPrompt, gpsData);
                 if (!data.success) throw new Error(data.message || 'AI 回覆失敗');
 
-                const rawText = data.description || '';
-                const cleanedText = rawText.replace(/```xml|```/gi, '').trim();
-                const replyMatch = cleanedText.match(/<reply>([\s\S]*?)<\/reply>/i);
-                const fallbackMatch = cleanedText.match(/<analysis>([\s\S]*?)<\/analysis>/i);
-                const replyText = replyMatch
-                    ? replyMatch[1].trim()
-                    : (cleanedText || (fallbackMatch ? fallbackMatch[1].trim() : ''));
+                const replyText = extractReplyText(data.description || '');
                 updateVoicePanel(userText, replyText, '完成');
+                if (voiceDraftInput) voiceDraftInput.value = userText;
 
                 const shouldSpeak = voiceSpeakToggle ? voiceSpeakToggle.checked : true;
                 if (shouldSpeak && 'speechSynthesis' in window && replyText) {
@@ -1166,34 +1230,80 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (err) {
                 console.error('語音聊天錯誤', err);
-                updateVoicePanel(userText, '語音回覆失敗，請再試一次', '失敗');
+                updateVoicePanel(userText, err.message || '語音回覆失敗，請再試一次', '失敗');
+            } finally {
+                if (voiceSendBtn) voiceSendBtn.disabled = false;
             }
         }
 
         function initSpeechChat() {
-            if (!micBtn) return;
+            if (!micBtn && !floatingMicBtn) return;
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const showTextFallback = async () => {
-                const result = await Swal.fire({
-                    title: '改用文字輸入',
-                    input: 'text',
-                    inputPlaceholder: '請輸入你要問的內容',
-                    showCancelButton: true,
-                    confirmButtonText: '送出'
-                });
-                if (result.isConfirmed && result.value) {
-                    sendVoiceChat(result.value.trim());
+            speechRecognitionSupported = !!SpeechRecognition;
+
+            const openComposerFromLauncher = () => {
+                openVoicePanel();
+                if (!speechRecognitionSupported) {
+                    updateVoicePanel(
+                        voiceDraftInput ? voiceDraftInput.value.trim() : '',
+                        '',
+                        isIOS ? '此 iPhone 瀏覽器不支援語音轉文字，可直接輸入文字後送出' : '此裝置不支援語音轉文字，可直接輸入文字後送出'
+                    );
+                    if (voiceDraftInput) voiceDraftInput.focus();
                 }
             };
-            if (!SpeechRecognition) {
-                micBtn.addEventListener('click', () => {
-                    Swal.fire({
-                        icon: 'info',
-                        title: '語音辨識不可用',
-                        text: isIOS ? 'iOS Safari 不支援語音辨識，請改用文字輸入或使用支援的瀏覽器' : '此裝置或瀏覽器不支援語音辨識'
-                    }).then(showTextFallback);
+
+            const startVoiceRecognition = () => {
+                openVoicePanel();
+                if (!speechRecognitionSupported || !speechRecognition) {
+                    updateVoicePanel(
+                        voiceDraftInput ? voiceDraftInput.value.trim() : '',
+                        '',
+                        isIOS ? '此 iPhone 瀏覽器不支援語音轉文字，可直接輸入文字後送出' : '此裝置不支援語音轉文字，可直接輸入文字後送出'
+                    );
+                    return;
+                }
+                if (!isRecording) {
+                    speechRecognition.lang = getSpeechLocale();
+                    updateVoicePanel(voiceDraftInput ? voiceDraftInput.value.trim() : '', '', '聆聽中...');
+                    speechRecognition.start();
+                    isRecording = true;
+                    setVoiceButtonsRecordingState(true);
+                } else {
+                    stopVoiceRecognition();
+                }
+            };
+
+            [micBtn, floatingMicBtn].forEach((btn) => {
+                if (!btn) return;
+                btn.addEventListener('click', startVoiceRecognition);
+            });
+            if (voiceRecordBtn) {
+                voiceRecordBtn.addEventListener('click', startVoiceRecognition);
+            }
+            if (voiceCloseBtn) {
+                voiceCloseBtn.addEventListener('click', closeVoicePanel);
+            }
+            if (voiceDraftInput) {
+                voiceDraftInput.addEventListener('input', () => {
+                    openComposerFromLauncher();
+                    if (voiceUser) voiceUser.textContent = voiceDraftInput.value.trim() || '—';
                 });
+            }
+            if (voiceSendBtn) {
+                voiceSendBtn.addEventListener('click', () => {
+                    const text = voiceDraftInput ? voiceDraftInput.value.trim() : '';
+                    if (!text) {
+                        Swal.fire({ icon: 'info', title: '請先說話或輸入文字', text: '送出時會自動搭配圈內畫面一起提問' });
+                        return;
+                    }
+                    stopVoiceRecognition();
+                    sendVoiceChat(text);
+                });
+            }
+
+            if (!SpeechRecognition) {
                 return;
             }
 
@@ -1203,20 +1313,8 @@ document.addEventListener('DOMContentLoaded', () => {
             recognition.interimResults = true;
             recognition.continuous = false;
 
-            micBtn.addEventListener('click', () => {
-                if (!isRecording) {
-                    recognition.lang = getSpeechLocale();
-                    updateVoicePanel('', '', '聆聽中...');
-                    recognition.start();
-                    isRecording = true;
-                    micBtn.classList.add('active');
-                } else {
-                    stopVoiceRecognition();
-                }
-            });
-
             recognition.onstart = () => {
-                updateVoicePanel('', '', '聆聽中...');
+                updateVoicePanel(voiceDraftInput ? voiceDraftInput.value.trim() : '', '', '聆聽中...');
             };
 
             recognition.onresult = (event) => {
@@ -1230,30 +1328,33 @@ document.addEventListener('DOMContentLoaded', () => {
                         interim += transcript;
                     }
                 }
-                updateVoicePanel(finalTranscript || interim, '...', '辨識中...');
+                const transcriptText = (finalTranscript || interim).trim();
+                if (voiceDraftInput) voiceDraftInput.value = transcriptText;
+                updateVoicePanel(transcriptText, voiceAi ? voiceAi.textContent : '', finalTranscript ? '已轉成文字，可送出' : '辨識中...');
                 if (finalTranscript) {
                     stopVoiceRecognition();
-                    sendVoiceChat(finalTranscript.trim());
                 }
             };
 
             recognition.onerror = (event) => {
                 console.warn('語音辨識錯誤', event);
                 const reason = event.error || 'unknown';
-                updateVoicePanel('', '語音辨識失敗', '失敗');
+                updateVoicePanel(voiceDraftInput ? voiceDraftInput.value.trim() : '', '語音辨識失敗', '失敗');
                 isRecording = false;
-                micBtn.classList.remove('active');
+                setVoiceButtonsRecordingState(false);
                 Swal.fire({
                     icon: 'error',
                     title: '語音辨識失敗',
-                    text: isIOS ? 'iOS Safari 常會失敗，建議改用文字輸入' : `錯誤：${reason}`
-                }).then(showTextFallback);
+                    text: isIOS ? 'iPhone 上語音辨識可能不穩，請改用文字輸入後送出' : `錯誤：${reason}`
+                });
             };
 
             recognition.onend = () => {
                 isRecording = false;
-                micBtn.classList.remove('active');
-                if (voiceStatus) voiceStatus.textContent = '語音待命';
+                setVoiceButtonsRecordingState(false);
+                if (voiceStatus && voiceStatus.textContent === '聆聽中...') {
+                    voiceStatus.textContent = '可送出提問';
+                }
             };
         }
 
