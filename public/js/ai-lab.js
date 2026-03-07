@@ -311,9 +311,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const taskIntroClose = document.getElementById('taskIntroClose');
         const taskBgm = document.getElementById('taskBgm');
 
-        // 任務情境（來自 AR-VIEW／新增任務 API：由 URL taskId 載入）
+        // 任務情境（來自 AR-VIEW／新增任務 API：由 URL taskId 載入；進入後先見相機，再自行找地點）
         let currentTask = null;
-        let taskIntroOpenedOnce = false;
 
         if (!video || !canvas) throw new Error('關鍵 DOM 元素遺失');
 
@@ -386,10 +385,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 taskIntroDescription.textContent = task.description || '';
             }
             if (taskIntroBtn) taskIntroBtn.classList.remove('hidden');
-            if (taskIntroPanel && !taskIntroOpenedOnce) {
-                taskIntroOpenedOnce = true;
-                taskIntroPanel.classList.remove('hidden');
-            }
+            // 不自動彈出景點介紹：與 AR-VIEW 一致，進入後先看到相機畫面，由使用者自行點 📋 查看
         }
 
         function loadTaskFromUrl() {
