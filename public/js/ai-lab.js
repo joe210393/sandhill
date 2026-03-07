@@ -577,7 +577,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let headingDiff = currentHeading - lastHeading;
             if (headingDiff > 180) headingDiff -= 360;
             if (headingDiff < -180) headingDiff += 360;
-            lastHeading += headingDiff * 0.38;
+            lastHeading += headingDiff * 0.15;
             deviceHeading = (lastHeading + 360) % 360;
             lastHeadingUpdateAt = Date.now();
             if (orientationPermissionState === 'requesting' || orientationPermissionState === 'idle' || orientationPermissionState === 'error') {
@@ -597,29 +597,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const revealDistance = Math.max(8, currentTask?.radius || 30);
             const interactionDistance = Math.max(6, (currentTask?.radius || 30) / 2);
-            const appearFovDeg = 30;
-            const keepVisibleFovDeg = 50;
-            const activeFovDeg = taskObjectVisible ? keepVisibleFovDeg : appearFovDeg;
-            const isInView = hasHeading && Math.abs(diff) <= activeFovDeg;
+            const activeFovDeg = taskObjectVisible ? 50 : 30;
+            const isInView = hasHeading && Math.abs(diff) < activeFovDeg;
             const canRevealObject = distanceMeters <= revealDistance;
             const shouldShowObject = canRevealObject && isInView;
-            taskObjectVisible = shouldShowObject;
 
             if (taskGuideArrow) {
                 taskGuideArrow.style.transform = `rotate(${hasHeading ? diff : 0}deg) translate(0, -100px)`;
                 taskGuideArrow.classList.toggle('hidden', shouldShowObject && distanceMeters <= revealDistance);
             }
             if (taskTargetObj) {
-                taskTargetObj.classList.toggle('hidden', !shouldShowObject);
                 if (shouldShowObject) {
-                    const normalized = Math.max(-1, Math.min(1, diff / activeFovDeg));
-                    const xOffset = normalized * (window.innerWidth * 0.42);
+                    taskObjectVisible = true;
+                    taskTargetObj.classList.remove('hidden');
+                    const xOffset = (diff / 40) * (window.innerWidth / 2);
+                    let scale = 1.2 - (Math.min(distanceMeters, 50) / 60);
+                    if (scale < 0.4) scale = 0.4;
                     const topPercent = distanceMeters <= interactionDistance ? 52 : 56;
-                    const scale = distanceMeters <= interactionDistance ? 1.02 : 0.9;
                     taskTargetObj.style.left = '50%';
                     taskTargetObj.style.top = `${topPercent}%`;
-                    taskTargetObj.style.transform = `translate(${xOffset}px, -50%) scale(${scale})`;
+                    taskTargetObj.style.transform = `translate(-50%, -50%) translateX(${xOffset}px) scale(${scale})`;
                     taskTargetObj.style.opacity = '1';
+                } else {
+                    taskObjectVisible = false;
+                    taskTargetObj.classList.add('hidden');
                 }
             }
 
@@ -1240,30 +1241,31 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!micBtn && !floatingMicBtn) return;
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const preferKeyboardDictation = isIOS;
             speechRecognitionSupported = !!SpeechRecognition;
 
-            const openComposerFromLauncher = () => {
+            const openComposerFromLauncher = (statusText) => {
                 openVoicePanel();
-                if (!speechRecognitionSupported) {
+                if (voiceDraftInput) {
+                    requestAnimationFrame(() => voiceDraftInput.focus());
+                }
+                if (!speechRecognitionSupported || preferKeyboardDictation) {
                     updateVoicePanel(
                         voiceDraftInput ? voiceDraftInput.value.trim() : '',
                         '',
-                        isIOS ? '此 iPhone 瀏覽器不支援語音轉文字，可直接輸入文字後送出' : '此裝置不支援語音轉文字，可直接輸入文字後送出'
+                        statusText || (isIOS
+                            ? '請直接使用 iPhone 鍵盤的麥克風輸入文字，完成後按送出'
+                            : '此裝置不支援語音轉文字，可直接輸入文字後送出')
                     );
-                    if (voiceDraftInput) voiceDraftInput.focus();
                 }
             };
 
             const startVoiceRecognition = () => {
-                openVoicePanel();
-                if (!speechRecognitionSupported || !speechRecognition) {
-                    updateVoicePanel(
-                        voiceDraftInput ? voiceDraftInput.value.trim() : '',
-                        '',
-                        isIOS ? '此 iPhone 瀏覽器不支援語音轉文字，可直接輸入文字後送出' : '此裝置不支援語音轉文字，可直接輸入文字後送出'
-                    );
+                if (!speechRecognitionSupported || !speechRecognition || preferKeyboardDictation) {
+                    openComposerFromLauncher();
                     return;
                 }
+                openVoicePanel();
                 if (!isRecording) {
                     speechRecognition.lang = getSpeechLocale();
                     updateVoicePanel(voiceDraftInput ? voiceDraftInput.value.trim() : '', '', '聆聽中...');
@@ -1287,7 +1289,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (voiceDraftInput) {
                 voiceDraftInput.addEventListener('input', () => {
-                    openComposerFromLauncher();
+                    openVoicePanel();
                     if (voiceUser) voiceUser.textContent = voiceDraftInput.value.trim() || '—';
                 });
             }
@@ -1301,6 +1303,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     stopVoiceRecognition();
                     sendVoiceChat(text);
                 });
+            }
+
+            if (voiceRecordBtn) {
+                voiceRecordBtn.textContent = preferKeyboardDictation ? '⌨️ 鍵盤語音輸入' : '🎙️ 開始說話';
             }
 
             if (!SpeechRecognition) {
@@ -1342,11 +1348,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateVoicePanel(voiceDraftInput ? voiceDraftInput.value.trim() : '', '語音辨識失敗', '失敗');
                 isRecording = false;
                 setVoiceButtonsRecordingState(false);
-                Swal.fire({
-                    icon: 'error',
-                    title: '語音辨識失敗',
-                    text: isIOS ? 'iPhone 上語音辨識可能不穩，請改用文字輸入後送出' : `錯誤：${reason}`
-                });
+                if (preferKeyboardDictation) {
+                    openComposerFromLauncher('請改用 iPhone 鍵盤的麥克風輸入文字，完成後按送出');
+                } else if (voiceStatus) {
+                    voiceStatus.textContent = `語音辨識失敗：${reason}`;
+                }
             };
 
             recognition.onend = () => {
