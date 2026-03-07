@@ -337,8 +337,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const taskIntroClose = document.getElementById('taskIntroClose');
         const taskBgm = document.getElementById('taskBgm');
         const taskStatusBox = document.getElementById('taskStatusBox');
-        const taskStatusText = document.getElementById('taskStatusText');
-        const taskDebugText = document.getElementById('taskDebugText');
+        const taskBearingValue = document.getElementById('taskBearingValue');
+        const taskDistanceValue = document.getElementById('taskDistanceValue');
+        const taskAngleValue = document.getElementById('taskAngleValue');
+        const taskCoordsValue = document.getElementById('taskCoordsValue');
         const taskGuideArrow = document.getElementById('taskGuideArrow');
         const taskTargetObj = document.getElementById('taskTargetObj');
         const taskTargetImg = document.getElementById('taskTargetImg');
@@ -547,21 +549,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        function renderTaskDebug(distanceMeters = lastTaskDistance, bearing = lastTaskBearing) {
-            if (!taskDebugText) return;
-            const gpsAge = lastGpsUpdateAt ? `${Math.round((Date.now() - lastGpsUpdateAt) / 1000)}s` : '--';
-            const headingAge = lastHeadingUpdateAt ? `${Math.round((Date.now() - lastHeadingUpdateAt) / 1000)}s` : '--';
-            const bearingText = Number.isFinite(bearing) ? `${Math.round(bearing)}°` : '--';
-            const headingText = lastHeadingUpdateAt ? `${Math.round(deviceHeading)}°` : '--';
-            const diffText = (Number.isFinite(bearing) && lastHeadingUpdateAt)
-                ? `${Math.round(((bearing - deviceHeading + 540) % 360) - 180)}°`
-                : '--';
-            taskDebugText.textContent = `方位:${bearingText} 手機:${headingText} 差:${diffText} | 權限:${orientationPermissionState} | 感測:${headingSource} | GPS:${gpsAge} | 方向:${headingAge}`;
+        function renderTaskMetrics(distanceMeters = lastTaskDistance, bearing = lastTaskBearing) {
+            const angle = (Number.isFinite(bearing) && lastHeadingUpdateAt)
+                ? ((bearing - deviceHeading + 540) % 360) - 180
+                : null;
+            if (taskBearingValue) {
+                taskBearingValue.textContent = Number.isFinite(bearing) ? `${Math.round(bearing)}°` : '--°';
+            }
+            if (taskDistanceValue) {
+                taskDistanceValue.textContent = Number.isFinite(distanceMeters) ? `${Math.max(0, Math.round(distanceMeters))}m` : '--m';
+            }
+            if (taskAngleValue) {
+                taskAngleValue.textContent = angle != null ? `${Math.round(angle)}°` : '--°';
+            }
+            if (taskCoordsValue) {
+                taskCoordsValue.textContent = lastLatLng
+                    ? `${lastLatLng.latitude.toFixed(5)}, ${lastLatLng.longitude.toFixed(5)}`
+                    : '--, --';
+            }
         }
 
         function refreshTaskNavigationFromCache() {
             if (!Number.isFinite(lastTaskDistance) || !Number.isFinite(lastTaskBearing)) {
-                renderTaskDebug();
+                renderTaskMetrics();
                 return;
             }
             updateTaskNavigationUI(lastTaskDistance, lastTaskBearing);
@@ -597,8 +607,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const hasHeading = lastHeadingUpdateAt > 0;
             const diff = ((bearing - deviceHeading + 540) % 360) - 180;
             if (taskStatusBox) taskStatusBox.classList.remove('hidden');
-            if (taskStatusText) taskStatusText.textContent = `距離目標: ${Math.max(0, Math.round(distanceMeters))}m`;
-            renderTaskDebug(distanceMeters, bearing);
+            renderTaskMetrics(distanceMeters, bearing);
 
             const revealDistance = Math.max(8, currentTask?.radius || 30);
             const interactionDistance = Math.max(6, (currentTask?.radius || 30) / 2);
@@ -629,17 +638,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            if (taskStatusText) {
-                if (!hasHeading) {
-                    taskStatusText.textContent = `距離目標: ${Math.max(0, Math.round(distanceMeters))}m（請點一下畫面啟用方向）`;
-                } else if (shouldShowObject) {
-                    taskStatusText.textContent = distanceMeters <= interactionDistance
-                        ? `已找到目標：${Math.round(distanceMeters)}m`
-                        : `目標進入視野：${Math.round(distanceMeters)}m`;
-                } else {
-                    taskStatusText.textContent = `距離目標: ${Math.max(0, Math.round(distanceMeters))}m`;
-                }
-            }
         }
 
         function tryAutoPlayTaskBgm(distanceMeters) {
@@ -667,6 +665,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const { latitude, longitude } = pos.coords;
                 lastLatLng = { latitude, longitude };
                 lastGpsUpdateAt = Date.now();
+                renderTaskMetrics();
                 if (mapInstance && mapMarker) {
                     mapMarker.setLatLng([latitude, longitude]);
                     mapInstance.setView([latitude, longitude], 16);
@@ -681,7 +680,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 taskReached = distanceMeters <= Math.max(6, currentTask?.radius || 30);
             }, (err) => {
                 console.warn('任務導航定位失敗', err);
-                if (taskStatusText) taskStatusText.textContent = '定位失敗，請確認 GPS 已開啟';
+                if (taskCoordsValue) taskCoordsValue.textContent = '定位失敗';
+                if (taskDistanceValue) taskDistanceValue.textContent = '--m';
             }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 });
 
             // iPhone/Safari 有時 watchPosition 更新不穩，補一層定時輪詢
@@ -690,6 +690,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const { latitude, longitude } = pos.coords;
                     lastLatLng = { latitude, longitude };
                     lastGpsUpdateAt = Date.now();
+                    renderTaskMetrics();
                     const distanceMeters = haversineDistance(latitude, longitude, targetLat, targetLng);
                     const bearing = calculateBearing(latitude, longitude, targetLat, targetLng);
                     updateTaskNavigationUI(distanceMeters, bearing);
