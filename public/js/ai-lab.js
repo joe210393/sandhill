@@ -307,6 +307,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const voiceAi = document.getElementById('voiceAi');
         const voiceStatus = document.getElementById('voiceStatus');
         const voiceSpeakToggle = document.getElementById('voiceSpeakToggle');
+        const queryTransit = document.getElementById('queryTransit');
+        const queryTransitLabel = document.getElementById('queryTransitLabel');
+        const answerToast = document.getElementById('answerToast');
+        const answerToastText = document.getElementById('answerToastText');
+        const answerToastClose = document.getElementById('answerToastClose');
         const cameraContainer = document.querySelector('.camera-container');
         const featureDockToggle = document.getElementById('featureDockToggle');
         const featureDockMenu = document.getElementById('featureDockMenu');
@@ -1132,6 +1137,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let speechRecognition = null;
         let isRecording = false;
         let speechRecognitionSupported = false;
+        let answerToastTimer = null;
 
         function stopVoiceRecognition() {
             if (speechRecognition && isRecording) {
@@ -1149,6 +1155,39 @@ document.addEventListener('DOMContentLoaded', () => {
             isRecording = false;
             setVoiceButtonsRecordingState(false);
             if (voiceStatus) voiceStatus.textContent = '可送出提問';
+        }
+
+        function resetVoiceComposer() {
+            if (voiceDraftInput) voiceDraftInput.value = '';
+            if (voiceUser) voiceUser.textContent = '—';
+            if (voiceAi) voiceAi.textContent = '—';
+            if (voiceStatus) voiceStatus.textContent = '語音待命';
+        }
+
+        function showQueryTransit(message) {
+            if (queryTransitLabel && message) {
+                queryTransitLabel.textContent = message;
+            }
+            if (queryTransit) queryTransit.classList.remove('hidden');
+        }
+
+        function hideQueryTransit() {
+            if (queryTransit) queryTransit.classList.add('hidden');
+        }
+
+        function showAnswerToast(text) {
+            if (!answerToast || !answerToastText) return;
+            answerToastText.textContent = text || '';
+            answerToast.classList.remove('hidden');
+            if (answerToastTimer) clearTimeout(answerToastTimer);
+            answerToastTimer = setTimeout(() => {
+                answerToast.classList.add('hidden');
+            }, 12000);
+        }
+
+        function hideAnswerToast() {
+            if (answerToastTimer) clearTimeout(answerToastTimer);
+            if (answerToast) answerToast.classList.add('hidden');
         }
 
         async function analyzeVisionQuestion(photoDataUrl, systemPrompt, userPrompt, gpsData) {
@@ -1178,8 +1217,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function sendVoiceChat(userText) {
             try {
-                openVoicePanel();
-                updateVoicePanel(userText, '...', '擷取畫面中');
+                hideAnswerToast();
+                showQueryTransit('問題已送出，AI 正在查看畫面...');
                 if (voiceSendBtn) voiceSendBtn.disabled = true;
                 const snapshot = captureCurrentReticleDataUrl();
                 if (!snapshot) {
@@ -1214,13 +1253,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const finalUserPrompt = `這是使用者目前在手機取景框中看到的畫面。請先理解畫面主體，再回答這個問題：${userText}${locationTextForPrompt ? `\n\n背景位置資訊：${locationTextForPrompt}` : ''}`;
-                updateVoicePanel(userText, '...', '送出中');
+                if (voicePanel) voicePanel.classList.add('hidden');
+                resetVoiceComposer();
                 const data = await analyzeVisionQuestion(snapshot, finalSystemPrompt, finalUserPrompt, gpsData);
                 if (!data.success) throw new Error(data.message || 'AI 回覆失敗');
 
                 const replyText = extractReplyText(data.description || '');
-                updateVoicePanel(userText, replyText, '完成');
-                if (voiceDraftInput) voiceDraftInput.value = userText;
+                showAnswerToast(replyText);
 
                 const shouldSpeak = voiceSpeakToggle ? voiceSpeakToggle.checked : true;
                 if (shouldSpeak && 'speechSynthesis' in window && replyText) {
@@ -1231,9 +1270,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (err) {
                 console.error('語音聊天錯誤', err);
-                updateVoicePanel(userText, err.message || '語音回覆失敗，請再試一次', '失敗');
+                showAnswerToast(err.message || '語音回覆失敗，請再試一次');
             } finally {
+                hideQueryTransit();
                 if (voiceSendBtn) voiceSendBtn.disabled = false;
+                resetVoiceComposer();
             }
         }
 
@@ -1286,6 +1327,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (voiceCloseBtn) {
                 voiceCloseBtn.addEventListener('click', closeVoicePanel);
+            }
+            if (answerToastClose) {
+                answerToastClose.addEventListener('click', hideAnswerToast);
             }
             if (voiceDraftInput) {
                 voiceDraftInput.addEventListener('input', () => {
@@ -2353,6 +2397,8 @@ document.addEventListener('DOMContentLoaded', () => {
             stopVoiceRecognition();
             analyzeBtn.disabled = true;
             if (addPhotoBtn) addPhotoBtn.disabled = true;
+            hideAnswerToast();
+            showQueryTransit('照片已送出，AI 正在回信...');
 
             // 立即顯示載入動畫（確保在任何 async 之前）
             aiResult.innerHTML = '';
@@ -2560,6 +2606,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             } finally {
+                hideQueryTransit();
                 stopThinkingAnimation();
                 aiLoading.classList.add('hidden');
                 analyzeBtn.disabled = false;
