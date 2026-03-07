@@ -238,6 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let currentMode = 'free';       // 預設模式
         let mapInstance = null;
         let mapMarker = null;
+        let taskMapMarker = null;
         let lastLocationText = '';
         let lastLatLng = null;
         let lastTaskDistance = null;
@@ -336,11 +337,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const taskIntroDescription = document.getElementById('taskIntroDescription');
         const taskIntroClose = document.getElementById('taskIntroClose');
         const taskBgm = document.getElementById('taskBgm');
+        const taskHudDock = document.getElementById('taskHudDock');
+        const taskHudToggle = document.getElementById('taskHudToggle');
         const taskStatusBox = document.getElementById('taskStatusBox');
         const taskBearingValue = document.getElementById('taskBearingValue');
         const taskDistanceValue = document.getElementById('taskDistanceValue');
         const taskAngleValue = document.getElementById('taskAngleValue');
         const taskCoordsValue = document.getElementById('taskCoordsValue');
+        const taskStatusLabel = document.getElementById('taskStatusLabel');
         const taskGuideArrow = document.getElementById('taskGuideArrow');
         const taskTargetObj = document.getElementById('taskTargetObj');
         const taskTargetImg = document.getElementById('taskTargetImg');
@@ -553,6 +557,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const angle = (Number.isFinite(bearing) && lastHeadingUpdateAt)
                 ? ((bearing - deviceHeading + 540) % 360) - 180
                 : null;
+            if (taskHudDock) {
+                taskHudDock.classList.remove('hidden');
+            }
             if (taskBearingValue) {
                 taskBearingValue.textContent = Number.isFinite(bearing) ? `${Math.round(bearing)}°` : '--°';
             }
@@ -566,6 +573,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 taskCoordsValue.textContent = lastLatLng
                     ? `${lastLatLng.latitude.toFixed(5)}, ${lastLatLng.longitude.toFixed(5)}`
                     : '--, --';
+            }
+            if (taskStatusLabel) {
+                if (!lastHeadingUpdateAt) {
+                    taskStatusLabel.textContent = '點一下畫面啟用方向';
+                } else if (Number.isFinite(distanceMeters)) {
+                    taskStatusLabel.textContent = `距離任務 ${Math.max(0, Math.round(distanceMeters))}m`;
+                } else {
+                    taskStatusLabel.textContent = '等待任務導航...';
+                }
+            }
+        }
+
+        function updateTaskMapViewport() {
+            if (!mapInstance || !targetLat || !targetLng) return;
+            if (lastLatLng) {
+                const bounds = L.latLngBounds(
+                    [lastLatLng.latitude, lastLatLng.longitude],
+                    [targetLat, targetLng]
+                );
+                mapInstance.fitBounds(bounds, { padding: [28, 28], maxZoom: 17 });
+            } else {
+                mapInstance.setView([targetLat, targetLng], 16);
             }
         }
 
@@ -668,7 +697,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderTaskMetrics();
                 if (mapInstance && mapMarker) {
                     mapMarker.setLatLng([latitude, longitude]);
-                    mapInstance.setView([latitude, longitude], 16);
+                    updateTaskMapViewport();
                 }
                 const distanceMeters = haversineDistance(latitude, longitude, targetLat, targetLng);
                 const bearing = calculateBearing(latitude, longitude, targetLat, targetLng);
@@ -682,6 +711,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.warn('任務導航定位失敗', err);
                 if (taskCoordsValue) taskCoordsValue.textContent = '定位失敗';
                 if (taskDistanceValue) taskDistanceValue.textContent = '--m';
+                if (taskStatusLabel) taskStatusLabel.textContent = '定位失敗';
             }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 });
 
             // iPhone/Safari 有時 watchPosition 更新不穩，補一層定時輪詢
@@ -691,6 +721,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     lastLatLng = { latitude, longitude };
                     lastGpsUpdateAt = Date.now();
                     renderTaskMetrics();
+                    if (mapInstance && mapMarker) {
+                        mapMarker.setLatLng([latitude, longitude]);
+                        updateTaskMapViewport();
+                    }
                     const distanceMeters = haversineDistance(latitude, longitude, targetLat, targetLng);
                     const bearing = calculateBearing(latitude, longitude, targetLat, targetLng);
                     updateTaskNavigationUI(distanceMeters, bearing);
@@ -719,6 +753,21 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         loadTaskBGM(task);
                         showTaskContext(task);
+                        if (mapInstance && targetLat && targetLng) {
+                            if (!taskMapMarker) {
+                                taskMapMarker = L.circleMarker([targetLat, targetLng], {
+                                    radius: 8,
+                                    color: '#ef4444',
+                                    weight: 3,
+                                    fillColor: '#f97316',
+                                    fillOpacity: 0.95
+                                }).addTo(mapInstance);
+                                taskMapMarker.bindTooltip('任務地點', { permanent: false, direction: 'top' });
+                            } else {
+                                taskMapMarker.setLatLng([targetLat, targetLng]);
+                            }
+                            updateTaskMapViewport();
+                        }
                         setMode('mission', false);
                         startTaskNavigation();
                     }
@@ -1453,9 +1502,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!isCollapsed && mapInstance) {
                     setTimeout(() => {
                         mapInstance.invalidateSize();
-                        if (lastLatLng) {
-                            mapInstance.setView([lastLatLng.latitude, lastLatLng.longitude], 16);
-                        }
+                        updateTaskMapViewport();
                     }, 200);
                 }
             });
@@ -1696,6 +1743,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }).addTo(mapInstance);
 
             mapMarker = L.marker([25.0330, 121.5654]).addTo(mapInstance);
+            if (targetLat && targetLng) {
+                taskMapMarker = L.circleMarker([targetLat, targetLng], {
+                    radius: 8,
+                    color: '#ef4444',
+                    weight: 3,
+                    fillColor: '#f97316',
+                    fillOpacity: 0.95
+                }).addTo(mapInstance);
+                taskMapMarker.bindTooltip('任務地點', { permanent: false, direction: 'top' });
+            }
             updateLocationText('定位中...');
             requestLocation();
         }
@@ -1744,7 +1801,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 lastLatLng = { latitude, longitude };
                 if (mapInstance && mapMarker) {
                     mapMarker.setLatLng([latitude, longitude]);
-                    mapInstance.setView([latitude, longitude], 16);
+                    updateTaskMapViewport();
                 }
                 const display = await reverseGeocode(latitude, longitude);
                 updateLocationText(display || `緯度 ${latitude.toFixed(5)}，經度 ${longitude.toFixed(5)}`);
@@ -2150,6 +2207,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     closeDockPanels();
                 }
                 featureDockToggle.textContent = willOpen ? '×' : '☰';
+            });
+        }
+        if (taskHudToggle && taskStatusBox) {
+            taskHudToggle.addEventListener('click', () => {
+                const willOpen = taskStatusBox.classList.contains('hidden');
+                taskStatusBox.classList.toggle('hidden');
+                taskHudToggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
             });
         }
         if (dockModeBtn) {

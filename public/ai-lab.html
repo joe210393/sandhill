@@ -32,22 +32,28 @@
         <div id="reticleOverlay" class="reticle-overlay" aria-hidden="true"></div>
 
         <!-- AR-VIEW 整合：任務導航狀態、箭頭與可點擊任務物件 -->
-        <div id="taskStatusBox" class="task-status-box hidden">
-            <div class="task-stat-card">
-                <span class="task-stat-icon" aria-hidden="true">🧭</span>
-                <span id="taskBearingValue" class="task-stat-value">--°</span>
-            </div>
-            <div class="task-stat-card">
-                <span class="task-stat-icon" aria-hidden="true">📏</span>
-                <span id="taskDistanceValue" class="task-stat-value">--m</span>
-            </div>
-            <div class="task-stat-card">
-                <span class="task-stat-icon" aria-hidden="true">∠</span>
-                <span id="taskAngleValue" class="task-stat-value">--°</span>
-            </div>
-            <div class="task-stat-card task-stat-wide">
-                <span class="task-stat-icon" aria-hidden="true">📍</span>
-                <span id="taskCoordsValue" class="task-stat-value task-stat-coords">--, --</span>
+        <div id="taskHudDock" class="task-hud-dock hidden">
+            <button id="taskHudToggle" class="task-hud-toggle" type="button" aria-label="打開導航資訊" aria-expanded="false">
+                <span class="task-hud-main-icon" aria-hidden="true">📏</span>
+                <span id="taskDistanceValue" class="task-hud-main-value">--m</span>
+            </button>
+            <div id="taskStatusBox" class="task-status-box hidden">
+                <div class="task-stat-card">
+                    <span class="task-stat-icon" aria-hidden="true">🧭</span>
+                    <span id="taskBearingValue" class="task-stat-value">--°</span>
+                </div>
+                <div class="task-stat-card">
+                    <span class="task-stat-icon" aria-hidden="true">∠</span>
+                    <span id="taskAngleValue" class="task-stat-value">--°</span>
+                </div>
+                <div class="task-stat-card task-stat-wide">
+                    <span class="task-stat-icon" aria-hidden="true">📍</span>
+                    <span id="taskCoordsValue" class="task-stat-value task-stat-coords">--, --</span>
+                </div>
+                <div class="task-stat-card task-stat-wide">
+                    <span class="task-stat-icon" aria-hidden="true">🎯</span>
+                    <span id="taskStatusLabel" class="task-stat-value task-stat-coords">等待任務導航...</span>
+                </div>
             </div>
         </div>
         <div id="taskGuideArrow" class="task-guide-arrow hidden" aria-hidden="true"></div>

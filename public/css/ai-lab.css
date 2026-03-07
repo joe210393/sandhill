@@ -65,11 +65,45 @@ canvas#drawingCanvas {
     display: none;
 }
 
-.task-status-box {
+.task-hud-dock {
     position: absolute;
     top: 78px;
     right: 18px;
     z-index: 18;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.task-hud-toggle {
+    min-width: 104px;
+    height: 46px;
+    padding: 0 14px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    background: rgba(7, 12, 20, 0.82);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+    backdrop-filter: blur(12px);
+    cursor: pointer;
+}
+
+.task-hud-main-icon {
+    font-size: 18px;
+    line-height: 1;
+}
+
+.task-hud-main-value {
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.task-status-box {
     width: min(62vw, 268px);
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -486,9 +520,18 @@ canvas#drawingCanvas {
         padding: 8px;
     }
 
-    .task-status-box {
+    .task-hud-dock {
         top: 78px;
         right: 10px;
+    }
+
+    .task-hud-toggle {
+        min-width: 92px;
+        height: 42px;
+        padding: 0 12px;
+    }
+
+    .task-status-box {
         width: min(58vw, 230px);
         padding: 8px;
         gap: 6px;
