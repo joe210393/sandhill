@@ -1730,19 +1730,79 @@ document.addEventListener('DOMContentLoaded', () => {
                 && String(task.id) !== String(currentTaskId);
         }
 
+        async function fetchQuestProgressMap() {
+            try {
+                const res = await fetch('/api/user/quest-progress', { credentials: 'include' });
+                if (!res.ok) return {};
+                const data = await res.json();
+                if (!data.success || !data.progress || typeof data.progress !== 'object') return {};
+                return data.progress;
+            } catch (err) {
+                console.warn('取得劇情進度失敗', err);
+                return {};
+            }
+        }
+
+        function getVisibleQuestTasks(tasks, progressMap) {
+            const grouped = new Map();
+            tasks.forEach((task) => {
+                if (!task || !task.quest_chain_id || task.lat == null || task.lng == null) return;
+                const chainId = String(task.quest_chain_id);
+                if (!grouped.has(chainId)) grouped.set(chainId, []);
+                grouped.get(chainId).push({
+                    ...task,
+                    lat: Number(task.lat),
+                    lng: Number(task.lng),
+                    quest_order: Number(task.quest_order || 0)
+                });
+            });
+
+            const visibleQuestTasks = [];
+            grouped.forEach((chainTasks, chainId) => {
+                const sortedTasks = chainTasks
+                    .filter((task) => Number.isFinite(task.lat) && Number.isFinite(task.lng))
+                    .sort((a, b) => a.quest_order - b.quest_order);
+                if (!sortedTasks.length) return;
+
+                const progressOrder = Number(progressMap?.[chainId]);
+                let visibleTask = null;
+                if (Number.isFinite(progressOrder) && progressOrder > 0) {
+                    visibleTask = sortedTasks.find((task) => task.quest_order === progressOrder) || null;
+                } else {
+                    visibleTask = sortedTasks[0] || null;
+                }
+
+                if (visibleTask && String(visibleTask.id) !== String(currentTaskId)) {
+                    visibleQuestTasks.push({
+                        ...visibleTask,
+                        _visibleTaskType: 'quest'
+                    });
+                }
+            });
+            return visibleQuestTasks;
+        }
+
         async function loadNearbyVisibleTasks() {
             try {
-                const res = await fetch('/api/tasks');
-                const data = await res.json();
+                const [taskRes, questProgress] = await Promise.all([
+                    fetch('/api/tasks'),
+                    fetchQuestProgressMap()
+                ]);
+                const data = await taskRes.json();
                 if (!data.success || !Array.isArray(data.tasks)) return;
                 const reference = lastLatLng || (targetLat && targetLng ? { latitude: targetLat, longitude: targetLng } : null);
-                nearbyVisibleTasks = data.tasks
+                const visibleTasks = [
+                    ...data.tasks
                     .filter(isIndependentVisibleTask)
                     .map((task) => ({
                         ...task,
+                        _visibleTaskType: 'single',
                         lat: Number(task.lat),
                         lng: Number(task.lng)
-                    }))
+                    })),
+                    ...getVisibleQuestTasks(data.tasks, questProgress)
+                ];
+                nearbyVisibleTasks = visibleTasks
                     .filter((task) => Number.isFinite(task.lat) && Number.isFinite(task.lng))
                     .filter((task) => {
                         if (!reference) return true;
@@ -1764,12 +1824,15 @@ document.addEventListener('DOMContentLoaded', () => {
             nearbyVisibleTasks.forEach((task) => {
                 const marker = L.circleMarker([task.lat, task.lng], {
                     radius: 6,
-                    color: '#38bdf8',
+                    color: task._visibleTaskType === 'quest' ? '#a855f7' : '#38bdf8',
                     weight: 2,
-                    fillColor: '#0ea5e9',
+                    fillColor: task._visibleTaskType === 'quest' ? '#c084fc' : '#0ea5e9',
                     fillOpacity: 0.92
                 }).addTo(nearbyTaskLayer);
-                marker.bindTooltip(task.name || '任務地點', { permanent: false, direction: 'top' });
+                marker.bindTooltip(
+                    `${task._visibleTaskType === 'quest' ? '劇情任務' : '單題任務'}：${task.name || '任務地點'}`,
+                    { permanent: false, direction: 'top' }
+                );
             });
         }
 
@@ -1792,7 +1855,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.className = 'mini-map-task-indicator';
                 item.innerHTML = `
                     <span class="mini-map-task-arrow" style="transform: rotate(${bearing}deg)">➤</span>
-                    <span>${task.name || '附近任務'} · ${Math.round(distance)}m</span>
+                    <span>${task._visibleTaskType === 'quest' ? '劇情' : '單題'} · ${task.name || '附近任務'} · ${Math.round(distance)}m</span>
                 `;
                 miniMapTaskIndicators.appendChild(item);
             });
