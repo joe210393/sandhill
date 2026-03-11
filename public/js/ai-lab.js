@@ -1213,10 +1213,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (voiceStatus) voiceStatus.textContent = '語音待命';
         }
 
+        function setQueryTransitText(message) {
+            if (!queryTransitLabel) return;
+            const text = message || '已將問題用紙飛機寄出去囉，請等候回應';
+            queryTransitLabel.querySelector('.qp-text-main').textContent = text;
+        }
+
         function showQueryTransit(message) {
-            if (queryTransitLabel && message) {
-                queryTransitLabel.textContent = message;
-            }
+            setQueryTransitText(message);
             if (queryTransit) {
                 queryTransit.classList.remove('hidden');
                 queryTransit.classList.remove('returning');
@@ -1232,9 +1236,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         async function playQueryReturnAnimation(message) {
-            if (queryTransitLabel && message) {
-                queryTransitLabel.textContent = message;
-            }
+            setQueryTransitText(message);
             if (!queryTransit) return;
             queryTransit.classList.remove('hidden', 'sending');
             queryTransit.classList.add('returning');
