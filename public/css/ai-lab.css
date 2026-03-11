@@ -1168,13 +1168,12 @@ canvas#drawingCanvas {
     opacity: 0;
 }
 
-/* 折紙階段 */
+/* 寄出階段：紙張微縮但保持可見，飛機飛出 */
 .query-transit.sending .qp-paper {
-    transform: scale(0.15) rotate(18deg);
-    opacity: 0;
+    transform: scale(0.9);
+    opacity: 1;
 }
 
-/* 飛出 */
 .query-transit.sending .qp-plane {
     animation: qpFlyOut 1.5s ease-in forwards;
 }
