@@ -3155,6 +3155,29 @@ async function fetchAIWithRetry(url, init, { timeoutMs = 180000, maxRetries = 2 
   throw lastError || new Error('AI 請求失敗');
 }
 
+function getAiConfig() {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const apiUrlRaw = process.env.AI_API_URL || (isProduction ? null : 'http://localhost:1234/v1');
+  const model = process.env.AI_MODEL || (isProduction ? null : 'google/gemma-3-27b');
+  const apiKey = process.env.AI_API_KEY || 'lm-studio';
+
+  if (!apiUrlRaw) {
+    throw new Error('AI_API_URL 未設定：請在部署環境設定 AI_API_URL / AI_API_KEY / AI_MODEL');
+  }
+
+  if (!model) {
+    throw new Error('AI_MODEL 未設定：請在部署環境設定 AI_MODEL（例如：google/gemma-3-27b）');
+  }
+
+  const apiUrl = String(apiUrlRaw).replace(/\/$/, '');
+
+  if (isProduction && /^(https?:\/\/)(localhost|127\.0\.0\.1|\[::1\]|::1)(:\d+)?(\/|$)/i.test(apiUrl)) {
+    throw new Error('AI_API_URL 在 production 不能指向 localhost/127.0.0.1/::1，請改成可從 Zeabur 存取的公開 URL');
+  }
+
+  return { AI_API_URL: apiUrl, AI_MODEL: model, AI_API_KEY: apiKey };
+}
+
 // AI 視覺辨識 API
 app.post('/api/vision-test', uploadTemp.single('image'), async (req, res) => {
   try {
@@ -3183,19 +3206,7 @@ app.post('/api/vision-test', uploadTemp.single('image'), async (req, res) => {
     // AI endpoint (OpenAI-compatible)
     // NOTE: On Zeabur/production you MUST set AI_API_URL (and usually AI_API_KEY),
     // otherwise the server would try to call localhost and always fail.
-    const AI_API_URL =
-      process.env.AI_API_URL || (process.env.NODE_ENV !== 'production' ? 'http://localhost:1234/v1' : null);
-    // 生產環境必須設定 AI_MODEL，開發環境使用預設值
-    const AI_MODEL = process.env.AI_MODEL || (process.env.NODE_ENV !== 'production' ? 'google/gemma-3-27b' : null);
-    const AI_API_KEY = process.env.AI_API_KEY || 'lm-studio';
-
-    if (!AI_API_URL) {
-      throw new Error('AI_API_URL 未設定：請在部署環境設定 AI_API_URL / AI_API_KEY / AI_MODEL');
-    }
-    
-    if (!AI_MODEL) {
-      throw new Error('AI_MODEL 未設定：請在部署環境設定 AI_MODEL（例如：google/gemma-3-27b）');
-    }
+    const { AI_API_URL, AI_MODEL, AI_API_KEY } = getAiConfig();
 
     // 3.5. 檢查是否為快速特徵提取模式（前端已進行快速提取，這裡只返回特徵）
     // 注意：快速特徵提取已經在前端完成，這裡不再重複調用，避免重複 API 調用
@@ -3346,19 +3357,7 @@ app.post('/api/chat-text', async (req, res) => {
 
     const finalUserPrompt = `${userPromptText}\n\n${userText}${locationText ? `\n\n(位置: ${locationText})` : ''}`.trim();
 
-    const AI_API_URL =
-      process.env.AI_API_URL || (process.env.NODE_ENV !== 'production' ? 'http://localhost:1234/v1' : null);
-    // 生產環境必須設定 AI_MODEL，開發環境使用預設值
-    const AI_MODEL = process.env.AI_MODEL || (process.env.NODE_ENV !== 'production' ? 'google/gemma-3-27b' : null);
-    const AI_API_KEY = process.env.AI_API_KEY || 'lm-studio';
-
-    if (!AI_API_URL) {
-      throw new Error('AI_API_URL 未設定：請在部署環境設定 AI_API_URL / AI_API_KEY / AI_MODEL');
-    }
-    
-    if (!AI_MODEL) {
-      throw new Error('AI_MODEL 未設定：請在部署環境設定 AI_MODEL（例如：google/gemma-3-27b）');
-    }
+    const { AI_API_URL, AI_MODEL, AI_API_KEY } = getAiConfig();
 
     console.log('🤖 正在呼叫 AI(文字):', AI_API_URL);
 
