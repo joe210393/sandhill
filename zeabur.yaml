@@ -7,7 +7,7 @@ services:
     type: docker
     source:
       git:
-        repo: joe210393/gpstask
+        repo: joe210393/sandhill
         branch: main
     ports:
       - port: 3001
@@ -15,6 +15,12 @@ services:
     env:
       NODE_ENV: production
       PORT: "3001"
+      DATABASE_URL: ${MYSQL_URI}
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+      MYSQL_USERNAME: ${MYSQL_USERNAME}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
       # Zeabur 內網呼叫另一個 service，hostname 會是 zeabur.yaml 裡的 service key
       # 這個 repo 內的 embedding 服務 key 是 embedding-api
       EMBEDDING_API_URL: http://embedding-api:8080
@@ -28,7 +34,7 @@ services:
     type: docker
     source:
       git:
-        repo: joe210393/gpstask
+        repo: joe210393/sandhill
         branch: main
         dockerfile: Dockerfile.embedding
     ports:

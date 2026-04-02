@@ -2,12 +2,12 @@
 // Security rule: never hardcode passwords/hosts in code. Use environment variables only.
 //
 // Supported env:
-// - DATABASE_URL (optional): mysql://user:pass@host:port/dbname
-// - MYSQL_HOST
-// - MYSQL_PORT (optional, defaults to 3306)
-// - MYSQL_USERNAME
-// - MYSQL_ROOT_PASSWORD or MYSQL_PASSWORD
-// - MYSQL_DATABASE
+// - DATABASE_URL / MYSQL_URI / MYSQL_CONNECTION_STRING (optional): mysql://user:pass@host:port/dbname
+// - MYSQL_HOST / DB_HOST
+// - MYSQL_PORT / DB_PORT (optional, defaults to 3306)
+// - MYSQL_USERNAME / MYSQL_USER / DB_USER
+// - MYSQL_ROOT_PASSWORD / MYSQL_PASSWORD / DB_PASSWORD
+// - MYSQL_DATABASE / DB_NAME
 
 function requireEnv(name) {
   const v = process.env[name];
@@ -23,13 +23,43 @@ function requireEnv(name) {
   return value;
 }
 
+function firstDefinedEnv(...names) {
+  for (const name of names) {
+    const value = process.env[name];
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      return { name, value: String(value) };
+    }
+  }
+  return null;
+}
+
+function requireAnyEnv(names) {
+  const found = firstDefinedEnv(...names);
+  if (!found) {
+    throw new Error(`Missing required environment variable: ${names.join(' or ')}`);
+  }
+
+  const value = found.value;
+  if (value.startsWith('${') && value.endsWith('}')) {
+    throw new Error(`Environment variable ${found.name} appears to contain unexpanded variable syntax (e.g., \${VAR}). Please check your Zeabur environment variable configuration.`);
+  }
+
+  return value;
+}
+
 function getDbConfig() {
-  // Prefer DATABASE_URL if provided (common pattern in many PaaS)
-  if (process.env.DATABASE_URL) {
-    const dbUrl = String(process.env.DATABASE_URL);
+  // Prefer a connection string if provided (common pattern in many PaaS / Zeabur)
+  const connectionStringEnv = firstDefinedEnv(
+    'DATABASE_URL',
+    'MYSQL_URI',
+    'MYSQL_CONNECTION_STRING'
+  );
+
+  if (connectionStringEnv) {
+    const dbUrl = connectionStringEnv.value;
     // 檢查是否包含未展開的變數語法
     if (dbUrl.startsWith('${') && dbUrl.endsWith('}')) {
-      throw new Error('DATABASE_URL appears to contain unexpanded variable syntax (e.g., ${VAR}). Please check your Zeabur environment variable configuration.');
+      throw new Error(`${connectionStringEnv.name} appears to contain unexpanded variable syntax (e.g., \${VAR}). Please check your Zeabur environment variable configuration.`);
     }
     
     // 診斷：顯示原始 URL（隱藏敏感資訊）
@@ -61,7 +91,7 @@ function getDbConfig() {
         
         return { host, user, password, database, port, charset: 'utf8mb4' };
       } catch (err) {
-        throw new Error(`DATABASE_URL format error: ${err.message}. Please ensure the URL is properly formatted (e.g., mysql://user:password@host:port/database). If your password contains special characters like !, @, #, :, /, you may need to URL-encode them.`);
+        throw new Error(`${connectionStringEnv.name} format error: ${err.message}. Please ensure the URL is properly formatted (e.g., mysql://user:password@host:port/database). If your password contains special characters like !, @, #, :, /, you may need to URL-encode them.`);
       }
     }
     
@@ -75,32 +105,24 @@ function getDbConfig() {
     
     if (!host || !user || !password || !database) {
       // 避免輸出完整的敏感資訊
-      console.error('DATABASE_URL 解析失敗: 缺少必要欄位 (host/user/password/database)');
-      throw new Error('DATABASE_URL missing required parts. Please check your DATABASE_URL format.');
+      console.error(`${connectionStringEnv.name} 解析失敗: 缺少必要欄位 (host/user/password/database)`);
+      throw new Error(`${connectionStringEnv.name} missing required parts. Please check its format.`);
     }
     
     return { host, user, password, database, port, charset: 'utf8mb4' };
   }
 
-  const host = requireEnv('MYSQL_HOST');
-  const user = requireEnv('MYSQL_USERNAME');
-  const database = requireEnv('MYSQL_DATABASE');
-  const password = process.env.MYSQL_ROOT_PASSWORD || process.env.MYSQL_PASSWORD;
-  if (!password || String(password).trim() === '') {
-    throw new Error('Missing required environment variable: MYSQL_ROOT_PASSWORD (or MYSQL_PASSWORD)');
-  }
-  const passwordStr = String(password);
-  // 檢查密碼是否包含未展開的變數語法
-  if (passwordStr.startsWith('${') && passwordStr.endsWith('}')) {
-    throw new Error(`MYSQL_ROOT_PASSWORD/MYSQL_PASSWORD appears to contain unexpanded variable syntax (e.g., \${PASSWORD}). Please check your Zeabur environment variable configuration.`);
-  }
-  const port = process.env.MYSQL_PORT ? Number(process.env.MYSQL_PORT) : 3306;
+  const host = requireAnyEnv(['MYSQL_HOST', 'DB_HOST']);
+  const user = requireAnyEnv(['MYSQL_USERNAME', 'MYSQL_USER', 'DB_USER']);
+  const database = requireAnyEnv(['MYSQL_DATABASE', 'DB_NAME']);
+  const passwordStr = requireAnyEnv(['MYSQL_ROOT_PASSWORD', 'MYSQL_PASSWORD', 'DB_PASSWORD']);
+  const portValue = firstDefinedEnv('MYSQL_PORT', 'DB_PORT');
+  const port = portValue ? Number(portValue.value) : 3306;
   if (Number.isNaN(port) || port <= 0) {
-    throw new Error('MYSQL_PORT must be a valid number');
+    throw new Error(`${portValue ? portValue.name : 'MYSQL_PORT'} must be a valid number`);
   }
   return { host, user, password: passwordStr, database, port, charset: 'utf8mb4' };
 }
 
 module.exports = { getDbConfig };
-
 
