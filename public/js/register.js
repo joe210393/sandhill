@@ -7,19 +7,32 @@ document.getElementById('registerForm').onsubmit = async function(e) {
     document.getElementById('registerMsg').textContent = '請輸入正確的手機門號';
     return;
   }
-  const res = await fetch('/api/register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, role: 'user' })
-  });
-  const data = await res.json();
-  if (data.success) {
-    // 將帳號帶到登入頁
-    window.location.href = '/login.html?username=' + encodeURIComponent(username);
-    // 不再顯示註冊成功訊息
-    // document.getElementById('registerMsg').textContent = '註冊成功，請直接登入';
-    // this.reset();
-  } else {
-    document.getElementById('registerMsg').textContent = data.message || '註冊失敗';
+  const messageEl = document.getElementById('registerMsg');
+
+  try {
+    const res = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, role: 'user' })
+    });
+
+    const contentType = res.headers.get('content-type') || '';
+    const isJson = contentType.includes('application/json');
+    const data = isJson ? await res.json() : null;
+
+    if (!res.ok) {
+      messageEl.textContent = data?.message || '伺服器暫時異常，請稍後再試';
+      return;
+    }
+
+    if (data?.success) {
+      window.location.href = '/login.html?username=' + encodeURIComponent(username);
+      return;
+    }
+
+    messageEl.textContent = data?.message || '註冊失敗';
+  } catch (error) {
+    console.error('Register request failed:', error);
+    messageEl.textContent = '目前無法連線到伺服器，請稍後再試';
   }
 };
