@@ -189,7 +189,9 @@
             keyword: '關鍵字解碼',
             location: '地理圍欄打卡'
           };
-          const taskTypeLabel = typeMap[t.task_type] || '問答題';
+          const taskTypeLabel = t.validation_mode && t.validation_mode.startsWith('ai_')
+            ? `AI 任務 (${t.validation_mode})`
+            : (typeMap[t.task_type] || '問答題');
 
           // 解析選項（如果是 JSON 字串）
           let options = [];
@@ -201,6 +203,14 @@
           if (t.reward_item_name) {
             rewardItemHtml = `<div style="margin-top:5px; color:#28a745; font-weight:bold; font-size:0.9rem;">🎁 完成獎勵：${t.reward_item_name}</div>`;
           }
+          const aiTaskHintHtml = t.validation_mode && t.validation_mode.startsWith('ai_')
+            ? `
+              <div style="margin:12px 0 18px; padding:12px; border-radius:10px; background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8;">
+                <div style="font-weight:700; margin-bottom:6px;">🤖 AI 驗證任務</div>
+                <div>提交照片後，系統會用 AI 判定是否通關。</div>
+                ${t.max_attempts ? `<div style="margin-top:6px;">最多可挑戰 ${t.max_attempts} 次</div>` : ''}
+              </div>`
+            : '';
 
           taskDetailEl.innerHTML = `
             <h2>${t.name}</h2>
@@ -211,6 +221,7 @@
               <span>💰 積分：${t.points || 0}</span>
             </div>
             ${rewardItemHtml}
+            ${aiTaskHintHtml}
             <div style="margin-bottom:18px; color:var(--text-secondary); line-height:1.6;">${t.description}</div>
             <img src="${t.photoUrl}" alt="任務照片" class="task-detail-img" onerror="this.src='/images/mascot.png'">
             <!-- YouTube 影片已移至 AR 模式，此處不再顯示 -->
@@ -676,8 +687,14 @@
               container.appendChild(fileInput);
               container.appendChild(preview);
 
+              const attemptsWrap = document.createElement('div');
+              attemptsWrap.id = 'attemptHistory';
+              attemptsWrap.style.marginTop = '15px';
+
               const submitBtn = document.createElement('button');
-              submitBtn.textContent = '上傳照片並送出';
+              submitBtn.textContent = t.validation_mode && t.validation_mode.startsWith('ai_')
+                ? '上傳照片並交給 AI 判定'
+                : '上傳照片並送出';
               submitBtn.className = 'btn btn-primary';
               submitBtn.style.display = 'block';
               submitBtn.style.marginTop = '10px';
@@ -689,26 +706,61 @@
                  }
 
                  const msg = document.getElementById('answerMsg');
-                 msg.textContent = '上傳中...';
+                 msg.textContent = t.validation_mode && t.validation_mode.startsWith('ai_') ? 'AI 分析中...' : '上傳中...';
                  try {
-                   const fd = new FormData();
-                   fd.append('photo', file);
-                   const uploadRes = await fetch(`${API_BASE}/api/upload`, {
-                      method: 'POST',
-                      headers: loginUser ? { 'x-username': loginUser.username } : {},
-                      body: fd
-                   });
-                   const uploadData = await uploadRes.json();
-                   if(!uploadData.success) {
-                      msg.textContent = uploadData.message || '上傳失敗';
-                      return;
+                   if (t.validation_mode && t.validation_mode.startsWith('ai_')) {
+                     const fd = new FormData();
+                     fd.append('image', file);
+                     const submitRes = await fetch(`${API_BASE}/api/ai-tasks/${t.id}/submit`, {
+                       method: 'POST',
+                       credentials: 'include',
+                       body: fd
+                     });
+                     const submitData = await submitRes.json();
+                     if (!submitData.success) {
+                       msg.textContent = submitData.message || 'AI 判定失敗';
+                       msg.style.color = '#dc3545';
+                       return;
+                     }
+                     msg.textContent = submitData.message || (submitData.passed ? 'AI 驗證通過' : 'AI 驗證未通過');
+                     msg.style.color = submitData.passed ? '#28a745' : '#dc3545';
+                     if (submitData.retry_advice) {
+                       msg.textContent += `\n${submitData.retry_advice}`;
+                     }
+                     if (submitData.user_task_id) {
+                       loadAttemptHistory(submitData.user_task_id);
+                     }
+                     if (submitData.isCompleted) {
+                       document.getElementById('answerSection').querySelectorAll('button').forEach(b => b.disabled = true);
+                       const startBtn = document.getElementById('startTaskBtn');
+                       startBtn.textContent = '任務已完成';
+                       startBtn.style.backgroundColor = '#28a745';
+                     }
+                   } else {
+                     const fd = new FormData();
+                     fd.append('photo', file);
+                     const uploadRes = await fetch(`${API_BASE}/api/upload`, {
+                        method: 'POST',
+                        headers: loginUser ? { 'x-username': loginUser.username } : {},
+                        body: fd
+                     });
+                     const uploadData = await uploadRes.json();
+                     if(!uploadData.success) {
+                        msg.textContent = uploadData.message || '上傳失敗';
+                        return;
+                     }
+                     submitAnswer(userTaskId, uploadData.url);
                    }
-                   submitAnswer(userTaskId, uploadData.url);
                  } catch (e) {
-                   msg.textContent = '上傳錯誤';
+                   msg.textContent = '提交失敗';
+                   msg.style.color = '#dc3545';
                  }
               };
               container.appendChild(submitBtn);
+              container.appendChild(attemptsWrap);
+              if (t.validation_mode && t.validation_mode.startsWith('ai_') && userTaskId) {
+                loadAttemptHistory(userTaskId);
+              }
             } else {
               const textarea = document.createElement('textarea');
               textarea.rows = 3;
@@ -735,9 +787,40 @@
             msgSpan.id = 'answerMsg';
             msgSpan.style.marginTop = '10px';
             msgSpan.style.color = '#007bff';
+            msgSpan.style.whiteSpace = 'pre-line';
             container.appendChild(msgSpan);
 
             answerDiv.appendChild(container);
+          }
+
+          async function loadAttemptHistory(userTaskId) {
+            const container = document.getElementById('attemptHistory');
+            if (!container || !userTaskId) return;
+            container.innerHTML = '<div style="color:#64748b;">載入挑戰紀錄中...</div>';
+            try {
+              const res = await fetch(`${API_BASE}/api/user-tasks/${userTaskId}/attempts`, {
+                credentials: 'include'
+              });
+              const data = await res.json();
+              if (!data.success || !Array.isArray(data.attempts) || data.attempts.length === 0) {
+                container.innerHTML = '<div style="color:#64748b;">目前還沒有挑戰紀錄</div>';
+                return;
+              }
+              container.innerHTML = `
+                <div style="margin-top:14px; font-weight:700; color:#0f172a;">挑戰紀錄</div>
+                ${data.attempts.map(attempt => `
+                  <div style="margin-top:10px; padding:10px; border:1px solid #e2e8f0; border-radius:8px; background:white;">
+                    <div style="font-weight:600;">第 ${attempt.attempt_no} 次 ${attempt.passed ? '✅' : '❌'}</div>
+                    ${attempt.failure_reason ? `<div style="color:#b91c1c; margin-top:4px;">${attempt.failure_reason}</div>` : ''}
+                    ${attempt.retry_advice ? `<div style="color:#475569; margin-top:4px;">建議：${attempt.retry_advice}</div>` : ''}
+                    ${(attempt.detected_count !== null && attempt.detected_count !== undefined) ? `<div style="margin-top:4px;">辨識數量：${attempt.detected_count}</div>` : ''}
+                    ${(attempt.score !== null && attempt.score !== undefined) ? `<div style="margin-top:4px;">AI 分數：${attempt.score}</div>` : ''}
+                  </div>
+                `).join('')}
+              `;
+            } catch (err) {
+              container.innerHTML = '<div style="color:#b91c1c;">載入挑戰紀錄失敗</div>';
+            }
           }
 
           async function submitAnswer(userTaskId, val) {

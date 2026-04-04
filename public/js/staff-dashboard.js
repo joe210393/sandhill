@@ -210,6 +210,135 @@ function setupTaskTypeToggle(selectId, divId, standardAnswerDivId) {
 setupTaskTypeToggle('taskTypeSelect', 'multipleChoiceOptions', 'standardAnswerBlock');
 setupTaskTypeToggle('editTaskTypeSelect', 'editMultipleChoiceOptions', 'editStandardAnswerBlock');
 
+function setupValidationModeToggle(selectId, fieldsId) {
+  const select = document.getElementById(selectId);
+  const fields = document.getElementById(fieldsId);
+  if (!select || !fields) return;
+
+  const isEdit = selectId.startsWith('edit');
+  const helper = document.getElementById(isEdit ? 'editAiModeHelper' : 'aiModeHelper');
+  const targetLabelLabel = document.getElementById(isEdit ? 'editAiTargetLabelLabel' : 'aiTargetLabelLabel');
+  const targetLabelInput = document.getElementById(isEdit ? 'editAiTargetLabelInput' : 'aiTargetLabelInput');
+  const targetCountGroup = document.getElementById(isEdit ? 'editAiTargetCountGroup' : 'aiTargetCountGroup');
+  const minScoreGroup = document.getElementById(isEdit ? 'editAiMinScoreGroup' : 'aiMinScoreGroup');
+
+  const modeMeta = {
+    ai_count: {
+      helper: 'AI 會判斷照片中指定物件是否達到目標數量，例如 10 個寶特瓶。',
+      label: '目標物件標籤',
+      placeholder: '例如 plastic_bottle',
+      showCount: true,
+      showScore: false
+    },
+    ai_identify: {
+      helper: 'AI 會辨識照片是否為指定物件或植物，例如牽牛花。',
+      label: '指定辨識標籤',
+      placeholder: '例如 morning_glory',
+      showCount: false,
+      showScore: false
+    },
+    ai_score: {
+      helper: 'AI 會依任務主題為照片評分，例如團體照或風景照，達到門檻即可通關。',
+      label: '評分主題',
+      placeholder: '例如 group_photo',
+      showCount: false,
+      showScore: true
+    },
+    ai_rule_check: {
+      helper: 'AI 會檢查照片是否符合指定規則，可用提示詞描述必備元素。',
+      label: '規則主題',
+      placeholder: '例如 beach_cleanup',
+      showCount: false,
+      showScore: false
+    }
+  };
+
+  const update = () => {
+    const isAiMode = select.value.startsWith('ai_');
+    fields.style.display = isAiMode ? 'block' : 'none';
+    if (!isAiMode) return;
+
+    const meta = modeMeta[select.value] || modeMeta.ai_identify;
+    if (helper) helper.textContent = meta.helper;
+    if (targetLabelLabel) targetLabelLabel.textContent = meta.label;
+    if (targetLabelInput) targetLabelInput.placeholder = meta.placeholder;
+    if (targetCountGroup) targetCountGroup.style.display = meta.showCount ? 'block' : 'none';
+    if (minScoreGroup) minScoreGroup.style.display = meta.showScore ? 'block' : 'none';
+  };
+
+  select.addEventListener('change', update);
+  update();
+}
+
+setupValidationModeToggle('validationModeSelect', 'aiConfigFields');
+setupValidationModeToggle('editValidationModeSelect', 'editAiConfigFields');
+
+function buildAiTaskPayload(form) {
+  const validation_mode = form.validation_mode?.value || 'manual';
+  const isAiMode = validation_mode.startsWith('ai_');
+  const targetLabel = form.ai_target_label?.value.trim() || null;
+  const targetCount = form.ai_target_count?.value ? Number(form.ai_target_count.value) : null;
+  const minScore = form.ai_min_score?.value ? Number(form.ai_min_score.value) : null;
+  const minConfidence = form.ai_min_confidence?.value ? Number(form.ai_min_confidence.value) : null;
+  const systemPrompt = form.ai_system_prompt?.value.trim() || '';
+  const userPrompt = form.ai_user_prompt?.value.trim() || '';
+
+  const ai_config = isAiMode ? {
+    system_prompt: systemPrompt || undefined,
+    user_prompt: userPrompt || undefined,
+    target_label: targetLabel || undefined
+  } : null;
+
+  const pass_criteria = isAiMode ? {
+    ...(targetLabel ? { target_label: targetLabel } : {}),
+    ...(Number.isFinite(targetCount) ? { target_count: targetCount } : {}),
+    ...(Number.isFinite(minScore) ? { min_score: minScore } : {}),
+    ...(Number.isFinite(minConfidence) ? { min_confidence: minConfidence } : {}),
+    ...(validation_mode === 'ai_rule_check' ? { all_rules_must_pass: true } : {})
+  } : null;
+
+  return {
+    submission_type: isAiMode ? 'image' : 'answer',
+    validation_mode,
+    ai_config,
+    pass_criteria,
+    failure_message: form.failure_message?.value.trim() || null,
+    success_message: form.success_message?.value.trim() || null,
+    max_attempts: form.max_attempts?.value || null,
+    location_required: !!form.location_required?.checked
+  };
+}
+
+function validateAiTaskPayload(form, aiTaskPayload, messageElId) {
+  const messageEl = document.getElementById(messageElId);
+  const mode = aiTaskPayload.validation_mode;
+  if (!mode.startsWith('ai_')) return true;
+
+  if (!aiTaskPayload.ai_config?.user_prompt) {
+    messageEl.textContent = 'AI 任務請填寫 AI 使用者提示詞';
+    return false;
+  }
+  if (mode === 'ai_count') {
+    if (!aiTaskPayload.ai_config?.target_label) {
+      messageEl.textContent = 'AI 數量判斷任務請填寫目標物件標籤';
+      return false;
+    }
+    if (!aiTaskPayload.pass_criteria?.target_count) {
+      messageEl.textContent = 'AI 數量判斷任務請填寫目標數量';
+      return false;
+    }
+  }
+  if (mode === 'ai_identify' && !aiTaskPayload.ai_config?.target_label) {
+    messageEl.textContent = 'AI 指定物辨識任務請填寫指定辨識標籤';
+    return false;
+  }
+  if (mode === 'ai_score' && (aiTaskPayload.pass_criteria?.min_score === null || aiTaskPayload.pass_criteria?.min_score === undefined)) {
+    messageEl.textContent = 'AI 圖像評分任務請填寫最低通過分數';
+    return false;
+  }
+  return true;
+}
+
 // 確保先載入劇情、道具和模型，再載入任務
 Promise.all([loadQuestChains(), loadItems(), loadARModels()]).then(() => {
   loadTasks();
@@ -694,11 +823,9 @@ function loadTasks() {
         
         // 任務類型與標籤顯示
         let typeText = '問答題';
-        if (task.task_type === 'multiple_choice') { typeText = '選擇題'; }
+        if (task.validation_mode && task.validation_mode.startsWith('ai_')) { typeText = `AI 任務 (${task.validation_mode})`; }
+        else if (task.task_type === 'multiple_choice') { typeText = '選擇題'; }
         else if (task.task_type === 'photo') { typeText = '拍照任務'; }
-        else if (task.task_type === 'number') { typeText = '數字解謎'; }
-        else if (task.task_type === 'keyword') { typeText = '關鍵字解碼'; }
-        else if (task.task_type === 'location') { typeText = '地點打卡'; }
         else if (task.task_type === 'number') { typeText = '數字解謎'; }
         else if (task.task_type === 'keyword') { typeText = '關鍵字解碼'; }
         else if (task.task_type === 'location') { typeText = '地點打卡'; }
@@ -906,11 +1033,14 @@ function loadTasks() {
               
               // 設置任務類型與選項
               form.task_type.value = t.task_type || 'qa';
+              form.validation_mode.value = t.validation_mode || 'manual';
               const editOptionsDiv = document.getElementById('editMultipleChoiceOptions');
               const editStandardAnswerDiv = document.getElementById('editStandardAnswerBlock');
+              const editAiConfigFields = document.getElementById('editAiConfigFields');
               
               editOptionsDiv.style.display = (t.task_type === 'multiple_choice') ? 'block' : 'none';
               editStandardAnswerDiv.style.display = (t.task_type === 'number' || t.task_type === 'keyword') ? 'block' : 'none';
+              editAiConfigFields.style.display = (t.validation_mode || 'manual').startsWith('ai_') ? 'block' : 'none';
               
               if (t.task_type === 'multiple_choice' && t.options) {
                 const opts = typeof t.options === 'string' ? JSON.parse(t.options) : t.options;
@@ -941,6 +1071,21 @@ function loadTasks() {
                 form.optionD.value = '';
                 form.correct_answer_select.value = 'A';
                 form.correct_answer_text.value = '';
+              }
+
+              const aiConfig = t.ai_config || {};
+              const passCriteria = t.pass_criteria || {};
+              form.ai_target_label.value = aiConfig.target_label || passCriteria.target_label || '';
+              form.ai_target_count.value = passCriteria.target_count || '';
+              form.ai_min_score.value = passCriteria.min_score || '';
+              form.ai_min_confidence.value = passCriteria.min_confidence || '';
+              form.ai_system_prompt.value = aiConfig.system_prompt || '';
+              form.ai_user_prompt.value = aiConfig.user_prompt || '';
+              form.failure_message.value = t.failure_message || '';
+              form.success_message.value = t.success_message || '';
+              form.max_attempts.value = t.max_attempts || '';
+              if (form.location_required) {
+                form.location_required.checked = !!t.location_required;
               }
 
               document.getElementById('editTaskMsg').textContent = '';
@@ -1014,7 +1159,8 @@ document.getElementById('addTaskForm').addEventListener('submit', async function
   const ar_order_youtube = form.ar_order_youtube.value || null;
   
   // 處理任務類型與選項
-  const task_type = form.task_type.value;
+  const aiTaskPayload = buildAiTaskPayload(form);
+  const task_type = aiTaskPayload.validation_mode.startsWith('ai_') ? 'photo' : form.task_type.value;
   console.log('新增任務表單 - task_type:', task_type);
   let options = null;
   let correct_answer = null;
@@ -1045,6 +1191,9 @@ document.getElementById('addTaskForm').addEventListener('submit', async function
   }
 
   document.getElementById('addTaskMsg').textContent = '';
+  if (!validateAiTaskPayload(form, aiTaskPayload, 'addTaskMsg')) {
+    return;
+  }
   if (!photoFile) {
     document.getElementById('addTaskMsg').textContent = '請選擇任務照片';
     return;
@@ -1193,6 +1342,7 @@ document.getElementById('addTaskForm').addEventListener('submit', async function
         ar_model_id: finalArModelId,
         ar_order_model, ar_order_image, ar_order_youtube,
         task_type, options, correct_answer,
+        ...aiTaskPayload,
         type, quest_chain_id, quest_order, time_limit_start, time_limit_end, max_participants,
         is_final_step, required_item_id, reward_item_id,
         bgm_url: bgmUrl
@@ -1264,7 +1414,8 @@ document.getElementById('editTaskForm').addEventListener('submit', async functio
   const reward_item_id = document.getElementById('editRewardItemSelect').value || null;
   
   // 處理任務類型與選項
-  const task_type = form.task_type.value;
+  const aiTaskPayload = buildAiTaskPayload(form);
+  const task_type = aiTaskPayload.validation_mode.startsWith('ai_') ? 'photo' : form.task_type.value;
   console.log('正在提交編輯表單，任務類型:', task_type); // Debug Log
   let options = null;
   let correct_answer = null;
@@ -1300,6 +1451,9 @@ document.getElementById('editTaskForm').addEventListener('submit', async functio
   }
 
   document.getElementById('editTaskMsg').textContent = '更新中...';
+  if (!validateAiTaskPayload(form, aiTaskPayload, 'editTaskMsg')) {
+    return;
+  }
   
   // 背景音樂處理
   let bgmUrl = form.bgm_url?.value.trim() || null;
@@ -1416,6 +1570,7 @@ document.getElementById('editTaskForm').addEventListener('submit', async functio
         ar_model_id: arModelId,
         ar_order_model, ar_order_image, ar_order_youtube,
         task_type, options, correct_answer,
+        ...aiTaskPayload,
         type, quest_chain_id, quest_order, time_limit_start, time_limit_end, max_participants,
         is_final_step, required_item_id, reward_item_id,
         bgm_url: bgmUrl

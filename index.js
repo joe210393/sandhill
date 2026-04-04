@@ -168,6 +168,171 @@ if (!SKIP_DB) {
 }
 
 const ALLOWED_TASK_TYPES = ['qa', 'multiple_choice', 'photo', 'number', 'keyword', 'location'];
+const AI_VALIDATION_MODES = ['ai_count', 'ai_identify', 'ai_score', 'ai_rule_check'];
+
+function parseJsonField(value, fallback = null) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch (err) {
+    return fallback;
+  }
+}
+
+function normalizeNullableString(value) {
+  if (value === undefined || value === null) return null;
+  const normalized = String(value).trim();
+  return normalized === '' ? null : normalized;
+}
+
+function normalizeBoolean(value) {
+  return value === true || value === 'true' || value === 1 || value === '1';
+}
+
+function stringifyJsonField(value) {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    JSON.parse(trimmed);
+    return trimmed;
+  }
+  return JSON.stringify(value);
+}
+
+function sanitizeTaskRow(row) {
+  if (!row) return row;
+  return {
+    ...row,
+    options: parseJsonField(row.options, row.options),
+    ai_config: parseJsonField(row.ai_config, null),
+    pass_criteria: parseJsonField(row.pass_criteria, null),
+    location_required: Boolean(row.location_required)
+  };
+}
+
+async function getTableColumnSet(conn, tableName) {
+  const [rows] = await conn.execute(`SHOW COLUMNS FROM ${tableName}`);
+  return new Set(rows.map(row => row.Field));
+}
+
+async function insertDynamicRecord(conn, tableName, record) {
+  const columns = Object.keys(record);
+  const placeholders = columns.map(() => '?').join(', ');
+  const sql = `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${placeholders})`;
+  const values = columns.map(column => record[column]);
+  return conn.execute(sql, values);
+}
+
+async function updateDynamicRecord(conn, tableName, id, record) {
+  const columns = Object.keys(record);
+  const assignments = columns.map(column => `${column} = ?`).join(', ');
+  const sql = `UPDATE ${tableName} SET ${assignments} WHERE id = ?`;
+  const values = [...columns.map(column => record[column]), id];
+  return conn.execute(sql, values);
+}
+
+function prepareTaskValidationSettings(body = {}) {
+  const validationModeInput = normalizeNullableString(body.validation_mode) || 'manual';
+  const isAiMode = AI_VALIDATION_MODES.includes(validationModeInput);
+  const validationMode = isAiMode || ['manual', 'keyword'].includes(validationModeInput)
+    ? validationModeInput
+    : 'manual';
+  const submissionType = isAiMode ? 'image' : (body.submission_type === 'image' ? 'image' : 'answer');
+  const taskType = isAiMode
+    ? 'photo'
+    : (ALLOWED_TASK_TYPES.includes(body.task_type) ? body.task_type : 'qa');
+
+  const rawAiConfig = parseJsonField(body.ai_config, null) || {};
+  const rawPassCriteria = parseJsonField(body.pass_criteria, null) || {};
+
+  if (!isAiMode) {
+    return {
+      taskType,
+      submissionType,
+      validationMode,
+      aiConfigJson: null,
+      passCriteriaJson: null,
+      failureMessage: normalizeNullableString(body.failure_message),
+      successMessage: normalizeNullableString(body.success_message),
+      maxAttempts: body.max_attempts ? Number(body.max_attempts) : null,
+      locationRequired: normalizeBoolean(body.location_required),
+      isAiMode: false
+    };
+  }
+
+  const aiConfig = {
+    system_prompt: normalizeNullableString(rawAiConfig.system_prompt),
+    user_prompt: normalizeNullableString(rawAiConfig.user_prompt),
+    target_label: normalizeNullableString(rawAiConfig.target_label)
+  };
+
+  const passCriteria = {
+    target_label: normalizeNullableString(rawPassCriteria.target_label),
+    target_count: rawPassCriteria.target_count === undefined || rawPassCriteria.target_count === null || rawPassCriteria.target_count === ''
+      ? null
+      : Number(rawPassCriteria.target_count),
+    min_score: rawPassCriteria.min_score === undefined || rawPassCriteria.min_score === null || rawPassCriteria.min_score === ''
+      ? null
+      : Number(rawPassCriteria.min_score),
+    min_confidence: rawPassCriteria.min_confidence === undefined || rawPassCriteria.min_confidence === null || rawPassCriteria.min_confidence === ''
+      ? null
+      : Number(rawPassCriteria.min_confidence),
+    all_rules_must_pass: normalizeBoolean(rawPassCriteria.all_rules_must_pass)
+  };
+
+  if (!aiConfig.user_prompt) {
+    throw new Error('AI 任務必須設定 AI 使用者提示詞');
+  }
+
+  if (validationMode === 'ai_count') {
+    if (!aiConfig.target_label && !passCriteria.target_label) {
+      throw new Error('AI 數量判斷任務必須設定目標標籤');
+    }
+    if (!Number.isFinite(passCriteria.target_count) || passCriteria.target_count <= 0) {
+      throw new Error('AI 數量判斷任務必須設定有效的目標數量');
+    }
+  }
+
+  if (validationMode === 'ai_identify') {
+    if (!aiConfig.target_label && !passCriteria.target_label) {
+      throw new Error('AI 指定物辨識任務必須設定目標標籤');
+    }
+  }
+
+  if (validationMode === 'ai_score') {
+    if (!Number.isFinite(passCriteria.min_score)) {
+      throw new Error('AI 圖像評分任務必須設定最低通過分數');
+    }
+  }
+
+  if (validationMode === 'ai_rule_check' && !passCriteria.all_rules_must_pass) {
+    passCriteria.all_rules_must_pass = true;
+  }
+
+  if (passCriteria.min_confidence !== null && (!Number.isFinite(passCriteria.min_confidence) || passCriteria.min_confidence < 0 || passCriteria.min_confidence > 1)) {
+    throw new Error('最低信心值必須介於 0 到 1');
+  }
+
+  const maxAttempts = body.max_attempts ? Number(body.max_attempts) : null;
+  if (maxAttempts !== null && (!Number.isFinite(maxAttempts) || maxAttempts <= 0)) {
+    throw new Error('max_attempts 必須為正整數');
+  }
+
+  return {
+    taskType,
+    submissionType,
+    validationMode,
+    aiConfigJson: JSON.stringify(aiConfig),
+    passCriteriaJson: JSON.stringify(passCriteria),
+    failureMessage: normalizeNullableString(body.failure_message),
+    successMessage: normalizeNullableString(body.success_message),
+    maxAttempts,
+    locationRequired: normalizeBoolean(body.location_required),
+    isAiMode: true
+  };
+}
 
 // JWT 工具函數
 function generateToken(user) {
@@ -340,6 +505,15 @@ const uploadAudio = multer({
     files: 1
   },
   fileFilter: audioFileFilter
+});
+
+const uploadAiTaskImage = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+    files: 1
+  },
+  fileFilter: fileFilter
 });
 
 // 向後兼容：保留 upload 作為 uploadImage 的別名（用於舊代碼）
@@ -691,7 +865,7 @@ app.get('/api/tasks', async (req, res) => {
       LEFT JOIN ar_models am ON t.ar_model_id = am.id
       WHERE 1=1 ORDER BY t.id DESC
     `);
-    res.json({ success: true, tasks: rows });
+    res.json({ success: true, tasks: rows.map(sanitizeTaskRow) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: '伺服器錯誤' });
@@ -721,7 +895,7 @@ app.get('/api/tasks/admin', authenticateToken, requireRole('shop', 'admin'), asy
     }
 
     const [rows] = await conn.execute(query, params);
-    res.json({ success: true, tasks: rows, userRole });
+    res.json({ success: true, tasks: rows.map(sanitizeTaskRow), userRole });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: '伺服器錯誤' });
@@ -1098,6 +1272,8 @@ app.post('/api/tasks', staffOrAdminAuth, async (req, res) => {
   const { 
     name, lat, lng, radius, description, photoUrl, youtubeUrl, ar_image_url, points, 
     task_type, options, correct_answer,
+    submission_type, validation_mode, ai_config, pass_criteria, failure_message, success_message,
+    max_attempts, location_required,
     // 新增參數
     type, quest_chain_id, quest_order, time_limit_start, time_limit_end, max_participants,
     // 道具參數
@@ -1147,9 +1323,19 @@ app.post('/api/tasks', staffOrAdminAuth, async (req, res) => {
     const username = req.user?.username;
     const pts = Number(points) || 0;
     
-    // 檢查 task_type (問答/選擇/拍照)
-    const tType = ALLOWED_TASK_TYPES.includes(task_type) ? task_type : 'qa';
     const opts = options ? JSON.stringify(options) : null;
+    const validationSettings = prepareTaskValidationSettings({
+      task_type,
+      submission_type,
+      validation_mode,
+      ai_config,
+      pass_criteria,
+      failure_message,
+      success_message,
+      max_attempts,
+      location_required
+    });
+    const tType = validationSettings.taskType;
 
     // 檢查 type (single/timed/quest)
     const mainType = ['single', 'timed', 'quest'].includes(type) ? type : 'single';
@@ -1170,51 +1356,54 @@ app.post('/api/tasks', staffOrAdminAuth, async (req, res) => {
     const orderImage = ar_order_image ? Number(ar_order_image) : null;
     const orderYoutube = ar_order_youtube ? Number(ar_order_youtube) : null;
 
-    // 動態檢查 bgm_url 欄位是否存在
-    const [bgmColCheck] = await conn.execute("SHOW COLUMNS FROM tasks LIKE 'bgm_url'");
-    const hasBgmUrl = bgmColCheck.length > 0;
-    
     const bgmUrlValue = bgm_url || null;
-    
-    if (hasBgmUrl) {
-    await conn.execute(
-        `INSERT INTO tasks (
-          name, lat, lng, radius, description, photoUrl, iconUrl, youtubeUrl, ar_image_url, points, created_by, 
-          task_type, options, correct_answer,
-          type, quest_chain_id, quest_order, time_limit_start, time_limit_end, max_participants,
-          required_item_id, reward_item_id, is_final_step, ar_model_id,
-          ar_order_model, ar_order_image, ar_order_youtube, bgm_url
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          name, lat, lng, radius, description, photoUrl, '/images/flag-red.png', youtubeUrl || null, ar_image_url || null, pts, username, 
-          tType, opts, correct_answer || null,
-          mainType, qId, qOrder, tStart, tEnd, maxP,
-          reqItemId, rewItemId, isFinal, arModelId,
-          orderModel, orderImage, orderYoutube, bgmUrlValue
-        ]
-      );
-    } else {
-      await conn.execute(
-        `INSERT INTO tasks (
-          name, lat, lng, radius, description, photoUrl, iconUrl, youtubeUrl, ar_image_url, points, created_by, 
-          task_type, options, correct_answer,
-          type, quest_chain_id, quest_order, time_limit_start, time_limit_end, max_participants,
-          required_item_id, reward_item_id, is_final_step, ar_model_id,
-          ar_order_model, ar_order_image, ar_order_youtube
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          name, lat, lng, radius, description, photoUrl, '/images/flag-red.png', youtubeUrl || null, ar_image_url || null, pts, username, 
-          tType, opts, correct_answer || null,
-          mainType, qId, qOrder, tStart, tEnd, maxP,
-          reqItemId, rewItemId, isFinal, arModelId,
-          orderModel, orderImage, orderYoutube
-        ]
-      );
-    }
+    const taskColumns = await getTableColumnSet(conn, 'tasks');
+    const taskRecord = {
+      name,
+      lat,
+      lng,
+      radius,
+      description,
+      photoUrl,
+      iconUrl: '/images/flag-red.png',
+      youtubeUrl: youtubeUrl || null,
+      ar_image_url: ar_image_url || null,
+      points: pts,
+      created_by: username,
+      task_type: tType,
+      options: opts,
+      correct_answer: correct_answer || null,
+      submission_type: validationSettings.submissionType,
+      validation_mode: validationSettings.validationMode,
+      ai_config: validationSettings.aiConfigJson,
+      pass_criteria: validationSettings.passCriteriaJson,
+      failure_message: validationSettings.failureMessage,
+      success_message: validationSettings.successMessage,
+      max_attempts: validationSettings.maxAttempts,
+      location_required: validationSettings.locationRequired,
+      type: mainType,
+      quest_chain_id: qId,
+      quest_order: qOrder,
+      time_limit_start: tStart,
+      time_limit_end: tEnd,
+      max_participants: maxP,
+      required_item_id: reqItemId,
+      reward_item_id: rewItemId,
+      is_final_step: isFinal,
+      ar_model_id: arModelId,
+      ar_order_model: orderModel,
+      ar_order_image: orderImage,
+      ar_order_youtube: orderYoutube,
+      bgm_url: bgmUrlValue
+    };
+    const filteredRecord = Object.fromEntries(
+      Object.entries(taskRecord).filter(([column]) => taskColumns.has(column))
+    );
+    await insertDynamicRecord(conn, 'tasks', filteredRecord);
     res.json({ success: true, message: '新增成功' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
+    res.status(err.message?.includes('AI ') || err.message?.includes('max_attempts') || err.message?.includes('信心值') ? 400 : 500).json({ success: false, message: err.message || '伺服器錯誤' });
   } finally {
     if (conn) conn.release();
   }
@@ -1505,7 +1694,7 @@ app.get('/api/tasks/:id', async (req, res) => {
     `, [id]);
     
     if (rows.length === 0) return res.status(404).json({ success: false, message: '找不到任務' });
-    res.json({ success: true, task: rows[0] });
+    res.json({ success: true, task: sanitizeTaskRow(rows[0]) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: '伺服器錯誤' });
@@ -1520,6 +1709,8 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
   const { 
     name, lat, lng, radius, description, photoUrl, youtubeUrl, ar_image_url, points, 
     task_type, options, correct_answer,
+    submission_type, validation_mode, ai_config, pass_criteria, failure_message, success_message,
+    max_attempts, location_required,
     type, quest_chain_id, quest_order, time_limit_start, time_limit_end, max_participants,
     // 道具參數
     required_item_id, reward_item_id,
@@ -1569,8 +1760,19 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
     }
 
     const pts = Number(points) || 0;
-    const tType = ALLOWED_TASK_TYPES.includes(task_type) ? task_type : 'qa';
     const opts = options ? JSON.stringify(options) : null;
+    const validationSettings = prepareTaskValidationSettings({
+      task_type,
+      submission_type,
+      validation_mode,
+      ai_config,
+      pass_criteria,
+      failure_message,
+      success_message,
+      max_attempts,
+      location_required
+    });
+    const tType = validationSettings.taskType;
 
     // 檢查 type (single/timed/quest)
     const mainType = ['single', 'timed', 'quest'].includes(type) ? type : 'single';
@@ -1591,51 +1793,51 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
     const orderYoutube = ar_order_youtube ? Number(ar_order_youtube) : null;
     const bgmUrlValue = bgm_url || null;
 
-    // 動態檢查 bgm_url 欄位是否存在
-    const [bgmColCheck] = await conn.execute("SHOW COLUMNS FROM tasks LIKE 'bgm_url'");
-    const hasBgmUrl = bgmColCheck.length > 0;
-
-    if (hasBgmUrl) {
-    await conn.execute(
-        `UPDATE tasks SET 
-          name=?, lat=?, lng=?, radius=?, description=?, photoUrl=?, youtubeUrl=?, ar_image_url=?, points=?, 
-          task_type=?, options=?, correct_answer=?,
-          type=?, quest_chain_id=?, quest_order=?, time_limit_start=?, time_limit_end=?, max_participants=?,
-          required_item_id=?, reward_item_id=?, is_final_step=?, ar_model_id=?,
-          ar_order_model=?, ar_order_image=?, ar_order_youtube=?, bgm_url=?
-         WHERE id=?`,
-        [
-          name, lat, lng, radius, description, photoUrl, youtubeUrl || null, ar_image_url || null, pts, 
-          tType, opts, correct_answer || null, 
-          mainType, qId, qOrder, tStart, tEnd, maxP,
-          reqItemId, rewItemId, isFinal, arModelId,
-          orderModel, orderImage, orderYoutube, bgmUrlValue,
-          id
-        ]
-      );
-    } else {
-      await conn.execute(
-        `UPDATE tasks SET 
-          name=?, lat=?, lng=?, radius=?, description=?, photoUrl=?, youtubeUrl=?, ar_image_url=?, points=?, 
-          task_type=?, options=?, correct_answer=?,
-          type=?, quest_chain_id=?, quest_order=?, time_limit_start=?, time_limit_end=?, max_participants=?,
-          required_item_id=?, reward_item_id=?, is_final_step=?, ar_model_id=?,
-          ar_order_model=?, ar_order_image=?, ar_order_youtube=?
-         WHERE id=?`,
-        [
-          name, lat, lng, radius, description, photoUrl, youtubeUrl || null, ar_image_url || null, pts, 
-          tType, opts, correct_answer || null, 
-          mainType, qId, qOrder, tStart, tEnd, maxP,
-          reqItemId, rewItemId, isFinal, arModelId,
-          orderModel, orderImage, orderYoutube,
-          id
-        ]
-      );
-    }
+    const taskColumns = await getTableColumnSet(conn, 'tasks');
+    const taskRecord = {
+      name,
+      lat,
+      lng,
+      radius,
+      description,
+      photoUrl,
+      youtubeUrl: youtubeUrl || null,
+      ar_image_url: ar_image_url || null,
+      points: pts,
+      task_type: tType,
+      options: opts,
+      correct_answer: correct_answer || null,
+      submission_type: validationSettings.submissionType,
+      validation_mode: validationSettings.validationMode,
+      ai_config: validationSettings.aiConfigJson,
+      pass_criteria: validationSettings.passCriteriaJson,
+      failure_message: validationSettings.failureMessage,
+      success_message: validationSettings.successMessage,
+      max_attempts: validationSettings.maxAttempts,
+      location_required: validationSettings.locationRequired,
+      type: mainType,
+      quest_chain_id: qId,
+      quest_order: qOrder,
+      time_limit_start: tStart,
+      time_limit_end: tEnd,
+      max_participants: maxP,
+      required_item_id: reqItemId,
+      reward_item_id: rewItemId,
+      is_final_step: isFinal,
+      ar_model_id: arModelId,
+      ar_order_model: orderModel,
+      ar_order_image: orderImage,
+      ar_order_youtube: orderYoutube,
+      bgm_url: bgmUrlValue
+    };
+    const filteredRecord = Object.fromEntries(
+      Object.entries(taskRecord).filter(([column]) => taskColumns.has(column))
+    );
+    await updateDynamicRecord(conn, 'tasks', id, filteredRecord);
     res.json({ success: true, message: '更新成功' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
+    res.status(err.message?.includes('AI ') || err.message?.includes('max_attempts') || err.message?.includes('信心值') ? 400 : 500).json({ success: false, message: err.message || '伺服器錯誤' });
   } finally {
     if (conn) conn.release();
   }
@@ -2068,101 +2270,10 @@ app.patch('/api/user-tasks/:id/answer', authenticateToken, async (req, res) => {
     if (isCompleted) {
        await conn.beginTransaction();
        try {
-         await conn.execute('UPDATE user_tasks SET answer = ?, status = "完成", finished_at = NOW() WHERE id = ?', [answer, id]);
-
-         // 記錄積分交易
-         if (userTask.points > 0) {
-            await conn.execute(
-              'INSERT INTO point_transactions (user_id, type, points, description, reference_type, reference_id) VALUES (?, ?, ?, ?, ?, ?)',
-              [userTask.user_id, 'earned', userTask.points, `完成任務: ${userTask.task_name}`, 'task_completion', userTask.task_id]
-            );
-         }
-
-         // 發放獎勵道具
-         const [taskDetails] = await conn.execute('SELECT reward_item_id, i.name as item_name FROM tasks t LEFT JOIN items i ON t.reward_item_id = i.id WHERE t.id = ?', [userTask.task_id]);
-         if (taskDetails.length > 0 && taskDetails[0].reward_item_id) {
-           const rewardItemId = taskDetails[0].reward_item_id;
-           earnedItemName = taskDetails[0].item_name;
-           const [inventory] = await conn.execute(
-             'SELECT id, quantity FROM user_inventory WHERE user_id = ? AND item_id = ?',
-             [userTask.user_id, rewardItemId]
-           );
-           if (inventory.length > 0) {
-             await conn.execute('UPDATE user_inventory SET quantity = quantity + 1 WHERE id = ?', [inventory[0].id]);
-           } else {
-             await conn.execute('INSERT INTO user_inventory (user_id, item_id, quantity) VALUES (?, ?, 1)', [userTask.user_id, rewardItemId]);
-           }
-         }
-
-         // 更新劇情任務進度
-         if (userTask.quest_chain_id && userTask.quest_order) {
-           const [userQuests] = await conn.execute(
-             'SELECT id, current_step_order FROM user_quests WHERE user_id = ? AND quest_chain_id = ?',
-             [userTask.user_id, userTask.quest_chain_id]
-           );
-
-           if (userQuests.length > 0) {
-             // 已經有進度，且完成的是當前步驟 -> 進度+1
-             // 這裡假設 quest_order 是循序漸進的 (1, 2, 3...)
-             if (userQuests[0].current_step_order === userTask.quest_order) {
-               await conn.execute(
-                 'UPDATE user_quests SET current_step_order = current_step_order + 1 WHERE id = ?',
-                 [userQuests[0].id]
-               );
-             }
-           } else {
-             // 還沒有進度記錄（理論上如果是第一關應該要有，但如果是手動亂接的可能沒有）
-             // 插入下一關 (當前關卡 + 1)
-             await conn.execute(
-               'INSERT INTO user_quests (user_id, quest_chain_id, current_step_order) VALUES (?, ?, ?)',
-               [userTask.user_id, userTask.quest_chain_id, userTask.quest_order + 1]
-             );
-           }
-           
-           // 檢查是否完成整個劇情線
-           // 查詢該劇情線的最大關卡數
-           const [maxOrder] = await conn.execute(
-             'SELECT MAX(quest_order) as max_order FROM tasks WHERE quest_chain_id = ?',
-             [userTask.quest_chain_id]
-           );
-           
-           if (maxOrder.length > 0 && maxOrder[0].max_order === userTask.quest_order) {
-             // 完成了最後一關！
-             questChainCompleted = true;
-             
-             // 獲取劇情線的獎勵信息
-             const [questChain] = await conn.execute(
-               'SELECT chain_points, badge_name, badge_image FROM quest_chains WHERE id = ?',
-               [userTask.quest_chain_id]
-             );
-             
-             if (questChain.length > 0) {
-               questChainReward = questChain[0];
-               
-               // 發放額外積分
-               if (questChainReward.chain_points > 0) {
-                 // 記錄積分交易 (系統會自動計算總積分，無需更新 user_points 表)
-                 await conn.execute(
-                   'INSERT INTO point_transactions (user_id, type, points, description, reference_type, reference_id) VALUES (?, ?, ?, ?, ?, ?)',
-                   [userTask.user_id, 'earned', questChainReward.chain_points, `完成劇情線：${questChainReward.badge_name || '未命名劇情'}`, 'quest_chain_completion', userTask.quest_chain_id]
-                 );
-               }
-               
-               // 標記劇情線為完成（稱號信息已經在 quest_chains 表中，不需要額外存儲）
-               await conn.execute(
-                 'UPDATE user_quests SET is_completed = TRUE, completed_at = NOW() WHERE user_id = ? AND quest_chain_id = ?',
-                 [userTask.user_id, userTask.quest_chain_id]
-               );
-             }
-           }
-         }
+         await conn.execute('UPDATE user_tasks SET answer = ? WHERE id = ?', [answer, id]);
+         ({ message, earnedItemName, questChainCompleted, questChainReward } = await completeUserTask(conn, userTask));
 
          await conn.commit();
-         
-         // 更新回傳訊息
-         if (earnedItemName) {
-            message += ` 並獲得道具：${earnedItemName}！`;
-         }
        } catch (err) {
          await conn.rollback();
          throw err;
@@ -2214,6 +2325,189 @@ app.patch('/api/user-tasks/:id/answer', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.get('/api/user-tasks/:id/attempts', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  if (!req.user || !req.user.username) {
+    return res.status(401).json({ success: false, message: '未認證' });
+  }
+
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const user = await resolveUserFromRequest(conn, req.user.username);
+    if (!user) return res.status(401).json({ success: false, message: '用戶不存在' });
+
+    const [userTasks] = await conn.execute('SELECT id, user_id FROM user_tasks WHERE id = ?', [id]);
+    if (userTasks.length === 0) {
+      return res.status(404).json({ success: false, message: '找不到任務紀錄' });
+    }
+    if (user.role !== 'admin' && userTasks[0].user_id !== user.id) {
+      return res.status(403).json({ success: false, message: '無權限查看此任務挑戰紀錄' });
+    }
+
+    const [attempts] = await conn.execute(
+      `SELECT id, attempt_no, submission_type, submission_url, submitted_answer, ai_result, passed,
+              score, detected_count, detected_label, failure_reason, retry_advice, created_at
+       FROM task_attempts
+       WHERE user_task_id = ?
+       ORDER BY attempt_no DESC`,
+      [id]
+    );
+    res.json({
+      success: true,
+      attempts: attempts.map(attempt => ({
+        ...attempt,
+        ai_result: parseJsonField(attempt.ai_result, null),
+        passed: Boolean(attempt.passed)
+      }))
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.post('/api/ai-tasks/:taskId/submit', authenticateToken, uploadAiTaskImage.single('image'), async (req, res) => {
+  const { taskId } = req.params;
+  if (!req.user || !req.user.username) {
+    return res.status(401).json({ success: false, message: '未認證' });
+  }
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: '請先上傳圖片' });
+  }
+
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const user = await resolveUserFromRequest(conn, req.user.username);
+    if (!user) return res.status(401).json({ success: false, message: '用戶不存在' });
+    if (user.role !== 'user') {
+      return res.status(403).json({ success: false, message: '僅一般用戶可提交 AI 任務' });
+    }
+
+    const [tasks] = await conn.execute(
+      `SELECT t.*, qc.name AS quest_chain_name
+       FROM tasks t
+       LEFT JOIN quest_chains qc ON t.quest_chain_id = qc.id
+       WHERE t.id = ?`,
+      [taskId]
+    );
+    if (tasks.length === 0) {
+      return res.status(404).json({ success: false, message: '找不到任務' });
+    }
+
+    const task = sanitizeTaskRow(tasks[0]);
+    if (!AI_VALIDATION_MODES.includes(task.validation_mode)) {
+      return res.status(400).json({ success: false, message: '此任務不是 AI 驗證任務' });
+    }
+    if (task.submission_type !== 'image') {
+      return res.status(400).json({ success: false, message: '此任務目前不支援圖片提交' });
+    }
+
+    const userTask = await getOrCreateUserTask(conn, user.id, task.id);
+    if (userTask.status === '完成') {
+      return res.json({ success: true, passed: true, alreadyCompleted: true, message: '此任務已完成' });
+    }
+
+    const [attemptCountRows] = await conn.execute(
+      'SELECT COUNT(*) AS count FROM task_attempts WHERE user_task_id = ?',
+      [userTask.id]
+    );
+    const attemptCount = Number(attemptCountRows[0]?.count || 0);
+    if (task.max_attempts && attemptCount >= Number(task.max_attempts)) {
+      return res.status(400).json({ success: false, message: '已達到此任務的最大挑戰次數' });
+    }
+
+    const submissionUrl = saveBufferAsImage(req.file);
+    const evaluation = await evaluateAiTaskImage(task, req.file, {
+      latitude: req.body.latitude,
+      longitude: req.body.longitude
+    });
+
+    const attemptNo = attemptCount + 1;
+    const result = evaluation.parsed;
+    const failureReason = result.passed ? null : (result.reason || task.failure_message || '尚未符合任務條件');
+    const retryAdvice = result.passed
+      ? null
+      : (result.retry_advice || task.failure_message || '請依提示調整後再試一次');
+
+    await conn.beginTransaction();
+    let completion = null;
+    try {
+      await conn.execute(
+        `INSERT INTO task_attempts
+          (user_id, task_id, user_task_id, attempt_no, submission_type, submission_url, ai_result, ai_raw_response, passed,
+           score, detected_count, detected_label, failure_reason, retry_advice)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          user.id,
+          task.id,
+          userTask.id,
+          attemptNo,
+          'image',
+          submissionUrl,
+          JSON.stringify(result),
+          evaluation.rawContent,
+          result.passed,
+          result.score,
+          result.count_detected,
+          result.label,
+          failureReason,
+          retryAdvice
+        ]
+      );
+
+      if (result.passed) {
+        await conn.execute('UPDATE user_tasks SET answer = ? WHERE id = ?', [submissionUrl, userTask.id]);
+        completion = await completeUserTask(conn, {
+          ...userTask,
+          task_name: task.name,
+          task_id: task.id,
+          user_id: user.id,
+          points: task.points,
+          quest_chain_id: task.quest_chain_id,
+          quest_order: task.quest_order
+        });
+      } else {
+        await conn.execute('UPDATE user_tasks SET answer = ? WHERE id = ?', [submissionUrl, userTask.id]);
+      }
+
+      await conn.commit();
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    }
+
+    res.json({
+      success: true,
+      passed: result.passed,
+      message: result.passed
+        ? (task.success_message || completion?.message || 'AI 驗證通過，任務完成！')
+        : failureReason,
+      retry_advice: retryAdvice,
+      score: result.score,
+      count_detected: result.count_detected,
+      label: result.label,
+      confidence: result.confidence,
+      attempt_no: attemptNo,
+      remaining_attempts: task.max_attempts ? Math.max(Number(task.max_attempts) - attemptNo, 0) : null,
+      user_task_id: userTask.id,
+      submission_url: submissionUrl,
+      isCompleted: result.passed,
+      earnedItemName: completion?.earnedItemName || null,
+      questChainCompleted: completion?.questChainCompleted || false,
+      questChainReward: completion?.questChainReward || null
+    });
+  } catch (err) {
+    console.error('AI 任務提交失敗:', err);
+    res.status(500).json({ success: false, message: err.message || 'AI 任務提交失敗' });
   } finally {
     if (conn) conn.release();
   }
@@ -3176,6 +3470,261 @@ function getAiConfig() {
   }
 
   return { AI_API_URL: apiUrl, AI_MODEL: model, AI_API_KEY: apiKey };
+}
+
+function ensureUploadDir() {
+  if (!fs.existsSync(UPLOAD_DIR)) {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  }
+}
+
+function saveBufferAsImage(file) {
+  ensureUploadDir();
+  const extension = path.extname(file.originalname || '').toLowerCase() || '.jpg';
+  const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`;
+  fs.writeFileSync(path.join(UPLOAD_DIR, filename), file.buffer);
+  return `/images/${filename}`;
+}
+
+function extractJsonObject(text) {
+  if (!text || typeof text !== 'string') {
+    throw new Error('AI 未回傳可解析的文字內容');
+  }
+
+  const fencedMatch = text.match(/```json\s*([\s\S]*?)```/i) || text.match(/```\s*([\s\S]*?)```/i);
+  const candidate = fencedMatch ? fencedMatch[1].trim() : text.trim();
+  const firstBrace = candidate.indexOf('{');
+  const lastBrace = candidate.lastIndexOf('}');
+  const jsonText = firstBrace >= 0 && lastBrace > firstBrace
+    ? candidate.slice(firstBrace, lastBrace + 1)
+    : candidate;
+  return JSON.parse(jsonText);
+}
+
+function normalizeLabel(value) {
+  return normalizeNullableString(value)?.toLowerCase() || null;
+}
+
+function buildAiTaskPrompt(task) {
+  const aiConfig = parseJsonField(task.ai_config, {}) || {};
+  const passCriteria = parseJsonField(task.pass_criteria, {}) || {};
+  const systemPrompt = aiConfig.system_prompt || '你是活動任務的 AI 審核員。請根據任務規則檢查照片，並只回傳 JSON。';
+  const taskGoal = aiConfig.user_prompt || task.description || task.name;
+  const criteriaText = JSON.stringify(passCriteria, null, 2);
+  const configText = JSON.stringify(aiConfig, null, 2);
+
+  return {
+    systemPrompt,
+    userPrompt: [
+      `任務名稱：${task.name}`,
+      `驗證模式：${task.validation_mode}`,
+      `任務說明：${taskGoal}`,
+      `AI 設定：${configText}`,
+      `通關條件：${criteriaText}`,
+      '請分析這張圖片是否符合任務要求，並只輸出 JSON。',
+      'JSON 欄位必須包含：passed, confidence, label, count_detected, score, reason, retry_advice。',
+      '若某欄位不適用，請填 null。',
+      '不要輸出 Markdown，不要輸出額外說明。'
+    ].join('\n')
+  };
+}
+
+function normalizeAiTaskResult(task, aiResult) {
+  const passCriteria = parseJsonField(task.pass_criteria, {}) || {};
+  const confidence = Number(aiResult.confidence);
+  const hasConfidence = !Number.isNaN(confidence);
+  const detectedCount = aiResult.count_detected === null || aiResult.count_detected === undefined
+    ? null
+    : Number(aiResult.count_detected);
+  const score = aiResult.score === null || aiResult.score === undefined
+    ? null
+    : Number(aiResult.score);
+  const label = normalizeNullableString(aiResult.label);
+  let passed = normalizeBoolean(aiResult.passed);
+
+  if (task.validation_mode === 'ai_count' && Number.isFinite(detectedCount) && Number.isFinite(Number(passCriteria.target_count))) {
+    passed = detectedCount >= Number(passCriteria.target_count);
+  }
+
+  if (task.validation_mode === 'ai_identify' && passCriteria.target_label) {
+    const targetLabel = normalizeLabel(passCriteria.target_label);
+    if (targetLabel) passed = normalizeLabel(label) === targetLabel;
+  }
+
+  if (task.validation_mode === 'ai_score' && Number.isFinite(score) && Number.isFinite(Number(passCriteria.min_score))) {
+    passed = score >= Number(passCriteria.min_score);
+  }
+
+  if (task.validation_mode === 'ai_rule_check' && Array.isArray(aiResult.rule_results) && passCriteria.all_rules_must_pass) {
+    passed = aiResult.rule_results.every(rule => normalizeBoolean(rule.passed));
+  }
+
+  if (hasConfidence && Number.isFinite(Number(passCriteria.min_confidence))) {
+    passed = passed && confidence >= Number(passCriteria.min_confidence);
+  }
+
+  return {
+    passed,
+    confidence: hasConfidence ? confidence : null,
+    label,
+    count_detected: Number.isFinite(detectedCount) ? detectedCount : null,
+    score: Number.isFinite(score) ? score : null,
+    reason: normalizeNullableString(aiResult.reason) || (passed ? 'AI 判定通過' : 'AI 判定未通過'),
+    retry_advice: normalizeNullableString(aiResult.retry_advice) || null,
+    rule_results: Array.isArray(aiResult.rule_results) ? aiResult.rule_results : null
+  };
+}
+
+async function evaluateAiTaskImage(task, file, extraContext = {}) {
+  const { AI_API_URL, AI_MODEL, AI_API_KEY } = getAiConfig();
+  const dataUrl = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+  const prompt = buildAiTaskPrompt(task);
+  const locationText = extraContext.latitude && extraContext.longitude
+    ? `\n拍攝地點：緯度 ${extraContext.latitude}，經度 ${extraContext.longitude}`
+    : '';
+
+  const response = await fetchAIWithRetry(
+    `${AI_API_URL}/chat/completions`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${AI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        messages: [
+          { role: 'system', content: prompt.systemPrompt },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: `${prompt.userPrompt}${locationText}` },
+              { type: 'image_url', image_url: { url: dataUrl } }
+            ]
+          }
+        ],
+        max_tokens: 800,
+        temperature: 0
+      })
+    },
+    { timeoutMs: 180000, maxRetries: 2 }
+  );
+
+  const aiData = await response.json();
+  const rawContent = aiData.choices?.[0]?.message?.content;
+  const textContent = Array.isArray(rawContent)
+    ? rawContent.map(item => item.text || '').join('\n')
+    : rawContent;
+  const parsed = extractJsonObject(textContent);
+  return {
+    rawContent: textContent,
+    parsed: normalizeAiTaskResult(task, parsed)
+  };
+}
+
+async function resolveUserFromRequest(conn, username) {
+  const [users] = await conn.execute('SELECT id, role FROM users WHERE username = ?', [username]);
+  return users[0] || null;
+}
+
+async function getOrCreateUserTask(conn, userId, taskId) {
+  const [existing] = await conn.execute(
+    'SELECT * FROM user_tasks WHERE user_id = ? AND task_id = ? ORDER BY id DESC LIMIT 1',
+    [userId, taskId]
+  );
+
+  if (existing.length > 0) return existing[0];
+
+  await conn.execute('INSERT INTO user_tasks (user_id, task_id, status) VALUES (?, ?, "進行中")', [userId, taskId]);
+  const [created] = await conn.execute(
+    'SELECT * FROM user_tasks WHERE user_id = ? AND task_id = ? ORDER BY id DESC LIMIT 1',
+    [userId, taskId]
+  );
+  return created[0];
+}
+
+async function completeUserTask(conn, userTask) {
+  let message = '任務完成！';
+  let earnedItemName = null;
+  let questChainCompleted = false;
+  let questChainReward = null;
+
+  await conn.execute('UPDATE user_tasks SET status = "完成", finished_at = NOW() WHERE id = ?', [userTask.id]);
+
+  if (userTask.points > 0) {
+    await conn.execute(
+      'INSERT INTO point_transactions (user_id, type, points, description, reference_type, reference_id) VALUES (?, ?, ?, ?, ?, ?)',
+      [userTask.user_id, 'earned', userTask.points, `完成任務: ${userTask.task_name}`, 'task_completion', userTask.task_id]
+    );
+  }
+
+  const [taskDetails] = await conn.execute(
+    'SELECT reward_item_id, i.name as item_name FROM tasks t LEFT JOIN items i ON t.reward_item_id = i.id WHERE t.id = ?',
+    [userTask.task_id]
+  );
+  if (taskDetails.length > 0 && taskDetails[0].reward_item_id) {
+    const rewardItemId = taskDetails[0].reward_item_id;
+    earnedItemName = taskDetails[0].item_name;
+    const [inventory] = await conn.execute(
+      'SELECT id FROM user_inventory WHERE user_id = ? AND item_id = ?',
+      [userTask.user_id, rewardItemId]
+    );
+    if (inventory.length > 0) {
+      await conn.execute('UPDATE user_inventory SET quantity = quantity + 1 WHERE id = ?', [inventory[0].id]);
+    } else {
+      await conn.execute('INSERT INTO user_inventory (user_id, item_id, quantity) VALUES (?, ?, 1)', [userTask.user_id, rewardItemId]);
+    }
+  }
+
+  if (userTask.quest_chain_id && userTask.quest_order) {
+    const [userQuests] = await conn.execute(
+      'SELECT id, current_step_order FROM user_quests WHERE user_id = ? AND quest_chain_id = ?',
+      [userTask.user_id, userTask.quest_chain_id]
+    );
+
+    if (userQuests.length > 0) {
+      if (userQuests[0].current_step_order === userTask.quest_order) {
+        await conn.execute('UPDATE user_quests SET current_step_order = current_step_order + 1 WHERE id = ?', [userQuests[0].id]);
+      }
+    } else {
+      await conn.execute(
+        'INSERT INTO user_quests (user_id, quest_chain_id, current_step_order) VALUES (?, ?, ?)',
+        [userTask.user_id, userTask.quest_chain_id, userTask.quest_order + 1]
+      );
+    }
+
+    const [maxOrder] = await conn.execute(
+      'SELECT MAX(quest_order) as max_order FROM tasks WHERE quest_chain_id = ?',
+      [userTask.quest_chain_id]
+    );
+
+    if (maxOrder.length > 0 && maxOrder[0].max_order === userTask.quest_order) {
+      questChainCompleted = true;
+      const [questChain] = await conn.execute(
+        'SELECT chain_points, badge_name, badge_image FROM quest_chains WHERE id = ?',
+        [userTask.quest_chain_id]
+      );
+      if (questChain.length > 0) {
+        questChainReward = questChain[0];
+        if (questChainReward.chain_points > 0) {
+          await conn.execute(
+            'INSERT INTO point_transactions (user_id, type, points, description, reference_type, reference_id) VALUES (?, ?, ?, ?, ?, ?)',
+            [userTask.user_id, 'earned', questChainReward.chain_points, `完成劇情線：${questChainReward.badge_name || '未命名劇情'}`, 'quest_chain_completion', userTask.quest_chain_id]
+          );
+        }
+        await conn.execute(
+          'UPDATE user_quests SET is_completed = TRUE, completed_at = NOW() WHERE user_id = ? AND quest_chain_id = ?',
+          [userTask.user_id, userTask.quest_chain_id]
+        );
+      }
+    }
+  }
+
+  if (earnedItemName) {
+    message += ` 並獲得道具：${earnedItemName}！`;
+  }
+
+  return { message, earnedItemName, questChainCompleted, questChainReward };
 }
 
 // AI 視覺辨識 API
