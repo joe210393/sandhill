@@ -16,5 +16,5 @@ COPY . .
 # 暴露端口
 EXPOSE 3001
 
-# 啟動應用
-CMD ["node", "index.js"]
+# 啟動應用與 migrations
+CMD ["npm", "start"]

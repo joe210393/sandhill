@@ -3,34 +3,95 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GPS 任務系統 - 地方開箱任務遊戲</title>
-  
-  <!-- PWA 配置 -->
+  <title>海底大作戰 | AI 冒險任務平台</title>
+
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#2196f3">
+  <meta name="theme-color" content="#0c6b86">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="GPS 任務">
+  <meta name="apple-mobile-web-app-title" content="海底大作戰">
   <link rel="apple-touch-icon" href="/images/mascot.png">
-  
-  <link rel="stylesheet" href="/css/style.css" />
   <link rel="icon" type="image/png" href="/images/mascot.png" />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet">
   <style>
-    /* PWA iOS 安裝引導樣式 (保留功能) */
+    :root {
+      --bg-deep: #063d52;
+      --bg-sea: #0c6b86;
+      --bg-mint: #8fd7d2;
+      --bg-sand: #f5e6bf;
+      --accent-coral: #ff7a59;
+      --accent-gold: #ffd166;
+      --ink: #103340;
+      --card: rgba(255, 255, 255, 0.88);
+      --card-border: rgba(255, 255, 255, 0.34);
+      --shadow: 0 24px 60px rgba(4, 44, 60, 0.18);
+    }
+
+    body {
+      background:
+        radial-gradient(circle at top left, rgba(255, 209, 102, 0.16), transparent 26%),
+        radial-gradient(circle at top right, rgba(143, 215, 210, 0.3), transparent 24%),
+        linear-gradient(180deg, #e5fbff 0%, #d8f3f2 18%, #f3f9f1 55%, #fef7ea 100%);
+      color: var(--ink);
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: rgba(6, 61, 82, 0.78);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 18px 40px rgba(3, 26, 35, 0.16);
+    }
+
+    .header-content {
+      gap: 16px;
+    }
+
+    #pageTitle {
+      font-family: "Noto Serif TC", serif;
+      letter-spacing: 0.05em;
+    }
+
+    .main-nav a {
+      border-radius: 999px;
+      padding: 8px 14px;
+      margin-left: 10px;
+    }
+
+    .main-nav a.current-page,
+    .main-nav a:hover {
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    .main-nav button {
+      background: linear-gradient(135deg, var(--accent-coral), #ff946e);
+      border-radius: 999px;
+      padding: 8px 14px;
+    }
+
+    main {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 24px 20px 88px;
+      min-height: calc(100vh - 140px);
+    }
+
     #pwa-install-prompt {
       display: none;
       position: fixed;
       bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
-      background: white;
-      padding: 20px;
-      border-radius: 16px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      width: min(92vw, 420px);
+      padding: 18px 20px;
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(12, 107, 134, 0.12);
+      border-radius: 22px;
+      box-shadow: 0 20px 55px rgba(6, 61, 82, 0.25);
       z-index: 10000;
-      width: 90%;
-      max-width: 400px;
       text-align: center;
       animation: slideUp 0.3s ease-out;
     }
@@ -40,184 +101,884 @@
       to { opacity: 1; transform: translateX(-50%) translateY(0); }
     }
 
-    #pwa-install-prompt p { margin: 0 0 15px 0; color: #333; font-size: 14px; line-height: 1.5; }
-    #pwa-install-prompt img { vertical-align: middle; margin: 0 4px; }
+    #pwa-install-prompt p {
+      margin: 0 0 14px;
+      color: var(--ink);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
     #pwa-install-prompt button {
-      background: #2196f3; color: white; border: none; padding: 10px 20px;
-      border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+      background: linear-gradient(135deg, var(--bg-sea), #1697aa);
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(340px, 0.9fr);
+      gap: 28px;
+      padding: 38px;
+      background:
+        linear-gradient(140deg, rgba(6, 61, 82, 0.95), rgba(15, 113, 127, 0.88) 56%, rgba(255, 209, 102, 0.2)),
+        radial-gradient(circle at right top, rgba(255, 255, 255, 0.18), transparent 30%);
+      border-radius: 34px;
+      box-shadow: var(--shadow);
+      color: white;
+      isolation: isolate;
+    }
+
+    .hero::before,
+    .hero::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      opacity: 0.35;
+      z-index: -1;
+    }
+
+    .hero::before {
+      width: 320px;
+      height: 320px;
+      background: radial-gradient(circle, rgba(255, 209, 102, 0.9), transparent 70%);
+      top: -110px;
+      right: -60px;
+    }
+
+    .hero::after {
+      width: 360px;
+      height: 360px;
+      background: radial-gradient(circle, rgba(143, 215, 210, 0.7), transparent 72%);
+      left: -120px;
+      bottom: -180px;
+    }
+
+    .hero-copy {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 18px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      padding: 8px 14px;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 999px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    .hero-title {
+      margin: 0;
+      font-family: "Noto Serif TC", serif;
+      font-size: clamp(2.5rem, 5vw, 4.8rem);
+      line-height: 1.06;
+      letter-spacing: 0.03em;
+    }
+
+    .hero-description {
+      margin: 0;
+      max-width: 680px;
+      font-size: 1.08rem;
+      line-height: 1.85;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .hero-actions,
+    .auth-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    .hero-actions a,
+    .auth-actions button,
+    .auth-actions a {
+      text-decoration: none;
+    }
+
+    .ocean-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-width: 180px;
+      border: none;
+      border-radius: 999px;
+      padding: 15px 22px;
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    .ocean-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 32px rgba(5, 45, 60, 0.22);
+    }
+
+    .ocean-btn-primary {
+      color: #0d394b;
+      background: linear-gradient(135deg, var(--accent-gold), #ffe6a6);
+    }
+
+    .ocean-btn-secondary {
+      color: white;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.24);
+    }
+
+    .hero-side {
+      display: grid;
+      gap: 18px;
+    }
+
+    .signal-card,
+    .showcase-card,
+    .section-card,
+    .gallery-card,
+    .chapter-card,
+    .character-card,
+    .ai-card,
+    .value-card,
+    .cta-panel {
+      border: 1px solid var(--card-border);
+      background: var(--card);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .signal-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 18px 20px;
+      color: #0b455c;
+    }
+
+    .signal-card strong {
+      display: block;
+      font-size: 1rem;
+    }
+
+    .signal-card span {
+      font-size: 0.94rem;
+      color: rgba(11, 69, 92, 0.75);
+    }
+
+    .signal-pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(255, 122, 89, 0.18), rgba(255, 209, 102, 0.35));
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .showcase-card {
+      display: grid;
+      gap: 18px;
+      padding: 24px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.88), rgba(232, 251, 248, 0.9)),
+        radial-gradient(circle at top right, rgba(255, 122, 89, 0.08), transparent 35%);
+    }
+
+    .showcase-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .showcase-title {
+      margin: 0;
+      font-size: 1.2rem;
+      color: #0d4458;
+    }
+
+    .showcase-tag {
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: #0d4458;
+      color: white;
+      font-size: 0.84rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .showcase-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .mini-mission {
+      padding: 16px;
+      border-radius: 22px;
+      background: rgba(12, 107, 134, 0.08);
+    }
+
+    .mini-mission strong {
+      display: block;
+      margin-bottom: 8px;
+      color: #0b455c;
+    }
+
+    .mini-mission p {
+      margin: 0;
+      color: #3c5964;
+      line-height: 1.7;
+      font-size: 0.95rem;
+    }
+
+    .auth-panel {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding-top: 4px;
+    }
+
+    .logged-in-note {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      padding: 12px 16px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.14);
+      font-weight: 700;
+      color: white;
+    }
+
+    .section {
+      margin-top: 26px;
+      padding: 34px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .section-card::before,
+    .cta-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(255, 209, 102, 0.12), transparent 26%);
+      pointer-events: none;
+    }
+
+    .section-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+
+    .section-heading h2 {
+      margin: 0 0 10px;
+      font-family: "Noto Serif TC", serif;
+      font-size: clamp(1.8rem, 2.4vw, 2.6rem);
+      color: #0b455c;
+    }
+
+    .section-heading p {
+      margin: 0;
+      max-width: 720px;
+      line-height: 1.8;
+      color: #506f7a;
+    }
+
+    .values-grid,
+    .chapters-grid,
+    .ai-grid,
+    .characters-grid,
+    .gallery-grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .values-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .value-card,
+    .chapter-card,
+    .ai-card,
+    .character-card,
+    .gallery-card {
+      padding: 22px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.86), rgba(243, 252, 250, 0.94));
+    }
+
+    .value-no,
+    .chapter-day,
+    .character-role {
+      display: inline-flex;
+      width: fit-content;
+      padding: 7px 11px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: #0d4458;
+      background: rgba(12, 107, 134, 0.1);
+    }
+
+    .value-card h3,
+    .chapter-card h3,
+    .ai-card h3,
+    .character-card h3,
+    .gallery-card h3 {
+      margin: 14px 0 12px;
+      color: #123f4e;
+      font-size: 1.2rem;
+    }
+
+    .value-card p,
+    .chapter-card p,
+    .ai-card p,
+    .character-card p,
+    .gallery-card p {
+      margin: 0;
+      color: #54707a;
+      line-height: 1.8;
+    }
+
+    .chapters-grid {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .chapter-card {
+      position: relative;
+      min-height: 240px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .chapter-meta {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px dashed rgba(12, 107, 134, 0.2);
+      font-size: 0.95rem;
+      color: #0c6b86;
+      font-weight: 700;
+    }
+
+    .ai-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .ai-card {
+      min-height: 220px;
+    }
+
+    .ai-badge {
+      display: inline-flex;
+      width: fit-content;
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(255, 122, 89, 0.14), rgba(255, 209, 102, 0.28));
+      color: #a44a2f;
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+
+    .characters-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .character-art {
+      height: 186px;
+      margin-bottom: 18px;
+      border-radius: 24px;
+      overflow: hidden;
+      background:
+        linear-gradient(160deg, rgba(12, 107, 134, 0.16), rgba(255, 209, 102, 0.25));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .character-art img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .gallery-grid {
+      grid-template-columns: 1.2fr 1fr 1fr;
+      align-items: stretch;
+    }
+
+    .gallery-card.large {
+      min-height: 320px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.76), rgba(243, 252, 250, 0.94)),
+        url('/images/DSC05887-1748709232005-892081.JPG') center/cover;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+
+    .gallery-card:not(.large) {
+      min-height: 220px;
+    }
+
+    .gallery-card.large h3,
+    .gallery-card.large p {
+      color: #08394d;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.7);
+    }
+
+    .cta-panel {
+      margin-top: 26px;
+      position: relative;
+      padding: 34px;
+      background:
+        linear-gradient(120deg, rgba(6, 61, 82, 0.95), rgba(12, 107, 134, 0.9));
+      color: white;
+    }
+
+    .cta-panel h2 {
+      margin: 0 0 12px;
+      font-family: "Noto Serif TC", serif;
+      font-size: clamp(2rem, 2.8vw, 3rem);
+    }
+
+    .cta-panel p {
+      margin: 0;
+      max-width: 720px;
+      line-height: 1.85;
+      color: rgba(255, 255, 255, 0.88);
+    }
+
+    .cta-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 24px;
+    }
+
+    footer {
+      padding: 24px 20px 36px;
+      text-align: center;
+      color: #52717c;
+    }
+
+    footer a {
+      color: #0c6b86;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    @media (max-width: 1100px) {
+      .hero,
+      .gallery-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .values-grid,
+      .chapters-grid,
+      .ai-grid,
+      .characters-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 820px) {
+      header {
+        padding: 0.9rem 1rem;
+      }
+
+      .hamburger {
+        display: block;
+      }
+
+      .header-content {
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .main-nav {
+        width: 100%;
+        display: none;
+        flex-direction: column;
+        align-items: stretch;
+        padding-top: 12px;
+      }
+
+      .header-content.open .main-nav {
+        display: flex;
+      }
+
+      .main-nav a,
+      .main-nav span,
+      .main-nav button {
+        margin: 0;
+      }
+
+      .hero,
+      .section,
+      .cta-panel {
+        padding: 24px;
+        border-radius: 28px;
+      }
+
+      .hero-side,
+      .showcase-grid,
+      .values-grid,
+      .chapters-grid,
+      .ai-grid,
+      .characters-grid,
+      .gallery-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .section-heading {
+        flex-direction: column;
+        align-items: flex-start;
+      }
     }
   </style>
 </head>
 <body>
   <header id="mainHeader">
     <div class="header-content" id="headerContent">
-      <h1 id="pageTitle">GPS 任務系統</h1>
+      <h1 id="pageTitle">海底大作戰</h1>
       <button id="hamburgerBtn" class="hamburger" aria-label="展開選單">&#9776;</button>
       <nav class="main-nav">
         <a href="/index.html" class="current-page">首頁</a>
-        <a href="/map.html">地圖頁</a>
-        <a href="/tasks-list.html" id="navTasksList">任務列表</a>
-        <a href="/user-tasks.html">任務審核</a>
-        <a href="/staff-dashboard.html" id="navStaff" style="display:none;">新增任務</a>
+        <a href="/map.html">任務地圖</a>
+        <a href="/tasks-list.html" id="navTasksList">關卡列表</a>
+        <a href="/user-tasks.html">任務紀錄</a>
+        <a href="/staff-dashboard.html" id="navStaff" style="display:none;">建立關卡</a>
         <a href="/role-management.html" id="navRoleMgmt" style="display:none;">權限管理</a>
-        <a href="/user-dashboard.html" id="navUserTasks" style="display:none;">用戶任務管理</a>
-        <a href="/products.html" id="navProducts">商品兌換</a>
-        <a href="/redeem-tasks.html" id="navRedeem" style="display:none;">兌換商品管理</a>
-        <!-- 新增: AI 實驗室入口 -->
-        <a href="/ai-lab.html" style="color: #ffd700;">🤖 AI 實驗室</a>
-        
-        <span id="loginUserInfo" style="color:#eee; margin-left:15px;"></span>
+        <a href="/user-dashboard.html" id="navUserTasks" style="display:none;">玩家管理</a>
+        <a href="/products.html" id="navProducts">獎勵兌換</a>
+        <a href="/redeem-tasks.html" id="navRedeem" style="display:none;">兌換管理</a>
+        <a href="/ai-lab.html">AI 實驗室</a>
+        <span id="loginUserInfo" style="color:#eef9ff;"></span>
         <button id="logoutBtn" style="display:none;">登出</button>
       </nav>
     </div>
   </header>
 
-  <!-- PWA iOS 安裝引導 -->
   <div id="pwa-install-prompt">
-    <p>想接收即時任務通知嗎？點擊下方 <img src="/images/red-arrow.svg" width="20" alt="分享按鈕"> 後選擇<strong>「加入主畫面」</strong></p>
+    <p>想在海邊也能快速接收任務通知嗎？點擊下方 <img src="/images/red-arrow.svg" width="20" alt="分享按鈕"> 後選擇<strong>「加入主畫面」</strong></p>
     <button onclick="document.getElementById('pwa-install-prompt').style.display='none'">我知道了</button>
   </div>
 
   <main>
-    <!-- 主要橫幅區域 -->
-    <section class="hero-section">
-      <div class="hero-image" style="width:120px;height:120px;margin:0 auto 20px;border-radius:50%;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,0.1);">
-        <img src="/images/mascot.png" alt="吉祥物" style="width:100%;height:100%;object-fit:cover;" onerror="this.src='/images/banner.png'">
-      </div>
-      <h1 class="hero-title">地方開箱任務遊戲</h1>
-      <p class="hero-description">
-        歡迎來到任務進度系統！這裡是專為地方、偏鄉、社區設計的互動行銷平台，<br>
-        透過一個個有趣的任務，帶你開箱在地文化、風景、美食與故事。
-      </p>
-
-      <div class="hero-buttons">
-        <button class="btn-primary" onclick="window.location.href='/map.html'">
-          🌏 立即探索地圖
-        </button>
-        <button class="btn-secondary" onclick="window.location.href='/tasks-list.html'">
-          📋 查看任務列表
-        </button>
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow">AI 劇情關卡平台 ・ 海洋任務入口</div>
+        <h2 class="hero-title">跟著史蛋與巴布，<br>把淨灘、觀察、創作，變成一場會闖關的海洋冒險。</h2>
+        <p class="hero-description">
+          `sandhill` 不再只是一般任務頁，而是一個把故事、角色、實地行動與 AI 判定串在一起的活動體驗。參與者可以拍下寶特瓶、辨識植物、上傳團體照，讓 AI 成為每一關的守關者，通過後再解鎖下一段劇情。
+        </p>
+        <div class="hero-actions">
+          <a class="ocean-btn ocean-btn-primary" href="/map.html">開始冒險</a>
+          <a class="ocean-btn ocean-btn-secondary" href="/tasks-list.html">查看關卡</a>
+        </div>
+        <div id="authBtns" class="auth-panel"></div>
       </div>
 
-      <div id="authBtns" style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;"></div>
-    </section>
-
-    <!-- 功能特色區域 -->
-    <section class="features-section">
-      <div class="features-grid">
-        <div class="feature-card">
-          <div class="feature-icon">
-            <img src="/images/feature-map.png" alt="地圖互動">
+      <div class="hero-side">
+        <div class="signal-card">
+          <div>
+            <strong>AI 驗證任務已上線</strong>
+            <span>圖片上傳、重拍建議、挑戰紀錄與通關判定都已串進主流程。</span>
           </div>
-          <h3 class="feature-title">GPS 定位互動</h3>
-          <p class="feature-description">走到任務點自動觸發，現場體驗最有感！</p>
+          <div class="signal-pill">Gemma Vision Ready</div>
         </div>
 
-        <div class="feature-card">
-          <div class="feature-icon">
-            <img src="/images/feature-culture.png" alt="文化開箱">
+        <div class="showcase-card">
+          <div class="showcase-head">
+            <div>
+              <p style="margin:0 0 8px;color:#6b8792;font-size:0.9rem;font-weight:700;">這一季的任務玩法</p>
+              <h3 class="showcase-title">AI 不只是聊天，而是每一關真正的裁判。</h3>
+            </div>
+            <span class="showcase-tag">Stage Flow</span>
           </div>
-          <h3 class="feature-title">文化美食開箱</h3>
-          <p class="feature-description">每個任務都是一段在地故事，深入了解地方特色。</p>
-        </div>
-
-        <div class="feature-card">
-          <div class="feature-icon">
-            <img src="/images/feature-reward.png" alt="任務獎勵">
+          <div class="showcase-grid">
+            <div class="mini-mission">
+              <strong>找 10 個寶特瓶</strong>
+              <p>拍照提交後，AI 判斷數量是否達標，不夠就提示你再找更多。</p>
+            </div>
+            <div class="mini-mission">
+              <strong>找到牽牛花</strong>
+              <p>AI 辨識是不是正確目標，若太模糊會直接要求重拍。</p>
+            </div>
+            <div class="mini-mission">
+              <strong>團體照打分數</strong>
+              <p>不只拍到人，還要有互動感與現場氣氛，分數過線才能通關。</p>
+            </div>
+            <div class="mini-mission">
+              <strong>通過就解鎖下一章</strong>
+              <p>劇情、角色、獎勵、任務鏈都保留，活動會更像一場冒險。</p>
+            </div>
           </div>
-          <h3 class="feature-title">任務挑戰與獎勵</h3>
-          <p class="feature-description">完成任務可獲得獎勵，還能累積成就，讓旅程更有動力！</p>
-        </div>
-
-        <div class="feature-card">
-          <div class="feature-icon">
-            <img src="/images/feature-community.png" alt="社群互動">
-          </div>
-          <h3 class="feature-title">社群互動</h3>
-          <p class="feature-description">與朋友一起挑戰、分享體驗，讓地方行銷更有溫度。</p>
         </div>
       </div>
     </section>
 
-    <!-- 結論區域 -->
-    <section class="conclusion-section" style="text-align:center; margin-top:50px; padding:30px; background:white; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
-      <p class="conclusion-text" style="font-size:1.1rem; line-height:1.6; color:#555;">
-        本平台致力於協助地方、偏鄉、社區推廣，<br>
-        讓每一位參與者都能用遊戲化方式，
-        <span style="color:#2196f3; font-weight:bold;">深入認識在地文化、風景與美食</span>，<br>
-        歡迎各地單位洽談合作！
-      </p>
+    <section class="section section-card">
+      <div class="section-heading">
+        <div>
+          <h2>敬海・淨海・進海</h2>
+          <p>首頁改成活動入口後，參與者不會先看到「管理系統」，而是先進入這場冒險的世界觀。海洋不是背景圖，而是故事主體；AI 不是功能選單，而是關卡互動的一部分。</p>
+        </div>
+      </div>
+      <div class="values-grid">
+        <article class="value-card">
+          <span class="value-no">01 敬海</span>
+          <h3>先讓人對海產生情感</h3>
+          <p>用角色、故事與場景，把參與者帶進海洋世界，讓任務不是命令，而是情境邀請。</p>
+        </article>
+        <article class="value-card">
+          <span class="value-no">02 淨海</span>
+          <h3>把行動變成可以被驗證的挑戰</h3>
+          <p>淨灘、尋物、觀察、拍攝都能由 AI 協助判定，讓現場任務更有節奏與回饋。</p>
+        </article>
+        <article class="value-card">
+          <span class="value-no">03 進海</span>
+          <h3>留下作品、成果與冒險記憶</h3>
+          <p>不只是完成任務而已，還能留下照片、藝廊、角色章節與活動成就。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section section-card">
+      <div class="section-heading">
+        <div>
+          <h2>五大冒險章節</h2>
+          <p>劇情線會繼續保留，差別在於每一關不再只是回答題目，而是透過 AI 驗證、現場互動與圖片提交流程向前推進。</p>
+        </div>
+      </div>
+      <div class="chapters-grid">
+        <article class="chapter-card">
+          <span class="chapter-day">Day 1</span>
+          <div>
+            <h3>遊戲日</h3>
+            <p>從角色出發，讓參與者先理解任務世界與冒險背景，建立探索動機。</p>
+          </div>
+          <div class="chapter-meta">故事開場 ・ 角色登場</div>
+        </article>
+        <article class="chapter-card">
+          <span class="chapter-day">Day 2</span>
+          <div>
+            <h3>音樂日</h3>
+            <p>把節奏、口號與現場參與感拉進活動，讓任務不只是做事，而是一起投入。</p>
+          </div>
+          <div class="chapter-meta">情感連結 ・ 現場氛圍</div>
+        </article>
+        <article class="chapter-card">
+          <span class="chapter-day">Day 3</span>
+          <div>
+            <h3>親海日</h3>
+            <p>正式進場做任務，像淨灘、找指定物件、紀錄海邊生態，都能由 AI 來判定。</p>
+          </div>
+          <div class="chapter-meta">實際行動 ・ AI 守關</div>
+        </article>
+        <article class="chapter-card">
+          <span class="chapter-day">Day 4</span>
+          <div>
+            <h3>藝術日</h3>
+            <p>把海洋觀察轉成創作與影像，讓 AI 協助評分，讓作品型任務也能進到主流程。</p>
+          </div>
+          <div class="chapter-meta">創作轉化 ・ 作品評分</div>
+        </article>
+        <article class="chapter-card">
+          <span class="chapter-day">Day 5</span>
+          <div>
+            <h3>分享日</h3>
+            <p>整理成果、照片、任務記憶與劇情結局，讓活動能被保存、分享、回顧。</p>
+          </div>
+          <div class="chapter-meta">成果發表 ・ 海洋藝廊</div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section section-card">
+      <div class="section-heading">
+        <div>
+          <h2>AI 關卡怎麼玩</h2>
+          <p>這一版首頁要把「AI 就是任務驗證核心」講清楚，讓參與者一看就知道玩法，而不是自己猜規則。</p>
+        </div>
+      </div>
+      <div class="ai-grid">
+        <article class="ai-card">
+          <span class="ai-badge">AI Count</span>
+          <h3>數量型任務</h3>
+          <p>請找 10 個寶特瓶、5 個垃圾袋、3 位隊友入鏡，AI 幫你判斷是否達標。</p>
+        </article>
+        <article class="ai-card">
+          <span class="ai-badge">AI Identify</span>
+          <h3>辨識型任務</h3>
+          <p>請找到牽牛花、指定海洋生物或活動標誌，AI 會判斷是不是正確目標。</p>
+        </article>
+        <article class="ai-card">
+          <span class="ai-badge">AI Score</span>
+          <h3>評分型任務</h3>
+          <p>請拍一張夠有故事感的團體照或風景照，AI 分數過門檻才會通關。</p>
+        </article>
+        <article class="ai-card">
+          <span class="ai-badge">AI Retry</span>
+          <h3>重拍建議</h3>
+          <p>如果照片太糊、數量不足或主體不明確，系統會回你原因與下一次該怎麼拍。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section section-card">
+      <div class="section-heading">
+        <div>
+          <h2>認識你的海洋夥伴</h2>
+          <p>角色不是裝飾品，而是活動敘事的導引者。首頁先把角色立起來，之後任務頁與劇情章節才會更完整。</p>
+        </div>
+      </div>
+      <div class="characters-grid">
+        <article class="character-card">
+          <div class="character-art">
+            <img src="/images/mascot.png" alt="史蛋角色圖">
+          </div>
+          <span class="character-role">行動隊長</span>
+          <h3>史蛋</h3>
+          <p>帶著大家下海、上岸、闖關、淨灘，是整場冒險最可靠的第一位夥伴。</p>
+        </article>
+        <article class="character-card">
+          <div class="character-art">
+            <img src="/images/feature-community.png" alt="巴布角色圖">
+          </div>
+          <span class="character-role">氣氛製造機</span>
+          <h3>巴布</h3>
+          <p>把原本嚴肅的環境行動變得可愛、可玩、可參與，讓大家願意一直往下挑戰。</p>
+        </article>
+        <article class="character-card">
+          <div class="character-art">
+            <img src="/images/feature-map.png" alt="鯨魚角色圖">
+          </div>
+          <span class="character-role">海洋嚮導</span>
+          <h3>鯨魚</h3>
+          <p>象徵海洋世界本身，讓每一關都不只是解題，而是在跟海真正建立關係。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section section-card">
+      <div class="section-heading">
+        <div>
+          <h2>我的海洋藝廊</h2>
+          <p>當活動結束後，留下來的不該只是任務完成紀錄，還應該有作品、照片、回憶和可被展示的成果。</p>
+        </div>
+      </div>
+      <div class="gallery-grid">
+        <article class="gallery-card large">
+          <h3>把活動瞬間變成可以收藏的成果牆</h3>
+          <p>從淨灘成果、角色互動到團體創作，每次挑戰都能成為下一次招募與分享的素材。</p>
+        </article>
+        <article class="gallery-card">
+          <h3>任務照片</h3>
+          <p>每一次提交都是活動故事的一部分，未來可以延伸成圖牆、回顧頁與排行榜。</p>
+        </article>
+        <article class="gallery-card">
+          <h3>AI 評選紀錄</h3>
+          <p>不只是過關與否，也能留下評語、重拍建議與有趣的挑戰歷程。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="cta-panel">
+      <h2>準備好把海底大作戰，做成真正的 AI 冒險活動了嗎？</h2>
+      <p>現在你可以從地圖進入任務，也可以直接查看關卡列表。後台已經能建立 AI-first 任務，接下來就能把劇情、角色與章節逐步接上完整活動體驗。</p>
+      <div class="cta-actions">
+        <a class="ocean-btn ocean-btn-primary" href="/map.html">立即進入任務地圖</a>
+        <a class="ocean-btn ocean-btn-secondary" href="/staff-dashboard.html">前往建立關卡</a>
+      </div>
     </section>
   </main>
 
   <footer>
-    &copy; 2025 GPS 任務系統 - 地方開箱任務遊戲 | <a href="https://laijiubo.zeabur.app/" target="_blank" style="color: #6b7280; text-decoration: none;">來就補多媒體行銷 製作</a>
+    &copy; 2026 海底大作戰 AI 冒險任務平台 |
+    <a href="https://laijiubo.zeabur.app/" target="_blank" rel="noreferrer">來就補多媒體行銷 製作</a>
   </footer>
 
   <script>
-    // 動態顯示 staff/admin 導覽
     const loginUser = JSON.parse(localStorage.getItem('loginUser') || 'null');
-    
-    // 初始化導覽列顯示
+
     if (loginUser) {
-        if (loginUser.role === 'admin') {
-            document.getElementById('navStaff').style.display = '';
-            document.getElementById('navRedeem').style.display = '';
-            document.getElementById('navRoleMgmt').style.display = '';
-        } else if (loginUser.role === 'shop') {
-            document.getElementById('navStaff').style.display = '';
-            document.getElementById('navRedeem').style.display = '';
-        } else if (loginUser.role === 'user') {
-            document.getElementById('navUserTasks').style.display = '';
-        }
-        
-        // 工作人員與管理員不顯示任務列表 (避免混淆)
-        if (loginUser.role === 'shop' || loginUser.role === 'admin') {
-            const navTasksList = document.getElementById('navTasksList');
-            if (navTasksList) navTasksList.style.display = 'none';
-        }
+      if (loginUser.role === 'admin') {
+        document.getElementById('navStaff').style.display = '';
+        document.getElementById('navRedeem').style.display = '';
+        document.getElementById('navRoleMgmt').style.display = '';
+      } else if (loginUser.role === 'shop') {
+        document.getElementById('navStaff').style.display = '';
+        document.getElementById('navRedeem').style.display = '';
+      } else if (loginUser.role === 'user') {
+        document.getElementById('navUserTasks').style.display = '';
+      }
 
-        // 顯示用戶資訊
-        document.getElementById('loginUserInfo').textContent = getUserDisplayName(loginUser);
-        document.getElementById('logoutBtn').style.display = '';
-        document.getElementById('logoutBtn').onclick = function() {
-            localStorage.removeItem('loginUser');
-            window.location.href = '/login.html';
-        };
+      if (loginUser.role === 'shop' || loginUser.role === 'admin') {
+        const navTasksList = document.getElementById('navTasksList');
+        if (navTasksList) navTasksList.style.display = 'none';
+      }
 
-        // 顯示歡迎訊息
-        const authBtns = document.getElementById('authBtns');
-        if (authBtns) {
-            authBtns.innerHTML = `<div style="color:#2196f3; font-weight:bold; font-size:1.1rem;">歡迎回來，${loginUser.username}！</div>`;
-        }
+      document.getElementById('loginUserInfo').textContent = getUserDisplayName(loginUser);
+      document.getElementById('logoutBtn').style.display = '';
+      document.getElementById('logoutBtn').onclick = function() {
+        localStorage.removeItem('loginUser');
+        window.location.href = '/login.html';
+      };
+
+      const authBtns = document.getElementById('authBtns');
+      if (authBtns) {
+        authBtns.innerHTML = `
+          <div class="logged-in-note">歡迎回來，${loginUser.username}。你可以直接續闖下一段海洋任務。</div>
+        `;
+      }
     } else {
-        // 未登入狀態
-        document.getElementById('loginUserInfo').textContent = '';
-        document.getElementById('logoutBtn').style.display = 'none';
-        const authBtns = document.getElementById('authBtns');
-        if (authBtns) {
-            authBtns.innerHTML = `
-                <button class="btn-secondary" onclick="window.location.href='/login.html'">登入</button>
-                <button class="btn-secondary" onclick="window.location.href='/register.html'">註冊</button>
-            `;
-        }
-    }
-
-    function getUserDisplayName(loginUser) {
-      switch(loginUser.role) {
-        case 'admin': return `管理員：${loginUser.username}`;
-        case 'shop': return `商店：${loginUser.username}`;
-        case 'user': return `用戶：${loginUser.username}`;
-        default: return loginUser.username;
+      document.getElementById('loginUserInfo').textContent = '';
+      document.getElementById('logoutBtn').style.display = 'none';
+      const authBtns = document.getElementById('authBtns');
+      if (authBtns) {
+        authBtns.innerHTML = `
+          <div class="auth-actions">
+            <a class="ocean-btn ocean-btn-secondary" href="/login.html">登入</a>
+            <a class="ocean-btn ocean-btn-primary" href="/register.html">加入冒險</a>
+          </div>
+        `;
       }
     }
 
-    // 漢堡選單功能
+    function getUserDisplayName(user) {
+      switch (user.role) {
+        case 'admin': return `管理員：${user.username}`;
+        case 'shop': return `主辦單位：${user.username}`;
+        case 'user': return `冒險者：${user.username}`;
+        default: return user.username;
+      }
+    }
+
     document.getElementById('hamburgerBtn').onclick = function() {
       document.getElementById('headerContent').classList.toggle('open');
     };
 
-    // 點擊鏈接後關閉選單
     document.querySelectorAll('.main-nav a').forEach(a => {
       a.onclick = () => document.getElementById('headerContent').classList.remove('open');
     });
