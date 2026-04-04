@@ -250,6 +250,13 @@ function setupValidationModeToggle(selectId, fieldsId) {
       placeholder: '例如 beach_cleanup',
       showCount: false,
       showScore: false
+    },
+    ai_reference_match: {
+      helper: '系統會把任務封面圖當成參考地點照片，AI 會比對玩家上傳的照片是否為同一地點或相近視角場景。',
+      label: '比對主題',
+      placeholder: '例如 treasure_spot / lookout_point',
+      showCount: false,
+      showScore: false
     }
   };
 
@@ -330,6 +337,10 @@ function validateAiTaskPayload(form, aiTaskPayload, messageElId) {
   }
   if (mode === 'ai_identify' && !aiTaskPayload.ai_config?.target_label) {
     messageEl.textContent = 'AI 指定物辨識任務請填寫指定辨識標籤';
+    return false;
+  }
+  if (mode === 'ai_reference_match' && !form.photo?.files?.length && !form.photoUrl?.value) {
+    messageEl.textContent = 'AI 地點照片比對任務需要任務封面圖，系統會拿它當參考照片';
     return false;
   }
   if (mode === 'ai_score' && (aiTaskPayload.pass_criteria?.min_score === null || aiTaskPayload.pass_criteria?.min_score === undefined)) {

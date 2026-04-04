@@ -1,4 +1,5 @@
 const mysql = require('mysql2/promise');
+const bcrypt = require('bcryptjs');
 const { getDbConfig } = require('../../db-config');
 
 const dbConfig = getDbConfig();
@@ -20,6 +21,30 @@ async function initDb() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // 預設管理員帳號
+    console.log('👤 檢查預設管理員帳號...');
+    const [adminUsers] = await connection.query(
+      'SELECT id, password FROM users WHERE username = ? AND role = ? LIMIT 1',
+      ['admin', 'admin']
+    );
+    const defaultAdminPasswordHash = await bcrypt.hash('admin', 10);
+    if (adminUsers.length === 0) {
+      await connection.query(
+        'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
+        ['admin', defaultAdminPasswordHash, 'admin']
+      );
+      console.log('✅ 已建立預設管理員帳號：admin / admin');
+    } else {
+      const existingPassword = adminUsers[0].password || '';
+      const isBcryptHash = existingPassword.startsWith('$2a$') || existingPassword.startsWith('$2b$') || existingPassword.startsWith('$2y$');
+      if (!isBcryptHash) {
+        await connection.query('UPDATE users SET password = ? WHERE id = ?', [defaultAdminPasswordHash, adminUsers[0].id]);
+        console.log('✅ 已修正預設管理員密碼格式：admin / admin');
+      } else {
+        console.log('ℹ️ 預設管理員帳號已存在');
+      }
+    }
 
     // 2. 建立 items 表格 (道具)
     console.log('📦 檢查/建立 items 表格...');

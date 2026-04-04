@@ -168,7 +168,7 @@ if (!SKIP_DB) {
 }
 
 const ALLOWED_TASK_TYPES = ['qa', 'multiple_choice', 'photo', 'number', 'keyword', 'location'];
-const AI_VALIDATION_MODES = ['ai_count', 'ai_identify', 'ai_score', 'ai_rule_check'];
+const AI_VALIDATION_MODES = ['ai_count', 'ai_identify', 'ai_score', 'ai_rule_check', 'ai_reference_match'];
 
 function parseJsonField(value, fallback = null) {
   if (value === undefined || value === null || value === '') return fallback;
@@ -305,6 +305,10 @@ function prepareTaskValidationSettings(body = {}) {
     if (!Number.isFinite(passCriteria.min_score)) {
       throw new Error('AI 圖像評分任務必須設定最低通過分數');
     }
+  }
+
+  if (validationMode === 'ai_reference_match') {
+    passCriteria.target_label = passCriteria.target_label || aiConfig.target_label || 'reference_location';
   }
 
   if (validationMode === 'ai_rule_check' && !passCriteria.all_rules_must_pass) {
@@ -3521,8 +3525,12 @@ function buildAiTaskPrompt(task) {
       `任務說明：${taskGoal}`,
       `AI 設定：${configText}`,
       `通關條件：${criteriaText}`,
-      '請分析這張圖片是否符合任務要求，並只輸出 JSON。',
-      'JSON 欄位必須包含：passed, confidence, label, count_detected, score, reason, retry_advice。',
+      task.validation_mode === 'ai_reference_match'
+        ? '你會同時收到兩張圖：第一張是任務的參考地點照片，第二張是玩家上傳照片。請判斷是否為同一地點、同一場景或高度相近的拍攝位置。'
+        : '請分析這張圖片是否符合任務要求，並只輸出 JSON。',
+      task.validation_mode === 'ai_reference_match'
+        ? 'JSON 欄位必須包含：passed, same_location, confidence, label, count_detected, score, reason, retry_advice。'
+        : 'JSON 欄位必須包含：passed, confidence, label, count_detected, score, reason, retry_advice。',
       '若某欄位不適用，請填 null。',
       '不要輸出 Markdown，不要輸出額外說明。'
     ].join('\n')
@@ -3559,6 +3567,10 @@ function normalizeAiTaskResult(task, aiResult) {
     passed = aiResult.rule_results.every(rule => normalizeBoolean(rule.passed));
   }
 
+  if (task.validation_mode === 'ai_reference_match' && aiResult.same_location !== undefined) {
+    passed = normalizeBoolean(aiResult.same_location);
+  }
+
   if (hasConfidence && Number.isFinite(Number(passCriteria.min_confidence))) {
     passed = passed && confidence >= Number(passCriteria.min_confidence);
   }
@@ -3575,13 +3587,65 @@ function normalizeAiTaskResult(task, aiResult) {
   };
 }
 
+function getMimeTypeFromPath(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeTypes = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.webp': 'image/webp',
+    '.gif': 'image/gif'
+  };
+  return mimeTypes[ext] || 'image/jpeg';
+}
+
+async function getTaskReferenceImageDataUrl(task) {
+  const photoUrl = normalizeNullableString(task.photoUrl);
+  if (!photoUrl) return null;
+
+  if (/^https?:\/\//i.test(photoUrl)) {
+    const response = await fetch(photoUrl);
+    if (!response.ok) {
+      throw new Error('無法讀取任務參考圖片');
+    }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const mimeType = response.headers.get('content-type') || 'image/jpeg';
+    return `data:${mimeType};base64,${buffer.toString('base64')}`;
+  }
+
+  const normalizedPath = photoUrl.replace(/^\/+/, '');
+  const candidatePaths = [
+    path.join(__dirname, 'public', normalizedPath),
+    normalizedPath.startsWith('images/')
+      ? path.join(UPLOAD_DIR, path.basename(normalizedPath))
+      : null
+  ].filter(Boolean);
+  const localPath = candidatePaths.find(candidate => fs.existsSync(candidate));
+  if (!localPath) {
+    return null;
+  }
+  const buffer = fs.readFileSync(localPath);
+  return `data:${getMimeTypeFromPath(localPath)};base64,${buffer.toString('base64')}`;
+}
+
 async function evaluateAiTaskImage(task, file, extraContext = {}) {
   const { AI_API_URL, AI_MODEL, AI_API_KEY } = getAiConfig();
   const dataUrl = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
   const prompt = buildAiTaskPrompt(task);
+  const referenceImageDataUrl = task.validation_mode === 'ai_reference_match'
+    ? await getTaskReferenceImageDataUrl(task)
+    : null;
+  if (task.validation_mode === 'ai_reference_match' && !referenceImageDataUrl) {
+    throw new Error('此任務缺少可用的參考圖片，請先確認任務封面圖片是否存在');
+  }
   const locationText = extraContext.latitude && extraContext.longitude
     ? `\n拍攝地點：緯度 ${extraContext.latitude}，經度 ${extraContext.longitude}`
     : '';
+  const imageContent = [];
+  if (referenceImageDataUrl) {
+    imageContent.push({ type: 'image_url', image_url: { url: referenceImageDataUrl } });
+  }
+  imageContent.push({ type: 'image_url', image_url: { url: dataUrl } });
 
   const response = await fetchAIWithRetry(
     `${AI_API_URL}/chat/completions`,
@@ -3599,7 +3663,7 @@ async function evaluateAiTaskImage(task, file, extraContext = {}) {
             role: 'user',
             content: [
               { type: 'text', text: `${prompt.userPrompt}${locationText}` },
-              { type: 'image_url', image_url: { url: dataUrl } }
+              ...imageContent
             ]
           }
         ],

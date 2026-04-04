@@ -207,7 +207,9 @@
             ? `
               <div style="margin:12px 0 18px; padding:12px; border-radius:10px; background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8;">
                 <div style="font-weight:700; margin-bottom:6px;">🤖 AI 驗證任務</div>
-                <div>提交照片後，系統會用 AI 判定是否通關。</div>
+                <div>${t.validation_mode === 'ai_reference_match'
+                  ? '這一關會拿任務封面圖當成參考地點照片，比對你上傳的照片是不是同一位置。'
+                  : '提交照片後，系統會用 AI 判定是否通關。'}</div>
                 ${t.max_attempts ? `<div style="margin-top:6px;">最多可挑戰 ${t.max_attempts} 次</div>` : ''}
               </div>`
             : '';
