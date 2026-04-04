@@ -75,6 +75,14 @@ async function migrate() {
     `);
     console.log('✅ user_quests 表格準備就緒');
 
+    const [userQuestColumns] = await connection.query(`SHOW COLUMNS FROM user_quests`);
+    const userQuestColumnNames = userQuestColumns.map(c => c.Field);
+    if (!userQuestColumnNames.includes('current_step_order')) {
+      console.log('🛠 為現有的 user_quests 表格新增 current_step_order 欄位...');
+      await connection.query("ALTER TABLE user_quests ADD COLUMN current_step_order INT DEFAULT 0 AFTER quest_chain_id");
+      console.log('✅ current_step_order 欄位新增完成');
+    }
+
     // 4. 建立 user_badges 表格 (記錄用戶獲得的獎章 - 預留未來使用)
     console.log('📦 正在建立 user_badges 表格...');
     await connection.query(`
