@@ -3,896 +3,954 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>任務詳情 | GPS 觸發任務系統</title>
+  <title>關卡簡報 | 海底大作戰</title>
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="icon" type="image/png" href="/images/mascot.png" />
   <style>
-    .detail-wrapper {
-      max-width: 900px;
+    :root {
+      --stage-deep: #073b4c;
+      --stage-sea: #0e7490;
+      --stage-sand: #f5e7b8;
+      --stage-mint: #dff6f2;
+      --stage-coral: #ff7f50;
+      --stage-ink: #16323c;
+      --stage-soft: #67808b;
+      --stage-line: rgba(14, 116, 144, 0.14);
+      --stage-shadow: 0 24px 60px rgba(8, 44, 58, 0.14);
+    }
+
+    body {
+      background:
+        radial-gradient(circle at top left, rgba(255, 127, 80, 0.12), transparent 24%),
+        radial-gradient(circle at top right, rgba(14, 116, 144, 0.12), transparent 22%),
+        linear-gradient(180deg, #eefcff 0%, #f8fcfa 48%, #fff9ef 100%);
+      color: var(--stage-ink);
+    }
+
+    header {
+      background: rgba(7, 59, 76, 0.86);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .main-nav a.current-page {
+      background-color: rgba(255, 255, 255, 0.18);
+    }
+
+    .main-nav button {
+      background: linear-gradient(135deg, #f97316, #fb923c);
+    }
+
+    .stage-shell {
+      max-width: 1120px;
       margin: 0 auto;
-      padding: 2rem 1rem 4rem;
+      padding: 28px 18px 80px;
     }
-    .detail-card {
-      background: var(--glass-bg);
-      border: 1px solid var(--glass-border);
-      border-radius: 1.5rem;
-      box-shadow: var(--shadow-lg);
-      padding: 2rem;
-    }
-    .task-type-chip {
-      display: inline-block;
-      padding: 0.2rem 0.9rem;
-      border-radius: 999px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      background: var(--gradient-primary);
-      color: #fff;
-    }
-    .task-meta-grid {
+
+    .stage-layout {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 0.5rem;
-      margin: 1.25rem 0;
-      font-size: 0.95rem;
-      color: var(--text-secondary);
+      grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+      gap: 24px;
     }
-    .task-detail-img {
+
+    .stage-panel {
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.56);
+      border-radius: 28px;
+      box-shadow: var(--stage-shadow);
+      overflow: hidden;
+      backdrop-filter: blur(12px);
+    }
+
+    .stage-hero {
+      position: relative;
+      min-height: 320px;
+      background: linear-gradient(180deg, rgba(7, 59, 76, 0.12), rgba(7, 59, 76, 0.02));
+    }
+
+    .stage-hero img {
       width: 100%;
-      border-radius: 1rem;
-      margin: 1.25rem 0;
+      height: 320px;
       object-fit: cover;
-      box-shadow: var(--shadow-light);
+      display: block;
     }
-    #taskDetail h2 {
+
+    .stage-overlay {
+      position: absolute;
+      inset: auto 0 0 0;
+      padding: 22px 24px 24px;
+      background: linear-gradient(180deg, rgba(7, 59, 76, 0), rgba(7, 59, 76, 0.78));
+      color: white;
+    }
+
+    .stage-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .stage-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.14);
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+
+    .stage-overlay h1 {
       margin: 0;
-      font-size: 1.6rem;
-      color: var(--text-primary);
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      line-height: 1.15;
     }
-    #taskDetail iframe {
-      width: 100%;
-      max-width: 640px;
-      height: 360px;
+
+    .stage-content {
+      padding: 24px;
+    }
+
+    .stage-copy {
+      font-size: 1rem;
+      line-height: 1.9;
+      color: var(--stage-soft);
+      margin-bottom: 20px;
+    }
+
+    .stage-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .stage-btn {
       border: none;
-      border-radius: 1rem;
-      margin-top: 1rem;
-      box-shadow: var(--shadow-light);
+      border-radius: 999px;
+      padding: 14px 20px;
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
     }
-    .task-detail-loading {
-      text-align: center;
-      color: var(--text-secondary);
-      padding: 2rem 1rem;
+
+    .stage-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 24px rgba(7, 59, 76, 0.14);
     }
-    .detail-actions {
-      margin-top: 1.5rem;
+
+    .stage-btn.primary {
+      background: linear-gradient(135deg, #0e7490, #14b8a6);
+      color: white;
     }
-    .detail-actions .btn {
+
+    .stage-btn.secondary {
+      background: white;
+      color: var(--stage-deep);
+      border: 1px solid rgba(7, 59, 76, 0.12);
+    }
+
+    .stage-status {
+      min-height: 54px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: var(--stage-mint);
+      color: var(--stage-deep);
+      font-weight: 700;
+      line-height: 1.7;
+      white-space: pre-line;
+    }
+
+    .stage-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin: 18px 0 0;
+    }
+
+    .meta-card {
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: #f8fcfd;
+      border: 1px solid var(--stage-line);
+    }
+
+    .meta-card strong {
+      display: block;
+      color: var(--stage-deep);
+      margin-bottom: 6px;
+      font-size: 0.9rem;
+    }
+
+    .meta-card span {
+      color: var(--stage-soft);
+      line-height: 1.6;
+      font-size: 0.95rem;
+    }
+
+    .side-panel {
+      padding: 24px;
+      display: grid;
+      gap: 18px;
+      align-content: start;
+    }
+
+    .flow-card,
+    .challenge-card,
+    .reward-card {
+      padding: 20px;
+      border-radius: 22px;
+      background: #fcffff;
+      border: 1px solid var(--stage-line);
+    }
+
+    .flow-card h2,
+    .challenge-card h2,
+    .reward-card h2 {
+      margin: 0 0 12px;
+      font-size: 1.15rem;
+      color: var(--stage-deep);
+    }
+
+    .flow-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .flow-step {
+      display: grid;
+      grid-template-columns: 34px 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .flow-no {
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #0e7490, #14b8a6);
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 0.92rem;
+    }
+
+    .flow-step strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--stage-ink);
+    }
+
+    .flow-step p,
+    .reward-card p,
+    .challenge-card p {
+      margin: 0;
+      color: var(--stage-soft);
+      line-height: 1.7;
+    }
+
+    .challenge-card {
+      display: none;
+    }
+
+    .challenge-card.open {
+      display: block;
+    }
+
+    .challenge-header {
+      margin-bottom: 14px;
+    }
+
+    .challenge-note {
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: #eef8fb;
+      color: #0d6177;
+      font-size: 0.94rem;
+      line-height: 1.7;
+      margin-bottom: 14px;
+    }
+
+    .challenge-box {
+      padding: 18px;
+      border-radius: 18px;
+      background: #f8fbfc;
+      border: 1px dashed rgba(14, 116, 144, 0.22);
+    }
+
+    .challenge-box input[type="file"],
+    .challenge-box input[type="number"],
+    .challenge-box input[type="text"],
+    .challenge-box textarea {
       width: 100%;
+      box-sizing: border-box;
+      margin-bottom: 10px;
+      padding: 11px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(14, 116, 144, 0.18);
+      font-size: 1rem;
+      background: white;
     }
-    .answer-container {
-      margin-top: 2rem;
+
+    .preview-image {
+      display: none;
+      max-width: 100%;
+      border-radius: 16px;
+      margin-top: 10px;
+      box-shadow: 0 14px 28px rgba(7, 59, 76, 0.08);
+    }
+
+    .answer-msg {
+      min-height: 28px;
+      margin-top: 10px;
+      color: #0e7490;
+      white-space: pre-line;
+      line-height: 1.7;
+      font-weight: 700;
+    }
+
+    .attempt-history {
+      margin-top: 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .attempt-card {
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: white;
+      border: 1px solid rgba(14, 116, 144, 0.12);
+      line-height: 1.7;
+      color: var(--stage-soft);
+    }
+
+    .attempt-card strong {
+      color: var(--stage-ink);
+    }
+
+    .next-stage-box {
+      margin-top: 14px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: #fff7ed;
+      color: #9a3412;
+      line-height: 1.7;
+      font-weight: 700;
+    }
+
+    @media (max-width: 900px) {
+      .stage-layout {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 <body>
   <header id="mainHeader">
     <div class="header-content" id="headerContent">
-      <h1 id="pageTitle">任務詳情</h1>
+      <h1 id="pageTitle">關卡簡報</h1>
       <button id="hamburgerBtn" class="hamburger" aria-label="展開選單">&#9776;</button>
       <nav class="main-nav">
         <a href="/index.html">首頁</a>
-        <a href="/map.html">地圖頁</a>
-        <a href="/tasks-list.html" id="navTasksList">任務列表</a>
-        <a href="/user-tasks.html">任務審核</a>
-        <a href="/staff-dashboard.html" id="navStaff" style="display:none;">新增任務</a>
+        <a href="/map.html">關卡地圖</a>
+        <a href="/tasks-list.html" id="navTasksList">關卡列表</a>
+        <a href="/ai-lab.html">海底探索艙</a>
+        <a href="/user-tasks.html">任務紀錄</a>
+        <a href="/staff-dashboard.html" id="navStaff" style="display:none;">建立關卡</a>
         <a href="/role-management.html" id="navRoleMgmt" style="display:none;">權限管理</a>
-        <a href="/user-dashboard.html" id="navUserTasks" style="display:none;">用戶任務管理</a>
-        <a href="/products.html">商品兌換</a>
-        <a href="/redeem-tasks.html" id="navRedeem" style="display:none;">兌換商品管理</a>
-        <span id="loginUserInfo" style="display:none; color:var(--text-secondary); padding:0.5rem 1rem;"></span>
+        <a href="/user-dashboard.html" id="navUserTasks" style="display:none;">玩家管理</a>
+        <a href="/products.html">獎勵兌換</a>
+        <a href="/redeem-tasks.html" id="navRedeem" style="display:none;">兌換管理</a>
+        <span id="loginUserInfo" style="display:none;color:#e2f7ff;padding:0.5rem 1rem;"></span>
         <button id="logoutBtn" style="display:none;">登出</button>
       </nav>
     </div>
   </header>
 
-  <main>
-    <section class="detail-wrapper">
-      <div class="detail-card">
-        <div id="taskDetail" class="task-detail-loading">
-          <div class="loading-spinner"></div>
-          <p style="margin-top:0.75rem;">載入任務中...</p>
-        </div>
-      </div>
-    </section>
+  <main class="stage-shell">
+    <div id="loadingState" class="stage-panel" style="padding:26px; text-align:center; color:#55717d;">
+      載入關卡中...
+    </div>
+    <div id="taskApp" style="display:none;"></div>
   </main>
 
   <footer>
-    &copy; 2025 GPS 任務系統 - 地方開箱任務遊戲
+    &copy; 2026 海底大作戰 | 關卡冒險平台
   </footer>
 
   <script>
+    const API_BASE = '';
     const loginUser = JSON.parse(localStorage.getItem('loginUser') || 'null');
+    const urlParams = new URLSearchParams(window.location.search);
+    const taskId = urlParams.get('id');
+
     window.loginUser = loginUser;
 
-    const userInfoSpan = document.getElementById('loginUserInfo');
-    const logoutBtn = document.getElementById('logoutBtn');
-
-    if (loginUser) {
-      userInfoSpan.style.display = 'inline-block';
-      userInfoSpan.textContent = getUserDisplayName(loginUser);
-      logoutBtn.style.display = 'inline-block';
-      logoutBtn.onclick = function() {
-        localStorage.removeItem('loginUser');
-        window.location.href = '/login.html';
-      };
-
-      if (loginUser.role === 'admin' || loginUser.role === 'shop') {
-        document.getElementById('navStaff').style.display = '';
-        document.getElementById('navRedeem').style.display = '';
-      }
-      if (loginUser.role === 'user') {
-        document.getElementById('navUserTasks').style.display = '';
-      }
-      if (loginUser.role === 'shop' || loginUser.role === 'admin') {
-        const navTasksList = document.getElementById('navTasksList');
-        if (navTasksList) navTasksList.style.display = 'none';
-      }
+    function handleAuthExpired() {
+      localStorage.removeItem('loginUser');
+      alert('登入狀態已過期，請重新登入');
+      window.location.href = '/login.html';
     }
 
     function getUserDisplayName(user) {
-      switch(user.role) {
+      switch (user.role) {
         case 'admin': return `管理員：${user.username}`;
-        case 'shop': return `商店：${user.username}`;
-        case 'user': return `用戶：${user.username}`;
+        case 'shop': return `主辦單位：${user.username}`;
+        case 'user': return `冒險者：${user.username}`;
         default: return user.username;
       }
     }
 
-    document.getElementById('hamburgerBtn').onclick = function() {
-      document.getElementById('headerContent').classList.toggle('open');
-    };
-    document.querySelectorAll('.main-nav a, .main-nav button').forEach(element => {
-      element.addEventListener('click', () => document.getElementById('headerContent').classList.remove('open'));
-    });
-  </script>
-
-  <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const id = urlParams.get('id');
-    const API_BASE = '';
-    const taskDetailEl = document.getElementById('taskDetail');
-    
-    function handleAuthExpired() {
-      alert('登入狀態已過期，請重新登入');
-      localStorage.removeItem('loginUser');
-      window.location.href = '/login.html';
+    function haversineMeters(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
     }
 
-    if (!id) {
-      taskDetailEl.innerHTML = '<div class="text-center text-danger">未指定任務 ID</div>';
-    } else {
-      fetch(`${API_BASE}/api/tasks/${id}`, {
-        credentials: 'include'
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (!data.success || !data.task) {
-            taskDetailEl.innerHTML = '<div class="text-center text-danger">找不到任務</div>';
+    async function ensureNearTask(task) {
+      return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+          resolve({ ok: false, message: '裝置不支援定位，無法確認你是否到達任務點。' });
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const meters = haversineMeters(pos.coords.latitude, pos.coords.longitude, Number(task.lat), Number(task.lng));
+            const limit = Number(task.radius || 50) + 35;
+            if (meters <= limit) {
+              resolve({ ok: true, message: `已抵達任務範圍（約 ${Math.round(meters)}m）` });
+            } else {
+              resolve({ ok: false, message: `你目前距離任務點約 ${Math.round(meters)} 公尺，請先靠近關卡位置。` });
+            }
+          },
+          () => resolve({ ok: false, message: '無法取得定位，請確認 GPS 已開啟後再試一次。' }),
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      });
+    }
+
+    function getMapUrl(task) {
+      return `/map.html?focusLat=${encodeURIComponent(task.lat)}&focusLng=${encodeURIComponent(task.lng)}&taskId=${encodeURIComponent(task.id)}`;
+    }
+
+    function setupNav() {
+      const userInfoSpan = document.getElementById('loginUserInfo');
+      const logoutBtn = document.getElementById('logoutBtn');
+
+      if (loginUser) {
+        userInfoSpan.style.display = 'inline-block';
+        userInfoSpan.textContent = getUserDisplayName(loginUser);
+        logoutBtn.style.display = 'inline-block';
+        logoutBtn.onclick = function() {
+          localStorage.removeItem('loginUser');
+          window.location.href = '/login.html';
+        };
+
+        if (loginUser.role === 'admin') {
+          document.getElementById('navStaff').style.display = '';
+          document.getElementById('navRedeem').style.display = '';
+          document.getElementById('navRoleMgmt').style.display = '';
+        } else if (loginUser.role === 'shop') {
+          document.getElementById('navStaff').style.display = '';
+          document.getElementById('navRedeem').style.display = '';
+        } else if (loginUser.role === 'user') {
+          document.getElementById('navUserTasks').style.display = '';
+        }
+
+        if (loginUser.role === 'shop' || loginUser.role === 'admin') {
+          const navTasksList = document.getElementById('navTasksList');
+          if (navTasksList) navTasksList.style.display = 'none';
+        }
+      }
+
+      document.getElementById('hamburgerBtn').onclick = function() {
+        document.getElementById('headerContent').classList.toggle('open');
+      };
+      document.querySelectorAll('.main-nav a, .main-nav button').forEach(element => {
+        element.addEventListener('click', () => document.getElementById('headerContent').classList.remove('open'));
+      });
+    }
+
+    async function fetchJson(url, options = {}) {
+      const res = await fetch(url, { credentials: 'include', ...options });
+      if (res.status === 401) {
+        handleAuthExpired();
+        throw new Error('unauthorized');
+      }
+      return res.json();
+    }
+
+    function renderAttemptHistory(attempts) {
+      if (!Array.isArray(attempts) || attempts.length === 0) {
+        return '<div class="attempt-card">目前還沒有挑戰紀錄。</div>';
+      }
+      return attempts.map(attempt => `
+        <div class="attempt-card">
+          <strong>第 ${attempt.attempt_no} 次 ${attempt.passed ? '通過' : '未通過'}</strong>
+          ${attempt.failure_reason ? `<div>原因：${attempt.failure_reason}</div>` : ''}
+          ${attempt.retry_advice ? `<div>建議：${attempt.retry_advice}</div>` : ''}
+          ${attempt.detected_count !== null && attempt.detected_count !== undefined ? `<div>辨識數量：${attempt.detected_count}</div>` : ''}
+          ${attempt.score !== null && attempt.score !== undefined ? `<div>AI 分數：${attempt.score}</div>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function renderChallenge(task, userTaskId, currentAnswer = '') {
+      const attemptsHtmlId = 'attemptHistory';
+      const isAiTask = task.validation_mode && task.validation_mode.startsWith('ai_');
+      const locationHint = task.validation_mode === 'ai_reference_match'
+        ? '這一關會拿關卡封面圖當參考畫面，比對你上傳的照片是否夠接近。'
+        : '抵達任務點後再開始挑戰，系統會依照這一關的規則幫你判定。';
+
+      let challengeInner = '';
+      if (task.task_type === 'photo') {
+        challengeInner = `
+          <input id="photoInput" type="file" accept="image/*">
+          <img id="photoPreview" class="preview-image" alt="預覽圖">
+          <button id="submitChallengeBtn" class="stage-btn primary" style="width:100%; margin-top:8px;">${isAiTask ? '送出照片，開始判定' : '上傳照片'}</button>
+        `;
+      } else if (task.task_type === 'multiple_choice') {
+        const options = Array.isArray(task.options) ? task.options : (typeof task.options === 'string' ? JSON.parse(task.options || '[]') : []);
+        challengeInner = `
+          ${options.map((option, index) => `
+            <label style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;">
+              <input type="radio" name="mcOption" value="${String(option).replace(/"/g, '&quot;')}" ${currentAnswer === option ? 'checked' : ''}>
+              <span>${option}</span>
+            </label>
+          `).join('')}
+          <button id="submitChallengeBtn" class="stage-btn primary" style="width:100%; margin-top:8px;">送出答案</button>
+        `;
+      } else if (task.task_type === 'number') {
+        challengeInner = `
+          <input id="numberAnswerInput" type="number" placeholder="輸入數字答案" value="${currentAnswer || ''}">
+          <button id="submitChallengeBtn" class="stage-btn primary" style="width:100%; margin-top:8px;">送出答案</button>
+        `;
+      } else if (task.task_type === 'keyword') {
+        challengeInner = `
+          <input id="keywordAnswerInput" type="text" placeholder="輸入關鍵字" value="${currentAnswer || ''}">
+          <button id="submitChallengeBtn" class="stage-btn primary" style="width:100%; margin-top:8px;">送出答案</button>
+        `;
+      } else if (task.task_type === 'location') {
+        challengeInner = `
+          <button id="submitChallengeBtn" class="stage-btn primary" style="width:100%; margin-top:8px;">確認我已到達任務點</button>
+        `;
+      } else {
+        challengeInner = `
+          <textarea id="textAnswerInput" rows="4" placeholder="輸入你的答案">${currentAnswer || ''}</textarea>
+          <button id="submitChallengeBtn" class="stage-btn primary" style="width:100%; margin-top:8px;">送出答案</button>
+        `;
+      }
+
+      return `
+        <div id="challengeCard" class="challenge-card">
+          <div class="challenge-header">
+            <h2>開始挑戰這一關</h2>
+            <p>${task.name}</p>
+          </div>
+          <div class="challenge-note">${locationHint}</div>
+          <div class="challenge-box">
+            ${challengeInner}
+            <div id="answerMsg" class="answer-msg"></div>
+            <div id="${attemptsHtmlId}" class="attempt-history"></div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function loadAttemptHistory(userTaskId) {
+      if (!userTaskId) return;
+      const container = document.getElementById('attemptHistory');
+      if (!container) return;
+      container.innerHTML = '<div class="attempt-card">載入挑戰紀錄中...</div>';
+      try {
+        const data = await fetchJson(`${API_BASE}/api/user-tasks/${userTaskId}/attempts`);
+        container.innerHTML = renderAttemptHistory(data.attempts);
+      } catch (err) {
+        container.innerHTML = '<div class="attempt-card">載入挑戰紀錄失敗。</div>';
+      }
+    }
+
+    async function submitStandardAnswer(task, userTaskId, answer) {
+      return fetchJson(`${API_BASE}/api/user-tasks/${userTaskId}/answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answer })
+      });
+    }
+
+    async function renderTaskPage(task) {
+      const taskApp = document.getElementById('taskApp');
+      const loadingState = document.getElementById('loadingState');
+      const mapUrl = getMapUrl(task);
+      let userTaskId = null;
+      let currentAnswer = '';
+      let completedTask = null;
+      let inProgressTask = null;
+      let nextTask = null;
+
+      if (loginUser && loginUser.username) {
+        const userTasksData = await fetchJson(`${API_BASE}/api/user-tasks/all?username=${encodeURIComponent(loginUser.username)}`);
+        if (userTasksData.success && Array.isArray(userTasksData.tasks)) {
+          completedTask = userTasksData.tasks.find(item => Number(item.id) === Number(task.id) && item.status === '完成');
+          inProgressTask = userTasksData.tasks.find(item => Number(item.id) === Number(task.id) && item.status === '進行中');
+          if (inProgressTask) {
+            userTaskId = inProgressTask.user_task_id;
+            currentAnswer = inProgressTask.answer || '';
+          }
+        }
+
+        if (task.type === 'quest' && task.quest_chain_id && task.quest_order) {
+          const tasksData = await fetchJson(`${API_BASE}/api/tasks`);
+          if (tasksData.success && Array.isArray(tasksData.tasks)) {
+            nextTask = tasksData.tasks.find(item =>
+              Number(item.quest_chain_id) === Number(task.quest_chain_id) &&
+              Number(item.quest_order) === Number(task.quest_order) + 1
+            );
+          }
+        }
+      }
+
+      const statusText = completedTask
+        ? '這一關已經完成。'
+        : inProgressTask
+          ? '關卡已接下，下一步請直接前往地圖抵達任務點。'
+          : '這一頁是關卡簡報。接下任務後，系統會直接把你帶去地圖。';
+
+      const aiTypeMap = {
+        ai_count: 'AI 數量判定',
+        ai_identify: 'AI 目標辨識',
+        ai_score: 'AI 圖像評分',
+        ai_rule_check: 'AI 規則檢查',
+        ai_reference_match: 'AI 地點照片比對'
+      };
+
+      taskApp.innerHTML = `
+        <div class="stage-layout">
+          <section class="stage-panel">
+            <div class="stage-hero">
+              <img src="${task.photoUrl}" alt="${task.name}" onerror="this.src='/images/mascot.png'">
+              <div class="stage-overlay">
+                <div class="stage-chip-row">
+                  <span class="stage-chip">${task.type === 'quest' ? `劇情第 ${task.quest_order || '?'} 關` : '單次關卡'}</span>
+                  <span class="stage-chip">${task.validation_mode && aiTypeMap[task.validation_mode] ? aiTypeMap[task.validation_mode] : '現場挑戰'}</span>
+                </div>
+                <h1>${task.name}</h1>
+              </div>
+            </div>
+            <div class="stage-content">
+              <div class="stage-copy">${task.description}</div>
+              <div class="stage-actions">
+                <button id="primaryStageBtn" class="stage-btn primary">${completedTask ? '查看下一關' : inProgressTask ? '開啟關卡地圖' : '接下這一關，前往地圖'}</button>
+                <button id="reachStageBtn" class="stage-btn secondary" ${completedTask ? 'style="display:none;"' : ''}>我已抵達任務點，開始挑戰</button>
+              </div>
+              <div id="taskStatus" class="stage-status">${statusText}</div>
+              <div class="stage-grid">
+                <div class="meta-card">
+                  <strong>關卡座標</strong>
+                  <span>${task.lat}, ${task.lng}</span>
+                </div>
+                <div class="meta-card">
+                  <strong>有效半徑</strong>
+                  <span>${task.radius || 0} 公尺</span>
+                </div>
+                <div class="meta-card">
+                  <strong>完成獎勵</strong>
+                  <span>${task.points || 0} 積分${task.reward_item_name ? `＋${task.reward_item_name}` : ''}</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <aside class="stage-panel side-panel">
+            <section class="flow-card">
+              <h2>這一關怎麼玩</h2>
+              <div class="flow-list">
+                <div class="flow-step">
+                  <span class="flow-no">1</span>
+                  <div>
+                    <strong>先接下關卡</strong>
+                    <p>從這頁確認任務目標後，直接進地圖，不在這裡卡住玩家。</p>
+                  </div>
+                </div>
+                <div class="flow-step">
+                  <span class="flow-no">2</span>
+                  <div>
+                    <strong>前往任務點</strong>
+                    <p>地圖才是主舞台，玩家應該被帶去任務地點，而不是停在工具介面。</p>
+                  </div>
+                </div>
+                <div class="flow-step">
+                  <span class="flow-no">3</span>
+                  <div>
+                    <strong>抵達後再開始挑戰</strong>
+                    <p>確認你已經到點，才展開這一關的挑戰面板與提交流程。</p>
+                  </div>
+                </div>
+                <div class="flow-step">
+                  <span class="flow-no">4</span>
+                  <div>
+                    <strong>通關後往下一關</strong>
+                    <p>關卡感比辨識感更重要，所以所有回饋都會圍繞「是否解鎖下一段冒險」。</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="reward-card">
+              <h2>關卡提示</h2>
+              <p>${task.validation_mode === 'ai_reference_match'
+                ? '最後一關是地點照片比對。系統會拿封面圖當參考畫面，請讓你的拍攝角度盡量接近。'
+                : task.validation_mode && task.validation_mode.startsWith('ai_')
+                  ? '這是一關 AI 驗證任務。拍照後系統會判斷是否通過，若失敗會告訴你該怎麼重拍。'
+                  : '這一關會依題型要求你輸入答案或確認位置。'}</p>
+              ${task.max_attempts ? `<p style="margin-top:10px;">最多可挑戰 ${task.max_attempts} 次。</p>` : ''}
+              ${nextTask ? `<div class="next-stage-box">完成這一關後，下一關「${nextTask.name}」會接著解鎖。</div>` : ''}
+            </section>
+
+            ${renderChallenge(task, userTaskId, currentAnswer)}
+          </aside>
+        </div>
+      `;
+
+      loadingState.style.display = 'none';
+      taskApp.style.display = 'block';
+
+      const statusEl = document.getElementById('taskStatus');
+      const primaryBtn = document.getElementById('primaryStageBtn');
+      const reachBtn = document.getElementById('reachStageBtn');
+      const challengeCard = document.getElementById('challengeCard');
+
+      primaryBtn.onclick = async function() {
+        if (completedTask) {
+          if (nextTask) {
+            window.location.href = `/task-detail.html?id=${nextTask.id}`;
+          } else {
+            statusEl.textContent = '這條劇情線目前已完成，可以回到地圖看看其他關卡。';
+          }
+          return;
+        }
+
+        if (!loginUser || !loginUser.username) {
+          statusEl.textContent = '請先登入後再接下這一關。';
+          return;
+        }
+
+        if (loginUser.role === 'shop') {
+          statusEl.textContent = '工作人員帳號無法參與任務。';
+          return;
+        }
+
+        if (!inProgressTask) {
+          const resp = await fetchJson(`${API_BASE}/api/user-tasks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: loginUser.username, task_id: task.id })
+          });
+          if (!resp.success) {
+            statusEl.textContent = resp.message || '接關失敗，請稍後再試。';
             return;
           }
-          const t = data.task;
+        }
 
-          const typeMap = {
-            qa: '問答題',
-            multiple_choice: '選擇題',
-            photo: '拍照任務',
-            number: '數字解謎',
-            keyword: '關鍵字解碼',
-            location: '地理圍欄打卡'
+        statusEl.textContent = '關卡已接下，正在帶你前往地圖。';
+        window.location.href = mapUrl;
+      };
+
+      reachBtn.onclick = async function() {
+        if (!loginUser || !loginUser.username) {
+          statusEl.textContent = '請先登入後再開始挑戰。';
+          return;
+        }
+
+        if (completedTask) {
+          statusEl.textContent = '這一關已經完成。';
+          return;
+        }
+
+        if (!inProgressTask) {
+          statusEl.textContent = '請先接下這一關，再前往地圖。';
+          return;
+        }
+
+        const nearResult = await ensureNearTask(task);
+        statusEl.textContent = nearResult.message;
+        if (!nearResult.ok) return;
+
+        challengeCard.classList.add('open');
+        challengeCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        loadAttemptHistory(userTaskId);
+      };
+
+      if (completedTask) {
+        challengeCard.classList.remove('open');
+        reachBtn.style.display = 'none';
+        return;
+      }
+
+      if (inProgressTask) {
+        primaryBtn.textContent = '開啟關卡地圖';
+      }
+
+      const answerMsg = () => document.getElementById('answerMsg');
+
+      const photoInput = document.getElementById('photoInput');
+      const photoPreview = document.getElementById('photoPreview');
+      if (photoInput && photoPreview) {
+        photoInput.addEventListener('change', (event) => {
+          const file = event.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            photoPreview.src = ev.target.result;
+            photoPreview.style.display = 'block';
           };
-          const taskTypeLabel = t.validation_mode && t.validation_mode.startsWith('ai_')
-            ? `AI 任務 (${t.validation_mode})`
-            : (typeMap[t.task_type] || '問答題');
+          reader.readAsDataURL(file);
+        });
+      }
 
-          // 解析選項（如果是 JSON 字串）
-          let options = [];
-          if (t.task_type === 'multiple_choice' && t.options) {
-            options = typeof t.options === 'string' ? JSON.parse(t.options) : t.options;
-          }
+      const submitBtn = document.getElementById('submitChallengeBtn');
+      if (!submitBtn) return;
 
-          let rewardItemHtml = '';
-          if (t.reward_item_name) {
-            rewardItemHtml = `<div style="margin-top:5px; color:#28a745; font-weight:bold; font-size:0.9rem;">🎁 完成獎勵：${t.reward_item_name}</div>`;
-          }
-          const aiTaskHintHtml = t.validation_mode && t.validation_mode.startsWith('ai_')
-            ? `
-              <div style="margin:12px 0 18px; padding:12px; border-radius:10px; background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8;">
-                <div style="font-weight:700; margin-bottom:6px;">🤖 AI 驗證任務</div>
-                <div>${t.validation_mode === 'ai_reference_match'
-                  ? '這一關會拿任務封面圖當成參考地點照片，比對你上傳的照片是不是同一位置。'
-                  : '提交照片後，系統會用 AI 判定是否通關。'}</div>
-                ${t.max_attempts ? `<div style="margin-top:6px;">最多可挑戰 ${t.max_attempts} 次</div>` : ''}
-              </div>`
-            : '';
+      submitBtn.onclick = async function() {
+        if (!userTaskId) {
+          answerMsg().textContent = '請先接下關卡，再開始挑戰。';
+          answerMsg().style.color = '#b91c1c';
+          return;
+        }
 
-          taskDetailEl.innerHTML = `
-            <h2>${t.name}</h2>
-            <div class="task-meta-grid">
-              <span class="task-type-chip">${taskTypeLabel}</span>
-              <span>📍 (${t.lat}, ${t.lng})</span>
-              <span>🎯 半徑：${t.radius} 公尺</span>
-              <span>💰 積分：${t.points || 0}</span>
-            </div>
-            ${rewardItemHtml}
-            ${aiTaskHintHtml}
-            <div style="margin-bottom:18px; color:var(--text-secondary); line-height:1.6;">${t.description}</div>
-            <img src="${t.photoUrl}" alt="任務照片" class="task-detail-img" onerror="this.src='/images/mascot.png'">
-            <!-- YouTube 影片已移至 AR 模式，此處不再顯示 -->
-            <div class="detail-actions">
-              <button id="startTaskBtn" class="btn btn-primary">開始任務</button>
-              <div id="taskMsg" style="margin-top:15px; font-weight:600;"></div>
-            </div>
-            <div id="answerSection" class="answer-container"></div>
-          `;
-
-          const startTaskBtn = document.getElementById('startTaskBtn');
-          const taskMsgEl = document.getElementById('taskMsg');
-
-          if (loginUser && loginUser.role === 'shop') {
-            startTaskBtn.style.display = 'none';
-            taskMsgEl.textContent = '工作人員帳號無法參與任務';
-            return;
-          }
-
-          if (loginUser && loginUser.username) {
-            fetch(`${API_BASE}/api/user-tasks/all?username=${encodeURIComponent(loginUser.username)}`, {
-              credentials: 'include'
-            })
-              .then(res => {
-                if (res.status === 401) {
-                  handleAuthExpired();
-                  throw new Error('unauthorized');
-                }
-                return res.json();
-              })
-              .then(udata => {
-                if (udata.success && Array.isArray(udata.tasks)) {
-                  // 已完成
-                  const completedTask = udata.tasks.find(x => x.id == t.id && x.status === '完成');
-                  if (completedTask) {
-                    startTaskBtn.textContent = '任務已完成';
-                    startTaskBtn.disabled = true;
-                    startTaskBtn.style.backgroundColor = '#6c757d';
-                    
-                    // 如果是劇情任務，檢查是否有下一關並引導用戶
-                    if (t.type === 'quest' && t.quest_chain_id && t.quest_order) {
-                      // 獲取劇情進度
-                      fetch(`${API_BASE}/api/user/quest-progress`, {
-                        headers: { 'x-username': loginUser.username },
-                        credentials: 'include'
-                      })
-                      .then(res => res.json())
-                      .then(progressData => {
-                        if (progressData.success) {
-                          const progress = progressData.progress || {};
-                          const chainId = String(t.quest_chain_id);
-                          const currentStep = progress[chainId];
-                          
-                          // 如果有下一關（currentStep > 當前關卡），引導用戶到下一關
-                          if (currentStep && Number(currentStep) > Number(t.quest_order)) {
-                            // 獲取所有任務，找到下一關
-                            fetch(`${API_BASE}/api/tasks`)
-                              .then(res => res.json())
-                              .then(tasksData => {
-                                if (tasksData.success) {
-                                  const nextTask = tasksData.tasks.find(task => 
-                                    String(task.quest_chain_id) === chainId &&
-                                    Number(task.quest_order) === Number(currentStep) &&
-                                    task.type === 'quest'
-                                  );
-                                  
-                                  if (nextTask) {
-                                    taskMsgEl.innerHTML = `
-                                      <div style="color:#28a745; margin-bottom:10px;">✅ 您已完成此任務</div>
-                                      <div style="color:var(--text-secondary); margin-bottom:15px;">📚 這是劇情任務的第 ${t.quest_order} 關，下一關已解鎖！</div>
-                                      <button id="goToNextTaskBtn" class="btn btn-primary" style="width:100%;">前往下一關：${nextTask.name}</button>
-                                    `;
-                                    
-                                    document.getElementById('goToNextTaskBtn').onclick = function() {
-                                      window.location.href = `/task-detail.html?id=${nextTask.id}`;
-                                    };
-                                  } else {
-                                    taskMsgEl.textContent = '您已完成此任務';
-                                    taskMsgEl.style.color = '#28a745';
-                                  }
-                                } else {
-                                  taskMsgEl.textContent = '您已完成此任務';
-                                  taskMsgEl.style.color = '#28a745';
-                                }
-                              })
-                              .catch(err => {
-                                console.error('獲取下一關失敗:', err);
-                                taskMsgEl.textContent = '您已完成此任務';
-                                taskMsgEl.style.color = '#28a745';
-                              });
-                          } else {
-                            // 沒有下一關或已完成所有關卡
-                            taskMsgEl.textContent = '您已完成此任務';
-                            taskMsgEl.style.color = '#28a745';
-                          }
-                        } else {
-                          taskMsgEl.textContent = '您已完成此任務';
-                          taskMsgEl.style.color = '#28a745';
-                        }
-                      })
-                      .catch(err => {
-                        console.error('獲取劇情進度失敗:', err);
-                        taskMsgEl.textContent = '您已完成此任務';
-                        taskMsgEl.style.color = '#28a745';
-                      });
-                    } else {
-                      // 不是劇情任務，直接顯示完成訊息
-                      taskMsgEl.textContent = '您已完成此任務';
-                      taskMsgEl.style.color = '#28a745';
-                    }
-                    return;
-                  }
-                  // 進行中
-                  const inProgressTask = udata.tasks.find(x => x.id == t.id && x.status === '進行中');
-                  if (inProgressTask) {
-                    showAnswerSection(inProgressTask.user_task_id, inProgressTask.answer || '');
-                    startTaskBtn.disabled = true;
-                    taskMsgEl.textContent = '任務進行中！';
-                  }
-                }
-              })
-              .catch(err => console.error('檢查任務狀態失敗:', err));
-          }
-
-          startTaskBtn.onclick = function() {
-            if (!loginUser || !loginUser.username) {
-              taskMsgEl.textContent = '請先登入';
-              taskMsgEl.style.color = '#dc3545';
+        try {
+          if (task.task_type === 'photo') {
+            const file = photoInput?.files?.[0];
+            if (!file) {
+              answerMsg().textContent = '請先選擇照片。';
+              answerMsg().style.color = '#b91c1c';
               return;
             }
-            fetch(`${API_BASE}/api/user-tasks`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify({ username: loginUser.username, task_id: t.id })
-            })
-            .then(res => {
-              if (res.status === 401) {
-                handleAuthExpired();
-                throw new Error('unauthorized');
-              }
-              if (!res.ok) {
-                throw new Error(`HTTP ${res.status}`);
-              }
-              return res.json();
-            })
-            .then(resp => {
-              if (resp.success) {
-                taskMsgEl.textContent = '任務進行中！';
-                taskMsgEl.style.color = 'var(--primary-color)';
-                startTaskBtn.disabled = true;
-                fetch(`${API_BASE}/api/user-tasks/all?username=${encodeURIComponent(loginUser.username)}`, {
-                  credentials: 'include'
-                })
-                  .then(res => {
-                    if (!res.ok) {
-                      throw new Error(`HTTP ${res.status}`);
-                    }
-                    return res.json();
-                  })
-                  .then(udata => {
-                    if (udata.success && Array.isArray(udata.tasks)) {
-                      const ut = udata.tasks.find(x => x.id == t.id && x.status === '進行中');
-                      if (ut) {
-                        showAnswerSection(ut.user_task_id, ut.answer || '');
-                      } else {
-                        // 如果找不到任務，嘗試使用 resp 中的 user_task_id（如果有）
-                        console.warn('找不到進行中的任務，嘗試直接顯示答題區');
-                        // 至少顯示 AR 按鈕
-                        showAnswerSection(null, '');
-                      }
-                    }
-                  })
-                  .catch(err => {
-                    console.error('獲取任務狀態失敗:', err);
-                    // 即使獲取失敗，也顯示答題區（使用臨時 ID）
-                    showAnswerSection(null, '');
-                  });
-              } else {
-                taskMsgEl.textContent = resp.message || '加入失敗';
-                taskMsgEl.style.color = '#dc3545';
-                if (resp.message && resp.message.includes('已完成過')) {
-                  startTaskBtn.textContent = '任務已完成';
-                  startTaskBtn.disabled = true;
-                  startTaskBtn.style.backgroundColor = '#6c757d';
-                }
-              }
-            })
-            .catch(err => {
-              console.error('開始任務失敗:', err);
-              taskMsgEl.textContent = '開始任務失敗: ' + (err.message || '網路錯誤');
-              taskMsgEl.style.color = '#dc3545';
-            });
-          };
 
-          // Haversine 距離計算
-          function haversineDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c; // Km
-          }
+            answerMsg().textContent = task.validation_mode && task.validation_mode.startsWith('ai_') ? 'AI 正在判定這一關...' : '照片上傳中...';
+            answerMsg().style.color = '#0e7490';
 
-          function showAnswerSection(userTaskId, currentAnswer) {
-            const answerDiv = document.getElementById('answerSection');
-            answerDiv.innerHTML = '';
-
-            // --- GPS 圍欄監控 (防止作弊) ---
-            if (window.gpsWatchId) navigator.geolocation.clearWatch(window.gpsWatchId);
-            const existingWarning = document.getElementById('gpsWarning');
-            if (existingWarning) existingWarning.remove();
-
-            // 對於非 location 類型的任務，也需要持續監控
-            if (t.task_type !== 'location') {
-                const limit = (t.radius || 50) + 50; // 寬容 50 公尺
-                const warningEl = document.createElement('div');
-                warningEl.id = 'gpsWarning';
-                warningEl.style.cssText = 'display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); color:white; z-index:9999; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px;';
-                warningEl.innerHTML = `
-                    <div style="font-size:4rem; margin-bottom:20px;">📡</div>
-                    <h2 style="color:#ffc107; margin-bottom:10px;">訊號中斷</h2>
-                    <p style="font-size:1.1rem; line-height:1.6;">您已離開任務有效範圍<br>請回到任務地點以繼續作答</p>
-                    <div id="distDisplay" style="margin-top:20px; font-weight:bold; font-size:1.2rem;"></div>
-                `;
-                document.body.appendChild(warningEl);
-
-                if (navigator.geolocation) {
-                    window.gpsWatchId = navigator.geolocation.watchPosition(
-                        (pos) => {
-                            const distKm = haversineDistance(pos.coords.latitude, pos.coords.longitude, t.lat, t.lng);
-                            const distM = distKm * 1000;
-                            
-                            // 檢查距離
-                            if (distM > limit) {
-                                warningEl.style.display = 'flex';
-                                document.getElementById('distDisplay').textContent = `目前距離：${Math.round(distM)} 公尺`;
-                                // 模糊化答題區
-                                answerDiv.style.filter = 'blur(5px)';
-                                answerDiv.style.pointerEvents = 'none';
-                            } else {
-                                warningEl.style.display = 'none';
-                                answerDiv.style.filter = 'none';
-                                answerDiv.style.pointerEvents = 'auto';
-                            }
-                        },
-                        (err) => console.error('GPS 監控失敗:', err),
-                        { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
-                    );
-                }
-            }
-            // ---------------------------
-
-            const container = document.createElement('div');
-            container.style.padding = '15px';
-            container.style.background = '#f8f9fa';
-            container.style.borderRadius = '8px';
-
-            // AR 按鈕
-            const arBtn = document.createElement('button');
-            arBtn.className = 'btn';
-            arBtn.style.width = '100%';
-            arBtn.style.marginBottom = '15px';
-            arBtn.style.background = '#fd7e14'; // 橙色以示區別
-            arBtn.style.color = 'white';
-            arBtn.style.fontWeight = 'bold';
-            arBtn.style.border = 'none';
-            arBtn.style.borderRadius = '6px';
-            arBtn.style.padding = '10px';
-            arBtn.innerHTML = '📸 開啟 AR 尋找線索';
-            arBtn.onclick = () => {
-              window.location.href = `/ar-view.html?taskId=${t.id}&lat=${t.lat}&lng=${t.lng}`;
-            };
-            container.appendChild(arBtn);
-
-            const aiLabBtn = document.createElement('button');
-            aiLabBtn.className = 'btn';
-            aiLabBtn.style.width = '100%';
-            aiLabBtn.style.marginBottom = '15px';
-            aiLabBtn.style.background = '#0ea5e9';
-            aiLabBtn.style.color = 'white';
-            aiLabBtn.style.fontWeight = 'bold';
-            aiLabBtn.style.border = 'none';
-            aiLabBtn.style.borderRadius = '6px';
-            aiLabBtn.style.padding = '10px';
-            aiLabBtn.innerHTML = '🤖 AI 視覺探索（景點介紹＋辨識）';
-            aiLabBtn.onclick = () => {
-              window.location.href = `/ai-lab.html?taskId=${t.id}&lat=${t.lat}&lng=${t.lng}`;
-            };
-            container.appendChild(aiLabBtn);
-
-            const title = document.createElement('div');
-            title.style.fontWeight = 'bold';
-            title.style.marginBottom = '10px';
-            title.style.color = '#7c3aed';
-            title.textContent = '提交答案：';
-            container.appendChild(title);
-
-            if (t.task_type === 'number') {
-              const input = document.createElement('input');
-              input.type = 'number';
-              input.className = 'form-input';
-              input.placeholder = '請輸入數字密碼';
-              input.style.fontSize = '1.5rem';
-              input.style.letterSpacing = '2px';
-              input.style.textAlign = 'center';
-              input.style.padding = '10px';
-              input.value = currentAnswer;
-              container.appendChild(input);
-
-              const submitBtn = document.createElement('button');
-              submitBtn.textContent = '🔓 解鎖';
-              submitBtn.className = 'btn btn-primary';
-              submitBtn.style.marginTop = '15px';
-              submitBtn.style.width = '100%';
-              submitBtn.onclick = () => {
-                 if(!input.value) return alert('請輸入密碼');
-                 submitAnswer(userTaskId, input.value);
-              };
-              container.appendChild(submitBtn);
-
-            } else if (t.task_type === 'keyword') {
-              const input = document.createElement('input');
-              input.type = 'text';
-              input.className = 'form-input';
-              input.placeholder = '請輸入關鍵字...';
-              input.value = currentAnswer;
-              container.appendChild(input);
-
-              const hint = document.createElement('small');
-              hint.style.color = '#666';
-              hint.style.display = 'block';
-              hint.style.marginTop = '5px';
-              hint.textContent = '💡 提示：請輸入標準名稱 (例如 "白鷺")';
-              container.appendChild(hint);
-
-              const submitBtn = document.createElement('button');
-              submitBtn.textContent = '🔍 解碼';
-              submitBtn.className = 'btn btn-primary';
-              submitBtn.style.marginTop = '15px';
-              submitBtn.style.width = '100%';
-              submitBtn.onclick = () => {
-                 if(!input.value.trim()) return alert('請輸入關鍵字');
-                 submitAnswer(userTaskId, input.value);
-              };
-              container.appendChild(submitBtn);
-
-            } else if (t.task_type === 'location') {
-              const info = document.createElement('div');
-              info.innerHTML = `
-                <div style="text-align:center; padding:20px; background:white; border-radius:8px; border:1px dashed #ccc; margin-bottom:15px;">
-                  <div style="font-size:3rem; margin-bottom:10px;">📍</div>
-                  <p style="margin:0; color:#333;">請移動到目標地點</p>
-                  <p style="margin:5px 0 0 0; font-size:0.9rem; color:#666;">到達後點擊下方按鈕進行驗證</p>
-                  <div id="gpsStatus" style="font-size:0.9rem; color:#007bff; margin-top:10px; font-weight:bold;">等待定位...</div>
-                </div>
-              `;
-              container.appendChild(info);
-
-              const checkBtn = document.createElement('button');
-              checkBtn.textContent = '📍 我已到達 (檢查位置)';
-              checkBtn.className = 'btn btn-primary';
-              checkBtn.style.width = '100%';
-              checkBtn.onclick = () => {
-                const statusEl = document.getElementById('gpsStatus');
-                statusEl.textContent = '正在獲取精確位置...';
-                checkBtn.disabled = true;
-
-                if (!navigator.geolocation) {
-                  statusEl.textContent = '您的裝置不支援 GPS';
-                  return;
-                }
-
-                navigator.geolocation.getCurrentPosition(
-                  (pos) => {
-                    const d = haversineDistance(pos.coords.latitude, pos.coords.longitude, t.lat, t.lng);
-                    // 設定 50 公尺的寬容度 (考慮到 GPS 飄移，放寬一點比較友善，或者用 t.radius)
-                    const limit = (t.radius || 30) / 1000; // 轉為公里
-                    
-                    if (d <= limit) {
-                       statusEl.textContent = `✅ 位置正確！(距離 ${Math.round(d*1000)}m)`;
-                       statusEl.style.color = 'green';
-                       // 自動送出通關密語。請務必在後台將此類任務的標準答案設為 "ARRIVED"
-                       submitAnswer(userTaskId, 'ARRIVED'); 
-                    } else {
-                       statusEl.textContent = `❌ 距離目標太遠 (${Math.round(d*1000)}m)，請再靠近一點！`;
-                       statusEl.style.color = '#dc3545';
-                       checkBtn.disabled = false;
-                    }
-                  },
-                  (err) => {
-                    statusEl.textContent = '無法獲取位置，請確認 GPS 已開啟';
-                    checkBtn.disabled = false;
-                  },
-                  { enableHighAccuracy: true, timeout: 10000 }
-                );
-              };
-              container.appendChild(checkBtn);
-
-            } else if (t.task_type === 'multiple_choice') {
-              const form = document.createElement('div');
-              options.forEach((opt, index) => {
-                const wrapper = document.createElement('label');
-                wrapper.style.display = 'flex';
-                wrapper.style.alignItems = 'center';
-                wrapper.style.gap = '8px';
-                wrapper.style.marginBottom = '8px';
-
-                const radio = document.createElement('input');
-                radio.type = 'radio';
-                radio.name = 'mc_option';
-                radio.value = opt;
-                if (currentAnswer === opt) radio.checked = true;
-
-                wrapper.appendChild(radio);
-                wrapper.appendChild(document.createTextNode(opt));
-                form.appendChild(wrapper);
-              });
-              container.appendChild(form);
-
-              const submitBtn = document.createElement('button');
-              submitBtn.textContent = '送出答案';
-              submitBtn.className = 'btn btn-primary';
-              submitBtn.style.marginTop = '10px';
-              submitBtn.onclick = () => {
-                const selected = form.querySelector('input[name="mc_option"]:checked');
-                if (!selected) {
-                  alert('請選擇一個答案');
-                  return;
-                }
-                submitAnswer(userTaskId, selected.value);
-              };
-              container.appendChild(submitBtn);
-            } else if (t.task_type === 'photo') {
-              const fileInput = document.createElement('input');
-              fileInput.type = 'file';
-              fileInput.accept = 'image/*';
-              fileInput.style.marginBottom = '10px';
-
-              const preview = document.createElement('img');
-              preview.style.maxWidth = '200px';
-              preview.style.display = currentAnswer ? 'block' : 'none';
-              preview.style.marginTop = '10px';
-              if (currentAnswer && currentAnswer.startsWith('/images/')) {
-                 preview.src = currentAnswer;
-              }
-
-              fileInput.onchange = (e) => {
-                 const file = e.target.files[0];
-                 if (file) {
-                   const reader = new FileReader();
-                   reader.onload = (ev) => {
-                     preview.src = ev.target.result;
-                     preview.style.display = 'block';
-                   };
-                   reader.readAsDataURL(file);
-                 }
-              };
-
-              container.appendChild(fileInput);
-              container.appendChild(preview);
-
-              const attemptsWrap = document.createElement('div');
-              attemptsWrap.id = 'attemptHistory';
-              attemptsWrap.style.marginTop = '15px';
-
-              const submitBtn = document.createElement('button');
-              submitBtn.textContent = t.validation_mode && t.validation_mode.startsWith('ai_')
-                ? '上傳照片並交給 AI 判定'
-                : '上傳照片並送出';
-              submitBtn.className = 'btn btn-primary';
-              submitBtn.style.display = 'block';
-              submitBtn.style.marginTop = '10px';
-              submitBtn.onclick = async () => {
-                 const file = fileInput.files[0];
-                 if (!file) {
-                   alert('請選擇照片');
-                   return;
-                 }
-
-                 const msg = document.getElementById('answerMsg');
-                 msg.textContent = t.validation_mode && t.validation_mode.startsWith('ai_') ? 'AI 分析中...' : '上傳中...';
-                 try {
-                   if (t.validation_mode && t.validation_mode.startsWith('ai_')) {
-                     const fd = new FormData();
-                     fd.append('image', file);
-                     const submitRes = await fetch(`${API_BASE}/api/ai-tasks/${t.id}/submit`, {
-                       method: 'POST',
-                       credentials: 'include',
-                       body: fd
-                     });
-                     const submitData = await submitRes.json();
-                     if (!submitData.success) {
-                       msg.textContent = submitData.message || 'AI 判定失敗';
-                       msg.style.color = '#dc3545';
-                       return;
-                     }
-                     msg.textContent = submitData.message || (submitData.passed ? 'AI 驗證通過' : 'AI 驗證未通過');
-                     msg.style.color = submitData.passed ? '#28a745' : '#dc3545';
-                     if (submitData.retry_advice) {
-                       msg.textContent += `\n${submitData.retry_advice}`;
-                     }
-                     if (submitData.user_task_id) {
-                       loadAttemptHistory(submitData.user_task_id);
-                     }
-                     if (submitData.isCompleted) {
-                       document.getElementById('answerSection').querySelectorAll('button').forEach(b => b.disabled = true);
-                       const startBtn = document.getElementById('startTaskBtn');
-                       startBtn.textContent = '任務已完成';
-                       startBtn.style.backgroundColor = '#28a745';
-                     }
-                   } else {
-                     const fd = new FormData();
-                     fd.append('photo', file);
-                     const uploadRes = await fetch(`${API_BASE}/api/upload`, {
-                        method: 'POST',
-                        headers: loginUser ? { 'x-username': loginUser.username } : {},
-                        body: fd
-                     });
-                     const uploadData = await uploadRes.json();
-                     if(!uploadData.success) {
-                        msg.textContent = uploadData.message || '上傳失敗';
-                        return;
-                     }
-                     submitAnswer(userTaskId, uploadData.url);
-                   }
-                 } catch (e) {
-                   msg.textContent = '提交失敗';
-                   msg.style.color = '#dc3545';
-                 }
-              };
-              container.appendChild(submitBtn);
-              container.appendChild(attemptsWrap);
-              if (t.validation_mode && t.validation_mode.startsWith('ai_') && userTaskId) {
-                loadAttemptHistory(userTaskId);
-              }
-            } else {
-              const textarea = document.createElement('textarea');
-              textarea.rows = 3;
-              textarea.style.width = '100%';
-              textarea.style.borderRadius = '6px';
-              textarea.style.padding = '8px';
-              textarea.placeholder = '請在此輸入答案';
-              textarea.value = currentAnswer || '';
-              container.appendChild(textarea);
-
-              const submitBtn = document.createElement('button');
-              submitBtn.textContent = '送出答案';
-              submitBtn.className = 'btn btn-primary';
-              submitBtn.style.marginTop = '10px';
-              submitBtn.onclick = () => {
-                const val = textarea.value.trim();
-                if (!val) { alert('請輸入答案'); return; }
-                submitAnswer(userTaskId, val);
-              };
-              container.appendChild(submitBtn);
-            }
-
-            const msgSpan = document.createElement('div');
-            msgSpan.id = 'answerMsg';
-            msgSpan.style.marginTop = '10px';
-            msgSpan.style.color = '#007bff';
-            msgSpan.style.whiteSpace = 'pre-line';
-            container.appendChild(msgSpan);
-
-            answerDiv.appendChild(container);
-          }
-
-          async function loadAttemptHistory(userTaskId) {
-            const container = document.getElementById('attemptHistory');
-            if (!container || !userTaskId) return;
-            container.innerHTML = '<div style="color:#64748b;">載入挑戰紀錄中...</div>';
-            try {
-              const res = await fetch(`${API_BASE}/api/user-tasks/${userTaskId}/attempts`, {
-                credentials: 'include'
-              });
-              const data = await res.json();
-              if (!data.success || !Array.isArray(data.attempts) || data.attempts.length === 0) {
-                container.innerHTML = '<div style="color:#64748b;">目前還沒有挑戰紀錄</div>';
-                return;
-              }
-              container.innerHTML = `
-                <div style="margin-top:14px; font-weight:700; color:#0f172a;">挑戰紀錄</div>
-                ${data.attempts.map(attempt => `
-                  <div style="margin-top:10px; padding:10px; border:1px solid #e2e8f0; border-radius:8px; background:white;">
-                    <div style="font-weight:600;">第 ${attempt.attempt_no} 次 ${attempt.passed ? '✅' : '❌'}</div>
-                    ${attempt.failure_reason ? `<div style="color:#b91c1c; margin-top:4px;">${attempt.failure_reason}</div>` : ''}
-                    ${attempt.retry_advice ? `<div style="color:#475569; margin-top:4px;">建議：${attempt.retry_advice}</div>` : ''}
-                    ${(attempt.detected_count !== null && attempt.detected_count !== undefined) ? `<div style="margin-top:4px;">辨識數量：${attempt.detected_count}</div>` : ''}
-                    ${(attempt.score !== null && attempt.score !== undefined) ? `<div style="margin-top:4px;">AI 分數：${attempt.score}</div>` : ''}
-                  </div>
-                `).join('')}
-              `;
-            } catch (err) {
-              container.innerHTML = '<div style="color:#b91c1c;">載入挑戰紀錄失敗</div>';
-            }
-          }
-
-          async function submitAnswer(userTaskId, val) {
-            const msg = document.getElementById('answerMsg');
-            if (!msg) return;
-            
-            // 如果沒有 userTaskId，嘗試重新獲取
-            if (!userTaskId) {
-              msg.textContent = '正在獲取任務資訊...';
-              try {
-                const res = await fetch(`${API_BASE}/api/user-tasks/all?username=${encodeURIComponent(loginUser.username)}`, {
-                  credentials: 'include'
-                });
-                const udata = await res.json();
-                if (udata.success && Array.isArray(udata.tasks)) {
-                  const ut = udata.tasks.find(x => x.id == t.id && x.status === '進行中');
-                  if (ut) {
-                    userTaskId = ut.user_task_id;
-                  } else {
-                    msg.textContent = '找不到進行中的任務，請重新開始任務';
-                    msg.style.color = '#dc3545';
-                    return;
-                  }
-                } else {
-                  msg.textContent = '獲取任務資訊失敗';
-                  msg.style.color = '#dc3545';
-                  return;
-                }
-              } catch (err) {
-                console.error('獲取任務資訊失敗:', err);
-                msg.textContent = '獲取任務資訊失敗: ' + err.message;
-                msg.style.color = '#dc3545';
-                return;
-              }
-            }
-            
-            msg.textContent = '儲存中...';
-            try {
-              const res = await fetch(`${API_BASE}/api/user-tasks/${userTaskId}/answer`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+            if (task.validation_mode && task.validation_mode.startsWith('ai_')) {
+              const fd = new FormData();
+              fd.append('image', file);
+              const response = await fetch(`${API_BASE}/api/ai-tasks/${task.id}/submit`, {
+                method: 'POST',
                 credentials: 'include',
-                body: JSON.stringify({ answer: val })
+                body: fd
               });
-              const data = await res.json();
-              if (data.success) {
-                msg.textContent = data.message;
-                if (data.isCompleted) {
-                   msg.style.color = '#28a745';
-                   msg.style.fontWeight = 'bold';
-                   document.getElementById('answerSection').querySelectorAll('button').forEach(b => b.disabled = true);
-                   const startBtn = document.getElementById('startTaskBtn');
-                   startBtn.textContent = '任務已完成';
-                   startBtn.style.backgroundColor = '#28a745';
-                }
-              } else {
-                msg.textContent = data.message || '儲存失敗';
-                msg.style.color = '#dc3545';
+              const data = await response.json();
+              if (!data.success) {
+                answerMsg().textContent = data.message || '這一關判定失敗。';
+                answerMsg().style.color = '#b91c1c';
+                return;
               }
-            } catch(e) {
-              msg.textContent = '連線失敗';
-              msg.style.color = '#dc3545';
+
+              answerMsg().textContent = data.message || (data.passed ? '這一關通過。' : '這一關尚未通過。');
+              answerMsg().style.color = data.passed ? '#15803d' : '#b91c1c';
+              if (data.retry_advice) {
+                answerMsg().textContent += `\n${data.retry_advice}`;
+              }
+              userTaskId = data.user_task_id || userTaskId;
+              await loadAttemptHistory(userTaskId);
+              if (data.isCompleted) {
+                statusEl.textContent = data.questChainCompleted
+                  ? '整條劇情線已完成。你可以回到地圖繼續探索，或直接前往下一個章節。'
+                  : '這一關已完成。你可以繼續前往下一關。';
+                primaryBtn.textContent = nextTask ? '查看下一關' : '回到關卡地圖';
+                if (!nextTask) {
+                  primaryBtn.onclick = () => window.location.href = mapUrl;
+                }
+                reachBtn.style.display = 'none';
+              }
+              return;
             }
+
+            const uploadFd = new FormData();
+            uploadFd.append('photo', file);
+            const uploadRes = await fetch(`${API_BASE}/api/upload`, {
+              method: 'POST',
+              headers: loginUser ? { 'x-username': loginUser.username } : {},
+              body: uploadFd
+            });
+            const uploadData = await uploadRes.json();
+            if (!uploadData.success) {
+              answerMsg().textContent = uploadData.message || '照片上傳失敗。';
+              answerMsg().style.color = '#b91c1c';
+              return;
+            }
+            const submitData = await submitStandardAnswer(task, userTaskId, uploadData.url);
+            answerMsg().textContent = submitData.message || '這一關已更新。';
+            answerMsg().style.color = submitData.success ? '#15803d' : '#b91c1c';
+            return;
           }
+
+          if (task.task_type === 'location') {
+            const nearResult = await ensureNearTask(task);
+            answerMsg().textContent = nearResult.ok ? '位置正確，正在送出...' : nearResult.message;
+            answerMsg().style.color = nearResult.ok ? '#0e7490' : '#b91c1c';
+            if (!nearResult.ok) return;
+            const submitData = await submitStandardAnswer(task, userTaskId, 'ARRIVED');
+            answerMsg().textContent = submitData.message || '位置驗證完成。';
+            answerMsg().style.color = submitData.success ? '#15803d' : '#b91c1c';
+            return;
+          }
+
+          let answer = '';
+          if (task.task_type === 'multiple_choice') {
+            const selected = document.querySelector('input[name="mcOption"]:checked');
+            answer = selected ? selected.value : '';
+          } else if (task.task_type === 'number') {
+            answer = document.getElementById('numberAnswerInput').value.trim();
+          } else if (task.task_type === 'keyword') {
+            answer = document.getElementById('keywordAnswerInput').value.trim();
+          } else {
+            answer = document.getElementById('textAnswerInput').value.trim();
+          }
+
+          if (!answer) {
+            answerMsg().textContent = '請先完成這一關的作答。';
+            answerMsg().style.color = '#b91c1c';
+            return;
+          }
+
+          answerMsg().textContent = '送出中...';
+          answerMsg().style.color = '#0e7490';
+          const submitData = await submitStandardAnswer(task, userTaskId, answer);
+          answerMsg().textContent = submitData.message || '這一關已更新。';
+          answerMsg().style.color = submitData.success ? '#15803d' : '#b91c1c';
+        } catch (error) {
+          answerMsg().textContent = '提交失敗，請稍後再試。';
+          answerMsg().style.color = '#b91c1c';
+        }
+      };
+    }
+
+    setupNav();
+
+    if (!taskId) {
+      document.getElementById('loadingState').textContent = '未指定關卡 ID。';
+    } else {
+      fetchJson(`${API_BASE}/api/tasks/${taskId}`)
+        .then((data) => {
+          if (!data.success || !data.task) {
+            document.getElementById('loadingState').textContent = '找不到這一關。';
+            return;
+          }
+          renderTaskPage(data.task);
         })
         .catch(() => {
-          taskDetailEl.innerHTML = '<div class="text-center text-danger">載入任務時發生錯誤</div>';
+          document.getElementById('loadingState').textContent = '讀取關卡失敗，請稍後再試。';
         });
     }
   </script>
-  <script src="/js/nav-access.js"></script>
 </body>
 </html>

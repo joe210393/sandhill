@@ -327,8 +327,8 @@
       <h1 id="pageTitle">個人任務管理</h1>
       <nav class="main-nav">
         <a href="/index.html">首頁</a>
-        <a href="/map.html">地圖頁</a>
-        <a href="/ai-lab.html">AI 實驗室</a>
+        <a href="/map.html">關卡地圖</a>
+        <a href="/ai-lab.html">海底探索艙</a>
         <a href="/tasks-list.html" id="navTasksList">任務列表</a>
         <a href="/products.html" id="navProducts">商品兌換</a>
         <a href="/user-tasks.html">任務審核</a>
@@ -531,7 +531,7 @@
 
       // 顯示進行中任務
       if (inProgressTasks.length === 0) {
-        inProgressContainer.innerHTML = '<div class="empty-state"><h3>目前沒有進行中的任務</h3><p>快去地圖頁面接取新任務吧！</p></div>';
+        inProgressContainer.innerHTML = '<div class="empty-state"><h3>目前沒有進行中的關卡</h3><p>快去關卡地圖接下新的挑戰吧！</p></div>';
       } else {
         inProgressContainer.innerHTML = '';
         inProgressTasks.forEach(task => {

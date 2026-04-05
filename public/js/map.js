@@ -749,10 +749,10 @@ function createTaskPopup(task) {
         ${task.youtubeUrl ? `<div class="task-video-link"><a href="${task.youtubeUrl}" target="_blank" style="color: #007bff; text-decoration: none;">🎬 觀看相關影片</a></div>` : ''}
         ${distance ? `<div class="task-distance">📍 距離：${distance}</div>` : ''}
         <div class="task-actions">
-          <a href="/task-detail.html?id=${task.id}" class="task-detail-btn">📖 查看詳情</a>
+          <a href="/task-detail.html?id=${task.id}" class="task-detail-btn">📖 關卡簡報</a>
           ${isStaffOrAdmin 
             ? `<button onclick="alert('管理員或工作人員無法接取任務')" class="task-card-btn" style="background-color: #6c757d; cursor: not-allowed;">🚫 管理員無法接任務</button>`
-            : `<button onclick="showTaskCard(${task.id})" class="task-card-btn">🎯 開始任務</button>`
+            : `<button onclick="showTaskCard(${task.id})" class="task-card-btn">🎯 接下這一關</button>`
           }
         </div>
       </div>
@@ -837,12 +837,12 @@ function showTaskCard(taskId) {
         </div>
 
         <div class="task-steps">
-          <h4>任務步驟：</h4>
+          <h4>關卡節奏：</h4>
           <ol>
-            <li>📍 前往任務地點</li>
-            <li>🎯 點擊任務標記</li>
-            <li>📝 完成任務說明</li>
-            <li>✅ 獲得積分獎勵</li>
+            <li>📍 先前往關卡位置</li>
+            <li>🎯 接下這一關</li>
+            <li>📝 開始你的現場挑戰</li>
+            <li>✅ 通關並解鎖下一步</li>
           </ol>
         </div>
 
@@ -861,7 +861,7 @@ function showTaskCard(taskId) {
         <div class="task-actions-modal">
           ${isStaffOrAdmin 
             ? `<button onclick="alert('管理員或工作人員無法接取任務')" class="btn-secondary" style="background-color: #6c757d;">🚫 管理員無法接任務</button>`
-            : `<a href="/task-detail.html?id=${task.id}" class="btn-primary">前往任務頁面</a>`
+            : `<a href="/task-detail.html?id=${task.id}" class="btn-primary">查看關卡簡報</a>`
           }
           <button onclick="closeTaskModal()" class="btn-secondary">關閉</button>
         </div>
@@ -1136,8 +1136,8 @@ function checkProximity(userLat, userLng) {
 
 function showTaskModal(task, onGo, onClose) {
   const loginUser = globalLoginUser;
-  document.getElementById('modalTitle').textContent = `任務：${task.name}`;
-  document.getElementById('modalDesc').textContent = `您已進入 ${task.name} 範圍，是否要開始？`;
+  document.getElementById('modalTitle').textContent = `關卡：${task.name}`;
+  document.getElementById('modalDesc').textContent = `你已進入 ${task.name} 的範圍，是否查看這一關的簡報？`;
   document.getElementById('taskModal').style.display = 'block';
   if (loginUser && loginUser.role === 'shop') {
     document.getElementById('goToTaskBtn').style.display = 'none';

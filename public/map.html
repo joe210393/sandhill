@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>地圖頁 | GPS 觸發任務系統</title>
+  <title>關卡地圖 | 海底大作戰</title>
   
   <!-- PWA 配置 -->
   <link rel="manifest" href="/manifest.json">
@@ -128,11 +128,11 @@
   <header id="mainHeader">
     <button id="hamburgerBtn" class="hamburger" aria-label="展開選單">&#9776;</button>
     <div class="header-content" id="headerContent">
-      <h1 id="pageTitle">地圖頁</h1>
+      <h1 id="pageTitle">關卡地圖</h1>
       <nav class="main-nav">
         <a href="/index.html">首頁</a>
-        <a href="/map.html" class="current-page">地圖頁</a>
-        <a href="/ai-lab.html">AI 實驗室</a>
+        <a href="/map.html" class="current-page">關卡地圖</a>
+        <a href="/ai-lab.html">海底探索艙</a>
         <a href="/tasks-list.html" id="navTasksList">任務列表</a>
         <a href="/products.html" id="navProducts">商品兌換</a>
         <a href="/user-tasks.html">任務審核</a>
@@ -150,9 +150,9 @@
     <div id="map" style="width:100vw;height:100vh;position:fixed;top:0;left:0;z-index:1;"></div>
     <div id="taskModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999;">
       <div style="background:#fff; width:80%; max-width:400px; margin:100px auto; padding:20px; border-radius:8px; text-align:center;">
-        <h2 id="modalTitle">準備開始任務</h2>
-        <p id="modalDesc">您已接近任務點，點下方按鈕進入任務頁面。</p>
-        <button id="goToTaskBtn" style="margin-top:20px; padding:10px 20px; background:#007bff; color:#fff; border:none; border-radius:4px;">開始任務</button>
+        <h2 id="modalTitle">準備開始關卡</h2>
+        <p id="modalDesc">您已接近關卡位置，點下方按鈕查看這一關的簡報。</p>
+        <button id="goToTaskBtn" style="margin-top:20px; padding:10px 20px; background:#007bff; color:#fff; border:none; border-radius:4px;">查看關卡簡報</button>
         <button id="closeModal" style="margin-top:10px; padding:8px 16px; background:#6c757d; color:#fff; border:none; border-radius:4px;">暫不進入</button>
       </div>
     </div>

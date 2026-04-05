@@ -2566,7 +2566,7 @@ app.get('/api/user/badges', authenticateToken, async (req, res) => {
 // 獲取 VAPID 公鑰（前端訂閱時需要）
 app.get('/api/push/vapid-public-key', (req, res) => {
   if (!VAPID_PUBLIC_KEY) {
-    return res.status(503).json({ 
+    return res.json({ 
       success: false, 
       message: '推送通知服務未配置，請聯繫管理員' 
     });

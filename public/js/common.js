@@ -88,17 +88,18 @@ if (document.readyState === 'loading') {
 // ===== 推送通知訂閱管理 =====
 async function subscribeToPushNotifications() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    console.warn('⚠️ 瀏覽器不支援推送通知');
     return null;
   }
 
   try {
     // 1. 獲取 VAPID 公鑰
     const vapidRes = await fetch('/api/push/vapid-public-key');
+    if (!vapidRes.ok) {
+      return null;
+    }
     const vapidData = await vapidRes.json();
     
     if (!vapidData.success || !vapidData.publicKey) {
-      console.warn('⚠️ 推送服務未配置');
       return null;
     }
 
@@ -110,7 +111,6 @@ async function subscribeToPushNotifications() {
     // 3. 請求通知權限
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
-      console.warn('⚠️ 用戶拒絕了通知權限');
       return null;
     }
 
@@ -123,7 +123,6 @@ async function subscribeToPushNotifications() {
     // 5. 發送訂閱資訊到後端
     const loginUser = getLoginUser();
     if (!loginUser) {
-      console.warn('⚠️ 未登入，無法訂閱推送');
       return null;
     }
 
@@ -141,11 +140,9 @@ async function subscribeToPushNotifications() {
       console.log('✅ 推送通知訂閱成功');
       return subscription;
     } else {
-      console.error('❌ 推送訂閱失敗:', subscribeData.message);
       return null;
     }
   } catch (error) {
-    console.error('❌ 訂閱推送通知失敗:', error);
     return null;
   }
 }
@@ -175,23 +172,4 @@ function getLoginUser() {
   }
 }
 
-// 頁面載入時自動嘗試訂閱（如果用戶已登入）
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    // 延遲訂閱，等待用戶可能的手動操作
-    setTimeout(() => {
-      const loginUser = getLoginUser();
-      if (loginUser) {
-        // 檢查是否已經訂閱過（避免重複提示）
-        const hasSubscribed = localStorage.getItem('push-subscribed');
-        if (!hasSubscribed) {
-          subscribeToPushNotifications().then(subscription => {
-            if (subscription) {
-              localStorage.setItem('push-subscribed', 'true');
-            }
-          });
-        }
-      }
-    }, 3000); // 3 秒後自動嘗試訂閱
-  });
-}
+// 推播改為保留手動入口，不在載入頁面時自動打 API，避免在未配置推播時打擾體驗。

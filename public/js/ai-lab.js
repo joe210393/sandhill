@@ -1521,7 +1521,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 Swal.fire({
                     icon: 'info',
                     title: '尚未承接任務',
-                    text: '請先從任務詳情進入 AI 視覺探索，或使用自由探索模式。'
+                    text: '請先從關卡簡報進入海底探索艙，或使用自由探索模式。'
                 });
                 mode = 'free';
             }

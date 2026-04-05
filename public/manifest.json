@@ -25,7 +25,7 @@
   "screenshots": [],
   "shortcuts": [
     {
-      "name": "地圖頁",
+      "name": "關卡地圖",
       "short_name": "地圖",
       "description": "查看任務地圖",
       "url": "/map.html",
@@ -40,4 +40,3 @@
     }
   ]
 }
-
