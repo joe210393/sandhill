@@ -1209,6 +1209,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function updateShellModeUi() {
+            syncTaskEncounterVisibility();
             if (!dockModeBtn) return;
             dockModeBtn.classList.toggle('hidden', isShellExperience);
             if (dockModePanel) {
@@ -1775,7 +1776,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!currentTask || !taskEncounterModal) return;
             if (currentEntryMode !== 'board_game') return;
             if (taskEncounterCover) {
-                taskEncounterCover.src = currentTask.ar_image_url || currentTask.photoUrl || currentTask.photo_url || '/images/mascot.png';
+                const coverSrc = currentTask.ar_image_url || currentTask.photoUrl || currentTask.photo_url || '/images/mascot.png';
+                taskEncounterCover.onerror = () => {
+                    taskEncounterCover.onerror = null;
+                    taskEncounterCover.src = '/images/mascot.png';
+                };
+                taskEncounterCover.src = coverSrc;
             }
             if (taskEncounterTitle) {
                 taskEncounterTitle.textContent = currentTask.name || '任務';
@@ -1790,6 +1796,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function closeTaskEncounter() {
             if (taskEncounterModal) taskEncounterModal.classList.add('hidden');
+            if (taskEncounterCover) taskEncounterCover.onerror = null;
+        }
+
+        function syncTaskEncounterVisibility() {
+            if (currentEntryMode !== 'board_game') {
+                closeTaskEncounter();
+                taskObjectVisible = false;
+                if (taskTargetObj) taskTargetObj.classList.add('hidden');
+                if (taskGuideArrow) taskGuideArrow.classList.add('hidden');
+            }
         }
 
         function initLockWheels(digits = 4) {
@@ -3081,6 +3097,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (String(currentTaskId) !== String(task.id)) {
                 currentUserTaskId = null;
             }
+            syncTaskEncounterVisibility();
             currentTaskId = task.id;
             targetLat = Number(task.lat);
             targetLng = Number(task.lng);
