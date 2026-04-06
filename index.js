@@ -239,18 +239,18 @@ function getQuestChainRuntimeFlags(questChainLike) {
 function buildDemoAutoPassMessage(task, mode = 'story') {
   const baseName = task?.name || '這一關';
   if (mode === 'ai') {
-    return `體驗模式開啟中，沙丘已先讓你通過「${baseName}」，繼續往下一段劇情前進。`;
+    return `教學模式開啟中，沙丘已先讓你通過「${baseName}」，繼續往下一段劇情前進。`;
   }
   if (task?.task_type === 'location') {
-    return `體驗模式開啟中，沙丘已替你完成「${baseName}」的報到判定。`;
+    return `教學模式開啟中，沙丘已替你完成「${baseName}」的報到判定。`;
   }
   if (task?.task_type === 'multiple_choice') {
-    return `體驗模式開啟中，沙丘已記錄你的選擇，直接通過「${baseName}」。`;
+    return `教學模式開啟中，沙丘已記錄你的選擇，直接通過「${baseName}」。`;
   }
   if (task?.task_type === 'photo') {
-    return `體驗模式開啟中，沙丘已收下這張照片，直接通過「${baseName}」。`;
+    return `教學模式開啟中，沙丘已收下這張照片，直接通過「${baseName}」。`;
   }
-  return `體驗模式開啟中，沙丘已替你通過「${baseName}」。`;
+  return `教學模式開啟中，沙丘已替你通過「${baseName}」。`;
 }
 
 function buildDemoAiResult(task, submissionUrl = null) {
@@ -3323,6 +3323,7 @@ app.post('/api/ai-tasks/:taskId/submit', authenticateToken, uploadAiTaskImage.si
       message: result.passed
         ? (task.success_message || completion?.message || 'AI 驗證通過，任務完成！')
         : failureReason,
+      reason: result.reason || null,
       retry_advice: retryAdvice,
       score: result.score,
       count_detected: result.count_detected,

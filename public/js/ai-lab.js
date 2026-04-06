@@ -8,6 +8,11 @@ function log(msg) {
     if (debugEl) debugEl.innerText = msg + '\n' + debugEl.innerText.substring(0, 100);
 }
 
+function normalizeUiText(value, fallback = '') {
+    if (value === null || value === undefined) return fallback;
+    return String(value).trim() || fallback;
+}
+
 // ==========================================
 // 主程式 (Main Application)
 // ==========================================
@@ -1628,9 +1633,18 @@ document.addEventListener('DOMContentLoaded', () => {
         function updateTaskNavigationUI(distanceMeters, bearing) {
             lastTaskDistance = distanceMeters;
             lastTaskBearing = bearing;
+            const allowFloatingTarget = currentEntryMode === 'board_game' && !isCurrentQuestTutorialMode();
             const hasHeading = lastHeadingUpdateAt > 0;
             const diff = ((bearing - deviceHeading + 540) % 360) - 180;
             renderTaskMetrics(distanceMeters, bearing);
+
+            if (!allowFloatingTarget) {
+                taskObjectVisible = false;
+                if (taskGuideArrow) taskGuideArrow.classList.add('hidden');
+                if (taskTargetObj) taskTargetObj.classList.add('hidden');
+                closeTaskEncounter();
+                return;
+            }
 
             const revealDistance = Math.max(8, currentTask?.radius || 30);
             const interactionDistance = Math.max(6, (currentTask?.radius || 30) / 2);
@@ -1759,6 +1773,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function openTaskEncounter() {
             if (!currentTask || !taskEncounterModal) return;
+            if (currentEntryMode !== 'board_game') return;
             if (taskEncounterCover) {
                 taskEncounterCover.src = currentTask.ar_image_url || currentTask.photoUrl || currentTask.photo_url || '/images/mascot.png';
             }
@@ -1822,6 +1837,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function showAnswerModal(task) {
             if (!answerModal || !task) return;
+            closeTaskEncounter();
+            taskObjectVisible = false;
+            if (taskTargetObj) taskTargetObj.classList.add('hidden');
             answerTaskName.textContent = task.name || '任務';
             const descriptionParts = [task.description || '請根據提示完成任務'];
             if (isCurrentQuestDemoMode()) {
@@ -1898,72 +1916,76 @@ document.addEventListener('DOMContentLoaded', () => {
         async function submitTaskAnswer() {
             if (!currentTask) return;
             let answer = '';
+            const photoInput = document.getElementById('answerPhotoInput');
+            const hasPhotoField = Boolean(photoInput);
+            const textInput = document.getElementById('answerTextInput');
+            const choiceNodes = Array.from(document.querySelectorAll('.answer-choice'));
+            const hasChoiceField = choiceNodes.length > 0;
             const isAiPhotoTask = currentTask.task_type === 'photo' && currentTask.validation_mode && currentTask.validation_mode.startsWith('ai_');
-            if (currentTask.task_type === 'multiple_choice') {
-                const selected = document.querySelector('.answer-choice.selected');
-                if (!selected) {
-                    answerMessage.textContent = '❌ 請選擇一個答案';
-                    return;
-                }
-                answer = selected.dataset.value;
-            } else if (currentTask.task_type === 'photo') {
-                const photoInput = document.getElementById('answerPhotoInput');
+            const tutorialPassMode = isCurrentQuestDemoMode() || isCurrentQuestTutorialMode();
+
+            if (hasPhotoField) {
                 if (!photoInput?.files?.[0]) {
-                    answerMessage.textContent = '❌ 請上傳照片';
+                    answerMessage.textContent = '❌ 請先選擇一張照片';
                     return;
                 }
                 if (isAiPhotoTask) {
                     const fd = new FormData();
                     fd.append('image', photoInput.files[0]);
-                    answerMessage.textContent = '⏳ AI 判定中...';
+                    answerMessage.textContent = tutorialPassMode ? '⏳ 正在整理教學判定...' : '⏳ AI 判定中...';
                     const aiRes = await fetch(`/api/ai-tasks/${currentTask.id}/submit`, {
                         method: 'POST',
                         body: fd
                     });
                     const aiData = await aiRes.json();
+                    const judgeSummary = normalizeUiText(aiData.reason, '') || normalizeUiText(aiData.message, 'AI 已完成判定。');
+                    const retrySummary = normalizeUiText(aiData.retry_advice, '');
                     if (aiData.success && aiData.passed) {
                         currentUserTaskId = aiData.user_task_id || currentUserTaskId;
                         answerModal.classList.add('hidden');
                         tutorialFlowStarted = false;
                         renderTutorialModeUi();
+                        const successText = tutorialPassMode
+                            ? `鯨語已經看完你上傳的畫面。\n\n${judgeSummary}\n\n教學模式先替你放行，讓你可以把整段流程順順走完。`
+                            : `${judgeSummary}${retrySummary ? `\n\n補充：${retrySummary}` : ''}`;
                         if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
                             await completeBoardTurn(true, {
                                 speakerKey: 'judge',
-                                mood: 'AI 通關',
-                                text: aiData.message || 'AI 已確認你完成這一步，棋盤將推進到新的位置。',
-                                autoCloseMs: 2400
+                                mood: tutorialPassMode ? '教學判定' : 'AI 通關',
+                                text: successText,
+                                autoCloseMs: 2800
                             });
                         } else {
                             await showNpcDialog({
                                 speakerKey: 'judge',
-                                mood: 'AI 通關',
-                                text: aiData.message || 'AI 已確認你完成這一步，準備解鎖下一段旅程。',
-                                autoCloseMs: 2400
+                                mood: tutorialPassMode ? '教學判定' : 'AI 通關',
+                                text: successText,
+                                autoCloseMs: 2800
                             });
                         }
                         if (currentEntryMode === 'story_campaign' && currentQuestChainId) {
                             await loadStoryShell(currentQuestChainId);
                         }
-                        showCompletionModal(aiData.earnedItemName ? `🎁 獲得：${aiData.earnedItemName}` : (aiData.message || '✅ AI 驗證通過'));
+                        showCompletionModal(aiData.earnedItemName ? `🎁 獲得：${aiData.earnedItemName}` : (tutorialPassMode ? '✅ 教學模式已完成這一步' : (aiData.message || '✅ AI 驗證通過')));
                     } else {
-                        const failText = aiData.message || aiData.retry_advice || 'AI 驗證未通過，請再試一次';
+                        const failText = judgeSummary || retrySummary || 'AI 驗證未通過，請再試一次';
                         if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
                             answerModal.classList.add('hidden');
                             await completeBoardTurn(false, {
                                 speakerKey: 'judge',
                                 mood: '未通過',
-                                text: aiData.retry_advice
-                                    ? `${aiData.message || '這次還沒通過。'} ${aiData.retry_advice}`
+                                text: retrySummary
+                                    ? `${judgeSummary || '這次還沒通過。'}\n\n海羽建議：${retrySummary}`
                                     : failText,
-                                autoCloseMs: 2600
+                                autoCloseMs: 2800
                             });
                         } else {
-                            answerMessage.textContent = '❌ ' + failText;
+                            answerMessage.textContent = `❌ ${failText}`;
                             await showNpcDialog({
                                 speakerKey: 'rescue',
                                 mood: '裁定未通過',
-                                text: aiData.retry_advice
-                                    ? `鯨語的裁定是：${aiData.message || '這次還沒通過。'}\n\n海羽補充：${aiData.retry_advice}`
+                                text: retrySummary
+                                    ? `鯨語的裁定是：${judgeSummary || '這次還沒通過。'}\n\n海羽補充：${retrySummary}`
                                     : `鯨語的裁定是：${failText}\n\n海羽建議你再整理一下畫面，重新挑戰。`
                             });
                             btnAnswerSubmit.disabled = false;
@@ -1981,9 +2003,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 answer = uploadData.url;
+            } else if (hasChoiceField) {
+                const selected = document.querySelector('.answer-choice.selected');
+                if (!selected) {
+                    answerMessage.textContent = '❌ 請選擇一個答案';
+                    return;
+                }
+                answer = selected.dataset.value;
             } else {
-                const input = document.getElementById('answerTextInput');
-                answer = input?.value?.trim() || '';
+                answer = textInput?.value?.trim() || '';
                 if (!answer) {
                     answerMessage.textContent = '❌ 請輸入答案';
                     return;
@@ -2008,18 +2036,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 answerModal.classList.add('hidden');
                 tutorialFlowStarted = false;
                 renderTutorialModeUi();
+                const judgeText = normalizeUiText(data.message, '這一關已完成，下一段劇情正在展開。');
                 if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
                     await completeBoardTurn(true, {
                         speakerKey: 'judge',
                         mood: '規則通關',
-                        text: data.message || '規則判定通過，棋盤將推進到下一格。',
+                        text: judgeText,
                         autoCloseMs: 2200
                     });
                 } else {
                     await showNpcDialog({
                         speakerKey: 'judge',
                         mood: isCurrentQuestTutorialMode() ? '教學模式通關' : (isCurrentQuestDemoMode() ? '體驗模式通關' : '規則通關'),
-                        text: data.message || '這一關已完成，下一段劇情正在展開。',
+                        text: judgeText,
                         autoCloseMs: 2200
                     });
                 }
