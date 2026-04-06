@@ -753,6 +753,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 clearTimeout(currentNpcDialogAutoCloseTimer);
                 currentNpcDialogAutoCloseTimer = null;
             }
+            if (npcDialog) {
+                delete npcDialog.dataset.blocking;
+                npcDialog.classList.remove('passive');
+            }
             if (npcDialog) npcDialog.classList.add('hidden');
             renderTutorialModeUi();
             if (currentNpcDialogResolver) {
@@ -761,25 +765,36 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        function showNpcDialog({ speaker = '沙丘引導員', speakerKey = null, mood = '提示', text = '', buttonLabel = null, autoCloseMs = null } = {}) {
+        function isNpcDialogBlocking() {
+            return Boolean(npcDialog && !npcDialog.classList.contains('hidden') && npcDialog.dataset.blocking === 'true');
+        }
+
+        function showNpcDialog({ speaker = '沙丘引導員', speakerKey = null, mood = '提示', text = '', buttonLabel = null, autoCloseMs = null, blocking = null } = {}) {
             if (!npcDialog || !npcDialogText) return Promise.resolve();
             if (currentNpcDialogAutoCloseTimer) {
                 clearTimeout(currentNpcDialogAutoCloseTimer);
                 currentNpcDialogAutoCloseTimer = null;
             }
+            const shouldBlock = typeof blocking === 'boolean'
+                ? blocking
+                : !(isCurrentQuestTutorialMode() || isCurrentQuestDemoMode());
             const profile = speakerKey ? NPC_PROFILES[speakerKey] : null;
             if (npcDialogPortrait) npcDialogPortrait.textContent = profile?.portrait || '🧭';
             if (npcDialog) npcDialog.dataset.speaker = profile?.theme || 'guide';
+            if (npcDialog) npcDialog.dataset.blocking = shouldBlock ? 'true' : 'false';
+            if (npcDialog) npcDialog.classList.toggle('passive', !shouldBlock);
             if (npcDialogSpeaker) npcDialogSpeaker.textContent = profile?.name || speaker;
             if (npcDialogMood) npcDialogMood.textContent = mood;
-            if (npcDialogClose) npcDialogClose.textContent = buttonLabel || profile?.button || '繼續';
+            if (npcDialogClose) npcDialogClose.textContent = buttonLabel || (shouldBlock ? (profile?.button || '繼續') : '收起');
             npcDialogText.textContent = text || '……';
             npcDialog.classList.remove('hidden');
             renderTutorialModeUi();
             if (currentNpcDialogResolver) currentNpcDialogResolver();
-            const dialogPromise = new Promise((resolve) => {
-                currentNpcDialogResolver = resolve;
-            });
+            const dialogPromise = shouldBlock
+                ? new Promise((resolve) => {
+                    currentNpcDialogResolver = resolve;
+                })
+                : Promise.resolve();
             if (autoCloseMs) {
                 currentNpcDialogAutoCloseTimer = setTimeout(() => {
                     closeNpcDialog();
@@ -898,7 +913,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const shouldHideTutorialChrome = isTutorialStory || isTutorialBoard;
             const shouldHidePrimaryCard = shouldHideTutorialChrome && (
                 tutorialFlowStarted
-                || !npcDialog?.classList.contains('hidden')
+                || isNpcDialogBlocking()
                 || !answerModal?.classList.contains('hidden')
                 || !completionModal?.classList.contains('hidden')
                 || !lockOverlay?.classList.contains('hidden')
