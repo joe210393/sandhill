@@ -1190,7 +1190,8 @@ app.get('/api/board-maps/by-quest-chain/:questChainId', async (req, res) => {
       ? maps.find((map) => Number(map.id) === requestedBoardMapId)
       : null) || maps[0];
     const [tiles] = await conn.execute(
-      `SELECT bt.*, t.name AS task_name, t.description AS task_description, t.validation_mode, t.stage_template
+      `SELECT bt.*, t.name AS task_name, t.description AS task_description, t.validation_mode, t.stage_template,
+              t.task_type AS linked_task_type, t.submission_type AS linked_submission_type, t.hint_text, t.points AS task_points
        FROM board_tiles bt
        LEFT JOIN tasks t ON bt.task_id = t.id
        WHERE bt.board_map_id = ? AND bt.is_active = TRUE
@@ -1634,7 +1635,16 @@ app.post('/api/board/session/:sessionId/roll', authenticateToken, async (req, re
 
     const diceMin = Number(boardMap.dice_min || 1);
     const diceMax = Number(boardMap.dice_max || 6);
-    const rollValue = Math.floor(Math.random() * (diceMax - diceMin + 1)) + diceMin;
+    const rules = parseJsonField(boardMap.rules_json, null) || {};
+    const tutorialRollSequence = Array.isArray(rules.tutorial_roll_sequence)
+      ? rules.tutorial_roll_sequence.map((value) => Number(value)).filter((value) => Number.isFinite(value) && value > 0)
+      : [];
+    const scriptedRoll = tutorialRollSequence.length
+      ? tutorialRollSequence[Number(session.round_count || 0) % tutorialRollSequence.length]
+      : null;
+    const rollValue = scriptedRoll && scriptedRoll >= diceMin && scriptedRoll <= diceMax
+      ? scriptedRoll
+      : (Math.floor(Math.random() * (diceMax - diceMin + 1)) + diceMin);
     const finishTile = Number(boardMap.finish_tile || session.current_tile);
     const exactFinishRequired = Boolean(boardMap.exact_finish_required);
     const desiredTile = session.current_tile + rollValue;

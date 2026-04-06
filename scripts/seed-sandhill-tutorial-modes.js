@@ -92,6 +92,15 @@ async function insertBoardTutorialTasks(conn, questChainId) {
     {
       name: '第 2 格｜拍下起航視角',
       quest_order: 1,
+      task_type: 'photo',
+      submission_type: 'image',
+      validation_mode: 'ai_score',
+      ai_config: {
+        score_subject: 'tutorial_board_photo',
+        system_prompt: '你是沙丘大富翁教學線的裁判。',
+        user_prompt: '請查看玩家上傳的教學照片。'
+      },
+      pass_criteria: { min_score: 1 },
       stage_intro: '潮汐關主・巴布要你留下第一張大富翁紀錄，隨手拍下眼前畫面就能前進。',
       description: '任意拍下一張你眼前的畫面，讓鯨語裁判替這一步蓋章。',
       hint_text: '教學模式：任意拍一張就能前進。',
@@ -99,26 +108,44 @@ async function insertBoardTutorialTasks(conn, questChainId) {
       story_context: '棋盤正式開始轉動，你的第一步需要留下視角紀錄。'
     },
     {
-      name: '第 4 格｜留下潮線記號',
+      name: '第 4 格｜選擇你想走的路',
       quest_order: 2,
-      stage_intro: '潮聲提醒你，每往前一段都可以留下新的冒險記號。',
-      description: '再任意拍一張畫面，讓沙丘記錄你繼續前進的證明。',
-      hint_text: '教學模式：任意拍一張即可。',
-      guide_content: '這一格讓玩家重複體驗拍照與自動推進。',
-      story_context: '每個格子都是一次新的記錄。'
+      task_type: 'multiple_choice',
+      submission_type: 'choice',
+      validation_mode: 'manual',
+      options: ['找一個特定物件', '拍一張團體照', '直接往前衝'],
+      correct_answer: '找一個特定物件',
+      stage_intro: '潮聲想知道你比較偏好哪一種玩法路線，先做一個選擇。',
+      description: '任選一個你現在想玩的模式，沙丘會記住你的選擇並帶你繼續前進。',
+      hint_text: '教學模式：任意選一個都會通關。',
+      guide_content: '這一格是選擇題玩法示範。',
+      story_context: '冒險風格可以不同，但旅程會繼續。'
     },
     {
-      name: '第 6 格｜補給站合照',
+      name: '第 6 格｜輸入你想找的東西',
       quest_order: 3,
-      stage_intro: '巴布在補給站等你，拍下一張畫面當作補給成功的證明。',
-      description: '任意拍一張照片，沙丘會當成補給成功的合照記錄。',
-      hint_text: '這一格重點是看見 NPC 結算後怎麼推進棋盤。',
-      guide_content: '這一格讓玩家熟悉挑戰格與事件格混搭的節奏。',
-      story_context: '補給成功後，隊伍準備繼續向前。'
+      task_type: 'keyword',
+      submission_type: 'text',
+      validation_mode: 'manual',
+      correct_answer: '貝殼',
+      stage_intro: '巴布想知道，如果現在要你去找一樣東西，你第一個想到的是什麼。',
+      description: '任意輸入一個你想找的物件名稱，例如貝殼、漂流瓶、旗子都可以。',
+      hint_text: '教學模式：只要有輸入內容就會先通關。',
+      guide_content: '這一格示範文字輸入型玩法。',
+      story_context: '玩家的選擇會決定接下來的探索想像。'
     },
     {
       name: '第 8 格｜中繼觀測點',
       quest_order: 4,
+      task_type: 'photo',
+      submission_type: 'image',
+      validation_mode: 'ai_score',
+      ai_config: {
+        score_subject: 'tutorial_board_photo',
+        system_prompt: '你是沙丘大富翁教學線的裁判。',
+        user_prompt: '請查看玩家上傳的教學照片。'
+      },
+      pass_criteria: { min_score: 1 },
       stage_intro: '鯨語要你在中繼站留下觀測影像，確認旅程仍穩定推進。',
       description: '任意拍一張畫面，讓鯨語完成中繼觀測。',
       hint_text: '教學模式：任意畫面都會先放行。',
@@ -126,17 +153,30 @@ async function insertBoardTutorialTasks(conn, questChainId) {
       story_context: '航線中段需要一次觀測校準。'
     },
     {
-      name: '第 10 格｜風向確認照',
+      name: '第 10 格｜輸入通關密碼',
       quest_order: 5,
-      stage_intro: '導覽員・潮聲請你拍下前方畫面，確認隊伍仍朝正確風向前進。',
-      description: '任意拍一張照片，沙丘會將它視為風向確認照。',
-      hint_text: '每完成一格，HUD 都會同步推進。',
-      guide_content: '這一格強化玩家對 HUD 與棋盤推進的感受。',
-      story_context: '風向穩定，終點已經不遠。'
+      task_type: 'number',
+      submission_type: 'text',
+      validation_mode: 'manual',
+      correct_answer: '12',
+      stage_intro: '潮聲把一個小鎖箱放到你面前，請輸入任意數字體驗解鎖流程。',
+      description: '任意轉出一組數字，沙丘會把它當成這次教學解鎖結果。',
+      hint_text: '教學模式：任意密碼都會先放行。',
+      guide_content: '這一格示範數字鎖與解鎖型玩法。',
+      story_context: '終點前要先解開一個象徵性的鎖。'
     },
     {
       name: '第 12 格｜終點前的留影',
       quest_order: 6,
+      task_type: 'photo',
+      submission_type: 'image',
+      validation_mode: 'ai_score',
+      ai_config: {
+        score_subject: 'tutorial_board_photo',
+        system_prompt: '你是沙丘大富翁教學線的裁判。',
+        user_prompt: '請查看玩家上傳的教學照片。'
+      },
+      pass_criteria: { min_score: 1 },
       stage_intro: '最後衝刺前，再拍下一張畫面，讓主持人為這輪棋盤旅程蓋章。',
       description: '任意拍下一張畫面，完成終點前的最後留影。',
       hint_text: '這一格完成後就會接近終點。',
@@ -154,7 +194,7 @@ async function insertBoardTutorialTasks(conn, questChainId) {
          ai_config, pass_criteria, failure_message, success_message, max_attempts, location_required,
          stage_template, stage_intro, hint_text, story_context, guide_content, rescue_content, is_active,
          lat, lng, radius)
-       VALUES (?, ?, ?, ?, ?, 'photo', NULL, NULL, ?, ?, 'codex', 0, 'image', 'ai_score',
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'codex', 0, ?, ?,
                ?, ?, ?, ?, 9, 0, 'board_challenge', ?, ?, ?, ?, ?, TRUE, ?, ?, ?)`,
       [
         task.name,
@@ -162,14 +202,15 @@ async function insertBoardTutorialTasks(conn, questChainId) {
         '/images/banner.png',
         '/images/banner.png',
         15,
+        task.task_type,
+        task.options ? JSON.stringify(task.options) : null,
+        task.correct_answer || null,
         questChainId,
         task.quest_order,
-        JSON.stringify({
-          score_subject: 'tutorial_board_photo',
-          system_prompt: '你是沙丘大富翁教學線的裁判。',
-          user_prompt: '請查看玩家上傳的教學照片。'
-        }),
-        JSON.stringify({ min_score: 1 }),
+        task.submission_type,
+        task.validation_mode,
+        task.ai_config ? JSON.stringify(task.ai_config) : null,
+        task.pass_criteria ? JSON.stringify(task.pass_criteria) : null,
         '教學模式會先放行，讓你繼續往下一格。',
         '教學棋盤通關，繼續前進。',
         task.stage_intro,
@@ -191,20 +232,21 @@ async function insertBoardTutorialTasks(conn, questChainId) {
 async function insertBoardTutorialMap(conn, questChainId, taskIds) {
   const [mapResult] = await conn.execute(
     `INSERT INTO board_maps
-      (quest_chain_id, name, description, play_style, cover_image, center_lat, center_lng, max_rounds,
+     (quest_chain_id, name, description, play_style, cover_image, center_lat, center_lng, max_rounds,
        start_tile, finish_tile, dice_min, dice_max, failure_move, exact_finish_required, reward_points,
        is_active, rules_json, created_by)
-     VALUES (?, ?, ?, 'tutorial_board', '/images/banner.png', ?, ?, 18, 1, 14, 1, 1, 0, FALSE, 120, TRUE, ?, 'codex')`,
+     VALUES (?, ?, ?, 'tutorial_board', '/images/banner.png', ?, ?, 18, 1, 14, 1, 3, 0, FALSE, 120, TRUE, ?, 'codex')`,
     [
       questChainId,
       '沙丘教學棋盤｜一步一步走完大富翁',
-      '這是一張專門拿來做手機教學的大富翁棋盤。骰子每次只前進一格，讓你可以逐格體驗事件格、挑戰格與終點收尾。',
+      '這是一張專門拿來做手機教學的大富翁棋盤。骰子會在 1 到 3 點之間隨機滾動，讓你能一次測到多種挑戰格、事件格與終點節奏。',
       BASE_LAT,
       BASE_LNG,
       JSON.stringify({
         tutorial_mode: true,
         board_tutorial: true,
-        one_step_dice: true,
+        one_step_dice: false,
+        tutorial_roll_sequence: [1, 2, 1, 1, 2, 1, 1, 2],
         role_pack: ['host', 'judge', 'guide', 'rescue']
       })
     ]
@@ -232,7 +274,7 @@ async function insertBoardTutorialMap(conn, questChainId, taskIds) {
         ]
       }
     },
-    { tile_index: 4, tile_name: '潮線挑戰格', tile_type: 'challenge', task_id: taskIds[1], event_title: '留下潮線記號', guide_content: '再拍一張，確認你已經熟悉第二種節奏。'},
+    { tile_index: 4, tile_name: '路線抉擇格', tile_type: 'challenge', task_id: taskIds[1], event_title: '選擇你想走的路', guide_content: '這一格是選擇題教學，你隨便選一個答案也能前進。'},
     {
       tile_index: 5,
       tile_name: '命運轉盤格',
@@ -252,7 +294,7 @@ async function insertBoardTutorialMap(conn, questChainId, taskIds) {
         ]
       }
     },
-    { tile_index: 6, tile_name: '補給站合照格', tile_type: 'challenge', task_id: taskIds[2], event_title: '補給站合照', guide_content: '拍一張畫面，感受挑戰格與獎勵格交錯出現。'},
+    { tile_index: 6, tile_name: '尋物口令格', tile_type: 'challenge', task_id: taskIds[2], event_title: '輸入你想找的東西', guide_content: '這一格是文字輸入教學，只要有輸入就會通關。'},
     { tile_index: 7, tile_name: '潮汐劇情格', tile_type: 'story', event_title: '潮聲導航', event_body: '導覽員・潮聲提醒你：教學棋盤的重點不是輸贏，而是理解每一步怎麼被推進。', guide_content: '劇情格主要負責敘事與節奏。'},
     { tile_index: 8, tile_name: '中繼觀測格', tile_type: 'challenge', task_id: taskIds[3], event_title: '中繼觀測', guide_content: '拍照後，棋盤會繼續往終點前進。'},
     {
@@ -273,7 +315,7 @@ async function insertBoardTutorialMap(conn, questChainId, taskIds) {
         ]
       }
     },
-    { tile_index: 10, tile_name: '風向確認格', tile_type: 'challenge', task_id: taskIds[4], event_title: '風向確認', guide_content: '再拍一張，確認你已經掌握整個教學流程。'},
+    { tile_index: 10, tile_name: '密碼解鎖格', tile_type: 'challenge', task_id: taskIds[4], event_title: '輸入通關密碼', guide_content: '這一格是數字解鎖教學，任意輸入都會先通關。'},
     {
       tile_index: 11,
       tile_name: '命運轉盤格｜救援版',

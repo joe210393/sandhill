@@ -294,6 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const CONFIDENCE_HIGH = 0.85;
         const CONFIDENCE_MEDIUM = 0.40;
         let needMorePhotosSession = null; // 補拍時儲存 session_data
+        let currentAnswerPhotoDataUrl = null;
         
         // Director Panel Elements
         const directorToggle = document.getElementById('directorToggle');
@@ -494,6 +495,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let currentBoardRun = null;
         let currentBoardSessionId = null;
         let useRemoteBoardSession = false;
+        let tutorialBoardPhotoCaptureArmed = false;
         let currentNpcDialogResolver = null;
         let currentNpcDialogAutoCloseTimer = null;
         let lastStoryDialogueKey = null;
@@ -807,6 +809,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return isCurrentQuestTutorialMode() && !getLoginUser();
         }
 
+        function getTutorialBoardRollValue(round = 0) {
+            const sequence = currentBoardMap?.rules_json?.tutorial_roll_sequence;
+            if (!Array.isArray(sequence) || !sequence.length) return null;
+            const values = sequence
+                .map((value) => Number(value))
+                .filter((value) => Number.isFinite(value) && value > 0);
+            if (!values.length) return null;
+            return values[Number(round || 0) % values.length];
+        }
+
         function isTutorialGuestStoryMode() {
             return currentEntryMode === 'story_campaign' && isTutorialGuestMode();
         }
@@ -888,15 +900,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 || !answerModal?.classList.contains('hidden')
                 || !completionModal?.classList.contains('hidden')
                 || !lockOverlay?.classList.contains('hidden')
+                || tutorialBoardPhotoCaptureArmed
             );
             gameShellPanel?.classList.toggle('tutorial-mode', shouldHideTutorialChrome);
             gameShellPanel?.classList.toggle('tutorial-hidden-card', shouldHidePrimaryCard);
             if (gameShellPanel) {
                 gameShellPanel.setAttribute('aria-hidden', shouldHidePrimaryCard ? 'true' : 'false');
             }
-            miniMapWrap?.classList.toggle('tutorial-hidden', shouldHideTutorialChrome);
-            featureDock?.classList.toggle('tutorial-hidden', shouldHideTutorialChrome);
-            selectionInstruction?.classList.toggle('tutorial-hidden', shouldHideTutorialChrome);
+            miniMapWrap?.classList.toggle('tutorial-hidden', isTutorialStory);
+            featureDock?.classList.toggle('tutorial-hidden', isTutorialStory);
+            selectionInstruction?.classList.toggle('tutorial-hidden', isTutorialStory);
             floatingMicBtn?.classList.toggle('tutorial-hidden', shouldHideTutorialChrome);
             document.querySelector('.game-hud')?.classList.toggle('tutorial-hidden', shouldHideTutorialChrome);
             document.querySelector('.game-shell-board-status')?.classList.toggle('tutorial-hidden', isTutorialBoard);
@@ -904,14 +917,31 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.classList.toggle('tutorial-board-clean', isTutorialBoard);
             document.body.classList.toggle('tutorial-story-clean', isTutorialStory);
             if (selectionInstruction) {
-                selectionInstruction.style.display = shouldHideTutorialChrome ? 'none' : '';
+                if (isTutorialStory) {
+                    selectionInstruction.style.display = 'none';
+                } else if (isTutorialBoard && (tutorialBoardPhotoCaptureArmed || (!answerModal?.classList.contains('hidden') && currentTask?.task_type === 'photo'))) {
+                    selectionInstruction.style.display = '';
+                } else if (isTutorialBoard) {
+                    selectionInstruction.style.display = 'none';
+                } else {
+                    selectionInstruction.style.display = '';
+                }
                 selectionInstruction.style.opacity = shouldHideTutorialChrome ? '0' : '1';
             }
             if (captureReticleBtn) {
-                captureReticleBtn.style.display = shouldHideTutorialChrome ? 'none' : '';
+                captureReticleBtn.style.display = isTutorialBoard && currentTask?.task_type === 'photo' && (tutorialBoardPhotoCaptureArmed || !answerModal?.classList.contains('hidden'))
+                    ? ''
+                    : (shouldHideTutorialChrome ? 'none' : '');
+                captureReticleBtn.textContent = isTutorialBoard && tutorialBoardPhotoCaptureArmed
+                    ? '框內拍照並送出'
+                    : '框內拍照';
             }
             if (locationBar) {
                 locationBar.style.display = shouldHideTutorialChrome ? 'none' : '';
+            }
+
+            if (isTutorialBoard && tutorialBoardPhotoCaptureArmed) {
+                closeDockPanels();
             }
 
             if (gameShellProgressBlock) {
@@ -1086,6 +1116,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return currentBoardTiles.find((tile) => Number(tile.tile_index) === Number(tileIndex)) || null;
         }
 
+        function inferBoardChallengeType(tile) {
+            const explicitType = tile?.task_type || tile?.linked_task_type;
+            if (explicitType) return explicitType;
+            const joinedLabel = `${tile?.tile_name || ''} ${tile?.task_name || ''}`.toLowerCase();
+            if (joinedLabel.includes('選擇') || joinedLabel.includes('抉擇')) return 'multiple_choice';
+            if (joinedLabel.includes('口令') || joinedLabel.includes('輸入') || joinedLabel.includes('找的東西')) return 'keyword';
+            if (joinedLabel.includes('密碼') || joinedLabel.includes('解鎖')) return 'number';
+            if (joinedLabel.includes('拍') || joinedLabel.includes('留影') || joinedLabel.includes('觀測')) return 'photo';
+            return null;
+        }
+
         function syncBoardMapQuery(boardMapId) {
             const url = new URL(window.location.href);
             if (boardMapId) url.searchParams.set('boardMapId', String(boardMapId));
@@ -1250,8 +1291,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (boardPanelAction) {
                 if (pendingTile) {
+                    const pendingTaskType = inferBoardChallengeType(pendingTile);
+                    const pendingModeText = pendingTaskType === 'multiple_choice'
+                        ? '這是一題選擇題，任選答案都會先放行。'
+                        : (pendingTaskType === 'keyword'
+                            ? '這是一題文字輸入，任意輸入內容都能先通關。'
+                            : (pendingTaskType === 'number'
+                                ? '這是一題數字解鎖，任意密碼都會先放行。'
+                                : '這是一題拍照挑戰，會直接用黃色圓框拍照作答。'));
                     boardPanelAction.textContent = pendingTile.task_id
-                        ? `你剛擲出 ${currentBoardRun.pendingRoll}，本回合目標是第 ${pendingTile.tile_index} 格「${pendingTile.tile_name}」。進入挑戰後，AI 裁判會直接判定是否過關。`
+                        ? `你剛擲出 ${currentBoardRun.pendingRoll}，本回合目標是第 ${pendingTile.tile_index} 格「${pendingTile.tile_name}」。${pendingModeText}`
                         : `你剛擲出 ${currentBoardRun.pendingRoll}，本回合目標是第 ${pendingTile.tile_index} 格「${pendingTile.tile_name}」。事件觸發後會自動結算這一步。`;
                 } else {
                     boardPanelAction.textContent = '按下「擲骰前進」開始本回合，系統會把你帶到對應格子的焦點內容。';
@@ -1269,7 +1318,21 @@ document.addEventListener('DOMContentLoaded', () => {
                         cls += ' pending';
                         prefix = '本回合目標';
                     }
-                    return `<div class="${cls}">${prefix}｜${tile.tile_name || '未命名格子'}</div>`;
+                    const tileTaskType = inferBoardChallengeType(tile);
+                    const modeTag = tile.task_id
+                        ? (tileTaskType === 'multiple_choice'
+                            ? '｜選擇題'
+                            : (tileTaskType === 'keyword'
+                                ? '｜文字輸入'
+                                : (tileTaskType === 'number'
+                                    ? '｜數字解鎖'
+                                    : '｜拍照挑戰')))
+                        : (getBoardTileMeta(tile).card_type === 'chance'
+                            ? '｜機會卡'
+                            : (getBoardTileMeta(tile).card_type === 'fate'
+                                ? '｜命運卡'
+                                : '｜事件 / 劇情'));
+                    return `<div class="${cls}">${prefix}｜${tile.tile_name || '未命名格子'}${modeTag}</div>`;
                 }).join('');
             }
 
@@ -1380,7 +1443,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const diceMin = Number(currentBoardMap.dice_min || 1);
             const diceMax = Number(currentBoardMap.dice_max || 6);
-            const rollValue = Math.floor(Math.random() * (diceMax - diceMin + 1)) + diceMin;
+            const tutorialRoll = getTutorialBoardRollValue(currentBoardRun?.round || 0);
+            const rollValue = tutorialRoll && tutorialRoll >= diceMin && tutorialRoll <= diceMax
+                ? tutorialRoll
+                : (Math.floor(Math.random() * (diceMax - diceMin + 1)) + diceMin);
             const targetTileIndex = getResolvedBoardTargetTile(rollValue);
             const targetTile = getBoardTileByIndex(targetTileIndex);
             currentBoardRun.pendingRoll = rollValue;
@@ -2119,6 +2185,57 @@ document.addEventListener('DOMContentLoaded', () => {
             loadPlayerHudStats();
         }
 
+        async function dataUrlToBlob(dataUrl) {
+            const response = await fetch(dataUrl);
+            return await response.blob();
+        }
+
+        function createTutorialFallbackCapture() {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 960;
+            tempCanvas.height = 960;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.fillStyle = '#07111f';
+            tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+            tempCtx.strokeStyle = '#f3c84b';
+            tempCtx.lineWidth = 12;
+            tempCtx.beginPath();
+            tempCtx.arc(tempCanvas.width / 2, tempCanvas.height / 2, 260, 0, Math.PI * 2);
+            tempCtx.stroke();
+            tempCtx.fillStyle = '#ffffff';
+            tempCtx.font = 'bold 56px sans-serif';
+            tempCtx.textAlign = 'center';
+            tempCtx.fillText('沙丘教學模式', tempCanvas.width / 2, 420);
+            tempCtx.font = '36px sans-serif';
+            tempCtx.fillStyle = 'rgba(255,255,255,0.82)';
+            tempCtx.fillText('工作室環境沒有相機，已改用教學快照。', tempCanvas.width / 2, 490);
+            tempCtx.fillText('這張圖片會直接拿去做教學裁判與通關。', tempCanvas.width / 2, 545);
+            return tempCanvas.toDataURL('image/jpeg', 0.92);
+        }
+
+        function refreshAnswerPhotoFromReticle() {
+            const preview = document.getElementById('answerPhotoPreview');
+            try {
+                const dataUrl = captureCurrentReticleDataUrl();
+                if (!dataUrl) throw new Error('目前無法擷取圓框畫面');
+                currentAnswerPhotoDataUrl = dataUrl;
+                if (preview) {
+                    preview.src = dataUrl;
+                    preview.style.display = 'block';
+                }
+                btnAnswerSubmit.disabled = false;
+                answerMessage.textContent = '✅ 已使用圓框鏡頭捕捉目前畫面';
+            } catch (err) {
+                currentAnswerPhotoDataUrl = null;
+                if (preview) {
+                    preview.removeAttribute('src');
+                    preview.style.display = 'none';
+                }
+                btnAnswerSubmit.disabled = true;
+                answerMessage.textContent = `❌ ${err.message}`;
+            }
+        }
+
         function showAnswerModal(task) {
             if (!answerModal || !task) return;
             closeTaskEncounter();
@@ -2139,6 +2256,7 @@ document.addEventListener('DOMContentLoaded', () => {
             answerInputContainer.innerHTML = '';
             answerMessage.textContent = '';
             btnAnswerSubmit.disabled = true;
+            currentAnswerPhotoDataUrl = null;
 
             if (task.task_type === 'multiple_choice') {
                 const choicesDiv = document.createElement('div');
@@ -2164,24 +2282,52 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (task.task_type === 'photo') {
                 const group = document.createElement('div');
                 group.className = 'answer-input-group';
-                group.innerHTML = '<label>📸 上傳照片</label><input type="file" id="answerPhotoInput" accept="image/*" capture="environment"><img id="answerPhotoPreview" style="display:none;max-width:100%;margin-top:10px;border-radius:8px;">';
+                if (isShellExperience) {
+                    group.innerHTML = `
+                        <label>📸 使用圓框鏡頭作答</label>
+                        <div class="camera-answer-helper">直接用目前黃色圓框裡的畫面作答，不需要再跳去上傳檔案。</div>
+                        <div class="camera-answer-actions">
+                            <button type="button" id="answerCaptureFromReticle" class="btn secondary">使用目前圓框拍照</button>
+                            <button type="button" id="answerRetakeFromReticle" class="btn secondary">重新取景</button>
+                        </div>
+                        <img id="answerPhotoPreview" style="display:none;max-width:100%;margin-top:10px;border-radius:12px;">
+                    `;
+                } else {
+                    group.innerHTML = '<label>📸 上傳照片</label><input type="file" id="answerPhotoInput" accept="image/*" capture="environment"><img id="answerPhotoPreview" style="display:none;max-width:100%;margin-top:10px;border-radius:8px;">';
+                }
                 answerInputContainer.appendChild(group);
-                const input = document.getElementById('answerPhotoInput');
                 const preview = document.getElementById('answerPhotoPreview');
-                input.addEventListener('change', (e) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                        preview.src = ev.target.result;
-                        preview.style.display = 'block';
-                        btnAnswerSubmit.disabled = false;
-                        setTimeout(() => {
-                            btnAnswerSubmit.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-                        }, 60);
-                    };
-                    reader.readAsDataURL(file);
-                });
+                const input = document.getElementById('answerPhotoInput');
+                const answerCaptureFromReticle = document.getElementById('answerCaptureFromReticle');
+                const answerRetakeFromReticle = document.getElementById('answerRetakeFromReticle');
+                if (input) {
+                    input.addEventListener('change', (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                            currentAnswerPhotoDataUrl = ev.target.result;
+                            preview.src = currentAnswerPhotoDataUrl;
+                            preview.style.display = 'block';
+                            btnAnswerSubmit.disabled = false;
+                            setTimeout(() => {
+                                btnAnswerSubmit.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                            }, 60);
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                }
+                if (answerCaptureFromReticle) {
+                    answerCaptureFromReticle.addEventListener('click', () => {
+                        refreshAnswerPhotoFromReticle();
+                    });
+                    setTimeout(() => refreshAnswerPhotoFromReticle(), 120);
+                }
+                if (answerRetakeFromReticle) {
+                    answerRetakeFromReticle.addEventListener('click', () => {
+                        refreshAnswerPhotoFromReticle();
+                    });
+                }
             } else {
                 const group = document.createElement('div');
                 group.className = 'answer-input-group';
@@ -2205,18 +2351,24 @@ document.addEventListener('DOMContentLoaded', () => {
             const textInput = document.getElementById('answerTextInput');
             const choiceNodes = Array.from(document.querySelectorAll('.answer-choice'));
             const hasChoiceField = choiceNodes.length > 0;
+            const hasPhotoDraft = Boolean(currentAnswerPhotoDataUrl);
             const isAiPhotoTask = currentTask.task_type === 'photo' && currentTask.validation_mode && currentTask.validation_mode.startsWith('ai_');
             const tutorialPassMode = isCurrentQuestDemoMode() || isCurrentQuestTutorialMode();
             const tutorialGuestMode = isTutorialGuestMode();
 
-            if (hasPhotoField) {
-                if (!photoInput?.files?.[0]) {
+            if (currentTask.task_type === 'photo') {
+                if (!hasPhotoDraft && !photoInput?.files?.[0]) {
                     answerMessage.textContent = '❌ 請先選擇一張照片';
                     return;
                 }
                 if (isAiPhotoTask) {
                     const fd = new FormData();
-                    fd.append('image', photoInput.files[0]);
+                    if (hasPhotoDraft) {
+                        const draftBlob = await dataUrlToBlob(currentAnswerPhotoDataUrl);
+                        fd.append('image', draftBlob, 'reticle-capture.jpg');
+                    } else {
+                        fd.append('image', photoInput.files[0]);
+                    }
                     answerMessage.textContent = tutorialPassMode ? '⏳ 正在整理教學判定...' : '⏳ AI 判定中...';
                     let aiData;
                     try {
@@ -2296,7 +2448,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 const fd = new FormData();
-                fd.append('photo', photoInput.files[0]);
+                if (hasPhotoDraft) {
+                    const draftBlob = await dataUrlToBlob(currentAnswerPhotoDataUrl);
+                    fd.append('photo', draftBlob, 'reticle-capture.jpg');
+                } else {
+                    fd.append('photo', photoInput.files[0]);
+                }
                 answerMessage.textContent = '📤 上傳照片中...';
                 let uploadData;
                 try {
@@ -2318,19 +2475,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 answer = selected.dataset.value;
-                if (tutorialGuestMode) {
+                if (tutorialPassMode) {
                     answerModal.classList.add('hidden');
                     tutorialFlowStarted = false;
                     renderTutorialModeUi();
-                    completeTutorialGuestTask(currentTask);
-                    await showNpcDialog({
-                        speakerKey: 'lore',
-                        mood: '教學選擇',
-                        text: `潮聲已記住你的選擇：「${answer}」。\n\n教學模式先替你通過這一關，讓你把完整流程走完。`,
-                        buttonLabel: '繼續前進'
-                    });
-                    if (currentEntryMode === 'story_campaign' && currentQuestChainId) {
-                        await loadStoryShell(currentQuestChainId);
+                    if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
+                        await completeBoardTurn(true, {
+                            speakerKey: 'lore',
+                            mood: '教學選擇',
+                            text: `潮聲已記住你的選擇：「${answer}」。\n\n教學模式先替你通過這一格，讓你把完整流程走完。`,
+                            autoCloseMs: 2400
+                        });
+                    } else {
+                        if (tutorialGuestMode) {
+                            completeTutorialGuestTask(currentTask);
+                        }
+                        await showNpcDialog({
+                            speakerKey: 'lore',
+                            mood: '教學選擇',
+                            text: `潮聲已記住你的選擇：「${answer}」。\n\n教學模式先替你通過這一關，讓你把完整流程走完。`,
+                            buttonLabel: '繼續前進'
+                        });
+                        if (currentEntryMode === 'story_campaign' && currentQuestChainId) {
+                            await loadStoryShell(currentQuestChainId);
+                        }
                     }
                     showCompletionModal('✅ 教學模式已完成這一步');
                     return;
@@ -2343,19 +2511,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            if (tutorialGuestMode) {
+            if (tutorialPassMode) {
                 answerModal.classList.add('hidden');
                 tutorialFlowStarted = false;
                 renderTutorialModeUi();
-                completeTutorialGuestTask(currentTask);
-                await showNpcDialog({
-                    speakerKey: 'judge',
-                    mood: '教學模式通關',
-                    text: `沙丘已記錄你的操作：「${answer || '已提交'}」。\n\n教學模式先替你通過這一步，讓你繼續往下走。`,
-                    buttonLabel: '繼續前進'
-                });
-                if (currentEntryMode === 'story_campaign' && currentQuestChainId) {
-                    await loadStoryShell(currentQuestChainId);
+                if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
+                    await completeBoardTurn(true, {
+                        speakerKey: currentTask.task_type === 'number' ? 'judge' : 'lore',
+                        mood: '教學模式通關',
+                        text: `沙丘已記錄你的操作：「${answer || '已提交'}」。\n\n教學模式先替你通過這一步，讓你繼續往下走。`,
+                        autoCloseMs: 2400
+                    });
+                } else {
+                    if (tutorialGuestMode) {
+                        completeTutorialGuestTask(currentTask);
+                    }
+                    await showNpcDialog({
+                        speakerKey: 'judge',
+                        mood: '教學模式通關',
+                        text: `沙丘已記錄你的操作：「${answer || '已提交'}」。\n\n教學模式先替你通過這一步，讓你繼續往下走。`,
+                        buttonLabel: '繼續前進'
+                    });
+                    if (currentEntryMode === 'story_campaign' && currentQuestChainId) {
+                        await loadStoryShell(currentQuestChainId);
+                    }
                 }
                 showCompletionModal('✅ 教學模式已完成這一步');
                 return;
@@ -2433,6 +2612,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         async function submitLockCode() {
+            const tutorialPassMode = isCurrentQuestDemoMode() || isCurrentQuestTutorialMode();
+            if (tutorialPassMode) {
+                lockOverlay.classList.add('hidden');
+                tutorialFlowStarted = false;
+                renderTutorialModeUi();
+                if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
+                    await completeBoardTurn(true, {
+                        speakerKey: 'judge',
+                        mood: '教學解鎖',
+                        text: `沙丘已記錄這組密碼：「${getLockCode()}」。\n\n教學模式先替你通過這一格，讓你繼續往前。`,
+                        autoCloseMs: 2400
+                    });
+                } else {
+                    await showNpcDialog({
+                        speakerKey: 'judge',
+                        mood: '教學解鎖',
+                        text: `沙丘已記錄這組密碼：「${getLockCode()}」。\n\n教學模式先替你通過這一關，讓你繼續往下走。`,
+                        buttonLabel: '繼續前進'
+                    });
+                }
+                showCompletionModal('✅ 教學模式已完成這一步');
+                return;
+            }
             if (!currentUserTaskId) await fetchCurrentUserTaskId();
             if (!currentUserTaskId) await createCurrentUserTaskRecord();
             if (!currentUserTaskId) {
@@ -2503,6 +2705,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const tutorialMode = isCurrentQuestTutorialMode();
             const tutorialGuestMode = isTutorialGuestMode();
             tutorialFlowStarted = true;
+            tutorialBoardPhotoCaptureArmed = false;
             renderTutorialModeUi();
             if (tutorialMode && tutorialIntroTaskId !== currentTask.id) {
                 tutorialIntroTaskId = currentTask.id;
@@ -2585,6 +2788,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 lockMsg.textContent = '';
                 lockOverlay.classList.remove('hidden');
             } else {
+                if (tutorialMode && currentEntryMode === 'board_game' && currentTask.task_type === 'photo') {
+                    tutorialBoardPhotoCaptureArmed = true;
+                    closeDockPanels();
+                    if (instructionText) {
+                        instructionText.textContent = '把想拍的內容放進黃色圓框，按下下方按鈕就會直接作答與結算。';
+                    }
+                    renderTutorialModeUi();
+                    await showNpcDialog({
+                        speakerKey: 'gatekeeper',
+                        mood: '圓框拍照挑戰',
+                        text: `${currentTask.stage_intro || currentTask.description || '請直接用黃色圓框拍下一張畫面。'}\n\n這一格不需要再跳出上傳檔案，你只要直接用圓框拍照就會送出。`,
+                        buttonLabel: '開始拍照'
+                    });
+                    return;
+                }
+                if (selectionInstruction) {
+                    selectionInstruction.style.display = currentTask.task_type === 'photo' ? '' : 'none';
+                }
                 showAnswerModal(currentTask);
             }
         }
@@ -4074,8 +4295,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 框內拍照（單手模式）
         if (captureReticleBtn) {
-            captureReticleBtn.addEventListener('click', () => {
+            captureReticleBtn.addEventListener('click', async () => {
                 if (selectionMode !== 'reticle') return;
+                if (currentEntryMode === 'board_game' && isCurrentQuestTutorialMode() && currentTask?.task_type === 'photo' && tutorialBoardPhotoCaptureArmed) {
+                    try {
+                        currentAnswerPhotoDataUrl = video.videoWidth && video.videoHeight
+                            ? captureCurrentReticleDataUrl()
+                            : createTutorialFallbackCapture();
+                        tutorialBoardPhotoCaptureArmed = false;
+                        renderTutorialModeUi();
+                        await submitTaskAnswer();
+                    } catch (err) {
+                        tutorialBoardPhotoCaptureArmed = true;
+                        renderTutorialModeUi();
+                        Swal.fire({ icon: 'error', title: '無法使用圓框拍照', text: err.message || '請再試一次' });
+                    }
+                    return;
+                }
                 if (!video.videoWidth || !video.videoHeight) {
                     aiResult.innerHTML = '<span style="color:red">相機尚未就緒</span>';
                     showResultPanel();

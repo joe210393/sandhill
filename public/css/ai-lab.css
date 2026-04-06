@@ -999,6 +999,121 @@ body.tutorial-board-clean .game-shell-panel {
     backdrop-filter: blur(10px);
 }
 
+body.tutorial-board-clean .feature-dock {
+    display: flex !important;
+    left: 12px;
+    right: 12px;
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    top: auto;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 10px;
+    z-index: 46;
+}
+
+body.tutorial-board-clean .feature-dock-menu {
+    display: flex !important;
+    flex-direction: row;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 20px;
+    background: rgba(8, 14, 28, 0.78);
+    border: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+}
+
+body.tutorial-board-clean .feature-dock-menu.hidden {
+    display: flex !important;
+}
+
+body.tutorial-board-clean .feature-dock-menu .icon-btn.hidden,
+body.tutorial-board-clean .feature-dock-menu .exit-btn,
+body.tutorial-board-clean .feature-dock-menu #dockModeBtn,
+body.tutorial-board-clean .feature-dock-menu #dockLangBtn,
+body.tutorial-board-clean .feature-dock-menu #dockZoomBtn,
+body.tutorial-board-clean .feature-dock-menu #micBtn,
+body.tutorial-board-clean .feature-dock-menu #captureBtn,
+body.tutorial-board-clean .feature-dock-menu #switchCameraBtn,
+body.tutorial-board-clean .feature-dock-menu #taskBgmBtn,
+body.tutorial-board-clean .feature-dock-menu #taskIntroBtn {
+    display: none !important;
+}
+
+body.tutorial-board-clean .feature-dock-toggle {
+    display: none !important;
+}
+
+body.tutorial-board-clean .feature-dock-menu #gameShellBtn,
+body.tutorial-board-clean .feature-dock-menu #hudPanelBtn,
+body.tutorial-board-clean .feature-dock-menu #boardPanelBtn {
+    width: 52px;
+    height: 52px;
+    font-size: 24px;
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+body.tutorial-board-clean .feature-drawer-panel {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+    min-width: 0;
+    z-index: 47;
+    pointer-events: auto;
+}
+
+body.tutorial-board-clean .feature-drawer-panel .dock-panel {
+    max-height: 42vh;
+    overflow-y: auto;
+    border-radius: 20px;
+    background: rgba(8, 14, 28, 0.92);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.32);
+}
+
+body.tutorial-board-clean .selection-instruction {
+    display: block !important;
+    bottom: calc(94px + env(safe-area-inset-bottom, 0px));
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: none;
+    background: rgba(8, 14, 28, 0.68);
+    backdrop-filter: blur(10px);
+}
+
+body.tutorial-board-clean .selection-instruction .selection-mode-toggle,
+body.tutorial-board-clean .selection-instruction .instruction-text {
+    display: none !important;
+}
+
+body.tutorial-board-clean .capture-reticle-btn {
+    display: flex !important;
+    width: 100%;
+    justify-content: center;
+    min-height: 52px;
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.camera-answer-helper {
+    margin-top: 8px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: rgba(255,255,255,0.75);
+}
+
+.camera-answer-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.camera-answer-actions .btn {
+    flex: 1;
+}
+
 body.tutorial-board-clean .game-shell-summary {
     opacity: 0.82;
 }

@@ -2,7 +2,7 @@
 // 負責推送通知與快取管理
 
 // bump this to force clients to drop old cached assets (prevents "I fixed it but nothing changes")
-const CACHE_NAME = 'sandhill-v8';
+const CACHE_NAME = 'sandhill-v9';
 const urlsToCache = [
   '/',
   '/index.html',
