@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>沙丘｜海底大作戰 AI 冒險平台</title>
-
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0c6b86">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,49 +15,111 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-deep: #063d52;
-      --bg-sea: #0c6b86;
-      --bg-mint: #8fd7d2;
-      --bg-sand: #f5e6bf;
-      --accent-coral: #ff7a59;
-      --accent-gold: #ffd166;
-      --ink: #103340;
-      --card: rgba(255, 255, 255, 0.88);
-      --card-border: rgba(255, 255, 255, 0.34);
-      --shadow: 0 24px 60px rgba(4, 44, 60, 0.18);
+      --sea-950: #03293b;
+      --sea-900: #07425e;
+      --sea-800: #0c6b86;
+      --sea-700: #1388a3;
+      --sea-500: #52b6c8;
+      --foam: #dff8ff;
+      --sand: #f6ecd4;
+      --sun: #ffd06f;
+      --coral: #ff8f62;
+      --ink: #0f3040;
+      --muted: #547280;
+      --panel: rgba(255, 255, 255, 0.9);
+      --panel-strong: rgba(255, 255, 255, 0.96);
+      --line: rgba(10, 76, 99, 0.12);
+      --shadow: 0 24px 60px rgba(3, 29, 41, 0.18);
+      --mobile-pad: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
     }
 
     body {
-      background:
-        radial-gradient(circle at top left, rgba(255, 209, 102, 0.16), transparent 26%),
-        radial-gradient(circle at top right, rgba(143, 215, 210, 0.3), transparent 24%),
-        linear-gradient(180deg, #e5fbff 0%, #d8f3f2 18%, #f3f9f1 55%, #fef7ea 100%);
+      margin: 0;
+      font-family: "Noto Sans TC", sans-serif;
       color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(255, 208, 111, 0.22), transparent 24%),
+        linear-gradient(180deg, #e3fbff 0%, #ccf0f5 14%, #d6efe9 38%, #f2f7eb 58%, #fbf1dc 100%);
+    }
+
+    a {
+      color: inherit;
     }
 
     header {
       position: sticky;
       top: 0;
       z-index: 1000;
-      background: rgba(6, 61, 82, 0.78);
-      backdrop-filter: blur(16px);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-      box-shadow: 0 18px 40px rgba(3, 26, 35, 0.16);
+      background: rgba(3, 41, 59, 0.84);
+      backdrop-filter: blur(18px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
     }
 
     .header-content {
+      max-width: 1260px;
+      margin: 0 auto;
+      padding: 14px var(--mobile-pad);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       gap: 16px;
     }
 
     #pageTitle {
+      margin: 0;
+      color: white;
       font-family: "Noto Serif TC", serif;
-      letter-spacing: 0.05em;
+      font-size: 1.45rem;
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+
+    .hamburger {
+      display: none;
+      border: none;
+      background: rgba(255, 255, 255, 0.14);
+      color: white;
+      border-radius: 14px;
+      width: 46px;
+      height: 46px;
+      font-size: 1.35rem;
+      cursor: pointer;
+    }
+
+    .main-nav {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .main-nav a,
+    .main-nav button,
+    .main-nav span {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.95rem;
     }
 
     .main-nav a {
-      border-radius: 999px;
-      padding: 8px 14px;
-      margin-left: 10px;
+      color: rgba(255, 255, 255, 0.92);
+      background: rgba(255, 255, 255, 0.06);
     }
 
     .main-nav a.current-page,
@@ -67,103 +128,273 @@
     }
 
     .main-nav button {
-      background: linear-gradient(135deg, var(--accent-coral), #ff946e);
-      border-radius: 999px;
-      padding: 8px 14px;
+      border: none;
+      color: white;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--coral), #ffae72);
     }
 
-    main {
-      max-width: 1240px;
-      margin: 0 auto;
-      padding: 24px 20px 88px;
-      min-height: calc(100vh - 140px);
+    .main-nav span {
+      color: rgba(255, 255, 255, 0.92);
+      background: rgba(255, 255, 255, 0.1);
     }
 
     #pwa-install-prompt {
       display: none;
       position: fixed;
-      bottom: 20px;
       left: 50%;
+      bottom: 18px;
       transform: translateX(-50%);
       width: min(92vw, 420px);
-      padding: 18px 20px;
+      padding: 18px;
+      border-radius: 24px;
       background: rgba(255, 255, 255, 0.96);
-      border: 1px solid rgba(12, 107, 134, 0.12);
-      border-radius: 22px;
-      box-shadow: 0 20px 55px rgba(6, 61, 82, 0.25);
-      z-index: 10000;
+      border: 1px solid rgba(12, 107, 134, 0.14);
+      box-shadow: 0 22px 60px rgba(4, 34, 46, 0.24);
+      z-index: 1200;
       text-align: center;
-      animation: slideUp 0.3s ease-out;
-    }
-
-    @keyframes slideUp {
-      from { opacity: 0; transform: translateX(-50%) translateY(20px); }
-      to { opacity: 1; transform: translateX(-50%) translateY(0); }
     }
 
     #pwa-install-prompt p {
-      margin: 0 0 14px;
+      margin: 0 0 12px;
       color: var(--ink);
-      font-size: 14px;
-      line-height: 1.6;
+      line-height: 1.7;
+      font-size: 0.92rem;
     }
 
     #pwa-install-prompt button {
-      background: linear-gradient(135deg, var(--bg-sea), #1697aa);
-      color: white;
       border: none;
-      padding: 10px 18px;
       border-radius: 999px;
-      font-weight: 700;
+      padding: 11px 18px;
+      color: white;
+      background: linear-gradient(135deg, var(--sea-800), var(--sea-700));
+      font-weight: 800;
       cursor: pointer;
+    }
+
+    main {
+      max-width: 1260px;
+      margin: 0 auto;
+      padding: 18px var(--mobile-pad) 80px;
     }
 
     .hero {
       position: relative;
       overflow: hidden;
+      min-height: 82vh;
       display: grid;
-      grid-template-columns: minmax(0, 1.1fr) minmax(340px, 0.9fr);
-      gap: 28px;
-      padding: 38px;
-      background:
-        linear-gradient(140deg, rgba(6, 61, 82, 0.95), rgba(15, 113, 127, 0.88) 56%, rgba(255, 209, 102, 0.2)),
-        radial-gradient(circle at right top, rgba(255, 255, 255, 0.18), transparent 30%);
+      grid-template-columns: minmax(0, 1.12fr) minmax(320px, 0.88fr);
+      gap: 22px;
+      align-items: stretch;
+      padding: 28px;
       border-radius: 34px;
+      background:
+        linear-gradient(180deg, rgba(4, 46, 66, 0.12), rgba(4, 46, 66, 0.42)),
+        linear-gradient(180deg, rgba(7, 66, 94, 0.24), rgba(3, 41, 59, 0.9)),
+        url('https://images.unsplash.com/photo-1551244072-5d12893278ab?auto=format&fit=crop&q=80&w=1500') center/cover;
       box-shadow: var(--shadow);
-      color: white;
       isolation: isolate;
     }
 
-    .hero::before,
-    .hero::after {
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .water-haze,
+    .water-haze::before,
+    .water-haze::after {
+      position: absolute;
+      inset: auto;
+      content: "";
+      display: block;
+      border-radius: 999px;
+      filter: blur(14px);
+    }
+
+    .water-haze {
+      width: 140%;
+      height: 36%;
+      left: -20%;
+      bottom: -8%;
+      background: linear-gradient(180deg, rgba(16, 87, 109, 0.14), rgba(34, 118, 132, 0.48), rgba(58, 81, 45, 0.52));
+      animation: toxicSwell 12s ease-in-out infinite;
+    }
+
+    .water-haze::before {
+      width: 55%;
+      height: 48%;
+      left: 8%;
+      top: 16%;
+      background: radial-gradient(circle, rgba(111, 188, 138, 0.32), transparent 68%);
+      animation: toxicPulse 8s ease-in-out infinite;
+    }
+
+    .water-haze::after {
+      width: 42%;
+      height: 34%;
+      right: 8%;
+      bottom: 24%;
+      background: radial-gradient(circle, rgba(90, 55, 24, 0.24), transparent 72%);
+      animation: toxicPulse 10s ease-in-out infinite reverse;
+    }
+
+    .current-ribbon {
+      position: absolute;
+      left: -10%;
+      right: -10%;
+      height: 22%;
+      border-radius: 999px;
+      opacity: 0.38;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+      animation: currentDrift 14s linear infinite;
+    }
+
+    .current-ribbon.r1 { top: 15%; }
+    .current-ribbon.r2 { top: 38%; animation-duration: 18s; animation-delay: -6s; }
+    .current-ribbon.r3 { top: 61%; animation-duration: 12s; animation-delay: -10s; }
+
+    .foam-line {
+      position: absolute;
+      left: -12%;
+      width: 124%;
+      height: 90px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 20% 45%, rgba(255, 255, 255, 0.32), transparent 18%),
+                  radial-gradient(circle at 48% 55%, rgba(255, 255, 255, 0.18), transparent 15%),
+                  radial-gradient(circle at 74% 46%, rgba(255, 255, 255, 0.22), transparent 16%);
+      opacity: 0.4;
+      animation: foamDrift 16s linear infinite;
+    }
+
+    .foam-line.f1 { top: 28%; }
+    .foam-line.f2 { top: 56%; animation-duration: 22s; animation-delay: -7s; }
+
+    .swimmer {
+      position: absolute;
+      animation: floatAcross linear infinite;
+      opacity: 0.92;
+    }
+
+    .fish {
+      width: 74px;
+      height: 34px;
+      border-radius: 50px 45px 45px 50px;
+      background: linear-gradient(135deg, rgba(255, 208, 111, 0.96), rgba(255, 150, 98, 0.95));
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+    }
+
+    .fish::before {
       content: "";
       position: absolute;
+      right: -16px;
+      top: 7px;
+      width: 0;
+      height: 0;
+      border-top: 10px solid transparent;
+      border-bottom: 10px solid transparent;
+      border-left: 18px solid rgba(255, 158, 98, 0.92);
+    }
+
+    .fish::after {
+      content: "";
+      position: absolute;
+      left: 14px;
+      top: 11px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: rgba(7, 40, 57, 0.85);
+    }
+
+    .fish.f1 { top: 19%; left: -80px; animation-duration: 15s; }
+    .fish.f2 { top: 47%; left: -110px; animation-duration: 22s; animation-delay: -8s; transform: scale(0.82); }
+    .fish.f3 { top: 71%; left: -90px; animation-duration: 18s; animation-delay: -14s; transform: scale(1.08); }
+
+    .trash {
+      filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.16));
+    }
+
+    .bottle {
+      width: 24px;
+      height: 70px;
+      border-radius: 9px 9px 12px 12px;
+      background: linear-gradient(180deg, rgba(215, 228, 232, 0.72), rgba(146, 191, 198, 0.54));
+      border: 1px solid rgba(255, 255, 255, 0.34);
+      opacity: 0.82;
+    }
+
+    .bottle::before {
+      content: "";
+      position: absolute;
+      top: -11px;
+      left: 6px;
+      width: 12px;
+      height: 14px;
+      border-radius: 5px 5px 2px 2px;
+      background: rgba(195, 211, 216, 0.9);
+    }
+
+    .bag {
+      width: 48px;
+      height: 56px;
+      border-radius: 50% 50% 40% 40%;
+      background: linear-gradient(180deg, rgba(42, 53, 58, 0.5), rgba(18, 28, 32, 0.72));
+      opacity: 0.75;
+    }
+
+    .bag::before,
+    .bag::after {
+      content: "";
+      position: absolute;
+      top: -8px;
+      width: 14px;
+      height: 14px;
+      border: 4px solid rgba(32, 42, 46, 0.68);
+      border-bottom: none;
+      border-radius: 14px 14px 0 0;
+    }
+
+    .bag::before { left: 5px; }
+    .bag::after { right: 5px; }
+
+    .cup {
+      width: 26px;
+      height: 40px;
+      border-radius: 0 0 10px 10px;
+      background: linear-gradient(180deg, rgba(255, 223, 183, 0.86), rgba(181, 132, 85, 0.78));
+      opacity: 0.8;
+    }
+
+    .cup::before {
+      content: "";
+      position: absolute;
+      top: -5px;
+      left: -3px;
+      width: 32px;
+      height: 8px;
       border-radius: 999px;
-      opacity: 0.35;
-      z-index: -1;
+      background: rgba(255, 233, 210, 0.88);
     }
 
-    .hero::before {
-      width: 320px;
-      height: 320px;
-      background: radial-gradient(circle, rgba(255, 209, 102, 0.9), transparent 70%);
-      top: -110px;
-      right: -60px;
-    }
+    .trash.t1 { top: 26%; left: -50px; animation-duration: 24s; }
+    .trash.t2 { top: 64%; left: -70px; animation-duration: 28s; animation-delay: -9s; }
+    .trash.t3 { top: 41%; left: -60px; animation-duration: 21s; animation-delay: -15s; }
 
-    .hero::after {
-      width: 360px;
-      height: 360px;
-      background: radial-gradient(circle, rgba(143, 215, 210, 0.7), transparent 72%);
-      left: -120px;
-      bottom: -180px;
+    .hero-copy,
+    .hero-side {
+      position: relative;
+      z-index: 2;
     }
 
     .hero-copy {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
+      align-self: center;
+      display: grid;
       gap: 18px;
+      color: white;
     }
 
     .eyebrow {
@@ -172,41 +403,55 @@
       gap: 8px;
       width: fit-content;
       padding: 8px 14px;
-      background: rgba(255, 255, 255, 0.14);
-      border: 1px solid rgba(255, 255, 255, 0.18);
       border-radius: 999px;
-      font-size: 0.92rem;
-      font-weight: 700;
-      letter-spacing: 0.05em;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      font-size: 0.86rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
     }
 
-    .hero-title {
+    .hero h2 {
       margin: 0;
       font-family: "Noto Serif TC", serif;
-      font-size: clamp(2.5rem, 5vw, 4.8rem);
+      font-size: clamp(2.5rem, 8vw, 4.35rem);
       line-height: 1.06;
-      letter-spacing: 0.03em;
+      text-shadow: 0 14px 40px rgba(0, 0, 0, 0.24);
     }
 
-    .hero-description {
+    .hero p {
       margin: 0;
-      max-width: 680px;
-      font-size: 1.08rem;
+      max-width: 640px;
+      color: rgba(255, 255, 255, 0.92);
       line-height: 1.85;
-      color: rgba(255, 255, 255, 0.9);
+      font-size: 1.02rem;
     }
 
     .hero-actions,
     .auth-actions {
       display: flex;
       flex-wrap: wrap;
-      gap: 14px;
+      gap: 12px;
     }
 
-    .hero-actions a,
-    .auth-actions button,
-    .auth-actions a {
-      text-decoration: none;
+    .auth-panel {
+      display: grid;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .logged-in-note {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      width: fit-content;
+      max-width: 100%;
+      padding: 12px 15px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.13);
+      color: white;
+      font-weight: 700;
+      line-height: 1.6;
     }
 
     .ocean-btn {
@@ -214,466 +459,394 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      min-width: 180px;
-      border: none;
+      min-height: 52px;
+      padding: 14px 20px;
       border-radius: 999px;
-      padding: 15px 22px;
+      text-decoration: none;
       font-size: 1rem;
-      font-weight: 800;
-      cursor: pointer;
-      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+      font-weight: 900;
+      letter-spacing: 0.01em;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
     }
 
     .ocean-btn:hover {
       transform: translateY(-2px);
-      box-shadow: 0 18px 32px rgba(5, 45, 60, 0.22);
     }
 
     .ocean-btn-primary {
-      color: #0d394b;
-      background: linear-gradient(135deg, var(--accent-gold), #ffe6a6);
+      color: #0b3040;
+      background: linear-gradient(135deg, var(--sun), #ffe5a7);
+      box-shadow: 0 18px 32px rgba(18, 55, 67, 0.22);
     }
 
     .ocean-btn-secondary {
       color: white;
       background: rgba(255, 255, 255, 0.14);
-      border: 1px solid rgba(255, 255, 255, 0.24);
+      border: 1px solid rgba(255, 255, 255, 0.18);
     }
 
     .hero-side {
       display: grid;
-      gap: 18px;
+      gap: 16px;
+      align-self: end;
     }
 
-    .signal-card,
-    .showcase-card,
+    .hero-panel,
     .section-card,
-    .gallery-card,
-    .chapter-card,
-    .character-card,
-    .ai-card,
-    .value-card,
+    .camp-card,
+    .entry-card,
+    .highlight-card,
+    .info-card,
     .cta-panel {
-      border: 1px solid var(--card-border);
-      background: var(--card);
+      position: relative;
+      overflow: hidden;
       border-radius: 28px;
+      background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.22);
       box-shadow: var(--shadow);
-      backdrop-filter: blur(14px);
+      backdrop-filter: blur(16px);
     }
 
-    .signal-card {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-      padding: 18px 20px;
-      color: #0b455c;
+    .hero-panel {
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.14);
+      color: white;
+      border-color: rgba(255, 255, 255, 0.18);
     }
 
-    .signal-card strong {
+    .hero-panel strong {
       display: block;
+      margin-bottom: 6px;
       font-size: 1rem;
     }
 
-    .signal-card span {
-      font-size: 0.94rem;
-      color: rgba(11, 69, 92, 0.75);
-    }
-
-    .signal-pill {
-      padding: 10px 14px;
-      border-radius: 999px;
-      background: linear-gradient(135deg, rgba(255, 122, 89, 0.18), rgba(255, 209, 102, 0.35));
-      font-weight: 800;
-      white-space: nowrap;
-    }
-
-    .showcase-card {
-      display: grid;
-      gap: 18px;
-      padding: 24px;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,0.88), rgba(232, 251, 248, 0.9)),
-        radial-gradient(circle at top right, rgba(255, 122, 89, 0.08), transparent 35%);
-    }
-
-    .showcase-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-    }
-
-    .showcase-title {
-      margin: 0;
-      font-size: 1.2rem;
-      color: #0d4458;
-    }
-
-    .showcase-tag {
-      padding: 7px 11px;
-      border-radius: 999px;
-      background: #0d4458;
-      color: white;
-      font-size: 0.84rem;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    .showcase-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-    }
-
-    .mini-mission {
-      padding: 16px;
-      border-radius: 22px;
-      background: rgba(12, 107, 134, 0.08);
-    }
-
-    .mini-mission strong {
+    .hero-panel span,
+    .hero-panel p {
       display: block;
-      margin-bottom: 8px;
-      color: #0b455c;
-    }
-
-    .mini-mission p {
       margin: 0;
-      color: #3c5964;
+      color: rgba(255, 255, 255, 0.85);
       line-height: 1.7;
-      font-size: 0.95rem;
+      font-size: 0.93rem;
     }
 
-    .auth-panel {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-      padding-top: 4px;
-    }
-
-    .logged-in-note {
-      display: inline-flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-      padding: 12px 16px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.14);
-      font-weight: 700;
-      color: white;
-    }
-
-    .mode-entry-grid {
+    .hero-panel-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 18px;
-      margin-top: 20px;
+      gap: 12px;
     }
 
-    .mode-entry-card {
-      padding: 24px;
-      border-radius: 28px;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,0.92), rgba(240, 251, 248, 0.96));
-      border: 1px solid rgba(12, 107, 134, 0.12);
-      box-shadow: var(--shadow);
-      display: grid;
-      gap: 14px;
-    }
-
-    .mode-entry-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .mode-entry-pill {
+    .hero-chip {
       display: inline-flex;
       align-items: center;
-      padding: 6px 10px;
-      border-radius: 999px;
-      font-size: 0.82rem;
-      font-weight: 800;
-      background: rgba(12, 107, 134, 0.09);
-      color: #0b455c;
-    }
-
-    .mode-entry-card h3 {
-      margin: 0;
-      font-size: 1.34rem;
-      color: #113f4d;
-    }
-
-    .mode-entry-card p {
-      margin: 0;
-      line-height: 1.8;
-      color: #54707a;
-    }
-
-    .mode-entry-card .ocean-btn {
-      min-width: 0;
       width: fit-content;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.18);
+      font-size: 0.8rem;
+      font-weight: 800;
+      margin-bottom: 10px;
     }
 
-    .loading-card {
-      padding: 22px;
-      border-radius: 24px;
-      background: rgba(255,255,255,0.75);
-      color: #55727c;
-      text-align: center;
-      border: 1px dashed rgba(12, 107, 134, 0.18);
-    }
-
-    .section {
-      margin-top: 26px;
-      padding: 34px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .section-card::before,
-    .cta-panel::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(circle at top right, rgba(255, 209, 102, 0.12), transparent 26%);
-      pointer-events: none;
+    .section-card,
+    .cta-panel {
+      margin-top: 18px;
+      padding: 24px;
+      background: var(--panel-strong);
     }
 
     .section-heading {
       display: flex;
-      justify-content: space-between;
       align-items: flex-end;
+      justify-content: space-between;
       gap: 16px;
-      margin-bottom: 22px;
+      margin-bottom: 18px;
     }
 
-    .section-heading h2 {
-      margin: 0 0 10px;
+    .section-heading h3 {
+      margin: 0 0 8px;
       font-family: "Noto Serif TC", serif;
-      font-size: clamp(1.8rem, 2.4vw, 2.6rem);
-      color: #0b455c;
+      font-size: clamp(1.7rem, 4vw, 2.5rem);
+      color: var(--sea-900);
     }
 
     .section-heading p {
       margin: 0;
-      max-width: 720px;
+      max-width: 760px;
       line-height: 1.8;
-      color: #506f7a;
+      color: var(--muted);
     }
 
-    .values-grid,
-    .chapters-grid,
-    .ai-grid,
-    .characters-grid,
-    .gallery-grid {
+    .camp-grid,
+    .highlight-grid,
+    .entries-grid {
       display: grid;
-      gap: 18px;
+      gap: 14px;
     }
 
-    .values-grid {
+    .camp-grid {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
-    .value-card,
-    .chapter-card,
-    .ai-card,
-    .character-card,
-    .gallery-card {
-      padding: 22px;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,0.86), rgba(243, 252, 250, 0.94));
+    .camp-card {
+      padding: 22px 18px;
+      text-align: center;
+      background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(241, 251, 248, 0.95));
     }
 
-    .value-no,
-    .chapter-day,
-    .character-role {
-      display: inline-flex;
-      width: fit-content;
-      padding: 7px 11px;
-      border-radius: 999px;
-      font-size: 0.82rem;
-      font-weight: 800;
-      color: #0d4458;
-      background: rgba(12, 107, 134, 0.1);
+    .camp-card h4 {
+      margin: 0 0 10px;
+      color: var(--sea-800);
+      font-size: 1.12rem;
     }
 
-    .value-card h3,
-    .chapter-card h3,
-    .ai-card h3,
-    .character-card h3,
-    .gallery-card h3 {
-      margin: 14px 0 12px;
-      color: #123f4e;
-      font-size: 1.2rem;
-    }
-
-    .value-card p,
-    .chapter-card p,
-    .ai-card p,
-    .character-card p,
-    .gallery-card p {
+    .camp-card p {
       margin: 0;
-      color: #54707a;
-      line-height: 1.8;
+      color: var(--muted);
+      line-height: 1.76;
     }
 
-    .chapters-grid {
+    .curriculum-grid {
+      display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 16px;
     }
 
-    .chapter-card {
-      position: relative;
-      min-height: 240px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-
-    .chapter-meta {
-      margin-top: 18px;
-      padding-top: 18px;
-      border-top: 1px dashed rgba(12, 107, 134, 0.2);
-      font-size: 0.95rem;
-      color: #0c6b86;
-      font-weight: 700;
-    }
-
-    .ai-grid {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-
-    .ai-card {
-      min-height: 220px;
-    }
-
-    .ai-badge {
-      display: inline-flex;
-      width: fit-content;
-      padding: 7px 11px;
-      border-radius: 999px;
-      background: linear-gradient(135deg, rgba(255, 122, 89, 0.14), rgba(255, 209, 102, 0.28));
-      color: #a44a2f;
-      font-size: 0.82rem;
-      font-weight: 800;
-    }
-
-    .characters-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .character-art {
-      height: 186px;
-      margin-bottom: 18px;
+    .day-card {
+      padding: 20px 16px;
       border-radius: 24px;
-      overflow: hidden;
-      background:
-        linear-gradient(160deg, rgba(12, 107, 134, 0.16), rgba(255, 209, 102, 0.25));
+      background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(239, 250, 247, 0.96));
+      border: 1px solid var(--line);
+      box-shadow: 0 14px 34px rgba(10, 60, 81, 0.1);
+    }
+
+    .day-tag {
+      display: inline-flex;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(12, 107, 134, 0.1);
+      color: var(--sea-800);
+      font-size: 0.82rem;
+      font-weight: 900;
+    }
+
+    .day-card h4 {
+      margin: 14px 0 10px;
+      color: var(--sea-900);
+      font-size: 1.15rem;
+    }
+
+    .day-card p {
+      margin: 0;
+      line-height: 1.74;
+      color: var(--muted);
+    }
+
+    .entries-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .entry-card {
+      padding: 22px;
+      display: grid;
+      gap: 14px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(243, 252, 250, 0.96));
+      border: 1px solid rgba(12, 107, 134, 0.1);
+    }
+
+    .entry-meta {
       display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .entry-pill {
+      display: inline-flex;
       align-items: center;
       justify-content: center;
+      min-height: 34px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(12, 107, 134, 0.08);
+      color: var(--sea-800);
+      font-size: 0.82rem;
+      font-weight: 900;
     }
 
-    .character-art img {
+    .entry-card h4 {
+      margin: 0;
+      font-size: 1.28rem;
+      color: var(--sea-900);
+    }
+
+    .entry-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+
+    .entry-card .ocean-btn {
+      width: fit-content;
+      min-width: 0;
+    }
+
+    .loading-card {
+      padding: 20px;
+      text-align: center;
+      border-radius: 24px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px dashed rgba(12, 107, 134, 0.2);
+    }
+
+    .highlight-grid {
+      grid-template-columns: 1.2fr 1fr;
+    }
+
+    .highlight-card,
+    .info-card {
+      padding: 22px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(244, 252, 251, 0.95));
+    }
+
+    .highlight-card h4,
+    .info-card h4 {
+      margin: 0 0 10px;
+      color: var(--sea-900);
+      font-size: 1.15rem;
+    }
+
+    .highlight-card p,
+    .info-card p,
+    .info-card li {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.82;
+    }
+
+    .highlight-card + .highlight-card {
+      margin-top: 14px;
+    }
+
+    .info-stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .info-table {
       width: 100%;
-      height: 100%;
-      object-fit: cover;
+      border-collapse: collapse;
+      margin-top: 10px;
     }
 
-    .gallery-grid {
-      grid-template-columns: 1.2fr 1fr 1fr;
-      align-items: stretch;
+    .info-table td {
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(10, 76, 99, 0.12);
+      vertical-align: top;
+      line-height: 1.72;
+      color: var(--muted);
     }
 
-    .gallery-card.large {
-      min-height: 320px;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,0.76), rgba(243, 252, 250, 0.94)),
-        url('/images/DSC05887-1748709232005-892081.JPG') center/cover;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-end;
-    }
-
-    .gallery-card:not(.large) {
-      min-height: 220px;
-    }
-
-    .gallery-card.large h3,
-    .gallery-card.large p {
-      color: #08394d;
-      text-shadow: 0 1px 0 rgba(255,255,255,0.7);
+    .info-table td:first-child {
+      width: 110px;
+      color: var(--sea-900);
+      font-weight: 800;
+      padding-right: 12px;
     }
 
     .cta-panel {
-      margin-top: 26px;
-      position: relative;
-      padding: 34px;
       background:
-        linear-gradient(120deg, rgba(6, 61, 82, 0.95), rgba(12, 107, 134, 0.9));
+        linear-gradient(135deg, rgba(3, 41, 59, 0.95), rgba(9, 89, 112, 0.9)),
+        radial-gradient(circle at top right, rgba(255, 208, 111, 0.16), transparent 35%);
       color: white;
     }
 
-    .cta-panel h2 {
+    .cta-panel h3 {
       margin: 0 0 12px;
       font-family: "Noto Serif TC", serif;
-      font-size: clamp(2rem, 2.8vw, 3rem);
+      font-size: clamp(1.9rem, 4vw, 2.9rem);
     }
 
     .cta-panel p {
       margin: 0;
       max-width: 720px;
-      line-height: 1.85;
       color: rgba(255, 255, 255, 0.88);
+      line-height: 1.82;
     }
 
     .cta-actions {
       display: flex;
       flex-wrap: wrap;
-      gap: 14px;
-      margin-top: 24px;
+      gap: 12px;
+      margin-top: 18px;
     }
 
     footer {
-      padding: 24px 20px 36px;
+      padding: 30px var(--mobile-pad) 38px;
       text-align: center;
-      color: #52717c;
+      color: var(--muted);
+      line-height: 1.7;
     }
 
     footer a {
-      color: #0c6b86;
+      color: var(--sea-800);
+      font-weight: 800;
       text-decoration: none;
-      font-weight: 700;
     }
 
-    @media (max-width: 1100px) {
+    @keyframes floatAcross {
+      0% { transform: translate3d(0, 0, 0) rotate(0deg); }
+      50% { transform: translate3d(calc(62vw + 80px), -12px, 0) rotate(-4deg); }
+      100% { transform: translate3d(calc(120vw + 140px), 8px, 0) rotate(2deg); }
+    }
+
+    @keyframes currentDrift {
+      0% { transform: translateX(-4%) translateY(0); }
+      50% { transform: translateX(4%) translateY(6px); }
+      100% { transform: translateX(-4%) translateY(0); }
+    }
+
+    @keyframes foamDrift {
+      0% { transform: translateX(-2%); opacity: 0.18; }
+      50% { transform: translateX(2%); opacity: 0.44; }
+      100% { transform: translateX(-2%); opacity: 0.18; }
+    }
+
+    @keyframes toxicSwell {
+      0% { transform: translateY(0) scaleX(1); }
+      50% { transform: translateY(-10px) scaleX(1.04); }
+      100% { transform: translateY(0) scaleX(1); }
+    }
+
+    @keyframes toxicPulse {
+      0% { opacity: 0.25; transform: scale(0.96); }
+      50% { opacity: 0.48; transform: scale(1.04); }
+      100% { opacity: 0.25; transform: scale(0.96); }
+    }
+
+    @media (max-width: 1080px) {
       .hero,
-      .gallery-grid {
+      .highlight-grid {
         grid-template-columns: 1fr;
       }
 
-      .values-grid,
-      .chapters-grid,
-      .ai-grid,
-      .characters-grid {
+      .camp-grid,
+      .curriculum-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .entries-grid {
+        grid-template-columns: 1fr;
       }
     }
 
-    @media (max-width: 820px) {
-      header {
-        padding: 0.9rem 1rem;
-      }
-
+    @media (max-width: 840px) {
       .hamburger {
-        display: block;
+        display: inline-flex;
       }
 
       .header-content {
         flex-wrap: wrap;
-        align-items: center;
       }
 
       .main-nav {
@@ -681,7 +854,7 @@
         display: none;
         flex-direction: column;
         align-items: stretch;
-        padding-top: 12px;
+        padding-top: 10px;
       }
 
       .header-content.open .main-nav {
@@ -689,44 +862,120 @@
       }
 
       .main-nav a,
-      .main-nav span,
-      .main-nav button {
-        margin: 0;
+      .main-nav button,
+      .main-nav span {
+        justify-content: flex-start;
+        width: 100%;
+        border-radius: 18px;
       }
 
-      .hero,
-      .section,
-      .cta-panel {
-        padding: 24px;
+      .hero {
+        min-height: auto;
+        padding: 22px;
         border-radius: 28px;
       }
 
-      .hero-side,
-      .showcase-grid,
-      .mode-entry-grid,
-      .values-grid,
-      .chapters-grid,
-      .ai-grid,
-      .characters-grid,
-      .gallery-grid {
+      .section-card,
+      .cta-panel {
+        padding: 20px;
+        border-radius: 24px;
+      }
+
+      .curriculum-grid,
+      .camp-grid {
         grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 600px) {
+      main {
+        padding: 14px 14px 78px;
+      }
+
+      .header-content {
+        padding: 12px 14px;
+      }
+
+      #pageTitle {
+        font-size: 1.25rem;
+      }
+
+      .hero h2 {
+        font-size: clamp(2rem, 10vw, 3.1rem);
+      }
+
+      .hero p,
+      .section-heading p,
+      .entry-card p,
+      .camp-card p,
+      .day-card p,
+      .highlight-card p,
+      .info-card p,
+      .info-card li,
+      .cta-panel p {
+        font-size: 0.95rem;
+      }
+
+      .hero-panel-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-actions,
+      .auth-actions,
+      .cta-actions {
+        flex-direction: column;
+      }
+
+      .ocean-btn {
+        width: 100%;
+        min-height: 54px;
       }
 
       .section-heading {
         flex-direction: column;
         align-items: flex-start;
+        margin-bottom: 14px;
+      }
+
+      .entry-card,
+      .camp-card,
+      .highlight-card,
+      .info-card,
+      .day-card {
+        padding: 18px;
+        border-radius: 22px;
+      }
+
+      .hero-side,
+      .info-stack {
+        gap: 12px;
+      }
+
+      .info-table td,
+      .info-table td:first-child {
+        display: block;
+        width: 100%;
+        padding: 6px 0;
+      }
+
+      .info-table tr {
+        display: block;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(10, 76, 99, 0.12);
       }
     }
   </style>
 </head>
 <body>
-  <header id="mainHeader">
+  <header>
     <div class="header-content" id="headerContent">
       <h1 id="pageTitle">沙丘</h1>
       <button id="hamburgerBtn" class="hamburger" aria-label="展開選單">&#9776;</button>
       <nav class="main-nav">
         <a href="/index.html" class="current-page">首頁</a>
         <a href="#gameEntries">玩法入口</a>
+        <a href="#curriculum">五日探索</a>
+        <a href="#info">活動資訊</a>
         <a href="/user-tasks.html">遊戲紀錄</a>
         <a href="/staff-dashboard.html" id="navStaff" style="display:none;">建立關卡</a>
         <a href="/role-management.html" id="navRoleMgmt" style="display:none;">權限管理</a>
@@ -741,249 +990,196 @@
   </header>
 
   <div id="pwa-install-prompt">
-    <p>想在海邊也能快速接收任務通知嗎？點擊下方 <img src="/images/red-arrow.svg" width="20" alt="分享按鈕"> 後選擇<strong>「加入主畫面」</strong></p>
+    <p>想在戶外也快速接收關卡通知嗎？點擊下方分享按鈕後，選擇<strong>「加入主畫面」</strong>。</p>
     <button onclick="document.getElementById('pwa-install-prompt').style.display='none'">我知道了</button>
   </div>
 
   <main>
     <section class="hero">
+      <div class="hero-overlay" aria-hidden="true">
+        <div class="water-haze"></div>
+        <div class="current-ribbon r1"></div>
+        <div class="current-ribbon r2"></div>
+        <div class="current-ribbon r3"></div>
+        <div class="foam-line f1"></div>
+        <div class="foam-line f2"></div>
+        <div class="swimmer fish f1"></div>
+        <div class="swimmer fish f2"></div>
+        <div class="swimmer fish f3"></div>
+        <div class="swimmer trash bottle t1"></div>
+        <div class="swimmer trash bag t2"></div>
+        <div class="swimmer trash cup t3"></div>
+      </div>
+
       <div class="hero-copy">
-        <div class="eyebrow">AI 劇情關卡平台 ・ 海洋任務入口</div>
-        <h2 class="hero-title">跟著史蛋與巴布，<br>把淨灘、觀察、創作，變成一場會闖關的海洋冒險。</h2>
-        <p class="hero-description">
-          `沙丘` 不再只是一般任務頁，而是一個把故事、角色、實地行動與 AI 判定串在一起的活動體驗。參與者可以拍下寶特瓶、辨識植物、上傳團體照，讓 AI 成為每一關的守關者，通過後再解鎖下一段劇情。
+        <div class="eyebrow">海底大作戰 ・ 手機冒險入口</div>
+        <h2>把戶外導覽、關卡闖關與 AI 裁判，做成孩子也能直接玩懂的海洋遊戲。</h2>
+        <p>
+          `沙丘` 的首頁不是工具清單，而是一個真正的活動入口。玩家用手機就能選擇教學模式、劇情主線或大富翁玩法，進入後由 AI 當關主、裁判、導覽員與救援員，陪著一路往下玩。
         </p>
         <div class="hero-actions">
-          <a class="ocean-btn ocean-btn-primary" href="#gameEntries">選擇玩法</a>
+          <a class="ocean-btn ocean-btn-primary" href="#gameEntries">立即選擇玩法</a>
           <a class="ocean-btn ocean-btn-secondary" href="/ai-lab.html">直接開啟遊戲殼</a>
         </div>
         <div id="authBtns" class="auth-panel"></div>
       </div>
 
       <div class="hero-side">
-        <div class="signal-card">
-          <div>
-            <strong>AI 驗證任務已上線</strong>
-            <span>圖片上傳、重拍建議、挑戰紀錄與通關判定都已串進主流程。</span>
-          </div>
-          <div class="signal-pill">Gemma Vision Ready</div>
+        <div class="hero-panel">
+          <span class="hero-chip">海洋污染感動畫</span>
+          <strong>Hero 會持續漂流魚群、垃圾與污染水波</strong>
+          <span>讓首頁一打開就先感受到海洋正在呼吸，也正在被污染，這場冒險不是靜態看板，而是正在發生的海洋場景。</span>
         </div>
-
-        <div class="showcase-card">
-          <div class="showcase-head">
+        <div class="hero-panel">
+          <span class="hero-chip">手機優先</span>
+          <div class="hero-panel-grid">
             <div>
-              <p style="margin:0 0 8px;color:#6b8792;font-size:0.9rem;font-weight:700;">這一季的任務玩法</p>
-              <h3 class="showcase-title">AI 不只是聊天，而是每一關真正的裁判。</h3>
+              <strong>玩家端</strong>
+              <p>單手就能選玩法、開鏡頭、看劇情框、交照片。</p>
             </div>
-            <span class="showcase-tag">Stage Flow</span>
-          </div>
-          <div class="showcase-grid">
-            <div class="mini-mission">
-              <strong>找 10 個寶特瓶</strong>
-              <p>拍照提交後，AI 判斷數量是否達標，不夠就提示你再找更多。</p>
+            <div>
+              <strong>工作人員端</strong>
+              <p>手機上也能快速進控制台、上架關卡、預覽玩法。</p>
             </div>
-            <div class="mini-mission">
-              <strong>找到牽牛花</strong>
-              <p>AI 辨識是不是正確目標，若太模糊會直接要求重拍。</p>
+            <div>
+              <strong>教學模式</strong>
+              <p>先讓工作室與現場導覽都能順跑整段流程。</p>
             </div>
-            <div class="mini-mission">
-              <strong>團體照打分數</strong>
-              <p>不只拍到人，還要有互動感與現場氣氛，分數過線才能通關。</p>
-            </div>
-            <div class="mini-mission">
-              <strong>通過就解鎖下一章</strong>
-              <p>劇情、角色、獎勵、任務鏈都保留，活動會更像一場冒險。</p>
+            <div>
+              <strong>AI 裁判</strong>
+              <p>物件、場景、條件與構圖判定都已接進主流程。</p>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="section section-card" id="gameEntries">
+    <section class="section-card" id="about">
       <div class="section-heading">
         <div>
-          <h2>選擇目前開放的玩法</h2>
-          <p>玩家從這裡直接挑選「劇情主線」或「大富翁模式」，選了就進入遊戲，不再自己打開大地圖找任務。</p>
+          <h3>海底大作戰的三個核心價值</h3>
+          <p>這一套首頁視覺會保留你喜歡的夏令營氣質，但把原本的報名頁邏輯換成可直接進遊戲的入口，讓活動感、故事感與玩法感同時成立。</p>
         </div>
       </div>
-      <div id="storyModeEntries" class="mode-entry-grid">
+      <div class="camp-grid">
+        <article class="camp-card">
+          <h4>IP 核心營運</h4>
+          <p>用「史蛋、巴布、鯨魚」這組角色把孩子與家長先帶進世界觀，再由劇情主線與 NPC 對話延續這份情感。</p>
+        </article>
+        <article class="camp-card">
+          <h4>沉浸式海洋場景</h4>
+          <p>首頁不是平面海報，而是有水流、魚群、垃圾漂流與污染水色的動態場景，先把情緒建立起來。</p>
+        </article>
+        <article class="camp-card">
+          <h4>親海行動變成遊戲</h4>
+          <p>玩家不是被叫去做任務，而是進入一場要觀察、拍攝、辨識、合作、通關的戶外冒險。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section-card" id="curriculum">
+      <div class="section-heading">
+        <div>
+          <h3>五日探索旅程</h3>
+          <p>這一區延續你喜歡的「五日課程」節奏，但文案和卡片形式會直接對齊現在的遊戲定位，無論桌機或手機都能一眼看懂。</p>
+        </div>
+      </div>
+      <div class="curriculum-grid">
+        <article class="day-card">
+          <span class="day-tag">Day 1</span>
+          <h4>遊戲日</h4>
+          <p>從角色與世界觀開場，讓孩子知道自己不是在填表，而是要進入一場海底冒險。</p>
+        </article>
+        <article class="day-card">
+          <span class="day-tag">Day 2</span>
+          <h4>音樂日</h4>
+          <p>用聲音、節奏與群體互動把活動暖起來，讓後面每一關更像一起玩的故事。</p>
+        </article>
+        <article class="day-card">
+          <span class="day-tag">Day 3</span>
+          <h4>親海日</h4>
+          <p>帶孩子真的到海邊、場域或導覽點位，把淨灘、觀察、拍照都接進 AI 關卡。</p>
+        </article>
+        <article class="day-card">
+          <span class="day-tag">Day 4</span>
+          <h4>藝術日</h4>
+          <p>把看到的海洋轉成作品與影像，讓 AI 評分與故事推進一起成立。</p>
+        </article>
+        <article class="day-card">
+          <span class="day-tag">Day 5</span>
+          <h4>分享日</h4>
+          <p>最後把照片、成果、劇情與回憶變成可以分享的海底藝廊與成就畫面。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section-card" id="gameEntries">
+      <div class="section-heading">
+        <div>
+          <h3>選擇目前開放的玩法</h3>
+          <p>這裡保留你現在的動態資料入口。首頁會直接讀取後台開放中的劇情主線與大富翁模式，手機點下去就能立刻進入遊戲殼。</p>
+        </div>
+      </div>
+      <div id="storyModeEntries" class="entries-grid">
         <div class="loading-card">正在載入劇情主線...</div>
       </div>
-      <div style="height:18px;"></div>
-      <div id="boardGameEntries" class="mode-entry-grid">
+      <div style="height: 14px;"></div>
+      <div id="boardGameEntries" class="entries-grid">
         <div class="loading-card">正在載入大富翁玩法...</div>
       </div>
     </section>
 
-    <section class="section section-card">
+    <section class="section-card">
       <div class="section-heading">
         <div>
-          <h2>敬海・淨海・進海</h2>
-          <p>首頁改成活動入口後，參與者不會先看到「管理系統」，而是先進入這場冒險的世界觀。海洋不是背景圖，而是故事主體；AI 不是功能選單，而是關卡互動的一部分。</p>
+          <h3>這不是單純網站，而是手機上的 RPG 冒險入口</h3>
+          <p>首頁把原本零散的導覽和系統功能重新整理成手機可閱讀、可點擊、可理解的節奏。下面這些連結和資訊會繼續保留，但整體語氣與版面會更像在進入一場遊戲。</p>
         </div>
       </div>
-      <div class="values-grid">
-        <article class="value-card">
-          <span class="value-no">01 敬海</span>
-          <h3>先讓人對海產生情感</h3>
-          <p>用角色、故事與場景，把參與者帶進海洋世界，讓任務不是命令，而是情境邀請。</p>
-        </article>
-        <article class="value-card">
-          <span class="value-no">02 淨海</span>
-          <h3>把行動變成可以被驗證的挑戰</h3>
-          <p>淨灘、尋物、觀察、拍攝都能由 AI 協助判定，讓現場任務更有節奏與回饋。</p>
-        </article>
-        <article class="value-card">
-          <span class="value-no">03 進海</span>
-          <h3>留下作品、成果與冒險記憶</h3>
-          <p>不只是完成任務而已，還能留下照片、藝廊、角色章節與活動成就。</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="section section-card">
-      <div class="section-heading">
+      <div class="highlight-grid">
         <div>
-          <h2>五大冒險章節</h2>
-          <p>劇情線會繼續保留，差別在於每一關不再只是回答題目，而是透過 AI 驗證、現場互動與圖片提交流程向前推進。</p>
+          <article class="highlight-card">
+            <h4>玩家端體驗</h4>
+            <p>從首頁進入後，玩家會看到教學模式、劇情主線與大富翁入口，接著直接進 `ai-lab` 玩，不需要自己找任務地圖。</p>
+          </article>
+          <article class="highlight-card">
+            <h4>AI 裁判類型</h4>
+            <p>AI 可以檢查照片裡的物件數量、指定場景、地點比對、條件蒐集和構圖分數，讓每一關都像真的守關。</p>
+          </article>
         </div>
-      </div>
-      <div class="chapters-grid">
-        <article class="chapter-card">
-          <span class="chapter-day">Day 1</span>
-          <div>
-            <h3>遊戲日</h3>
-            <p>從角色出發，讓參與者先理解任務世界與冒險背景，建立探索動機。</p>
-          </div>
-          <div class="chapter-meta">故事開場 ・ 角色登場</div>
-        </article>
-        <article class="chapter-card">
-          <span class="chapter-day">Day 2</span>
-          <div>
-            <h3>音樂日</h3>
-            <p>把節奏、口號與現場參與感拉進活動，讓任務不只是做事，而是一起投入。</p>
-          </div>
-          <div class="chapter-meta">情感連結 ・ 現場氛圍</div>
-        </article>
-        <article class="chapter-card">
-          <span class="chapter-day">Day 3</span>
-          <div>
-            <h3>親海日</h3>
-            <p>正式進場做任務，像淨灘、找指定物件、紀錄海邊生態，都能由 AI 來判定。</p>
-          </div>
-          <div class="chapter-meta">實際行動 ・ AI 守關</div>
-        </article>
-        <article class="chapter-card">
-          <span class="chapter-day">Day 4</span>
-          <div>
-            <h3>藝術日</h3>
-            <p>把海洋觀察轉成創作與影像，讓 AI 協助評分，讓作品型任務也能進到主流程。</p>
-          </div>
-          <div class="chapter-meta">創作轉化 ・ 作品評分</div>
-        </article>
-        <article class="chapter-card">
-          <span class="chapter-day">Day 5</span>
-          <div>
-            <h3>分享日</h3>
-            <p>整理成果、照片、任務記憶與劇情結局，讓活動能被保存、分享、回顧。</p>
-          </div>
-          <div class="chapter-meta">成果發表 ・ 海洋藝廊</div>
-        </article>
-      </div>
-    </section>
-
-    <section class="section section-card">
-      <div class="section-heading">
-        <div>
-          <h2>AI 關卡怎麼玩</h2>
-          <p>這一版首頁要把「AI 就是任務驗證核心」講清楚，讓參與者一看就知道玩法，而不是自己猜規則。</p>
+        <div class="info-stack" id="info">
+          <article class="info-card">
+            <h4>活動資訊區塊</h4>
+            <table class="info-table">
+              <tr>
+                <td>主打介面</td>
+                <td>手機優先，玩家與工作人員都以手機操作為主。</td>
+              </tr>
+              <tr>
+                <td>核心模式</td>
+                <td>教學模式、劇情主線、大富翁模式。</td>
+              </tr>
+              <tr>
+                <td>目前重點</td>
+                <td>讓玩家從首頁就能直覺進入海洋冒險，不被舊系統式選單打斷。</td>
+              </tr>
+              <tr>
+                <td>後台連結</td>
+                <td>工作人員仍可從首頁進入內容控制台、玩家管理與獎勵兌換。</td>
+              </tr>
+            </table>
+          </article>
+          <article class="info-card">
+            <h4>保留中的重要連結</h4>
+            <p>首頁仍保留目前你需要的相關入口：玩法入口、遊戲紀錄、建立關卡、玩家管理、獎勵兌換、開啟遊戲殼。只是它們現在會被包進更完整的海洋視覺裡。</p>
+          </article>
         </div>
-      </div>
-      <div class="ai-grid">
-        <article class="ai-card">
-          <span class="ai-badge">AI Count</span>
-          <h3>數量型任務</h3>
-          <p>請找 10 個寶特瓶、5 個垃圾袋、3 位隊友入鏡，AI 幫你判斷是否達標。</p>
-        </article>
-        <article class="ai-card">
-          <span class="ai-badge">AI Identify</span>
-          <h3>辨識型任務</h3>
-          <p>請找到牽牛花、指定海洋生物或活動標誌，AI 會判斷是不是正確目標。</p>
-        </article>
-        <article class="ai-card">
-          <span class="ai-badge">AI Score</span>
-          <h3>評分型任務</h3>
-          <p>請拍一張夠有故事感的團體照或風景照，AI 分數過門檻才會通關。</p>
-        </article>
-        <article class="ai-card">
-          <span class="ai-badge">AI Retry</span>
-          <h3>重拍建議</h3>
-          <p>如果照片太糊、數量不足或主體不明確，系統會回你原因與下一次該怎麼拍。</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="section section-card">
-      <div class="section-heading">
-        <div>
-          <h2>認識你的海洋夥伴</h2>
-          <p>角色不是裝飾品，而是活動敘事的導引者。首頁先把角色立起來，之後任務頁與劇情章節才會更完整。</p>
-        </div>
-      </div>
-      <div class="characters-grid">
-        <article class="character-card">
-          <div class="character-art">
-            <img src="/images/mascot.png" alt="史蛋角色圖">
-          </div>
-          <span class="character-role">行動隊長</span>
-          <h3>史蛋</h3>
-          <p>帶著大家下海、上岸、闖關、淨灘，是整場冒險最可靠的第一位夥伴。</p>
-        </article>
-        <article class="character-card">
-          <div class="character-art">
-            <img src="/images/feature-community.png" alt="巴布角色圖">
-          </div>
-          <span class="character-role">氣氛製造機</span>
-          <h3>巴布</h3>
-          <p>把原本嚴肅的環境行動變得可愛、可玩、可參與，讓大家願意一直往下挑戰。</p>
-        </article>
-        <article class="character-card">
-          <div class="character-art">
-            <img src="/images/feature-map.png" alt="鯨魚角色圖">
-          </div>
-          <span class="character-role">海洋嚮導</span>
-          <h3>鯨魚</h3>
-          <p>象徵海洋世界本身，讓每一關都不只是解題，而是在跟海真正建立關係。</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="section section-card">
-      <div class="section-heading">
-        <div>
-          <h2>我的海洋藝廊</h2>
-          <p>當活動結束後，留下來的不該只是任務完成紀錄，還應該有作品、照片、回憶和可被展示的成果。</p>
-        </div>
-      </div>
-      <div class="gallery-grid">
-        <article class="gallery-card large">
-          <h3>把活動瞬間變成可以收藏的成果牆</h3>
-          <p>從淨灘成果、角色互動到團體創作，每次挑戰都能成為下一次招募與分享的素材。</p>
-        </article>
-        <article class="gallery-card">
-          <h3>任務照片</h3>
-          <p>每一次提交都是活動故事的一部分，未來可以延伸成圖牆、回顧頁與排行榜。</p>
-        </article>
-        <article class="gallery-card">
-          <h3>AI 評選紀錄</h3>
-          <p>不只是過關與否，也能留下評語、重拍建議與有趣的挑戰歷程。</p>
-        </article>
       </div>
     </section>
 
     <section class="cta-panel">
-      <h2>準備好進入沙丘，開始真正的 AI 冒險活動了嗎？</h2>
-      <p>現在首頁已經能改成模式入口，後台也能決定哪些劇情與活動開放。接下來就會繼續把 `ai-lab` 收斂成真正的單一遊戲主場景。</p>
+      <h3>準備好把首頁真正變成《海底大作戰》的入口了嗎？</h3>
+      <p>這版會保留你現在的連結、登入狀態與玩法資料來源，但把 Hero、五日探索、玩法入口與活動資訊都收斂成手機優先的海洋首頁。玩家點進來，不會覺得自己在用工具，而是準備進入一場冒險。</p>
       <div class="cta-actions">
         <a class="ocean-btn ocean-btn-primary" href="#gameEntries">立即選擇玩法</a>
         <a class="ocean-btn ocean-btn-secondary" href="/staff-dashboard.html">前往建立關卡</a>
@@ -1026,7 +1222,7 @@
       const authBtns = document.getElementById('authBtns');
       if (authBtns) {
         authBtns.innerHTML = `
-          <div class="logged-in-note">歡迎回來，${loginUser.username}。你可以直接續闖下一段海洋任務。</div>
+          <div class="logged-in-note">歡迎回來，${loginUser.username}。你可以直接回到教學模式、續闖劇情，或切去大富翁棋盤。</div>
         `;
       }
     } else {
@@ -1036,8 +1232,8 @@
       if (authBtns) {
         authBtns.innerHTML = `
           <div class="auth-actions">
-            <a class="ocean-btn ocean-btn-secondary" href="/login.html">登入</a>
-            <a class="ocean-btn ocean-btn-primary" href="/register.html">加入冒險</a>
+            <a class="ocean-btn ocean-btn-secondary" href="/login.html">登入沙丘</a>
+            <a class="ocean-btn ocean-btn-primary" href="/register.html">立即加入冒險</a>
           </div>
         `;
       }
@@ -1065,13 +1261,13 @@
       params.set('mode', entry.mode_type || fallbackMode || 'story_campaign');
       const href = `/ai-lab.html?${params.toString()}`;
       return `
-        <article class="mode-entry-card">
-          <div class="mode-entry-meta">
-            <span class="mode-entry-pill">${modeLabel}</span>
-            <span class="mode-entry-pill">${sceneLabel}</span>
-            ${entry.play_style ? `<span class="mode-entry-pill">${entry.play_style}</span>` : ''}
+        <article class="entry-card">
+          <div class="entry-meta">
+            <span class="entry-pill">${modeLabel}</span>
+            <span class="entry-pill">${sceneLabel}</span>
+            ${entry.play_style ? `<span class="entry-pill">${entry.play_style}</span>` : ''}
           </div>
-          <h3>${entry.title || entry.name}</h3>
+          <h4>${entry.title || entry.name}</h4>
           <p>${entry.short_description || entry.description || '尚未提供簡介。'}</p>
           <a class="ocean-btn ocean-btn-primary" href="${href}">${buttonText}</a>
         </article>
@@ -1102,7 +1298,7 @@
 
     loadGameEntries();
 
-    document.querySelectorAll('.main-nav a').forEach(a => {
+    document.querySelectorAll('.main-nav a').forEach((a) => {
       a.onclick = () => document.getElementById('headerContent').classList.remove('open');
     });
   </script>
