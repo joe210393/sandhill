@@ -826,6 +826,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return isCurrentQuestTutorialMode() && !getLoginUser();
         }
 
+        function isGuidedReticleLockMode() {
+            return Boolean(
+                selectionMode === 'reticle'
+                && isCurrentQuestTutorialMode()
+                && currentTask?.task_type === 'photo'
+            );
+        }
+
         function getTutorialBoardRollValue(round = 0) {
             const sequence = currentBoardMap?.rules_json?.tutorial_roll_sequence;
             if (!Array.isArray(sequence) || !sequence.length) return null;
@@ -965,6 +973,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (isTutorialBoard && tutorialBoardPhotoCaptureArmed) {
                 closeDockPanels();
+            }
+
+            if (isGuidedReticleLockMode() && canvas?.width && canvas?.height) {
+                reticleCenter.x = canvas.width / 2;
+                reticleCenter.y = canvas.height / 2;
+                updateReticlePosition();
             }
 
             if (gameShellProgressBlock) {
@@ -3945,6 +3959,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (resultPanel.style.display === 'flex') return;
             const pos = getPos(e);
             if (selectionMode === 'reticle') {
+                if (isGuidedReticleLockMode()) {
+                    tapStart = null;
+                    return;
+                }
                 tapStart = { x: pos.x, y: pos.y };
                 return;
             }
@@ -3963,6 +3981,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function moveDraw(e) {
             if (selectionMode === 'reticle') {
+                if (isGuidedReticleLockMode()) return;
                 if (tapStart) {
                     const pos = getPos(e);
                     const dx = pos.x - tapStart.x, dy = pos.y - tapStart.y;
@@ -3980,6 +3999,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function endDraw(e) {
             if (selectionMode === 'reticle') {
+                if (isGuidedReticleLockMode()) {
+                    tapStart = null;
+                    return;
+                }
                 if (tapStart && e) {
                     const pos = getPos(e);
                     const dx = pos.x - tapStart.x, dy = pos.y - tapStart.y;
@@ -4348,6 +4371,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (reticleCenterCapture) {
             reticleCenterCapture.addEventListener('click', handleReticleCaptureAction);
+        }
+        if (reticleOverlay) {
+            reticleOverlay.addEventListener('click', (event) => {
+                if (!isGuidedReticleLockMode() || !tutorialBoardPhotoCaptureArmed) return;
+                event.preventDefault();
+                event.stopPropagation();
+                handleReticleCaptureAction();
+            });
         }
 
         // 切換框選 / 手繪模式

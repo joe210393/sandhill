@@ -1092,6 +1092,12 @@ body.tutorial-board-clean .selection-instruction {
     backdrop-filter: blur(10px);
 }
 
+body.tutorial-board-clean .reticle-overlay,
+body.tutorial-story-clean .reticle-overlay {
+    transition: none;
+    pointer-events: auto;
+}
+
 body.tutorial-board-clean .selection-instruction .selection-mode-toggle,
 body.tutorial-board-clean .selection-instruction .instruction-text {
     display: none !important;
