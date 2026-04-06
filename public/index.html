@@ -275,114 +275,100 @@
 
     .swimmer {
       position: absolute;
-      animation: floatAcross linear infinite;
       opacity: 0.92;
+      font-size: 42px;
+      filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
     }
 
-    .fish {
-      width: 74px;
-      height: 34px;
-      border-radius: 50px 45px 45px 50px;
-      background: linear-gradient(135deg, rgba(255, 208, 111, 0.96), rgba(255, 150, 98, 0.95));
-      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+    /* 魚類動畫：左右擺動前進 */
+    .fish span {
+      display: inline-block;
+      animation: wiggle 2s ease-in-out infinite alternate;
+    }
+    
+    /* 海龜動畫：緩慢平穩前進 */
+    .turtle {
+      font-size: 56px;
+    }
+    .turtle span {
+      display: inline-block;
+      animation: bob 4s ease-in-out infinite alternate;
     }
 
-    .fish::before {
-      content: "";
-      position: absolute;
-      right: -16px;
-      top: 7px;
-      width: 0;
-      height: 0;
-      border-top: 10px solid transparent;
-      border-bottom: 10px solid transparent;
-      border-left: 18px solid rgba(255, 158, 98, 0.92);
+    /* 蝦子動畫：快速彈跳前進 */
+    .shrimp {
+      font-size: 36px;
+    }
+    .shrimp span {
+      display: inline-block;
+      animation: dart 1s ease-in-out infinite alternate;
     }
 
-    .fish::after {
-      content: "";
-      position: absolute;
-      left: 14px;
-      top: 11px;
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: rgba(7, 40, 57, 0.85);
+    /* 其他海洋生物 */
+    .jellyfish {
+      font-size: 48px;
+    }
+    .jellyfish span {
+      display: inline-block;
+      animation: bob 3s ease-in-out infinite alternate;
     }
 
-    .fish.f1 { top: 19%; left: -80px; animation-duration: 15s; }
-    .fish.f2 { top: 47%; left: -110px; animation-duration: 22s; animation-delay: -8s; transform: scale(0.82); }
-    .fish.f3 { top: 71%; left: -90px; animation-duration: 18s; animation-delay: -14s; transform: scale(1.08); }
-
+    /* 垃圾動畫：隨波逐流、旋轉 */
     .trash {
-      filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.16));
+      filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.3)) grayscale(0.4) opacity(0.85);
+    }
+    .trash span {
+      display: inline-block;
+      animation: spinDrift 6s linear infinite;
     }
 
-    .bottle {
-      width: 24px;
-      height: 70px;
-      border-radius: 9px 9px 12px 12px;
-      background: linear-gradient(180deg, rgba(215, 228, 232, 0.72), rgba(146, 191, 198, 0.54));
-      border: 1px solid rgba(255, 255, 255, 0.34);
-      opacity: 0.82;
+    .trash-fast span {
+      animation: spinDrift 4s linear infinite reverse;
     }
 
-    .bottle::before {
-      content: "";
+    /* 各個物件的起始位置與延遲 */
+    .s1 { top: 15%; left: -100px; animation: floatAcross 18s linear infinite; animation-delay: 0s; }
+    .s2 { top: 35%; left: -150px; animation: floatAcross 28s linear infinite; animation-delay: -5s; }
+    .s3 { top: 55%; left: -80px; animation: floatAcross 14s linear infinite; animation-delay: -12s; }
+    .s4 { top: 75%; left: -200px; animation: floatAcross 22s linear infinite; animation-delay: -8s; }
+    .s5 { top: 25%; left: -120px; animation: floatAcross 16s linear infinite; animation-delay: -18s; }
+    .s6 { top: 65%; left: -90px; animation: floatAcross 20s linear infinite; animation-delay: -2s; }
+    .s7 { top: 45%; left: -180px; animation: floatAcross 25s linear infinite; animation-delay: -22s; }
+    .s8 { top: 80%; left: -130px; animation: floatAcross 30s linear infinite; animation-delay: -15s; }
+    
+    /* 垃圾的起始位置與延遲 */
+    .t1 { top: 20%; left: -60px; animation: floatAcross 25s linear infinite; animation-delay: -3s; }
+    .t2 { top: 50%; left: -110px; animation: floatAcross 22s linear infinite; animation-delay: -14s; }
+    .t3 { top: 70%; left: -80px; animation: floatAcross 28s linear infinite; animation-delay: -9s; }
+    .t4 { top: 30%; left: -150px; animation: floatAcross 16s linear infinite; animation-delay: -20s; }
+    .t5 { top: 85%; left: -90px; animation: floatAcross 32s linear infinite; animation-delay: -6s; }
+    .t6 { top: 40%; left: -200px; animation: floatAcross 18s linear infinite; animation-delay: -25s; }
+
+    /* 海底泡泡 */
+    .bubble {
       position: absolute;
-      top: -11px;
-      left: 6px;
-      width: 12px;
-      height: 14px;
-      border-radius: 5px 5px 2px 2px;
-      background: rgba(195, 211, 216, 0.9);
+      bottom: -20px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.1) 60%, transparent 100%);
+      box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.5);
+      opacity: 0;
+      animation: riseUp linear infinite;
     }
 
-    .bag {
-      width: 48px;
-      height: 56px;
-      border-radius: 50% 50% 40% 40%;
-      background: linear-gradient(180deg, rgba(42, 53, 58, 0.5), rgba(18, 28, 32, 0.72));
-      opacity: 0.75;
-    }
-
-    .bag::before,
-    .bag::after {
-      content: "";
-      position: absolute;
-      top: -8px;
-      width: 14px;
-      height: 14px;
-      border: 4px solid rgba(32, 42, 46, 0.68);
-      border-bottom: none;
-      border-radius: 14px 14px 0 0;
-    }
-
-    .bag::before { left: 5px; }
-    .bag::after { right: 5px; }
-
-    .cup {
-      width: 26px;
-      height: 40px;
-      border-radius: 0 0 10px 10px;
-      background: linear-gradient(180deg, rgba(255, 223, 183, 0.86), rgba(181, 132, 85, 0.78));
-      opacity: 0.8;
-    }
-
-    .cup::before {
-      content: "";
-      position: absolute;
-      top: -5px;
-      left: -3px;
-      width: 32px;
-      height: 8px;
-      border-radius: 999px;
-      background: rgba(255, 233, 210, 0.88);
-    }
-
-    .trash.t1 { top: 26%; left: -50px; animation-duration: 24s; }
-    .trash.t2 { top: 64%; left: -70px; animation-duration: 28s; animation-delay: -9s; }
-    .trash.t3 { top: 41%; left: -60px; animation-duration: 21s; animation-delay: -15s; }
+    .b1 { left: 10%; width: 15px; height: 15px; animation-duration: 8s; animation-delay: 0s; }
+    .b2 { left: 25%; width: 25px; height: 25px; animation-duration: 12s; animation-delay: 2s; }
+    .b3 { left: 40%; width: 10px; height: 10px; animation-duration: 6s; animation-delay: 1s; }
+    .b4 { left: 60%; width: 30px; height: 30px; animation-duration: 15s; animation-delay: 4s; }
+    .b5 { left: 75%; width: 18px; height: 18px; animation-duration: 9s; animation-delay: 3s; }
+    .b6 { left: 90%; width: 22px; height: 22px; animation-duration: 11s; animation-delay: 5s; }
+    .b7 { left: 50%; width: 12px; height: 12px; animation-duration: 7s; animation-delay: 6s; }
+    .b8 { left: 80%; width: 28px; height: 28px; animation-duration: 14s; animation-delay: 1.5s; }
+    .b9 { left: 15%; width: 20px; height: 20px; animation-duration: 10s; animation-delay: 7s; }
+    .b10 { left: 65%; width: 14px; height: 14px; animation-duration: 8.5s; animation-delay: 4.5s; }
 
     .hero-copy,
     .hero-side {
@@ -870,6 +856,46 @@
       100% { transform: translate3d(calc(120vw + 140px), 8px, 0) rotate(2deg); }
     }
 
+    @keyframes wiggle {
+      0% { transform: translateY(0) rotate(-5deg); }
+      100% { transform: translateY(-10px) rotate(5deg); }
+    }
+
+    @keyframes bob {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-15px); }
+    }
+
+    @keyframes dart {
+      0% { transform: translateX(0) translateY(0); }
+      100% { transform: translateX(20px) translateY(-5px); }
+    }
+
+    @keyframes spinDrift {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes riseUp {
+      0% {
+        transform: translateY(100vh) translateX(0) scale(1);
+        opacity: 0;
+      }
+      10% {
+        opacity: 0.8;
+      }
+      50% {
+        transform: translateY(20vh) translateX(20px) scale(1.1);
+      }
+      90% {
+        opacity: 0.8;
+      }
+      100% {
+        transform: translateY(-20vh) translateX(-20px) scale(1.2);
+        opacity: 0;
+      }
+    }
+
     @keyframes currentDrift {
       0% { transform: translateX(-4%) translateY(0); }
       50% { transform: translateX(4%) translateY(6px); }
@@ -1081,12 +1107,36 @@
         <div class="current-ribbon r3"></div>
         <div class="foam-line f1"></div>
         <div class="foam-line f2"></div>
-        <div class="swimmer fish f1"></div>
-        <div class="swimmer fish f2"></div>
-        <div class="swimmer fish f3"></div>
-        <div class="swimmer trash bottle t1"></div>
-        <div class="swimmer trash bag t2"></div>
-        <div class="swimmer trash cup t3"></div>
+        
+        <!-- Ｑ版海洋生物 -->
+        <div class="swimmer fish s1"><span>🐠</span></div>
+        <div class="swimmer turtle s2"><span>🐢</span></div>
+        <div class="swimmer shrimp s3"><span>🦐</span></div>
+        <div class="swimmer jellyfish s4"><span>🦑</span></div>
+        <div class="swimmer fish s5"><span>🐡</span></div>
+        <div class="swimmer fish s6"><span>🐟</span></div>
+        <div class="swimmer jellyfish s7"><span>🐙</span></div>
+        <div class="swimmer turtle s8"><span>🐢</span></div>
+
+        <!-- 漂流的海洋垃圾 -->
+        <div class="swimmer trash t1"><span>🥤</span></div>
+        <div class="swimmer trash t2"><span>🛍️</span></div>
+        <div class="swimmer trash t3"><span>🥫</span></div>
+        <div class="swimmer trash trash-fast t4"><span>🚬</span></div>
+        <div class="swimmer trash t5"><span>🛢️</span></div>
+        <div class="swimmer trash trash-fast t6"><span>🧴</span></div>
+
+        <!-- 冒升的海底泡泡 -->
+        <div class="bubble b1"></div>
+        <div class="bubble b2"></div>
+        <div class="bubble b3"></div>
+        <div class="bubble b4"></div>
+        <div class="bubble b5"></div>
+        <div class="bubble b6"></div>
+        <div class="bubble b7"></div>
+        <div class="bubble b8"></div>
+        <div class="bubble b9"></div>
+        <div class="bubble b10"></div>
       </div>
 
       <div class="hero-copy">
