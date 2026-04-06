@@ -268,6 +268,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const instructionText = document.getElementById('instructionText');
         const captureReticleBtn = document.getElementById('captureReticleBtn');
         const reticleOverlay = document.getElementById('reticleOverlay');
+        const reticleCenterCapture = document.getElementById('reticleCenterCapture');
+        const reticleCenterHint = document.getElementById('reticleCenterHint');
         const btnReticleMode = document.getElementById('btnReticleMode');
         const btnDrawMode = document.getElementById('btnDrawMode');
         const resultPanel = document.getElementById('resultPanel');
@@ -935,6 +937,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 captureReticleBtn.textContent = isTutorialBoard && tutorialBoardPhotoCaptureArmed
                     ? '框內拍照並送出'
                     : '框內拍照';
+            }
+            if (reticleCenterCapture) {
+                reticleCenterCapture.classList.toggle('hidden', !(isTutorialBoard && currentTask?.task_type === 'photo' && tutorialBoardPhotoCaptureArmed));
+            }
+            if (reticleCenterHint) {
+                reticleCenterHint.classList.toggle('hidden', !(isTutorialBoard && currentTask?.task_type === 'photo' && tutorialBoardPhotoCaptureArmed));
             }
             if (locationBar) {
                 locationBar.style.display = shouldHideTutorialChrome ? 'none' : '';
@@ -4294,8 +4302,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 框內拍照（單手模式）
-        if (captureReticleBtn) {
-            captureReticleBtn.addEventListener('click', async () => {
+        async function handleReticleCaptureAction() {
                 if (selectionMode !== 'reticle') return;
                 if (currentEntryMode === 'board_game' && isCurrentQuestTutorialMode() && currentTask?.task_type === 'photo' && tutorialBoardPhotoCaptureArmed) {
                     try {
@@ -4319,7 +4326,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 const rect = getReticleRect();
                 processSelectionFromRect(rect.minX, rect.minY, rect.maxX, rect.maxY);
-            });
+        }
+
+        if (captureReticleBtn) {
+            captureReticleBtn.addEventListener('click', handleReticleCaptureAction);
+        }
+        if (reticleCenterCapture) {
+            reticleCenterCapture.addEventListener('click', handleReticleCaptureAction);
         }
 
         // 切換框選 / 手繪模式

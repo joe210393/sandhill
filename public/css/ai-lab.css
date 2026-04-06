@@ -1818,6 +1818,44 @@ body.tutorial-board-clean .game-shell-block {
 .capture-reticle-btn:active {
     transform: scale(0.98);
 }
+.reticle-center-hint,
+.reticle-center-capture {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+}
+
+.reticle-center-hint {
+    top: 22%;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(8, 14, 28, 0.78);
+    color: rgba(255,255,255,0.92);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    backdrop-filter: blur(8px);
+}
+
+.reticle-center-capture {
+    bottom: 18%;
+    min-width: 132px;
+    padding: 12px 18px;
+    border: none;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #ffd166 0%, #ff9f1c 100%);
+    color: #1c1405;
+    font-size: 14px;
+    font-weight: 800;
+    box-shadow: 0 12px 24px rgba(255, 180, 36, 0.38);
+    cursor: pointer;
+}
+
+.reticle-center-capture.hidden,
+.reticle-center-hint.hidden {
+    display: none !important;
+}
 .selection-instruction.hide-for-draw .capture-reticle-btn {
     display: none;
 }

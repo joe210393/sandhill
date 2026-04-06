@@ -30,7 +30,10 @@
         <canvas id="drawingCanvas"></canvas>
 
         <!-- 單手框選：取景框 (可點擊畫面移動框的位置) -->
-        <div id="reticleOverlay" class="reticle-overlay" aria-hidden="true"></div>
+        <div id="reticleOverlay" class="reticle-overlay" aria-hidden="true">
+            <div id="reticleCenterHint" class="reticle-center-hint hidden">將目標放進圓框</div>
+            <button id="reticleCenterCapture" class="reticle-center-capture hidden" type="button" aria-label="使用圓框拍照">點這裡拍照</button>
+        </div>
 
         <!-- AR-VIEW 整合：任務導航狀態、箭頭與可點擊任務物件 -->
         <div id="taskHudDock" class="task-hud-dock hidden">
