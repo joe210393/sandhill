@@ -464,6 +464,55 @@ canvas#drawingCanvas {
     box-shadow: 0 10px 20px rgba(0,0,0,0.28);
 }
 
+.npc-dialog[data-speaker="guide"] .npc-dialog-portrait {
+    background: linear-gradient(180deg, #38bdf8, #1d4ed8);
+}
+
+.npc-dialog[data-speaker="gatekeeper"] .npc-dialog-portrait {
+    background: linear-gradient(180deg, #fb7185, #be123c);
+}
+
+.npc-dialog[data-speaker="judge"] .npc-dialog-portrait {
+    background: linear-gradient(180deg, #67e8f9, #155e75);
+}
+
+.npc-dialog[data-speaker="host"] .npc-dialog-portrait {
+    background: linear-gradient(180deg, #fbbf24, #d97706);
+}
+
+.npc-dialog[data-speaker="rescue"] .npc-dialog-portrait {
+    background: linear-gradient(180deg, #fda4af, #e11d48);
+}
+
+.npc-dialog[data-speaker="lore"] .npc-dialog-portrait {
+    background: linear-gradient(180deg, #86efac, #047857);
+}
+
+.npc-dialog[data-speaker="gatekeeper"] .npc-dialog-header strong {
+    background: rgba(251, 113, 133, 0.18);
+    border-color: rgba(251, 113, 133, 0.38);
+}
+
+.npc-dialog[data-speaker="judge"] .npc-dialog-header strong {
+    background: rgba(103, 232, 249, 0.18);
+    border-color: rgba(103, 232, 249, 0.4);
+}
+
+.npc-dialog[data-speaker="host"] .npc-dialog-header strong {
+    background: rgba(251, 191, 36, 0.18);
+    border-color: rgba(251, 191, 36, 0.42);
+}
+
+.npc-dialog[data-speaker="rescue"] .npc-dialog-header strong {
+    background: rgba(253, 164, 175, 0.18);
+    border-color: rgba(253, 164, 175, 0.42);
+}
+
+.npc-dialog[data-speaker="lore"] .npc-dialog-header strong {
+    background: rgba(134, 239, 172, 0.18);
+    border-color: rgba(134, 239, 172, 0.38);
+}
+
 .npc-dialog-card {
     flex: 1;
     min-width: 0;

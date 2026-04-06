@@ -427,13 +427,42 @@ document.addEventListener('DOMContentLoaded', () => {
         const npcDialogClose = document.getElementById('npcDialogClose');
 
         const NPC_PROFILES = {
-            guide: { name: '引路人・砂舟', portrait: '🧭', button: '知道了' },
-            gatekeeper: { name: '潮汐關主・巴布', portrait: '🦀', button: '接受挑戰' },
-            judge: { name: '潮汐裁判・鯨語', portrait: '🐋', button: '聽判定' },
-            host: { name: '事件主持人・史蛋', portrait: '🎲', button: '繼續前進' },
-            rescue: { name: '救援員・海羽', portrait: '🛟', button: '重新整隊' },
-            lore: { name: '導覽員・潮聲', portrait: '🌊', button: '繼續聽' }
+            guide: { name: '引路人・砂舟', portrait: '🧭', button: '知道了', theme: 'guide' },
+            gatekeeper: { name: '潮汐關主・巴布', portrait: '🦀', button: '接受挑戰', theme: 'gatekeeper' },
+            judge: { name: '潮汐裁判・鯨語', portrait: '🐋', button: '聽判定', theme: 'judge' },
+            host: { name: '事件主持人・史蛋', portrait: '🎲', button: '繼續前進', theme: 'host' },
+            rescue: { name: '救援員・海羽', portrait: '🛟', button: '重新整隊', theme: 'rescue' },
+            lore: { name: '導覽員・潮聲', portrait: '🌊', button: '繼續聽', theme: 'lore' }
         };
+
+        function buildFriendlyNetworkError(actionLabel = '連線') {
+            return new Error(`探索艙目前無法完成「${actionLabel}」。請確認網路或稍後再試。`);
+        }
+
+        async function requestJson(url, options = {}, actionLabel = '請求資料') {
+            let res;
+            try {
+                res = await fetch(url, options);
+            } catch (err) {
+                throw buildFriendlyNetworkError(actionLabel);
+            }
+
+            let data = null;
+            try {
+                data = await res.json();
+            } catch (err) {
+                if (!res.ok) {
+                    throw new Error(`探索艙在「${actionLabel}」時收到異常回應。`);
+                }
+                return null;
+            }
+
+            if (!res.ok) {
+                throw new Error(data?.message || `探索艙在「${actionLabel}」時失敗。`);
+            }
+
+            return data;
+        }
 
         // 任務情境（來自 AR-VIEW／新增任務 API：由 URL taskId 載入；進入後先見相機，再自行找地點）
         let currentTask = null;
@@ -723,6 +752,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const profile = speakerKey ? NPC_PROFILES[speakerKey] : null;
             if (npcDialogPortrait) npcDialogPortrait.textContent = profile?.portrait || '🧭';
+            if (npcDialog) npcDialog.dataset.speaker = profile?.theme || 'guide';
             if (npcDialogSpeaker) npcDialogSpeaker.textContent = profile?.name || speaker;
             if (npcDialogMood) npcDialogMood.textContent = mood;
             if (npcDialogClose) npcDialogClose.textContent = buttonLabel || profile?.button || '繼續';
@@ -1415,13 +1445,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function createCurrentUserTaskRecord() {
             if (!currentTaskId) return null;
-            const res = await fetch('/api/user-tasks', {
+            const data = await requestJson('/api/user-tasks', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify({ task_id: currentTaskId })
-            });
-            const data = await res.json();
+            }, '建立關卡紀錄');
             if (data.success && data.userTaskId) {
                 currentUserTaskId = data.userTaskId;
                 return currentUserTaskId;
@@ -1435,10 +1464,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!loginUser || !loginUser.username) return null;
             try {
                 const loadTasks = async () => {
-                    const res = await fetch(`/api/user-tasks?username=${encodeURIComponent(loginUser.username)}`, {
+                    return requestJson(`/api/user-tasks?username=${encodeURIComponent(loginUser.username)}`, {
                         credentials: 'include'
-                    });
-                    return res.json();
+                    }, '取得關卡紀錄');
                 };
 
                 let data = await loadTasks();
@@ -1949,11 +1977,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     const fd = new FormData();
                     fd.append('image', photoInput.files[0]);
                     answerMessage.textContent = tutorialPassMode ? '⏳ 正在整理教學判定...' : '⏳ AI 判定中...';
-                    const aiRes = await fetch(`/api/ai-tasks/${currentTask.id}/submit`, {
-                        method: 'POST',
-                        body: fd
-                    });
-                    const aiData = await aiRes.json();
+                    let aiData;
+                    try {
+                        aiData = await requestJson(`/api/ai-tasks/${currentTask.id}/submit`, {
+                            method: 'POST',
+                            body: fd
+                        }, '送出 AI 圖片判定');
+                    } catch (err) {
+                        answerMessage.textContent = `❌ ${err.message}`;
+                        await showNpcDialog({
+                            speakerKey: 'rescue',
+                            mood: '連線中斷',
+                            text: `海羽偵測到探索艙目前沒有成功送出這張照片。\n\n${err.message}\n\n先確認網路或重新整理後再試一次。`
+                        });
+                        btnAnswerSubmit.disabled = false;
+                        return;
+                    }
                     const judgeSummary = normalizeUiText(aiData.reason, '') || normalizeUiText(aiData.message, 'AI 已完成判定。');
                     const retrySummary = normalizeUiText(aiData.retry_advice, '');
                     if (aiData.success && aiData.passed) {
@@ -1964,6 +2003,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const successText = tutorialPassMode
                             ? `鯨語已經看完你上傳的畫面。\n\n${judgeSummary}\n\n教學模式先替你放行，讓你可以把整段流程順順走完。`
                             : `${judgeSummary}${retrySummary ? `\n\n補充：${retrySummary}` : ''}`;
+                        const storyJudgeAutoClose = currentEntryMode === 'board_game' ? 2800 : null;
                         if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
                             await completeBoardTurn(true, {
                                 speakerKey: 'judge',
@@ -1976,7 +2016,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 speakerKey: 'judge',
                                 mood: tutorialPassMode ? '教學判定' : 'AI 通關',
                                 text: successText,
-                                autoCloseMs: 2800
+                                buttonLabel: tutorialPassMode ? '看懂了' : null,
+                                autoCloseMs: storyJudgeAutoClose
                             });
                         }
                         if (currentEntryMode === 'story_campaign' && currentQuestChainId) {
@@ -2002,7 +2043,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 mood: '裁定未通過',
                                 text: retrySummary
                                     ? `鯨語的裁定是：${judgeSummary || '這次還沒通過。'}\n\n海羽補充：${retrySummary}`
-                                    : `鯨語的裁定是：${failText}\n\n海羽建議你再整理一下畫面，重新挑戰。`
+                                    : `鯨語的裁定是：${failText}\n\n海羽建議你再整理一下畫面，重新挑戰。`,
+                                buttonLabel: '重新挑戰'
                             });
                             btnAnswerSubmit.disabled = false;
                         }
@@ -2012,8 +2054,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const fd = new FormData();
                 fd.append('photo', photoInput.files[0]);
                 answerMessage.textContent = '📤 上傳照片中...';
-                const uploadRes = await fetch('/api/upload', { method: 'POST', body: fd });
-                const uploadData = await uploadRes.json();
+                let uploadData;
+                try {
+                    uploadData = await requestJson('/api/upload', { method: 'POST', body: fd }, '上傳照片');
+                } catch (err) {
+                    answerMessage.textContent = `❌ ${err.message}`;
+                    btnAnswerSubmit.disabled = false;
+                    return;
+                }
                 if (!uploadData.success) {
                     answerMessage.textContent = '❌ 上傳失敗';
                     return;
@@ -2042,12 +2090,23 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             btnAnswerSubmit.disabled = true;
             answerMessage.textContent = '⏳ 驗證中...';
-            const res = await fetch(`/api/user-tasks/${currentUserTaskId}/answer`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ answer })
-            });
-            const data = await res.json();
+            let data;
+            try {
+                data = await requestJson(`/api/user-tasks/${currentUserTaskId}/answer`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ answer })
+                }, '送出答案');
+            } catch (err) {
+                answerMessage.textContent = `❌ ${err.message}`;
+                await showNpcDialog({
+                    speakerKey: 'rescue',
+                    mood: '送出失敗',
+                    text: `海羽沒能把這份答案成功送進探索艙。\n\n${err.message}\n\n請稍後再試一次。`
+                });
+                btnAnswerSubmit.disabled = false;
+                return;
+            }
             if (data.success && (data.isCompleted || (data.message && data.message.includes('已完成')))) {
                 answerModal.classList.add('hidden');
                 tutorialFlowStarted = false;
@@ -2102,12 +2161,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             lockMsg.textContent = '驗證中...';
-            const res = await fetch(`/api/user-tasks/${currentUserTaskId}/answer`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ answer: getLockCode() })
-            });
-            const data = await res.json();
+            let data;
+            try {
+                data = await requestJson(`/api/user-tasks/${currentUserTaskId}/answer`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ answer: getLockCode() })
+                }, '送出密碼答案');
+            } catch (err) {
+                lockMsg.textContent = err.message;
+                await showNpcDialog({
+                    speakerKey: 'rescue',
+                    mood: '送出失敗',
+                    text: `海羽無法把密碼結果送回探索艙。\n\n${err.message}`
+                });
+                return;
+            }
             if (data.success && data.isCompleted) {
                 lockOverlay.classList.add('hidden');
                 tutorialFlowStarted = false;
@@ -2183,12 +2252,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     Swal.fire({ icon: 'error', title: '無法建立關卡紀錄', text: tutorialMode ? '教學模式的關卡紀錄建立失敗，請重新整理後再試一次。' : '請重新整理後再試一次。' });
                     return;
                 }
-                const res = await fetch(`/api/user-tasks/${currentUserTaskId}/answer`, {
+                const data = await requestJson(`/api/user-tasks/${currentUserTaskId}/answer`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ answer: 'checked_in' })
-                });
-                const data = await res.json();
+                }, '送出報到結果');
                 if (data.success && data.isCompleted) {
                     tutorialFlowStarted = false;
                     renderTutorialModeUi();

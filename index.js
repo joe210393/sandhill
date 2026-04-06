@@ -268,6 +268,13 @@ function buildDemoAiResult(task, submissionUrl = null) {
   };
 }
 
+function buildTutorialForcedAiReason(task, aiReason = '') {
+  const fallback = buildDemoAutoPassMessage(task, 'ai');
+  const normalized = normalizeNullableString(aiReason);
+  if (!normalized) return fallback;
+  return `鯨語觀察：${normalized}\n\n教學模式先替你放行，讓你可以繼續往下體驗。`;
+}
+
 async function getUserIdByUsername(conn, username) {
   const [users] = await conn.execute('SELECT id FROM users WHERE username = ? LIMIT 1', [username]);
   return users[0]?.id || null;
@@ -3253,15 +3260,37 @@ app.post('/api/ai-tasks/:taskId/submit', authenticateToken, uploadAiTaskImage.si
 
     const runtimeFlags = getQuestChainRuntimeFlags(task);
     const submissionUrl = saveBufferAsImage(req.file);
-    const evaluation = runtimeFlags.demoAutoPass
-      ? {
-          rawContent: JSON.stringify(buildDemoAiResult(task, submissionUrl)),
-          parsed: buildDemoAiResult(task, submissionUrl)
-        }
-      : await evaluateAiTaskImage(task, req.file, {
+    let evaluation;
+    if (runtimeFlags.demoAutoPass) {
+      let lmEvaluation = null;
+      try {
+        lmEvaluation = await evaluateAiTaskImage(task, req.file, {
           latitude: req.body.latitude,
           longitude: req.body.longitude
         });
+      } catch (lmErr) {
+        console.warn('教學模式 LM 判定失敗，改用自動放行內容:', lmErr?.message || lmErr);
+      }
+
+      const fallbackResult = buildDemoAiResult(task, submissionUrl);
+      const lmResult = lmEvaluation?.parsed || null;
+      evaluation = {
+        rawContent: lmEvaluation?.rawContent || JSON.stringify(fallbackResult),
+        parsed: {
+          ...(lmResult || fallbackResult),
+          passed: true,
+          retry_advice: '',
+          source: lmResult ? 'sandhill_demo_autopass_with_lm' : fallbackResult.source,
+          submission_url: submissionUrl,
+          reason: buildTutorialForcedAiReason(task, lmResult?.reason)
+        }
+      };
+    } else {
+      evaluation = await evaluateAiTaskImage(task, req.file, {
+        latitude: req.body.latitude,
+        longitude: req.body.longitude
+      });
+    }
 
     const attemptNo = attemptCount + 1;
     const result = evaluation.parsed;
