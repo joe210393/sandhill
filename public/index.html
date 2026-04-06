@@ -437,7 +437,21 @@
     .auth-panel {
       display: grid;
       gap: 10px;
-      margin-top: 4px;
+      margin-top: 12px;
+      width: min(100%, 560px);
+      padding: 12px;
+      border-radius: 24px;
+      background: rgba(3, 26, 38, 0.34);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
+      backdrop-filter: blur(12px);
+    }
+
+    .auth-panel-title {
+      font-size: 0.92rem;
+      font-weight: 900;
+      color: rgba(255, 255, 255, 0.96);
+      letter-spacing: 0.02em;
     }
 
     .logged-in-note {
@@ -452,6 +466,11 @@
       color: white;
       font-weight: 700;
       line-height: 1.6;
+    }
+
+    .auth-actions .ocean-btn {
+      flex: 1 1 220px;
+      min-height: 56px;
     }
 
     .ocean-btn {
@@ -471,6 +490,57 @@
 
     .ocean-btn:hover {
       transform: translateY(-2px);
+    }
+
+    .story-picker-modal.hidden {
+      display: none;
+    }
+
+    .story-picker-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1400;
+      display: grid;
+      place-items: center;
+    }
+
+    .story-picker-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(3, 21, 30, 0.58);
+      backdrop-filter: blur(10px);
+    }
+
+    .story-picker-card {
+      position: relative;
+      width: min(92vw, 980px);
+      max-height: min(86vh, 920px);
+      overflow: auto;
+      padding: 22px;
+      border-radius: 28px;
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 30px 80px rgba(2, 22, 31, 0.28);
+      border: 1px solid rgba(10, 76, 99, 0.12);
+    }
+
+    .story-picker-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .story-picker-header h3 {
+      margin: 6px 0 8px;
+      font-family: "Noto Serif TC", serif;
+      font-size: clamp(1.5rem, 5vw, 2rem);
+    }
+
+    .story-picker-header p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.75;
     }
 
     .ocean-btn-primary {
@@ -926,6 +996,15 @@
         flex-direction: column;
       }
 
+      .auth-panel {
+        width: 100%;
+        padding: 14px;
+      }
+
+      .auth-actions .ocean-btn {
+        width: 100%;
+      }
+
       .ocean-btn {
         width: 100%;
         min-height: 54px;
@@ -973,8 +1052,7 @@
       <button id="hamburgerBtn" class="hamburger" aria-label="展開選單">&#9776;</button>
       <nav class="main-nav">
         <a href="/index.html" class="current-page">首頁</a>
-        <a href="#gameEntries">玩法入口</a>
-        <a href="#curriculum">五日探索</a>
+        <a href="#storySelector">劇本入口</a>
         <a href="#info">活動資訊</a>
         <a href="/user-tasks.html">遊戲紀錄</a>
         <a href="/staff-dashboard.html" id="navStaff" style="display:none;">建立關卡</a>
@@ -982,7 +1060,7 @@
         <a href="/user-dashboard.html" id="navUserTasks" style="display:none;">玩家管理</a>
         <a href="/products.html" id="navProducts">獎勵兌換</a>
         <a href="/redeem-tasks.html" id="navRedeem" style="display:none;">兌換管理</a>
-        <a href="/ai-lab.html">開啟遊戲殼</a>
+        <a href="/ai-lab.html">進入遊戲殼</a>
         <span id="loginUserInfo" style="color:#eef9ff;"></span>
         <button id="logoutBtn" style="display:none;">登出</button>
       </nav>
@@ -1018,8 +1096,8 @@
           `沙丘` 的首頁不是工具清單，而是一個真正的活動入口。玩家用手機就能選擇教學模式、劇情主線或大富翁玩法，進入後由 AI 當關主、裁判、導覽員與救援員，陪著一路往下玩。
         </p>
         <div class="hero-actions">
-          <a class="ocean-btn ocean-btn-primary" href="#gameEntries">立即選擇玩法</a>
-          <a class="ocean-btn ocean-btn-secondary" href="/ai-lab.html">直接開啟遊戲殼</a>
+          <button class="ocean-btn ocean-btn-primary" id="heroStoryPickerBtn" type="button">立即選擇劇本</button>
+          <a class="ocean-btn ocean-btn-secondary" href="/ai-lab.html">先進入遊戲殼</a>
         </div>
         <div id="authBtns" class="auth-panel"></div>
       </div>
@@ -1077,55 +1155,20 @@
       </div>
     </section>
 
-    <section class="section-card" id="curriculum">
+    <section class="section-card" id="storySelector">
       <div class="section-heading">
         <div>
-          <h3>五日探索旅程</h3>
-          <p>這一區延續你喜歡的「五日課程」節奏，但文案和卡片形式會直接對齊現在的遊戲定位，無論桌機或手機都能一眼看懂。</p>
+          <h3>選擇目前開啟的劇本</h3>
+          <p>首頁不再把所有玩法整頁攤開。民眾只要按下「立即選擇劇本」，就會跳出目前開啟中的劇情或大富翁卡片，再決定要直接進入遊戲殼，或先到遊戲殼裡挑選劇本。</p>
         </div>
       </div>
-      <div class="curriculum-grid">
-        <article class="day-card">
-          <span class="day-tag">Day 1</span>
-          <h4>遊戲日</h4>
-          <p>從角色與世界觀開場，讓孩子知道自己不是在填表，而是要進入一場海底冒險。</p>
-        </article>
-        <article class="day-card">
-          <span class="day-tag">Day 2</span>
-          <h4>音樂日</h4>
-          <p>用聲音、節奏與群體互動把活動暖起來，讓後面每一關更像一起玩的故事。</p>
-        </article>
-        <article class="day-card">
-          <span class="day-tag">Day 3</span>
-          <h4>親海日</h4>
-          <p>帶孩子真的到海邊、場域或導覽點位，把淨灘、觀察、拍照都接進 AI 關卡。</p>
-        </article>
-        <article class="day-card">
-          <span class="day-tag">Day 4</span>
-          <h4>藝術日</h4>
-          <p>把看到的海洋轉成作品與影像，讓 AI 評分與故事推進一起成立。</p>
-        </article>
-        <article class="day-card">
-          <span class="day-tag">Day 5</span>
-          <h4>分享日</h4>
-          <p>最後把照片、成果、劇情與回憶變成可以分享的海底藝廊與成就畫面。</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="section-card" id="gameEntries">
-      <div class="section-heading">
-        <div>
-          <h3>選擇目前開放的玩法</h3>
-          <p>這裡保留你現在的動態資料入口。首頁會直接讀取後台開放中的劇情主線與大富翁模式，手機點下去就能立刻進入遊戲殼。</p>
+      <div class="info-card">
+        <h4>進入方式</h4>
+        <p>你可以先選劇本再進遊戲殼，也可以先進遊戲殼，再在艙內挑選劇本。首頁只保留最必要的入口，避免玩家一進來就被太多內容干擾。</p>
+        <div class="cta-actions">
+          <button class="ocean-btn ocean-btn-primary" id="inlineStoryPickerBtn" type="button">立即選擇劇本</button>
+          <a class="ocean-btn ocean-btn-secondary" href="/ai-lab.html">先進入遊戲殼</a>
         </div>
-      </div>
-      <div id="storyModeEntries" class="entries-grid">
-        <div class="loading-card">正在載入劇情主線...</div>
-      </div>
-      <div style="height: 14px;"></div>
-      <div id="boardGameEntries" class="entries-grid">
-        <div class="loading-card">正在載入大富翁玩法...</div>
       </div>
     </section>
 
@@ -1170,22 +1213,42 @@
             </table>
           </article>
           <article class="info-card">
-            <h4>保留中的重要連結</h4>
-            <p>首頁仍保留目前你需要的相關入口：玩法入口、遊戲紀錄、建立關卡、玩家管理、獎勵兌換、開啟遊戲殼。只是它們現在會被包進更完整的海洋視覺裡。</p>
+            <h4>目前入口策略</h4>
+            <p>首頁保留登入、註冊、劇本入口與進入遊戲殼。玩家不需要先讀完整頁玩法卡，就能先做選擇再開始遊玩。</p>
           </article>
         </div>
       </div>
     </section>
 
     <section class="cta-panel">
-      <h3>準備好把首頁真正變成《海底大作戰》的入口了嗎？</h3>
-      <p>這版會保留你現在的連結、登入狀態與玩法資料來源，但把 Hero、五日探索、玩法入口與活動資訊都收斂成手機優先的海洋首頁。玩家點進來，不會覺得自己在用工具，而是準備進入一場冒險。</p>
+      <h3>準備好進入今天開啟的劇本了嗎？</h3>
+      <p>首頁現在只做入口，不再像目錄頁把所有玩法鋪滿。先挑劇本，再進遊戲殼，或先進遊戲殼，再在艙內挑選今天要玩的內容。</p>
       <div class="cta-actions">
-        <a class="ocean-btn ocean-btn-primary" href="#gameEntries">立即選擇玩法</a>
+        <button class="ocean-btn ocean-btn-primary" id="footerStoryPickerBtn" type="button">立即選擇劇本</button>
         <a class="ocean-btn ocean-btn-secondary" href="/staff-dashboard.html">前往建立關卡</a>
       </div>
     </section>
   </main>
+
+  <div id="storyPickerModal" class="story-picker-modal hidden" aria-hidden="true">
+    <div class="story-picker-backdrop" data-close-story-picker="true"></div>
+    <div class="story-picker-card">
+      <div class="story-picker-header">
+        <div>
+          <div class="eyebrow">劇本入口</div>
+          <h3>選擇目前開啟的劇本</h3>
+          <p>選完後就直接進入對應劇本。如果你還想先看艙內介面，也可以直接進遊戲殼後再選。</p>
+        </div>
+        <button id="storyPickerCloseBtn" class="hamburger" type="button" aria-label="關閉劇本選擇器" style="display:inline-flex;">✕</button>
+      </div>
+      <div id="storyPickerEntries" class="entries-grid">
+        <div class="loading-card">正在載入目前開啟的劇本...</div>
+      </div>
+      <div class="cta-actions" style="margin-top:18px;">
+        <a class="ocean-btn ocean-btn-secondary" href="/ai-lab.html">先進入遊戲殼</a>
+      </div>
+    </div>
+  </div>
 
   <footer>
     &copy; 2026 沙丘 AI 冒險平台 |
@@ -1194,6 +1257,8 @@
 
   <script>
     const loginUser = JSON.parse(localStorage.getItem('loginUser') || 'null');
+
+    let cachedGameEntries = { stories: [], boards: [] };
 
     if (loginUser) {
       if (loginUser.role === 'admin') {
@@ -1222,6 +1287,7 @@
       const authBtns = document.getElementById('authBtns');
       if (authBtns) {
         authBtns.innerHTML = `
+          <div class="auth-panel-title">已登入冒險者入口</div>
           <div class="logged-in-note">歡迎回來，${loginUser.username}。你可以直接回到教學模式、續闖劇情，或切去大富翁棋盤。</div>
         `;
       }
@@ -1231,9 +1297,10 @@
       const authBtns = document.getElementById('authBtns');
       if (authBtns) {
         authBtns.innerHTML = `
+          <div class="auth-panel-title">第一次進入？先選一個方式開始</div>
           <div class="auth-actions">
             <a class="ocean-btn ocean-btn-secondary" href="/login.html">登入沙丘</a>
-            <a class="ocean-btn ocean-btn-primary" href="/register.html">立即加入冒險</a>
+            <a class="ocean-btn ocean-btn-primary" href="/register.html">註冊新冒險者</a>
           </div>
         `;
       }
@@ -1274,9 +1341,44 @@
       `;
     }
 
+    function buildStoryPickerCard(entry, fallbackMode) {
+      const modeLabel = entry.mode_type === 'board_game' ? '大富翁模式' : '劇情主線';
+      const buttonText = entry.entry_button_text || (entry.mode_type === 'board_game' ? '進入玩法' : '開始劇情');
+      const params = new URLSearchParams();
+      params.set('questChainId', entry.id);
+      params.set('mode', entry.mode_type || fallbackMode || 'story_campaign');
+      return `
+        <article class="entry-card">
+          <div class="entry-meta">
+            <span class="entry-pill">${modeLabel}</span>
+            ${entry.entry_scene_label ? `<span class="entry-pill">${entry.entry_scene_label}</span>` : ''}
+            ${entry.play_style ? `<span class="entry-pill">${entry.play_style}</span>` : ''}
+          </div>
+          <h4>${entry.title || entry.name}</h4>
+          <p>${entry.short_description || entry.description || '尚未提供簡介。'}</p>
+          <a class="ocean-btn ocean-btn-primary" href="/ai-lab.html?${params.toString()}">${buttonText}</a>
+        </article>
+      `;
+    }
+
+    function renderStoryPicker() {
+      const picker = document.getElementById('storyPickerEntries');
+      if (!picker) return;
+      const allEntries = [...cachedGameEntries.stories, ...cachedGameEntries.boards];
+      picker.innerHTML = allEntries.length
+        ? allEntries.map((entry) => buildStoryPickerCard(entry, entry.mode_type === 'board_game' ? 'board_game' : 'story_campaign')).join('')
+        : '<div class="loading-card">目前沒有開啟中的劇本。</div>';
+    }
+
+    function toggleStoryPicker(open) {
+      const modal = document.getElementById('storyPickerModal');
+      if (!modal) return;
+      modal.classList.toggle('hidden', !open);
+      modal.setAttribute('aria-hidden', open ? 'false' : 'true');
+      document.body.style.overflow = open ? 'hidden' : '';
+    }
+
     async function loadGameEntries() {
-      const storyContainer = document.getElementById('storyModeEntries');
-      const boardContainer = document.getElementById('boardGameEntries');
       try {
         const res = await fetch('/api/game-entries');
         const data = await res.json();
@@ -1284,19 +1386,27 @@
 
         const stories = data.storyCampaigns || [];
         const boards = data.boardGames || [];
-        storyContainer.innerHTML = stories.length
-          ? stories.map(entry => buildEntryCard(entry, 'story_campaign')).join('')
-          : '<div class="loading-card">目前沒有開放中的劇情主線。</div>';
-        boardContainer.innerHTML = boards.length
-          ? boards.map(entry => buildEntryCard(entry, 'board_game')).join('')
-          : '<div class="loading-card">目前沒有開放中的大富翁玩法。</div>';
+        cachedGameEntries = { stories, boards };
+        renderStoryPicker();
       } catch (err) {
-        storyContainer.innerHTML = '<div class="loading-card">劇情主線載入失敗，請稍後再試。</div>';
-        boardContainer.innerHTML = '<div class="loading-card">大富翁玩法載入失敗，請稍後再試。</div>';
+        cachedGameEntries = { stories: [], boards: [] };
+        renderStoryPicker();
       }
     }
 
     loadGameEntries();
+
+    ['heroStoryPickerBtn', 'inlineStoryPickerBtn', 'footerStoryPickerBtn'].forEach((id) => {
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.addEventListener('click', () => toggleStoryPicker(true));
+      }
+    });
+
+    document.getElementById('storyPickerCloseBtn')?.addEventListener('click', () => toggleStoryPicker(false));
+    document.querySelectorAll('[data-close-story-picker="true"]').forEach((node) => {
+      node.addEventListener('click', () => toggleStoryPicker(false));
+    });
 
     document.querySelectorAll('.main-nav a').forEach((a) => {
       a.onclick = () => document.getElementById('headerContent').classList.remove('open');

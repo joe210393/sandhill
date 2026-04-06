@@ -638,6 +638,14 @@ canvas#drawingCanvas {
     color: rgba(255,255,255,0.88);
 }
 
+.game-shell-panel.tutorial-hidden-card {
+    display: none !important;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-12px) scale(0.98);
+    pointer-events: none;
+}
+
 .game-shell-panel.tutorial-mode #gameShellProgressBlock,
 .game-shell-panel.tutorial-mode #gameShellEntriesBlock {
     display: none;
@@ -742,6 +750,11 @@ canvas#drawingCanvas {
 .game-shell-entry.active {
     border: 1px solid rgba(255, 209, 102, 0.55);
     background: rgba(255, 209, 102, 0.14);
+}
+
+.game-shell-entry.completed {
+    border: 1px solid rgba(72, 187, 120, 0.35);
+    background: rgba(72, 187, 120, 0.1);
 }
 
 .game-shell-entry.muted {

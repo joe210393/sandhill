@@ -3207,6 +3207,75 @@ app.get('/api/user-tasks/:id/attempts', authenticateToken, async (req, res) => {
   }
 });
 
+app.post('/api/tutorial/ai-tasks/:taskId/submit', uploadAiTaskImage.single('image'), async (req, res) => {
+  const { taskId } = req.params;
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: '請先上傳圖片' });
+  }
+
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [tasks] = await conn.execute(
+      `SELECT t.*, qc.name AS quest_chain_name, qc.game_rules, qc.content_blueprint
+       FROM tasks t
+       LEFT JOIN quest_chains qc ON t.quest_chain_id = qc.id
+       WHERE t.id = ?`,
+      [taskId]
+    );
+    if (tasks.length === 0) {
+      return res.status(404).json({ success: false, message: '找不到任務' });
+    }
+
+    const task = sanitizeTaskRow(tasks[0]);
+    if (!AI_VALIDATION_MODES.includes(task.validation_mode)) {
+      return res.status(400).json({ success: false, message: '此任務不是 AI 驗證任務' });
+    }
+    if (task.submission_type !== 'image') {
+      return res.status(400).json({ success: false, message: '此任務目前不支援圖片提交' });
+    }
+
+    const runtimeFlags = getQuestChainRuntimeFlags(task);
+    if (!runtimeFlags.demoAutoPass) {
+      return res.status(403).json({ success: false, message: '這個教學關卡目前不允許匿名體驗' });
+    }
+
+    const submissionUrl = saveBufferAsImage(req.file);
+    let lmEvaluation = null;
+    try {
+      lmEvaluation = await evaluateAiTaskImage(task, req.file, {
+        latitude: req.body.latitude,
+        longitude: req.body.longitude
+      });
+    } catch (lmErr) {
+      console.warn('教學模式匿名 LM 判定失敗，改用自動放行內容:', lmErr?.message || lmErr);
+    }
+
+    const fallbackResult = buildDemoAiResult(task, submissionUrl);
+    const lmResult = lmEvaluation?.parsed || null;
+    return res.json({
+      success: true,
+      passed: true,
+      tutorial_guest: true,
+      message: '教學模式已完成這一步',
+      reason: buildTutorialForcedAiReason(task, lmResult?.reason),
+      retry_advice: '',
+      user_task_id: null,
+      earnedItemName: null,
+      score: lmResult?.score ?? fallbackResult.score,
+      count_detected: lmResult?.count_detected ?? fallbackResult.count_detected,
+      label: lmResult?.label ?? fallbackResult.label,
+      submission_url: submissionUrl,
+      source: lmResult ? 'sandhill_tutorial_guest_with_lm' : fallbackResult.source
+    });
+  } catch (error) {
+    console.error('❌ 教學模式匿名 AI 任務提交失敗:', error);
+    return res.status(500).json({ success: false, message: error.message || '教學模式 AI 判定失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
 app.post('/api/ai-tasks/:taskId/submit', authenticateToken, uploadAiTaskImage.single('image'), async (req, res) => {
   const { taskId } = req.params;
   if (!req.user || !req.user.username) {

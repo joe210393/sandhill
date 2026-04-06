@@ -473,6 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let currentEntryMode = null;
         let currentStoryTasks = [];
         let currentStoryCompleted = false;
+        let currentStoryCompletedTaskIds = new Set();
         let currentBoardMaps = [];
         let currentBoardTiles = [];
         let currentBoardMap = null;
@@ -738,6 +739,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentNpcDialogAutoCloseTimer = null;
             }
             if (npcDialog) npcDialog.classList.add('hidden');
+            renderTutorialModeUi();
             if (currentNpcDialogResolver) {
                 currentNpcDialogResolver();
                 currentNpcDialogResolver = null;
@@ -758,6 +760,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (npcDialogClose) npcDialogClose.textContent = buttonLabel || profile?.button || '繼續';
             npcDialogText.textContent = text || '……';
             npcDialog.classList.remove('hidden');
+            renderTutorialModeUi();
             if (currentNpcDialogResolver) currentNpcDialogResolver();
             const dialogPromise = new Promise((resolve) => {
                 currentNpcDialogResolver = resolve;
@@ -788,6 +791,64 @@ document.addEventListener('DOMContentLoaded', () => {
             );
         }
 
+        function isTutorialGuestMode() {
+            return currentEntryMode === 'story_campaign' && isCurrentQuestTutorialMode() && !getLoginUser();
+        }
+
+        function getTutorialGuestProgressKey(questChainId = currentQuestChainId) {
+            return `sandhill:tutorial-guest-progress:${questChainId || 'unknown'}`;
+        }
+
+        function getTutorialGuestState(questChainId = currentQuestChainId) {
+            if (!questChainId) return { currentOrder: 1, completed: false, completedTaskIds: [] };
+            try {
+                const raw = sessionStorage.getItem(getTutorialGuestProgressKey(questChainId));
+                if (!raw) return { currentOrder: 1, completed: false, completedTaskIds: [] };
+                const parsed = JSON.parse(raw);
+                return {
+                    currentOrder: Number(parsed.currentOrder || 1),
+                    completed: Boolean(parsed.completed),
+                    completedTaskIds: Array.isArray(parsed.completedTaskIds)
+                        ? parsed.completedTaskIds.map((id) => Number(id))
+                        : []
+                };
+            } catch (err) {
+                console.warn('讀取教學模式本地進度失敗', err);
+                return { currentOrder: 1, completed: false, completedTaskIds: [] };
+            }
+        }
+
+        function saveTutorialGuestState(nextState, questChainId = currentQuestChainId) {
+            if (!questChainId) return;
+            try {
+                sessionStorage.setItem(getTutorialGuestProgressKey(questChainId), JSON.stringify({
+                    currentOrder: Number(nextState.currentOrder || 1),
+                    completed: Boolean(nextState.completed),
+                    completedTaskIds: Array.isArray(nextState.completedTaskIds)
+                        ? nextState.completedTaskIds.map((id) => Number(id))
+                        : []
+                }));
+            } catch (err) {
+                console.warn('保存教學模式本地進度失敗', err);
+            }
+        }
+
+        function completeTutorialGuestTask(task) {
+            if (!task || !currentQuestChainId) return;
+            const state = getTutorialGuestState(currentQuestChainId);
+            const completedTaskIds = new Set(state.completedTaskIds || []);
+            completedTaskIds.add(Number(task.id));
+            const sortedTasks = [...currentStoryTasks].sort((a, b) => Number(a.quest_order || 0) - Number(b.quest_order || 0));
+            const nextTask = sortedTasks.find((item) => Number(item.quest_order || 0) > Number(task.quest_order || 0));
+            const nextState = {
+                currentOrder: nextTask ? Number(nextTask.quest_order || 1) : Number(task.quest_order || 1) + 1,
+                completed: !nextTask,
+                completedTaskIds: Array.from(completedTaskIds)
+            };
+            currentStoryCompletedTaskIds = new Set(nextState.completedTaskIds);
+            saveTutorialGuestState(nextState, currentQuestChainId);
+        }
+
         function shouldSuppressCameraAlert() {
             const urlMode = new URLSearchParams(window.location.search).get('mode');
             return isCurrentQuestTutorialMode() || urlMode === 'story_campaign';
@@ -795,7 +856,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function renderTutorialModeUi() {
             const isTutorialStory = currentEntryMode === 'story_campaign' && isCurrentQuestTutorialMode();
+            const shouldHidePrimaryCard = isTutorialStory && (
+                tutorialFlowStarted
+                || !npcDialog?.classList.contains('hidden')
+                || !answerModal?.classList.contains('hidden')
+                || !completionModal?.classList.contains('hidden')
+                || !lockOverlay?.classList.contains('hidden')
+            );
             gameShellPanel?.classList.toggle('tutorial-mode', isTutorialStory);
+            gameShellPanel?.classList.toggle('tutorial-hidden-card', shouldHidePrimaryCard);
+            if (gameShellPanel) {
+                gameShellPanel.setAttribute('aria-hidden', shouldHidePrimaryCard ? 'true' : 'false');
+            }
             miniMapWrap?.classList.toggle('tutorial-hidden', isTutorialStory);
             featureDock?.classList.toggle('tutorial-hidden', isTutorialStory);
             selectionInstruction?.classList.toggle('tutorial-hidden', isTutorialStory);
@@ -1225,14 +1297,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             gameShellEntries.innerHTML = entries.map((entry) => {
                 const isActive = String(activeId) === String(entry.id);
+                const isCompletedStoryEntry = !entry.tile_index && currentStoryCompletedTaskIds.has(Number(entry.id));
                 const title = entry.name || entry.tile_name || '未命名內容';
                 const subtitle = entry.stage_intro || entry.description || entry.event_body || entry.task_description || '';
                 const badge = entry.quest_order ? `第 ${entry.quest_order} 關` : (entry.tile_index ? `第 ${entry.tile_index} 格` : '');
                 const entryType = entry.tile_index ? 'board' : 'story';
                 return `
-                    <button class="game-shell-entry ${isActive ? 'active' : ''}" type="button" data-entry-id="${entry.id}" data-entry-type="${entryType}">
+                    <button class="game-shell-entry ${isActive ? 'active' : ''} ${isCompletedStoryEntry ? 'completed' : ''}" type="button" data-entry-id="${entry.id}" data-entry-type="${entryType}">
                         <strong>${badge ? `${badge}｜` : ''}${title}</strong>
-                        <span>${subtitle || '等待內容補充。'}</span>
+                        <span>${isCompletedStoryEntry ? `已完成｜${subtitle || '這一步已通過。'}` : (subtitle || '等待內容補充。')}</span>
                     </button>
                 `;
             }).join('');
@@ -1340,6 +1413,7 @@ document.addEventListener('DOMContentLoaded', () => {
             currentEntryMode = 'story_campaign';
             currentStoryTasks = Array.isArray(contentData.tasks) ? contentData.tasks : [];
             currentStoryCompleted = false;
+            currentStoryCompletedTaskIds = new Set();
             lastStoryDialogueKey = null;
             tutorialFlowStarted = false;
             tutorialIntroTaskId = null;
@@ -1347,9 +1421,17 @@ document.addEventListener('DOMContentLoaded', () => {
             updateShellModeUi();
             renderTutorialModeUi();
             loadPlayerHudStats();
-            const progressOrder = Number(progressMap?.[String(questChainId)]);
+            const tutorialGuestState = isTutorialGuestMode() ? getTutorialGuestState(questChainId) : null;
+            if (tutorialGuestState) {
+                currentStoryCompletedTaskIds = new Set(tutorialGuestState.completedTaskIds || []);
+            }
+            const progressOrder = tutorialGuestState
+                ? Number(tutorialGuestState.currentOrder || 1)
+                : Number(progressMap?.[String(questChainId)]);
             const maxStoryOrder = currentStoryTasks.reduce((max, task) => Math.max(max, Number(task.quest_order || 0)), 0);
-            currentStoryCompleted = Number.isFinite(progressOrder) && progressOrder > maxStoryOrder && maxStoryOrder > 0;
+            currentStoryCompleted = tutorialGuestState
+                ? Boolean(tutorialGuestState.completed)
+                : (Number.isFinite(progressOrder) && progressOrder > maxStoryOrder && maxStoryOrder > 0);
             const activeTask = currentStoryCompleted
                 ? currentStoryTasks.find(task => Number(task.quest_order) === maxStoryOrder) || currentStoryTasks[currentStoryTasks.length - 1] || null
                 : ((Number.isFinite(progressOrder) && progressOrder > 0)
@@ -1876,6 +1958,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!completionModal) return;
             if (completionReward) completionReward.innerHTML = message || '✅ 任務已完成';
             completionModal.classList.remove('hidden');
+            renderTutorialModeUi();
             loadPlayerHudStats();
         }
 
@@ -1967,6 +2050,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const hasChoiceField = choiceNodes.length > 0;
             const isAiPhotoTask = currentTask.task_type === 'photo' && currentTask.validation_mode && currentTask.validation_mode.startsWith('ai_');
             const tutorialPassMode = isCurrentQuestDemoMode() || isCurrentQuestTutorialMode();
+            const tutorialGuestMode = isTutorialGuestMode();
 
             if (hasPhotoField) {
                 if (!photoInput?.files?.[0]) {
@@ -1979,7 +2063,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     answerMessage.textContent = tutorialPassMode ? '⏳ 正在整理教學判定...' : '⏳ AI 判定中...';
                     let aiData;
                     try {
-                        aiData = await requestJson(`/api/ai-tasks/${currentTask.id}/submit`, {
+                        aiData = await requestJson(`${tutorialGuestMode ? `/api/tutorial/ai-tasks/${currentTask.id}/submit` : `/api/ai-tasks/${currentTask.id}/submit`}`, {
                             method: 'POST',
                             body: fd
                         }, '送出 AI 圖片判定');
@@ -2012,6 +2096,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 autoCloseMs: 2800
                             });
                         } else {
+                            if (tutorialGuestMode) {
+                                completeTutorialGuestTask(currentTask);
+                            }
                             await showNpcDialog({
                                 speakerKey: 'judge',
                                 mood: tutorialPassMode ? '教學判定' : 'AI 通關',
@@ -2074,12 +2161,47 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 answer = selected.dataset.value;
+                if (tutorialGuestMode) {
+                    answerModal.classList.add('hidden');
+                    tutorialFlowStarted = false;
+                    renderTutorialModeUi();
+                    completeTutorialGuestTask(currentTask);
+                    await showNpcDialog({
+                        speakerKey: 'lore',
+                        mood: '教學選擇',
+                        text: `潮聲已記住你的選擇：「${answer}」。\n\n教學模式先替你通過這一關，讓你把完整流程走完。`,
+                        buttonLabel: '繼續前進'
+                    });
+                    if (currentEntryMode === 'story_campaign' && currentQuestChainId) {
+                        await loadStoryShell(currentQuestChainId);
+                    }
+                    showCompletionModal('✅ 教學模式已完成這一步');
+                    return;
+                }
             } else {
                 answer = textInput?.value?.trim() || '';
                 if (!answer) {
                     answerMessage.textContent = '❌ 請輸入答案';
                     return;
                 }
+            }
+
+            if (tutorialGuestMode) {
+                answerModal.classList.add('hidden');
+                tutorialFlowStarted = false;
+                renderTutorialModeUi();
+                completeTutorialGuestTask(currentTask);
+                await showNpcDialog({
+                    speakerKey: 'judge',
+                    mood: '教學模式通關',
+                    text: `沙丘已記錄你的操作：「${answer || '已提交'}」。\n\n教學模式先替你通過這一步，讓你繼續往下走。`,
+                    buttonLabel: '繼續前進'
+                });
+                if (currentEntryMode === 'story_campaign' && currentQuestChainId) {
+                    await loadStoryShell(currentQuestChainId);
+                }
+                showCompletionModal('✅ 教學模式已完成這一步');
+                return;
             }
 
             if (!currentUserTaskId) await fetchCurrentUserTaskId();
@@ -2222,6 +2344,7 @@ document.addEventListener('DOMContentLoaded', () => {
             closeTaskEncounter();
             if (!currentTask) return;
             const tutorialMode = isCurrentQuestTutorialMode();
+            const tutorialGuestMode = isTutorialGuestMode();
             tutorialFlowStarted = true;
             renderTutorialModeUi();
             if (tutorialMode && tutorialIntroTaskId !== currentTask.id) {
@@ -2235,6 +2358,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (currentTask.task_type === 'location') {
                 const demoMode = isCurrentQuestDemoMode();
+                if (tutorialGuestMode) {
+                    completeTutorialGuestTask(currentTask);
+                    tutorialFlowStarted = false;
+                    renderTutorialModeUi();
+                    await showNpcDialog({
+                        speakerKey: 'host',
+                        mood: '教學模式通關',
+                        text: '沙丘已替你完成這一步報到，現在直接前往下一段劇情。',
+                        buttonLabel: '前往下一關'
+                    });
+                    if (currentEntryMode === 'story_campaign' && currentQuestChainId) {
+                        await loadStoryShell(currentQuestChainId);
+                    }
+                    showCompletionModal('✅ 教學模式已完成這一步');
+                    return;
+                }
                 if (!lastLatLng && !demoMode) {
                     Swal.fire({ icon: 'info', title: '尚未取得位置', text: '請先靠近任務地點後再試' });
                     return;
@@ -3970,6 +4109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnCompletionClose) {
             btnCompletionClose.addEventListener('click', () => {
                 completionModal.classList.add('hidden');
+                renderTutorialModeUi();
             });
         }
 
