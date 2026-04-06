@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="description" content="海底探索艙：自由探索與任務模式，拍照、觀察、提示與關卡挑戰都從這裡展開。">
+    <meta name="description" content="沙丘・海底探索艙：劇情主線、大富翁棋盤與 AI 關卡都在同一個遊戲主介面中進行。">
     <meta name="theme-color" content="#000">
-    <title>海底探索艙</title>
+    <title>沙丘｜海底探索艙</title>
     <link rel="stylesheet" href="css/ai-lab.css?v=13">
     <link rel="stylesheet" href="css/mode-switch.css?v=2">
     <link
@@ -129,10 +129,81 @@
                 <div class="status-pill" aria-label="海底探索艙">海底探索艙</div>
             </header>
 
+            <section class="game-hud" aria-label="玩家狀態">
+                <div class="hud-chip">
+                    <span class="hud-label">模式</span>
+                    <strong id="hudModeValue">載入玩法</strong>
+                </div>
+                <div class="hud-chip">
+                    <span class="hud-label">進度</span>
+                    <strong id="hudStageValue">等待載入</strong>
+                </div>
+                <div class="hud-chip">
+                    <span class="hud-label">積分</span>
+                    <strong id="hudPointsValue">--</strong>
+                </div>
+                <div class="hud-chip">
+                    <span class="hud-label">徽章</span>
+                    <strong id="hudBadgesValue">--</strong>
+                </div>
+            </section>
+
+            <section id="boardStatusCard" class="board-status-card hidden" aria-label="大富翁玩家狀態卡">
+                <div class="board-status-row">
+                    <span class="board-status-label">回合</span>
+                    <strong id="boardHudRound">--</strong>
+                </div>
+                <div class="board-status-row">
+                    <span class="board-status-label">目前格</span>
+                    <strong id="boardHudTile">--</strong>
+                </div>
+                <div class="board-status-row">
+                    <span class="board-status-label">Session</span>
+                    <strong id="boardHudSession">--</strong>
+                </div>
+                <div class="board-status-row wide">
+                    <span class="board-status-label">最近結果</span>
+                    <strong id="boardHudResult">等待擲骰</strong>
+                </div>
+            </section>
+
+            <section id="gameShellPanel" class="game-shell-panel">
+                <div class="game-shell-top">
+                    <div>
+                        <div id="gameShellMode" class="game-shell-mode">沙丘啟動中</div>
+                        <h1 id="gameShellTitle" class="game-shell-title">海底探索艙</h1>
+                    </div>
+                    <button id="gameShellToggle" class="game-shell-toggle" type="button" aria-label="展開或收起玩法資訊">任務</button>
+                </div>
+                <p id="gameShellSummary" class="game-shell-summary">進入鏡頭後，系統會把你帶進劇情主線或大富翁挑戰，不需要再跳去別的頁面。</p>
+                <div id="gameShellBody" class="game-shell-body">
+                    <div class="game-shell-block">
+                        <div class="game-shell-label">當前目標</div>
+                        <div id="gameShellObjective" class="game-shell-objective">尚未選擇玩法</div>
+                        <div style="margin-top:12px;">
+                            <button id="gameShellStartBtn" class="board-action-btn primary" type="button">開始這一關</button>
+                        </div>
+                    </div>
+                    <div class="game-shell-block">
+                        <div class="game-shell-label">目前進度</div>
+                        <div id="gameShellProgress" class="game-shell-progress">等待載入</div>
+                    </div>
+                    <div class="game-shell-block">
+                        <div class="game-shell-label">關卡 / 格子清單</div>
+                        <div id="gameShellEntries" class="game-shell-entries">
+                            <div class="game-shell-entry muted">正在整理玩法內容...</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <div id="featureDock" class="feature-dock">
                 <button id="featureDockToggle" class="icon-btn feature-dock-toggle" type="button" aria-label="打開功能選單">☰</button>
                 <div id="featureDockMenu" class="feature-dock-menu hidden">
                     <button id="backBtn" class="icon-btn exit-btn" type="button" aria-label="離開">EXIT</button>
+                    <button id="gameShellBtn" class="icon-btn" type="button" title="玩法資訊" aria-label="玩法資訊">🎮</button>
+                    <button id="hudPanelBtn" class="icon-btn" type="button" title="進度面板" aria-label="進度面板">📊</button>
+                    <button id="boardPanelBtn" class="icon-btn hidden" type="button" title="棋盤面板" aria-label="棋盤面板">🎲</button>
                     <button id="taskBgmBtn" class="icon-btn hidden" type="button" title="任務背景音樂" aria-label="背景音樂">🎵</button>
                     <button id="taskIntroBtn" class="icon-btn hidden" type="button" title="景點介紹" aria-label="景點介紹">📋</button>
                     <button id="dockModeBtn" class="icon-btn" type="button" title="模式" aria-label="模式">🧭</button>
@@ -145,8 +216,8 @@
                 <div id="featureDrawerPanel" class="feature-drawer-panel hidden">
                     <div id="dockModePanel" class="dock-panel hidden">
                         <div class="mode-switcher" role="group" aria-label="選擇模式">
-                            <button type="button" class="mode-btn active" data-mode="free" aria-pressed="true">🌿 自由探索</button>
-                            <button type="button" class="mode-btn" data-mode="mission" aria-pressed="false">🛡️ 任務模式</button>
+                            <button type="button" class="mode-btn active" data-mode="free" aria-pressed="true">📷 鏡頭待命</button>
+                            <button type="button" class="mode-btn" data-mode="mission" aria-pressed="false">🎯 關卡進行中</button>
                         </div>
                     </div>
                     <div id="dockLangPanel" class="dock-panel hidden">
@@ -167,6 +238,65 @@
                             <button class="zoom-btn" data-zoom="5">5x</button>
                             <button class="zoom-btn" data-zoom="10">10x</button>
                             <span id="zoomValue">1.0x</span>
+                        </div>
+                    </div>
+                    <div id="dockHudPanel" class="dock-panel hidden">
+                        <div class="hud-panel-block">
+                            <div class="hud-panel-title">目前狀態</div>
+                            <div id="hudPanelSummary" class="hud-panel-summary">等待載入玩家資訊...</div>
+                        </div>
+                        <div class="hud-panel-block">
+                            <div class="hud-panel-title">下一步</div>
+                            <div id="hudPanelNext" class="hud-panel-summary">尚未進入玩法。</div>
+                        </div>
+                        <div class="hud-panel-block">
+                            <div class="hud-panel-title">提示 / 救援</div>
+                            <div id="hudPanelRescue" class="hud-panel-summary">需要幫助時，系統會根據目前玩法給你提示。</div>
+                        </div>
+                        <div class="hud-panel-block">
+                            <div class="hud-panel-title">主線進度</div>
+                            <div id="hudPanelStages" class="hud-panel-stages">
+                                <div class="hud-stage muted">尚未載入關卡</div>
+                            </div>
+                        </div>
+                        <div class="hud-panel-block">
+                            <div class="hud-panel-title">已獲得徽章</div>
+                            <div id="hudPanelBadges" class="hud-panel-badges">
+                                <span class="hud-badge muted">尚未取得徽章</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="dockBoardPanel" class="dock-panel hidden">
+                    <div class="board-panel-block">
+                        <div class="hud-panel-title">棋盤切換</div>
+                        <div class="board-map-selector-wrap">
+                            <select id="boardMapSelector" class="board-map-selector">
+                                <option value="">等待載入棋盤...</option>
+                            </select>
+                            <div id="boardMapSelectorStatus" class="hud-panel-summary">如果同一個玩法入口底下有多張棋盤，這裡可以直接切換。</div>
+                        </div>
+                    </div>
+                    <div class="board-panel-block">
+                        <div class="hud-panel-title">大富翁狀態</div>
+                        <div id="boardPanelStatus" class="hud-panel-summary">等待棋盤資料...</div>
+                    </div>
+                        <div class="board-panel-block">
+                            <div class="hud-panel-title">Session 狀態</div>
+                            <div id="boardPanelMeta" class="hud-panel-summary">尚未建立大富翁 session。</div>
+                        </div>
+                        <div class="board-panel-block">
+                            <div class="hud-panel-title">本回合行動</div>
+                            <div id="boardPanelAction" class="hud-panel-summary">尚未開始擲骰。</div>
+                        </div>
+                        <div class="board-panel-block">
+                            <div class="hud-panel-title">棋盤路線</div>
+                            <div id="boardPanelTrack" class="board-panel-track">
+                                <div class="board-track-chip muted">等待棋盤資料...</div>
+                            </div>
+                        </div>
+                        <div class="board-panel-actions">
+                            <button id="rollDiceBtn" class="board-action-btn primary" type="button">擲骰前進</button>
+                            <button id="boardFocusBtn" class="board-action-btn secondary" type="button">查看本回合目標</button>
                         </div>
                     </div>
                 </div>
@@ -304,14 +434,36 @@
                 </div>
             </div>
 
-            <div id="answerToast" class="answer-toast hidden" aria-live="polite">
-                <div class="answer-toast-header">
-                    <span class="answer-toast-title">AI 回覆</span>
-                    <button id="answerToastClose" class="answer-toast-close" type="button" aria-label="關閉回覆">✕</button>
-                </div>
-                <div id="answerToastText" class="answer-toast-text"></div>
+        <div id="answerToast" class="answer-toast hidden" aria-live="polite">
+            <div class="answer-toast-header">
+                <span class="answer-toast-title">AI 回覆</span>
+                <button id="answerToastClose" class="answer-toast-close" type="button" aria-label="關閉回覆">✕</button>
+            </div>
+            <div id="answerToastText" class="answer-toast-text"></div>
+        </div>
+
+        <div id="diceOverlay" class="dice-overlay hidden" aria-live="polite" aria-label="骰子動畫">
+            <div class="dice-overlay-card">
+                <div class="dice-overlay-label">命運之骰</div>
+                <div id="diceCube" class="dice-cube">?</div>
+                <div id="diceOverlayText" class="dice-overlay-text">正在擲骰...</div>
             </div>
         </div>
+
+        <div id="npcDialog" class="npc-dialog hidden" aria-live="polite" aria-label="NPC 對話">
+            <div id="npcDialogPortrait" class="npc-dialog-portrait">🧭</div>
+            <div class="npc-dialog-card">
+                <div class="npc-dialog-header">
+                    <strong id="npcDialogSpeaker">沙丘引導員</strong>
+                    <span id="npcDialogMood" class="npc-dialog-mood">對話中</span>
+                </div>
+                <div id="npcDialogText" class="npc-dialog-text">歡迎進入沙丘。</div>
+                <div class="npc-dialog-actions">
+                    <button id="npcDialogClose" class="npc-dialog-btn" type="button">繼續</button>
+                </div>
+            </div>
+        </div>
+    </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"

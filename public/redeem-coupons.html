@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>核銷優惠券 | GPS 觸發任務系統</title>
+  <title>兌換核銷台 | 沙丘</title>
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="icon" type="image/png" href="/images/mascot.png" />
   <style>
@@ -240,12 +240,12 @@
 <body>
   <header>
     <nav>
-      <div id="navHome"><a href="/">首頁</a></div>
-      <div id="navMap"><a href="/map.html">地圖</a></div>
-      <div id="navTasks"><a href="/tasks-list.html">任務列表</a></div>
-      <div id="navDashboard"><a href="/user-dashboard.html">個人儀表板</a></div>
+      <div id="navHome"><a href="/index.html">首頁</a></div>
+      <div id="navEntries"><a href="/index.html#gameEntries">玩法入口</a></div>
+      <div id="navLab"><a href="/ai-lab.html">海底探索艙</a></div>
+      <div id="navDashboard"><a href="/user-dashboard.html">玩家中心</a></div>
       <div id="navRedeem"><a href="/products.html">兌換商品</a></div>
-      <div id="navUserTasks"><a href="/user-tasks.html">任務進度</a></div>
+      <div id="navUserTasks"><a href="/user-tasks.html">遊戲紀錄</a></div>
       <div id="loginUserInfo">載入中...</div>
       <button id="logoutBtn" style="display:none;">登出</button>
     </nav>
@@ -253,7 +253,7 @@
 
   <main>
     <div class="redeem-container">
-      <h1>核銷優惠券</h1>
+      <h1>兌換核銷台</h1>
 
       <!-- 結果訊息 -->
       <div id="resultMessage" class="result-message"></div>
@@ -299,7 +299,7 @@
   </main>
 
   <footer>
-    &copy; 2025 任務網頁系統
+    &copy; 2026 沙丘 AI 實境遊戲平台
   </footer>
 
   <script>
@@ -467,7 +467,7 @@
           <div class="history-info">
             <h5>${item.coupon_title}</h5>
             <div class="history-meta">
-              代碼：${item.coupon_code} | 用戶：${item.username}
+              代碼：${item.coupon_code} | 玩家：${item.username}
             </div>
           </div>
           <div class="history-time">
@@ -516,7 +516,7 @@
       }
 
       // 顯示用戶資訊
-      document.getElementById('loginUserInfo').textContent = `商店：${loginUser.username}`;
+      document.getElementById('loginUserInfo').textContent = `兌換工作人員：${loginUser.username}`;
       document.getElementById('logoutBtn').style.display = '';
 
       // 設置登出功能

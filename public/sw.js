@@ -1,8 +1,8 @@
-// Service Worker for GPS Task System
+// Service Worker for Sandhill
 // 負責推送通知與快取管理
 
 // bump this to force clients to drop old cached assets (prevents "I fixed it but nothing changes")
-const CACHE_NAME = 'gps-task-v3';
+const CACHE_NAME = 'sandhill-v4';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -155,4 +155,3 @@ self.addEventListener('notificationclick', function(event) {
 self.addEventListener('notificationclose', function(event) {
   console.log('Service Worker: 通知被關閉', event.notification.tag);
 });
-

@@ -4,6 +4,8 @@ node_modules/
 .env.*
 !.env.example
 *.log
+.playwright-cli/
+.tmp_*
 coverage/
 .vscode/
 .venv/

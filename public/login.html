@@ -3,23 +3,66 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>登入 | GPS 觸發任務系統</title>
+  <title>登入 | 沙丘</title>
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="icon" type="image/png" href="/images/mascot.png" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    .mobile-auth-shell {
+      min-height: 100vh;
+      padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+    }
+    .mobile-auth-shell main {
+      display: flex;
+      align-items: center;
+    }
+    .mobile-auth-hero {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 18px;
+      text-align: center;
+    }
+    .mobile-auth-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(15,118,110,0.1);
+      color: #0f766e;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+    @media (max-width: 768px) {
+      .mobile-auth-shell main {
+        display: block;
+      }
+      .mobile-auth-shell .form-container {
+        margin-top: 10px;
+      }
+      .mobile-auth-shell .tab-buttons {
+        gap: 8px;
+      }
+      .mobile-auth-shell .tab-btn {
+        min-height: 46px;
+        font-weight: 700;
+      }
+    }
+  </style>
 </head>
-<body>
+<body class="mobile-auth-shell">
   <header id="mainHeader">
     <div class="header-content" id="headerContent">
-      <h1 id="pageTitle">登入</h1>
+      <h1 id="pageTitle">登入沙丘</h1>
       <button id="hamburgerBtn" class="hamburger" aria-label="展開選單">&#9776;</button>
       <nav class="main-nav">
         <a href="/index.html">首頁</a>
-        <a href="/map.html">關卡地圖</a>
-        <a href="/tasks-list.html" id="navTasksList">任務列表</a>
-        <a href="/user-tasks.html">任務審核</a>
-        <a href="/staff-dashboard.html" id="navStaff" style="display:none;">新增任務</a>
-        <a href="/user-dashboard.html" id="navUserTasks" style="display:none;">用戶任務管理</a>
+        <a href="/index.html#gameEntries">玩法入口</a>
+        <a href="/ai-lab.html" id="navTasksList">開啟遊戲殼</a>
+        <a href="/user-tasks.html">遊戲紀錄</a>
+        <a href="/staff-dashboard.html" id="navStaff" style="display:none;">內容控制台</a>
+        <a href="/user-dashboard.html" id="navUserTasks" style="display:none;">玩家管理</a>
         <a href="/products.html" id="navProducts">商品兌換</a>
         <a href="/redeem-tasks.html" id="navRedeem" style="display:none;">兌換商品管理</a>
         <span id="loginUserInfo" style="display:none; color:var(--text-secondary); padding:0.5rem 1rem;"></span>
@@ -30,34 +73,40 @@
 
   <main>
     <div class="form-container">
-      <h2 class="text-center mb-4" style="color:var(--text-primary);">歡迎回來</h2>
+      <div class="mobile-auth-hero">
+        <span class="mobile-auth-badge">手機遊玩入口</span>
+        <h2 class="text-center mb-4" style="color:var(--text-primary);">回到沙丘冒險場</h2>
+        <p class="text-center mb-4" style="color:var(--text-secondary); line-height:1.7;">
+          玩家從這裡進入劇情主線或大富翁挑戰，工作人員則從這裡回到內容控制台。
+        </p>
+      </div>
       
       <div class="tab-container" style="box-shadow:none; border: 1px solid #e5e7eb; margin-bottom: 1.5rem;">
         <div class="tab-buttons">
-          <button id="tabUser" type="button" class="tab-btn active">一般用戶登入</button>
+          <button id="tabUser" type="button" class="tab-btn active">玩家登入</button>
           <button id="tabStaff" type="button" class="tab-btn">工作人員登入</button>
         </div>
       </div>
 
       <form id="loginFormUser">
         <div class="form-group">
-          <label class="form-label">手機門號</label>
+          <label class="form-label">玩家手機門號</label>
           <input class="form-input" type="text" name="username" required pattern="[0-9]{10}" maxlength="10" autocomplete="username" placeholder="請輸入10碼手機號碼" />
         </div>
-        <button type="submit" class="btn btn-primary w-100">登入</button>
+        <button type="submit" class="btn btn-primary w-100">進入沙丘</button>
         <div id="loginMsgUser" class="text-danger mt-2 text-center" style="min-height: 24px;"></div>
       </form>
 
       <form id="loginFormStaff" style="display:none;">
         <div class="form-group">
-          <label class="form-label">帳號</label>
+          <label class="form-label">工作人員帳號</label>
           <input class="form-input" type="text" name="username" required autocomplete="username" placeholder="請輸入工作人員帳號" />
         </div>
         <div class="form-group">
           <label class="form-label">密碼</label>
           <input class="form-input" type="password" name="password" required autocomplete="current-password" placeholder="請輸入密碼" />
         </div>
-        <button type="submit" class="btn btn-primary w-100">登入</button>
+        <button type="submit" class="btn btn-primary w-100">進入控制台</button>
         <div id="loginMsgStaff" class="text-danger mt-2 text-center" style="min-height: 24px;"></div>
       </form>
       
@@ -69,7 +118,7 @@
   </main>
 
   <footer>
-    &copy; 2025 GPS 任務系統 - 地方開箱任務遊戲
+    &copy; 2026 沙丘 AI 實境遊戲平台
   </footer>
   <script src="/js/login.js"></script>
   <script>

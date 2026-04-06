@@ -355,7 +355,7 @@
       <button id="hamburgerBtn" class="hamburger" aria-label="展開選單">&#9776;</button>
       <nav class="main-nav">
         <a href="/index.html">首頁</a>
-        <a href="/map.html">關卡地圖</a>
+        <a href="/map.html">探索地圖</a>
         <a href="/tasks-list.html" id="navTasksList">關卡列表</a>
         <a href="/ai-lab.html">海底探索艙</a>
         <a href="/user-tasks.html">任務紀錄</a>
@@ -649,7 +649,7 @@
             <div class="stage-content">
               <div class="stage-copy">${task.description}</div>
               <div class="stage-actions">
-                <button id="primaryStageBtn" class="stage-btn primary">${completedTask ? '查看下一關' : inProgressTask ? '開啟關卡地圖' : '接下這一關，前往地圖'}</button>
+                <button id="primaryStageBtn" class="stage-btn primary">${completedTask ? '查看下一關' : inProgressTask ? '打開探索地圖' : '接下這一關，前往探索地圖'}</button>
                 <button id="reachStageBtn" class="stage-btn secondary" ${completedTask ? 'style="display:none;"' : ''}>我已抵達任務點，開始挑戰</button>
               </div>
               <div id="taskStatus" class="stage-status">${statusText}</div>
@@ -734,7 +734,7 @@
           if (nextTask) {
             window.location.href = `/task-detail.html?id=${nextTask.id}`;
           } else {
-            statusEl.textContent = '這條劇情線目前已完成，可以回到地圖看看其他關卡。';
+            statusEl.textContent = '這條劇情線目前已完成，可以回到探索地圖看看其他關卡。';
           }
           return;
         }
@@ -761,7 +761,7 @@
           }
         }
 
-        statusEl.textContent = '關卡已接下，正在帶你前往地圖。';
+        statusEl.textContent = '關卡已接下，正在帶你前往探索地圖。';
         window.location.href = mapUrl;
       };
 
@@ -797,7 +797,7 @@
       }
 
       if (inProgressTask) {
-        primaryBtn.textContent = '開啟關卡地圖';
+        primaryBtn.textContent = '打開探索地圖';
       }
 
       const answerMsg = () => document.getElementById('answerMsg');
@@ -863,9 +863,9 @@
               await loadAttemptHistory(userTaskId);
               if (data.isCompleted) {
                 statusEl.textContent = data.questChainCompleted
-                  ? '整條劇情線已完成。你可以回到地圖繼續探索，或直接前往下一個章節。'
+                  ? '整條劇情線已完成。你可以回到探索地圖繼續冒險，或直接前往下一個章節。'
                   : '這一關已完成。你可以繼續前往下一關。';
-                primaryBtn.textContent = nextTask ? '查看下一關' : '回到關卡地圖';
+                primaryBtn.textContent = nextTask ? '查看下一關' : '回到探索地圖';
                 if (!nextTask) {
                   primaryBtn.onclick = () => window.location.href = mapUrl;
                 }

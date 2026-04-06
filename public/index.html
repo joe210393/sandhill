@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>海底大作戰 | AI 冒險任務平台</title>
+  <title>沙丘｜海底大作戰 AI 冒險平台</title>
 
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0c6b86">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="海底大作戰">
+  <meta name="apple-mobile-web-app-title" content="沙丘">
   <link rel="apple-touch-icon" href="/images/mascot.png">
   <link rel="icon" type="image/png" href="/images/mascot.png" />
   <link rel="stylesheet" href="/css/style.css" />
@@ -365,6 +365,67 @@
       color: white;
     }
 
+    .mode-entry-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 20px;
+    }
+
+    .mode-entry-card {
+      padding: 24px;
+      border-radius: 28px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.92), rgba(240, 251, 248, 0.96));
+      border: 1px solid rgba(12, 107, 134, 0.12);
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 14px;
+    }
+
+    .mode-entry-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .mode-entry-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 800;
+      background: rgba(12, 107, 134, 0.09);
+      color: #0b455c;
+    }
+
+    .mode-entry-card h3 {
+      margin: 0;
+      font-size: 1.34rem;
+      color: #113f4d;
+    }
+
+    .mode-entry-card p {
+      margin: 0;
+      line-height: 1.8;
+      color: #54707a;
+    }
+
+    .mode-entry-card .ocean-btn {
+      min-width: 0;
+      width: fit-content;
+    }
+
+    .loading-card {
+      padding: 22px;
+      border-radius: 24px;
+      background: rgba(255,255,255,0.75);
+      color: #55727c;
+      text-align: center;
+      border: 1px dashed rgba(12, 107, 134, 0.18);
+    }
+
     .section {
       margin-top: 26px;
       padding: 34px;
@@ -642,6 +703,7 @@
 
       .hero-side,
       .showcase-grid,
+      .mode-entry-grid,
       .values-grid,
       .chapters-grid,
       .ai-grid,
@@ -660,19 +722,18 @@
 <body>
   <header id="mainHeader">
     <div class="header-content" id="headerContent">
-      <h1 id="pageTitle">海底大作戰</h1>
+      <h1 id="pageTitle">沙丘</h1>
       <button id="hamburgerBtn" class="hamburger" aria-label="展開選單">&#9776;</button>
       <nav class="main-nav">
         <a href="/index.html" class="current-page">首頁</a>
-        <a href="/map.html">任務地圖</a>
-        <a href="/tasks-list.html" id="navTasksList">關卡列表</a>
-        <a href="/user-tasks.html">任務紀錄</a>
+        <a href="#gameEntries">玩法入口</a>
+        <a href="/user-tasks.html">遊戲紀錄</a>
         <a href="/staff-dashboard.html" id="navStaff" style="display:none;">建立關卡</a>
         <a href="/role-management.html" id="navRoleMgmt" style="display:none;">權限管理</a>
         <a href="/user-dashboard.html" id="navUserTasks" style="display:none;">玩家管理</a>
         <a href="/products.html" id="navProducts">獎勵兌換</a>
         <a href="/redeem-tasks.html" id="navRedeem" style="display:none;">兌換管理</a>
-        <a href="/ai-lab.html">海底探索艙</a>
+        <a href="/ai-lab.html">開啟遊戲殼</a>
         <span id="loginUserInfo" style="color:#eef9ff;"></span>
         <button id="logoutBtn" style="display:none;">登出</button>
       </nav>
@@ -690,11 +751,11 @@
         <div class="eyebrow">AI 劇情關卡平台 ・ 海洋任務入口</div>
         <h2 class="hero-title">跟著史蛋與巴布，<br>把淨灘、觀察、創作，變成一場會闖關的海洋冒險。</h2>
         <p class="hero-description">
-          `sandhill` 不再只是一般任務頁，而是一個把故事、角色、實地行動與 AI 判定串在一起的活動體驗。參與者可以拍下寶特瓶、辨識植物、上傳團體照，讓 AI 成為每一關的守關者，通過後再解鎖下一段劇情。
+          `沙丘` 不再只是一般任務頁，而是一個把故事、角色、實地行動與 AI 判定串在一起的活動體驗。參與者可以拍下寶特瓶、辨識植物、上傳團體照，讓 AI 成為每一關的守關者，通過後再解鎖下一段劇情。
         </p>
         <div class="hero-actions">
-          <a class="ocean-btn ocean-btn-primary" href="/map.html">開始冒險</a>
-          <a class="ocean-btn ocean-btn-secondary" href="/tasks-list.html">查看關卡</a>
+          <a class="ocean-btn ocean-btn-primary" href="#gameEntries">選擇玩法</a>
+          <a class="ocean-btn ocean-btn-secondary" href="/ai-lab.html">直接開啟遊戲殼</a>
         </div>
         <div id="authBtns" class="auth-panel"></div>
       </div>
@@ -735,6 +796,22 @@
             </div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <section class="section section-card" id="gameEntries">
+      <div class="section-heading">
+        <div>
+          <h2>選擇目前開放的玩法</h2>
+          <p>玩家從這裡直接挑選「劇情主線」或「大富翁模式」，選了就進入遊戲，不再自己打開大地圖找任務。</p>
+        </div>
+      </div>
+      <div id="storyModeEntries" class="mode-entry-grid">
+        <div class="loading-card">正在載入劇情主線...</div>
+      </div>
+      <div style="height:18px;"></div>
+      <div id="boardGameEntries" class="mode-entry-grid">
+        <div class="loading-card">正在載入大富翁玩法...</div>
       </div>
     </section>
 
@@ -905,17 +982,17 @@
     </section>
 
     <section class="cta-panel">
-      <h2>準備好把海底大作戰，做成真正的 AI 冒險活動了嗎？</h2>
-      <p>現在你可以從地圖進入任務，也可以直接查看關卡列表。後台已經能建立 AI-first 任務，接下來就能把劇情、角色與章節逐步接上完整活動體驗。</p>
+      <h2>準備好進入沙丘，開始真正的 AI 冒險活動了嗎？</h2>
+      <p>現在首頁已經能改成模式入口，後台也能決定哪些劇情與活動開放。接下來就會繼續把 `ai-lab` 收斂成真正的單一遊戲主場景。</p>
       <div class="cta-actions">
-        <a class="ocean-btn ocean-btn-primary" href="/map.html">立即進入任務地圖</a>
+        <a class="ocean-btn ocean-btn-primary" href="#gameEntries">立即選擇玩法</a>
         <a class="ocean-btn ocean-btn-secondary" href="/staff-dashboard.html">前往建立關卡</a>
       </div>
     </section>
   </main>
 
   <footer>
-    &copy; 2026 海底大作戰 AI 冒險任務平台 |
+    &copy; 2026 沙丘 AI 冒險平台 |
     <a href="https://laijiubo.zeabur.app/" target="_blank" rel="noreferrer">來就補多媒體行銷 製作</a>
   </footer>
 
@@ -978,6 +1055,52 @@
     document.getElementById('hamburgerBtn').onclick = function() {
       document.getElementById('headerContent').classList.toggle('open');
     };
+
+    function buildEntryCard(entry, fallbackMode) {
+      const modeLabel = entry.mode_type === 'board_game' ? '大富翁模式' : '劇情主線';
+      const sceneLabel = entry.entry_scene_label || modeLabel;
+      const buttonText = entry.entry_button_text || (entry.mode_type === 'board_game' ? '進入玩法' : '開始劇情');
+      const params = new URLSearchParams();
+      params.set('questChainId', entry.id);
+      params.set('mode', entry.mode_type || fallbackMode || 'story_campaign');
+      const href = `/ai-lab.html?${params.toString()}`;
+      return `
+        <article class="mode-entry-card">
+          <div class="mode-entry-meta">
+            <span class="mode-entry-pill">${modeLabel}</span>
+            <span class="mode-entry-pill">${sceneLabel}</span>
+            ${entry.play_style ? `<span class="mode-entry-pill">${entry.play_style}</span>` : ''}
+          </div>
+          <h3>${entry.title || entry.name}</h3>
+          <p>${entry.short_description || entry.description || '尚未提供簡介。'}</p>
+          <a class="ocean-btn ocean-btn-primary" href="${href}">${buttonText}</a>
+        </article>
+      `;
+    }
+
+    async function loadGameEntries() {
+      const storyContainer = document.getElementById('storyModeEntries');
+      const boardContainer = document.getElementById('boardGameEntries');
+      try {
+        const res = await fetch('/api/game-entries');
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || '載入失敗');
+
+        const stories = data.storyCampaigns || [];
+        const boards = data.boardGames || [];
+        storyContainer.innerHTML = stories.length
+          ? stories.map(entry => buildEntryCard(entry, 'story_campaign')).join('')
+          : '<div class="loading-card">目前沒有開放中的劇情主線。</div>';
+        boardContainer.innerHTML = boards.length
+          ? boards.map(entry => buildEntryCard(entry, 'board_game')).join('')
+          : '<div class="loading-card">目前沒有開放中的大富翁玩法。</div>';
+      } catch (err) {
+        storyContainer.innerHTML = '<div class="loading-card">劇情主線載入失敗，請稍後再試。</div>';
+        boardContainer.innerHTML = '<div class="loading-card">大富翁玩法載入失敗，請稍後再試。</div>';
+      }
+    }
+
+    loadGameEntries();
 
     document.querySelectorAll('.main-nav a').forEach(a => {
       a.onclick = () => document.getElementById('headerContent').classList.remove('open');

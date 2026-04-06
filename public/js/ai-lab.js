@@ -22,8 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const PROMPTS = {
             free: {
-                title: "🌿 自由探索模式",
-                intro: "這裡沒有任務壓力，你可以隨意拍攝身邊的植物或物品，我會為你介紹它們的小知識。",
+                title: "📷 鏡頭待命模式",
+                intro: "這裡是沙丘的鏡頭待命區，你可以先熟悉畫面、測試取景，或隨手拍攝讓 AI 幫你觀察眼前的物件與場景。",
                 system: `你是一位專業的植物形態學家與生態研究員。
 
 **重要：你必須按照以下步驟進行分析，絕對不能跳過任何步驟！**
@@ -332,6 +332,42 @@ document.addEventListener('DOMContentLoaded', () => {
         let miniMapRefresh = document.getElementById('miniMapRefresh');
         let miniMapTaskIndicators = document.getElementById('miniMapTaskIndicators');
         const locationBar = document.getElementById('locationBar');
+        const gameShellPanel = document.getElementById('gameShellPanel');
+        const gameShellToggle = document.getElementById('gameShellToggle');
+        const gameShellBtn = document.getElementById('gameShellBtn');
+        const gameShellMode = document.getElementById('gameShellMode');
+        const gameShellTitle = document.getElementById('gameShellTitle');
+        const gameShellSummary = document.getElementById('gameShellSummary');
+        const gameShellObjective = document.getElementById('gameShellObjective');
+        const gameShellProgress = document.getElementById('gameShellProgress');
+        const gameShellEntries = document.getElementById('gameShellEntries');
+        const gameShellStartBtn = document.getElementById('gameShellStartBtn');
+        const hudModeValue = document.getElementById('hudModeValue');
+        const hudStageValue = document.getElementById('hudStageValue');
+        const hudPointsValue = document.getElementById('hudPointsValue');
+        const hudBadgesValue = document.getElementById('hudBadgesValue');
+        const boardStatusCard = document.getElementById('boardStatusCard');
+        const boardHudRound = document.getElementById('boardHudRound');
+        const boardHudTile = document.getElementById('boardHudTile');
+        const boardHudSession = document.getElementById('boardHudSession');
+        const boardHudResult = document.getElementById('boardHudResult');
+        const hudPanelBtn = document.getElementById('hudPanelBtn');
+        const boardPanelBtn = document.getElementById('boardPanelBtn');
+        const dockHudPanel = document.getElementById('dockHudPanel');
+        const dockBoardPanel = document.getElementById('dockBoardPanel');
+        const hudPanelSummary = document.getElementById('hudPanelSummary');
+        const hudPanelNext = document.getElementById('hudPanelNext');
+        const hudPanelRescue = document.getElementById('hudPanelRescue');
+        const hudPanelStages = document.getElementById('hudPanelStages');
+        const hudPanelBadges = document.getElementById('hudPanelBadges');
+        const boardPanelStatus = document.getElementById('boardPanelStatus');
+        const boardPanelMeta = document.getElementById('boardPanelMeta');
+        const boardPanelAction = document.getElementById('boardPanelAction');
+        const boardPanelTrack = document.getElementById('boardPanelTrack');
+        const boardMapSelector = document.getElementById('boardMapSelector');
+        const boardMapSelectorStatus = document.getElementById('boardMapSelectorStatus');
+        const rollDiceBtn = document.getElementById('rollDiceBtn');
+        const boardFocusBtn = document.getElementById('boardFocusBtn');
         const taskBgmBtn = document.getElementById('taskBgmBtn');
         const taskIntroBtn = document.getElementById('taskIntroBtn');
         const taskIntroPanel = document.getElementById('taskIntroPanel');
@@ -371,11 +407,46 @@ document.addEventListener('DOMContentLoaded', () => {
         const completionModal = document.getElementById('completionModal');
         const completionReward = document.getElementById('completionReward');
         const btnCompletionClose = document.getElementById('btnCompletionClose');
+        const diceOverlay = document.getElementById('diceOverlay');
+        const diceCube = document.getElementById('diceCube');
+        const diceOverlayText = document.getElementById('diceOverlayText');
+        const npcDialog = document.getElementById('npcDialog');
+        const npcDialogPortrait = document.getElementById('npcDialogPortrait');
+        const npcDialogSpeaker = document.getElementById('npcDialogSpeaker');
+        const npcDialogMood = document.getElementById('npcDialogMood');
+        const npcDialogText = document.getElementById('npcDialogText');
+        const npcDialogClose = document.getElementById('npcDialogClose');
+
+        const NPC_PROFILES = {
+            guide: { name: '引路人・砂舟', portrait: '🧭', button: '知道了' },
+            gatekeeper: { name: '潮汐關主・巴布', portrait: '🦀', button: '接受挑戰' },
+            judge: { name: '潮汐裁判・鯨語', portrait: '🐋', button: '聽判定' },
+            host: { name: '事件主持人・史蛋', portrait: '🎲', button: '繼續前進' },
+            rescue: { name: '救援員・海羽', portrait: '🛟', button: '重新整隊' },
+            lore: { name: '導覽員・潮聲', portrait: '🌊', button: '繼續聽' }
+        };
 
         // 任務情境（來自 AR-VIEW／新增任務 API：由 URL taskId 載入；進入後先見相機，再自行找地點）
         let currentTask = null;
         let currentTaskId = null;
         let currentUserTaskId = null;
+        let currentQuestChainId = null;
+        let currentQuestChainData = null;
+        let currentEntryMode = null;
+        let currentStoryTasks = [];
+        let currentStoryCompleted = false;
+        let currentBoardMaps = [];
+        let currentBoardTiles = [];
+        let currentBoardMap = null;
+        let currentBoardActiveTileId = null;
+        let isShellExperience = false;
+        let playerHudStats = { points: null, badges: [] };
+        let currentBoardRun = null;
+        let currentBoardSessionId = null;
+        let useRemoteBoardSession = false;
+        let currentNpcDialogResolver = null;
+        let currentNpcDialogAutoCloseTimer = null;
+        let lastStoryDialogueKey = null;
         let targetLat = null;
         let targetLng = null;
         let navigationWatchId = null;
@@ -459,7 +530,826 @@ document.addEventListener('DOMContentLoaded', () => {
             if (taskTargetImg) {
                 taskTargetImg.src = task.ar_image_url || task.photoUrl || task.photo_url || '/images/mascot.png';
             }
+            if (gameShellObjective) {
+                gameShellObjective.textContent = task.stage_intro || task.description || task.name || '請前往完成當前關卡';
+            }
+            renderHudSummary();
             // 不自動彈出景點介紹：與 AR-VIEW 一致，進入後先看到相機畫面，由使用者自行點 📋 查看
+        }
+
+        function getLoginStorageKey() {
+            const user = getLoginUser();
+            return user?.username || user?.email || user?.id || 'guest';
+        }
+
+        function getBoardRunStorageKey() {
+            return `sandhill-board-run:${getLoginStorageKey()}:${currentQuestChainId || 'none'}`;
+        }
+
+        function renderHudSummary() {
+            if (hudModeValue) {
+                if (currentEntryMode === 'story_campaign') hudModeValue.textContent = '劇情主線';
+                else if (currentEntryMode === 'board_game') hudModeValue.textContent = '大富翁';
+                else hudModeValue.textContent = '鏡頭待命';
+            }
+
+            if (hudStageValue) {
+                if (currentEntryMode === 'story_campaign' && currentTask?.quest_order) {
+                    hudStageValue.textContent = `第 ${currentTask.quest_order} 關`;
+                } else if (currentEntryMode === 'board_game' && currentBoardRun?.currentTile) {
+                    hudStageValue.textContent = `第 ${currentBoardRun.currentTile} 格`;
+                } else {
+                    hudStageValue.textContent = '等待載入';
+                }
+            }
+
+            if (hudPointsValue) {
+                const boardPoints = Number(currentBoardRun?.gainedPoints || 0);
+                if (playerHudStats.points === null) hudPointsValue.textContent = boardPoints ? `+${boardPoints}` : '--';
+                else hudPointsValue.textContent = String(Number(playerHudStats.points || 0) + boardPoints);
+            }
+
+            if (hudBadgesValue) {
+                hudBadgesValue.textContent = String(playerHudStats.badges?.length || 0);
+            }
+
+            if (boardStatusCard) {
+                const isBoard = currentEntryMode === 'board_game';
+                boardStatusCard.classList.toggle('hidden', !isBoard);
+                if (isBoard) {
+                    if (boardHudRound) boardHudRound.textContent = `${Number(currentBoardRun?.round || 0)} 回`;
+                    if (boardHudTile) boardHudTile.textContent = `第 ${Number(currentBoardRun?.currentTile || 1)} 格`;
+                    if (boardHudSession) boardHudSession.textContent = useRemoteBoardSession && currentBoardSessionId ? `#${currentBoardSessionId}` : '本機';
+                    if (boardHudResult) {
+                        boardHudResult.textContent = currentBoardRun?.lastResultText || '等待擲骰';
+                    }
+                }
+            }
+
+            if (hudPanelSummary) {
+                const modeText = currentEntryMode === 'board_game'
+                    ? `目前在大富翁模式，第 ${currentBoardRun?.currentTile || 1} 格。`
+                    : currentEntryMode === 'story_campaign'
+                        ? (currentStoryCompleted
+                            ? '目前這條劇情主線已完成。'
+                            : `目前在劇情主線，第 ${currentTask?.quest_order || 1} 關。`)
+                        : '尚未進入正式玩法。';
+                const pointsText = playerHudStats.points === null
+                    ? '玩家積分讀取中。'
+                    : `目前累積積分 ${Number(playerHudStats.points || 0) + Number(currentBoardRun?.gainedPoints || 0)} 點。`;
+                hudPanelSummary.textContent = `${modeText} ${pointsText}`;
+            }
+
+            if (hudPanelNext) {
+                if (currentEntryMode === 'story_campaign') {
+                    const currentOrder = Number(currentTask?.quest_order || 0);
+                    const nextTask = currentStoryTasks.find((task) => Number(task.quest_order || 0) === currentOrder + 1);
+                    hudPanelNext.textContent = currentStoryCompleted
+                        ? '這條主線已完成，可以回首頁切換別的劇情，或直接進入大富翁模式。'
+                        : currentTask?.stage_intro
+                        || currentTask?.description
+                        || (nextTask ? `完成本關後，將解鎖下一關「${nextTask.name || '未命名關卡'}」。` : '完成目前關卡後，就會進入這條主線的下一步。');
+                } else if (currentEntryMode === 'board_game') {
+                    const pendingTile = currentBoardRun?.pendingTargetTile ? getBoardTileByIndex(currentBoardRun.pendingTargetTile) : null;
+                    hudPanelNext.textContent = pendingTile
+                        ? `本回合請前往第 ${pendingTile.tile_index} 格「${pendingTile.tile_name}」，完成挑戰後會由 AI 或事件自動結算。`
+                        : '按下「擲骰前進」開始下一步，系統會把焦點切到目標格。';
+                } else {
+                    hudPanelNext.textContent = '從首頁選擇一條劇情或一場大富翁活動後，這裡會顯示下一步。';
+                }
+            }
+
+            if (hudPanelRescue) {
+                if (currentEntryMode === 'story_campaign') {
+                    hudPanelRescue.textContent = currentStoryCompleted
+                        ? '主線已完成，若要再次體驗，建議回首頁選擇其他玩法入口。'
+                        : currentTask?.hint_text
+                        || currentTask?.failure_message
+                        || '如果這一關卡住了，系統會根據目前關卡目標給你提示與補救方式。';
+                } else if (currentEntryMode === 'board_game') {
+                    const failureMove = Number(currentBoardMap?.failure_move || -1);
+                    hudPanelRescue.textContent = useRemoteBoardSession
+                        ? `目前由後端 session 接管棋盤進度。若本回合失敗，系統會自動套用 ${failureMove} 格的失敗規則。`
+                        : `目前使用本機暫存模式。若本回合失敗，會套用 ${failureMove} 格的退步規則。`;
+                } else {
+                    hudPanelRescue.textContent = '進入玩法後，這裡會顯示目前可用的提示或救援資訊。';
+                }
+            }
+
+            if (hudPanelStages) {
+                if (currentEntryMode === 'story_campaign' && currentStoryTasks.length) {
+                    hudPanelStages.innerHTML = currentStoryTasks.map((task) => {
+                        const taskOrder = Number(task.quest_order || 0);
+                        const currentOrder = Number(currentTask?.quest_order || 0);
+                        let cls = '';
+                        let prefix = '待解鎖';
+                        if (currentStoryCompleted) {
+                            cls = 'completed';
+                            prefix = '已完成';
+                        } else if (taskOrder && currentOrder && taskOrder < currentOrder) {
+                            cls = 'completed';
+                            prefix = '已完成';
+                        } else if (String(task.id) === String(currentTask?.id)) {
+                            cls = 'current';
+                            prefix = '目前關卡';
+                        }
+                        return `<div class="hud-stage ${cls}">${prefix}｜${task.name || '未命名關卡'}</div>`;
+                    }).join('');
+                } else if (currentEntryMode === 'board_game') {
+                    hudPanelStages.innerHTML = '<div class="hud-stage muted">大富翁模式請從棋盤面板查看每一步狀態。</div>';
+                } else {
+                    hudPanelStages.innerHTML = '<div class="hud-stage muted">尚未載入關卡</div>';
+                }
+            }
+
+            if (hudPanelBadges) {
+                const badges = Array.isArray(playerHudStats.badges) ? playerHudStats.badges : [];
+                if (!badges.length) {
+                    hudPanelBadges.innerHTML = '<span class="hud-badge muted">尚未取得徽章</span>';
+                } else {
+                    hudPanelBadges.innerHTML = badges
+                        .slice(0, 6)
+                        .map((badge) => `<span class="hud-badge">${badge.name || '未命名徽章'}</span>`)
+                        .join('');
+                }
+            }
+
+            if (gameShellStartBtn) {
+                if (currentEntryMode === 'story_campaign') {
+                    gameShellStartBtn.textContent = currentStoryCompleted
+                        ? '主線已完成'
+                        : (currentTask?.task_type === 'location' ? '開始報到' : '開始這一關');
+                    gameShellStartBtn.disabled = !currentTask || currentStoryCompleted;
+                    gameShellStartBtn.classList.remove('hidden');
+                } else if (currentEntryMode === 'board_game') {
+                    gameShellStartBtn.textContent = currentBoardRun?.pendingTargetTile ? '前往本回合目標' : '擲骰展開回合';
+                    gameShellStartBtn.disabled = false;
+                    gameShellStartBtn.classList.remove('hidden');
+                } else {
+                    gameShellStartBtn.textContent = '開始遊戲';
+                    gameShellStartBtn.disabled = true;
+                }
+            }
+        }
+
+        function closeNpcDialog() {
+            if (currentNpcDialogAutoCloseTimer) {
+                clearTimeout(currentNpcDialogAutoCloseTimer);
+                currentNpcDialogAutoCloseTimer = null;
+            }
+            if (npcDialog) npcDialog.classList.add('hidden');
+            if (currentNpcDialogResolver) {
+                currentNpcDialogResolver();
+                currentNpcDialogResolver = null;
+            }
+        }
+
+        function showNpcDialog({ speaker = '沙丘引導員', speakerKey = null, mood = '提示', text = '', buttonLabel = null, autoCloseMs = null } = {}) {
+            if (!npcDialog || !npcDialogText) return Promise.resolve();
+            if (currentNpcDialogAutoCloseTimer) {
+                clearTimeout(currentNpcDialogAutoCloseTimer);
+                currentNpcDialogAutoCloseTimer = null;
+            }
+            const profile = speakerKey ? NPC_PROFILES[speakerKey] : null;
+            if (npcDialogPortrait) npcDialogPortrait.textContent = profile?.portrait || '🧭';
+            if (npcDialogSpeaker) npcDialogSpeaker.textContent = profile?.name || speaker;
+            if (npcDialogMood) npcDialogMood.textContent = mood;
+            if (npcDialogClose) npcDialogClose.textContent = buttonLabel || profile?.button || '繼續';
+            npcDialogText.textContent = text || '……';
+            npcDialog.classList.remove('hidden');
+            if (currentNpcDialogResolver) currentNpcDialogResolver();
+            const dialogPromise = new Promise((resolve) => {
+                currentNpcDialogResolver = resolve;
+            });
+            if (autoCloseMs) {
+                currentNpcDialogAutoCloseTimer = setTimeout(() => {
+                    closeNpcDialog();
+                }, autoCloseMs);
+            }
+            return dialogPromise;
+        }
+
+        function getCurrentQuestRules() {
+            return currentQuestChainData?.game_rules || currentQuestChainData?.content_blueprint || {};
+        }
+
+        function isCurrentQuestDemoMode() {
+            const rules = getCurrentQuestRules();
+            return Boolean(rules && (rules.demo_autopass || rules.demoAutoPass));
+        }
+
+        function getStoryIntroSpeaker(task) {
+            if (!task) return 'guide';
+            if (task.task_type === 'location') return 'host';
+            if (task.task_type === 'photo') return 'gatekeeper';
+            if (task.task_type === 'multiple_choice' || task.task_type === 'keyword' || task.task_type === 'number') return 'lore';
+            return 'guide';
+        }
+
+        function buildStoryIntroDialogue(task) {
+            if (!task) return '新的冒險正在成形。';
+            const parts = [];
+            if (task.stage_intro) parts.push(task.stage_intro);
+            else if (task.description) parts.push(task.description);
+            else parts.push(`第 ${task.quest_order || '?'} 關已展開，請準備進入下一段旅程。`);
+
+            if (task.hint_text) {
+                parts.push(`線索：${task.hint_text}`);
+            }
+            if (isCurrentQuestDemoMode()) {
+                parts.push('工作室體驗模式已啟動。這一條線會先讓你順順地走完整段流程，任意拍攝、任意選擇都會先通關。');
+            }
+            return parts.join('\n\n');
+        }
+
+        async function playDiceRollAnimation(rollValue, targetTile = null) {
+            if (!diceOverlay || !diceCube || !diceOverlayText) return;
+            diceOverlay.classList.remove('hidden');
+            diceCube.classList.remove('rolling');
+            diceCube.textContent = '🎲';
+            diceOverlayText.textContent = '命運之骰正在翻滾，請稍候...';
+            void diceCube.offsetWidth;
+            diceCube.classList.add('rolling');
+            await new Promise((resolve) => setTimeout(resolve, 900));
+            diceCube.classList.remove('rolling');
+            diceCube.textContent = String(rollValue);
+            diceOverlayText.textContent = targetTile
+                ? `你擲出了 ${rollValue}，接下來前往第 ${targetTile.tile_index} 格「${targetTile.tile_name}」。`
+                : `你擲出了 ${rollValue}。`;
+            await new Promise((resolve) => setTimeout(resolve, 900));
+            diceOverlay.classList.add('hidden');
+        }
+
+        async function loadPlayerHudStats() {
+            if (!getLoginUser()) {
+                playerHudStats = { points: null, badges: [] };
+                renderHudSummary();
+                return;
+            }
+            try {
+                const [pointsRes, badgesRes] = await Promise.all([
+                    fetch('/api/user/points', { credentials: 'include' }),
+                    fetch('/api/user/badges', { credentials: 'include' })
+                ]);
+
+                if (pointsRes.ok) {
+                    const pointsData = await pointsRes.json();
+                    if (pointsData.success) {
+                        playerHudStats.points = Number(pointsData.totalPoints || 0);
+                    }
+                }
+
+                if (badgesRes.ok) {
+                    const badgesData = await badgesRes.json();
+                    if (badgesData.success && Array.isArray(badgesData.badges)) {
+                        playerHudStats.badges = badgesData.badges;
+                    }
+                }
+            } catch (err) {
+                console.warn('讀取玩家 HUD 資訊失敗', err);
+            } finally {
+                renderHudSummary();
+            }
+        }
+
+        function getBoardTileByIndex(tileIndex) {
+            return currentBoardTiles.find((tile) => Number(tile.tile_index) === Number(tileIndex)) || null;
+        }
+
+        function syncBoardMapQuery(boardMapId) {
+            const url = new URL(window.location.href);
+            if (boardMapId) url.searchParams.set('boardMapId', String(boardMapId));
+            else url.searchParams.delete('boardMapId');
+            window.history.replaceState({}, '', url);
+        }
+
+        function renderBoardMapSelector() {
+            if (!boardMapSelector) return;
+
+            if (currentEntryMode !== 'board_game' || !currentBoardMaps.length) {
+                boardMapSelector.innerHTML = '<option value="">目前沒有可切換的棋盤</option>';
+                boardMapSelector.disabled = true;
+                if (boardMapSelectorStatus) boardMapSelectorStatus.textContent = '進入大富翁模式後，這裡會列出同入口下的可遊玩棋盤。';
+                return;
+            }
+
+            boardMapSelector.innerHTML = currentBoardMaps.map((boardMap) => {
+                const tileCount = Number(boardMap.tile_count || 0);
+                return `<option value="${boardMap.id}">${boardMap.name}${tileCount ? `｜${tileCount} 格` : ''}</option>`;
+            }).join('');
+            boardMapSelector.value = String(currentBoardMap?.id || currentBoardMaps[0]?.id || '');
+            boardMapSelector.disabled = currentBoardMaps.length <= 1;
+
+            if (boardMapSelectorStatus) {
+                const challengeCount = Number(currentBoardMap?.challenge_tile_count || 0);
+                const eventCount = Number(currentBoardMap?.event_tile_count || 0);
+                boardMapSelectorStatus.textContent = [
+                    currentBoardMap?.name ? `目前棋盤：${currentBoardMap.name}` : null,
+                    challengeCount ? `${challengeCount} 個挑戰格` : null,
+                    eventCount ? `${eventCount} 個事件格` : null
+                ].filter(Boolean).join('｜') || '目前沒有可用的棋盤摘要。';
+            }
+        }
+
+        function persistBoardRunState() {
+            if (!currentBoardRun || currentEntryMode !== 'board_game' || useRemoteBoardSession) return;
+            localStorage.setItem(getBoardRunStorageKey(), JSON.stringify(currentBoardRun));
+        }
+
+        function hydrateBoardRunStateLocally() {
+            if (currentEntryMode !== 'board_game' || !currentBoardMap) return;
+            let saved = null;
+            try {
+                saved = JSON.parse(localStorage.getItem(getBoardRunStorageKey()) || 'null');
+            } catch (err) {
+                saved = null;
+            }
+
+            const startTile = Number(currentBoardMap.start_tile || 1);
+            currentBoardRun = {
+                currentTile: Number(saved?.currentTile || startTile),
+                round: Number(saved?.round || 0),
+                pendingRoll: saved?.pendingRoll ? Number(saved.pendingRoll) : null,
+                pendingTargetTile: saved?.pendingTargetTile ? Number(saved.pendingTargetTile) : null,
+                gainedPoints: Number(saved?.gainedPoints || 0)
+            };
+            persistBoardRunState();
+            renderBoardPanel();
+            renderHudSummary();
+        }
+
+        function updateBoardRunFromSession(session) {
+            if (!session) return;
+            currentBoardSessionId = session.id;
+            const lastResult = session.last_result || null;
+            let lastResultText = '';
+            if (lastResult?.phase === 'rolled') {
+                lastResultText = lastResult.message || `剛擲出 ${lastResult.rollValue}，目標前往第 ${lastResult.targetTileIndex} 格。`;
+            } else if (lastResult?.phase === 'resolved') {
+                lastResultText = lastResult.message || (lastResult.success
+                    ? `挑戰成功，已推進到第 ${lastResult.nextTile} 格。`
+                    : `挑戰失敗，目前退回到第 ${lastResult.nextTile} 格。`);
+            }
+            currentBoardRun = {
+                currentTile: Number(session.current_tile || currentBoardMap?.start_tile || 1),
+                round: Number(session.round_count || 0),
+                pendingRoll: session.pending_roll == null ? null : Number(session.pending_roll),
+                pendingTargetTile: session.pending_target_tile == null ? null : Number(session.pending_target_tile),
+                gainedPoints: Number(session.gained_points || 0),
+                lastResultText
+            };
+            renderBoardPanel();
+            renderHudSummary();
+        }
+
+        async function hydrateBoardRunState() {
+            if (currentEntryMode !== 'board_game' || !currentBoardMap) return;
+            const previewMode = new URLSearchParams(window.location.search).get('preview') === '1';
+            if (!getLoginUser()) {
+                useRemoteBoardSession = false;
+                currentBoardSessionId = null;
+                hydrateBoardRunStateLocally();
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/board/session/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        questChainId: currentQuestChainId,
+                        boardMapId: currentBoardMap?.id || null,
+                        preview: previewMode
+                    })
+                });
+                if (!res.ok) {
+                    throw new Error('board session start failed');
+                }
+                const data = await res.json();
+                if (!data.success || !data.session) {
+                    throw new Error(data.message || 'board session start failed');
+                }
+                useRemoteBoardSession = true;
+                updateBoardRunFromSession(data.session);
+            } catch (err) {
+                console.warn('啟動遠端大富翁 session 失敗，改用本地暫存', err);
+                useRemoteBoardSession = false;
+                currentBoardSessionId = null;
+                hydrateBoardRunStateLocally();
+            }
+        }
+
+        function getResolvedBoardTargetTile(rollValue) {
+            const start = Number(currentBoardRun?.currentTile || currentBoardMap?.start_tile || 1);
+            const finishTile = Number(currentBoardMap?.finish_tile || currentBoardTiles.length || start);
+            const exactFinishRequired = Boolean(currentBoardMap?.exact_finish_required);
+            const desired = start + rollValue;
+            if (!exactFinishRequired) return Math.min(desired, finishTile);
+            return desired > finishTile ? start : desired;
+        }
+
+        function renderBoardPanel() {
+            if (currentEntryMode !== 'board_game') {
+                renderBoardMapSelector();
+                if (boardPanelStatus) boardPanelStatus.textContent = '目前未進入大富翁模式。';
+                if (boardPanelMeta) boardPanelMeta.textContent = '請先從首頁選擇一場大富翁活動。';
+                if (boardPanelAction) boardPanelAction.textContent = '請先從首頁選擇大富翁活動。';
+                if (boardPanelTrack) boardPanelTrack.innerHTML = '<div class="board-track-chip muted">請先進入大富翁模式。</div>';
+                if (rollDiceBtn) rollDiceBtn.disabled = true;
+                if (boardFocusBtn) boardFocusBtn.disabled = true;
+                return;
+            }
+
+            const finishTile = Number(currentBoardMap?.finish_tile || currentBoardTiles.length || 1);
+            const pendingTile = currentBoardRun?.pendingTargetTile ? getBoardTileByIndex(currentBoardRun.pendingTargetTile) : null;
+            const tileCount = Number(currentBoardMap?.tile_count || currentBoardTiles.length || 0);
+            renderBoardMapSelector();
+
+            if (boardPanelStatus) {
+                boardPanelStatus.textContent = `目前在第 ${currentBoardRun?.currentTile || 1} 格，本局已行動 ${currentBoardRun?.round || 0} 次，終點是第 ${finishTile} 格。這張棋盤共有 ${tileCount} 格。`;
+            }
+
+            if (boardPanelMeta) {
+                const modeText = useRemoteBoardSession && currentBoardSessionId
+                    ? `已接上後端 session #${currentBoardSessionId}，棋盤狀態會跟著帳號保存。`
+                    : '目前使用本機暫存模式，重新登入或換裝置不會同步。';
+                const lastResultText = currentBoardRun?.lastResultText ? ` 上一個結果：${currentBoardRun.lastResultText}` : '';
+                boardPanelMeta.textContent = `${modeText}${lastResultText}`;
+            }
+
+            if (boardPanelAction) {
+                if (pendingTile) {
+                    boardPanelAction.textContent = pendingTile.task_id
+                        ? `你剛擲出 ${currentBoardRun.pendingRoll}，本回合目標是第 ${pendingTile.tile_index} 格「${pendingTile.tile_name}」。進入挑戰後，AI 裁判會直接判定是否過關。`
+                        : `你剛擲出 ${currentBoardRun.pendingRoll}，本回合目標是第 ${pendingTile.tile_index} 格「${pendingTile.tile_name}」。事件觸發後會自動結算這一步。`;
+                } else {
+                    boardPanelAction.textContent = '按下「擲骰前進」開始本回合，系統會把你帶到對應格子的焦點內容。';
+                }
+            }
+
+            if (boardPanelTrack) {
+                boardPanelTrack.innerHTML = currentBoardTiles.map((tile) => {
+                    let cls = 'board-track-chip';
+                    let prefix = `第 ${tile.tile_index} 格`;
+                    if (Number(tile.tile_index) === Number(currentBoardRun?.currentTile)) {
+                        cls += ' current';
+                        prefix = '目前位置';
+                    } else if (Number(tile.tile_index) === Number(currentBoardRun?.pendingTargetTile)) {
+                        cls += ' pending';
+                        prefix = '本回合目標';
+                    }
+                    return `<div class="${cls}">${prefix}｜${tile.tile_name || '未命名格子'}</div>`;
+                }).join('');
+            }
+
+            if (rollDiceBtn) rollDiceBtn.disabled = Boolean(currentBoardRun?.pendingTargetTile);
+            if (boardFocusBtn) boardFocusBtn.disabled = !currentBoardRun?.pendingTargetTile;
+        }
+
+        async function completeBoardTurn(success, options = {}) {
+            if (currentEntryMode !== 'board_game' || !currentBoardRun?.pendingTargetTile) return;
+            const pendingTile = getBoardTileByIndex(currentBoardRun.pendingTargetTile);
+            const { speakerKey = success ? 'judge' : 'rescue', mood = success ? '通關判定' : '補救判定', text = null, autoCloseMs = 2200, skipDialog = false } = options;
+            if (useRemoteBoardSession && currentBoardSessionId) {
+                const res = await fetch(`/api/board/session/${currentBoardSessionId}/resolve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ success })
+                });
+                const data = await res.json();
+                if (!data.success || !data.session) {
+                    throw new Error(data.message || '結算回合失敗');
+                }
+                updateBoardRunFromSession(data.session);
+                if (!skipDialog) {
+                    await showNpcDialog({
+                        speakerKey,
+                        mood,
+                        text: text
+                            || (success
+                                ? (data.session?.last_result?.message || `挑戰成功，你已正式推進到第 ${data.session.current_tile} 格。`)
+                                : (data.session?.last_result?.message || `這回合未通過，目前回退到第 ${data.session.current_tile} 格，調整後再出發。`)),
+                        autoCloseMs
+                    });
+                }
+                if (data.session.pending_target_tile == null) {
+                    const focusTile = getBoardTileByIndex(data.session.current_tile);
+                    if (focusTile) {
+                        currentBoardActiveTileId = focusTile.id;
+                        renderGameShellEntries(currentBoardTiles, focusTile.id);
+                        updateGameShellProgress(focusTile);
+                    }
+                }
+                return;
+            }
+
+            if (success) {
+                currentBoardRun.currentTile = currentBoardRun.pendingTargetTile;
+                currentBoardRun.gainedPoints += Number(currentTask?.points || pendingTile?.effect_value || 0);
+                const turnPoints = Number(currentTask?.points || pendingTile?.effect_value || 0);
+                currentBoardRun.lastResultText = `「${pendingTile?.tile_name || '這一格'}」通過判定，已推進到第 ${currentBoardRun.currentTile} 格。${turnPoints > 0 ? ` 本回合獲得 ${turnPoints} 點旅程積分。` : ''}`;
+            } else {
+                const failureMove = Number(currentBoardMap?.failure_move || -1);
+                currentBoardRun.currentTile = Math.max(Number(currentBoardMap?.start_tile || 1), Number(currentBoardRun.currentTile || 1) + failureMove);
+                currentBoardRun.lastResultText = `「${pendingTile?.tile_name || '這一格'}」未通過，依棋盤規則退回到第 ${currentBoardRun.currentTile} 格。`;
+            }
+            currentBoardRun.round = Number(currentBoardRun.round || 0) + 1;
+            currentBoardRun.pendingRoll = null;
+            currentBoardRun.pendingTargetTile = null;
+            persistBoardRunState();
+            renderBoardPanel();
+            renderHudSummary();
+            if (!skipDialog) {
+                await showNpcDialog({
+                    speakerKey,
+                    mood,
+                    text: text || currentBoardRun.lastResultText || (success ? '挑戰成功。' : '挑戰失敗，請重新調整。'),
+                    autoCloseMs
+                });
+            }
+            const focusTile = getBoardTileByIndex(currentBoardRun.currentTile);
+            if (focusTile) {
+                currentBoardActiveTileId = focusTile.id;
+                renderGameShellEntries(currentBoardTiles, focusTile.id);
+                updateGameShellProgress(focusTile);
+            }
+        }
+
+        async function startBoardTurn() {
+            if (currentEntryMode !== 'board_game' || !currentBoardMap || currentBoardRun?.pendingTargetTile) return;
+            if (useRemoteBoardSession && currentBoardSessionId) {
+                const res = await fetch(`/api/board/session/${currentBoardSessionId}/roll`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                const data = await res.json();
+                if (!data.success || !data.session) {
+                    throw new Error(data.message || '擲骰失敗');
+                }
+                updateBoardRunFromSession(data.session);
+                if (data.targetTile) {
+                    const focusTile = getBoardTileByIndex(data.targetTile.tile_index);
+                    if (focusTile) {
+                        await playDiceRollAnimation(data.session.pending_roll, focusTile);
+                        await focusBoardTile(focusTile);
+                    }
+                }
+                return;
+            }
+            const diceMin = Number(currentBoardMap.dice_min || 1);
+            const diceMax = Number(currentBoardMap.dice_max || 6);
+            const rollValue = Math.floor(Math.random() * (diceMax - diceMin + 1)) + diceMin;
+            const targetTileIndex = getResolvedBoardTargetTile(rollValue);
+            const targetTile = getBoardTileByIndex(targetTileIndex);
+            currentBoardRun.pendingRoll = rollValue;
+            currentBoardRun.pendingTargetTile = targetTileIndex;
+            currentBoardRun.lastResultText = `剛擲出 ${rollValue}，目標前往第 ${targetTileIndex} 格。`;
+            persistBoardRunState();
+            renderBoardPanel();
+            if (targetTile) {
+                await playDiceRollAnimation(rollValue, targetTile);
+                await focusBoardTile(targetTile);
+            }
+        }
+
+        function updateGameShellProgress(activeEntry = null) {
+            if (!gameShellProgress) return;
+            if (currentEntryMode === 'story_campaign') {
+                if (!currentStoryTasks.length) {
+                    gameShellProgress.textContent = '目前沒有可進行的關卡';
+                    return;
+                }
+                if (currentStoryCompleted) {
+                    gameShellProgress.textContent = `劇情主線已完成｜共 ${currentStoryTasks.length} 關`;
+                    return;
+                }
+                const activeOrder = Number(activeEntry?.quest_order || 1);
+                gameShellProgress.textContent = `目前進度：第 ${activeOrder} 關 / 共 ${currentStoryTasks.length} 關`;
+                return;
+            }
+            if (currentEntryMode === 'board_game') {
+                if (!currentBoardTiles.length) {
+                    gameShellProgress.textContent = '等待棋盤資料';
+                    return;
+                }
+                const activeIndex = Number(activeEntry?.tile_index || 1);
+                const finishTile = currentBoardMap?.finish_tile ? `｜終點：第 ${currentBoardMap.finish_tile} 格` : '';
+                gameShellProgress.textContent = `目前焦點：第 ${activeIndex} 格 / 共 ${currentBoardTiles.length} 格${finishTile}`;
+                return;
+            }
+            gameShellProgress.textContent = '等待載入';
+        }
+
+        function renderGameShellEntries(entries = [], activeId = null) {
+            if (!gameShellEntries) return;
+            if (!entries.length) {
+                gameShellEntries.innerHTML = '<div class="game-shell-entry muted">目前沒有可顯示的內容。</div>';
+                return;
+            }
+            gameShellEntries.innerHTML = entries.map((entry) => {
+                const isActive = String(activeId) === String(entry.id);
+                const title = entry.name || entry.tile_name || '未命名內容';
+                const subtitle = entry.stage_intro || entry.description || entry.event_body || entry.task_description || '';
+                const badge = entry.quest_order ? `第 ${entry.quest_order} 關` : (entry.tile_index ? `第 ${entry.tile_index} 格` : '');
+                const entryType = entry.tile_index ? 'board' : 'story';
+                return `
+                    <button class="game-shell-entry ${isActive ? 'active' : ''}" type="button" data-entry-id="${entry.id}" data-entry-type="${entryType}">
+                        <strong>${badge ? `${badge}｜` : ''}${title}</strong>
+                        <span>${subtitle || '等待內容補充。'}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function updateShellModeUi() {
+            if (!dockModeBtn) return;
+            dockModeBtn.classList.toggle('hidden', isShellExperience);
+            if (dockModePanel) {
+                dockModePanel.classList.toggle('hidden', isShellExperience);
+            }
+            if (boardPanelBtn) {
+                boardPanelBtn.classList.toggle('hidden', currentEntryMode !== 'board_game');
+            }
+            if (isShellExperience) {
+                modeBtns.forEach((btn) => {
+                    btn.disabled = true;
+                });
+            } else {
+                modeBtns.forEach((btn) => {
+                    btn.disabled = false;
+                });
+            }
+        }
+
+        async function focusStoryTask(task) {
+            if (!task) return;
+            renderGameShellEntries(currentStoryTasks, task.id);
+            updateGameShellProgress(task);
+            applyTaskSelection(task, { updateUrl: false, skipNearbyReload: true });
+            renderHudSummary();
+            const dialogueKey = `${currentQuestChainId || 'quest'}:${task.id}:${currentStoryCompleted ? 'done' : 'active'}`;
+            if (lastStoryDialogueKey !== dialogueKey) {
+                lastStoryDialogueKey = dialogueKey;
+                await showNpcDialog({
+                    speakerKey: currentStoryCompleted ? 'host' : getStoryIntroSpeaker(task),
+                    mood: currentStoryCompleted ? '劇情完結' : `第 ${task.quest_order || '?'} 關`,
+                    text: currentStoryCompleted
+                        ? '這條劇情主線已經完整收束。你可以留在探索艙回味剛才的旅程，或回首頁切換其他玩法。'
+                        : buildStoryIntroDialogue(task)
+                });
+            }
+        }
+
+        async function focusBoardTile(tile) {
+            if (!tile) return;
+            currentBoardActiveTileId = tile.id;
+            renderGameShellEntries(currentBoardTiles, tile.id);
+            updateGameShellProgress(tile);
+            if (gameShellObjective) {
+                gameShellObjective.textContent = tile.event_body || tile.task_description || '請前往指定格子，完成這一步的挑戰。';
+            }
+            renderBoardPanel();
+            renderHudSummary();
+            if (tile.task_id) {
+                const res = await fetch(`/api/tasks/${tile.task_id}`);
+                const data = await res.json();
+                if (data.success && data.task) {
+                    applyTaskSelection(data.task, { updateUrl: false, skipNearbyReload: true });
+                    await showNpcDialog({
+                        speakerKey: tile.tile_type === 'challenge' ? 'gatekeeper' : 'lore',
+                        mood: tile.tile_type === 'challenge' ? '挑戰開始' : '關卡提示',
+                        text: data.task.stage_intro || data.task.description || `第 ${tile.tile_index} 格的挑戰已展開，請讓 AI 裁判檢查你的表現。`,
+                        autoCloseMs: 2200
+                    });
+                }
+                return;
+            }
+            const eventText = tile.event_body || tile.guide_content || tile.description || `你來到第 ${tile.tile_index} 格，這裡有新的事件等待觸發。`;
+            const isResolvingPendingEvent = currentEntryMode === 'board_game'
+                && currentBoardRun?.pendingTargetTile
+                && Number(currentBoardRun.pendingTargetTile) === Number(tile.tile_index);
+            if (isResolvingPendingEvent) {
+                await completeBoardTurn(true, {
+                    speakerKey: tile.tile_type === 'event' ? 'host' : 'lore',
+                    mood: tile.tile_type === 'event' ? '事件觸發' : '場景提示',
+                    text: `${eventText}\n命運已記錄這一步，你的隊伍會繼續向前推進。`,
+                    autoCloseMs: 2600
+                });
+                return;
+            }
+            await showNpcDialog({
+                speakerKey: tile.tile_type === 'event' ? 'host' : 'lore',
+                mood: tile.tile_type === 'event' ? '事件觸發' : '場景提示',
+                text: eventText,
+                autoCloseMs: 2600
+            });
+        }
+
+        async function loadStoryShell(questChainId) {
+            const [contentRes, progressMap] = await Promise.all([
+                fetch(`/api/quest-chains/${questChainId}/public-content`),
+                fetchQuestProgressMap()
+            ]);
+            const contentData = await contentRes.json();
+            if (!contentData.success) {
+                throw new Error(contentData.message || '載入劇情失敗');
+            }
+            currentQuestChainId = questChainId;
+            currentQuestChainData = contentData.questChain || null;
+            currentEntryMode = 'story_campaign';
+            currentStoryTasks = Array.isArray(contentData.tasks) ? contentData.tasks : [];
+            currentStoryCompleted = false;
+            lastStoryDialogueKey = null;
+            isShellExperience = true;
+            updateShellModeUi();
+            loadPlayerHudStats();
+            const progressOrder = Number(progressMap?.[String(questChainId)]);
+            const maxStoryOrder = currentStoryTasks.reduce((max, task) => Math.max(max, Number(task.quest_order || 0)), 0);
+            currentStoryCompleted = Number.isFinite(progressOrder) && progressOrder > maxStoryOrder && maxStoryOrder > 0;
+            const activeTask = currentStoryCompleted
+                ? currentStoryTasks.find(task => Number(task.quest_order) === maxStoryOrder) || currentStoryTasks[currentStoryTasks.length - 1] || null
+                : ((Number.isFinite(progressOrder) && progressOrder > 0)
+                    ? currentStoryTasks.find(task => Number(task.quest_order) === progressOrder) || currentStoryTasks[0]
+                    : currentStoryTasks[0]);
+
+            if (gameShellMode) gameShellMode.textContent = isCurrentQuestDemoMode() ? '劇情體驗' : '劇情主線';
+            if (gameShellTitle) gameShellTitle.textContent = contentData.questChain.title || contentData.questChain.name || '劇情主線';
+            if (gameShellSummary) gameShellSummary.textContent = contentData.questChain.short_description || contentData.questChain.description || '跟著劇情節奏完成一連串 AI 關卡。';
+            updateGameShellProgress(activeTask);
+            renderGameShellEntries(currentStoryTasks, activeTask?.id);
+            if (activeTask) {
+                await focusStoryTask(activeTask);
+                if (currentStoryCompleted && gameShellObjective) {
+                    gameShellObjective.textContent = '這條劇情主線已完成，現在可以回首頁切換其他劇情，或直接進入大富翁模式。';
+                }
+            }
+        }
+
+        async function loadBoardShell(questChainId, preferredBoardMapId = null, previewMode = false) {
+            const params = new URLSearchParams();
+            if (preferredBoardMapId) params.set('boardMapId', String(preferredBoardMapId));
+            if (previewMode) params.set('preview', '1');
+            const boardApi = `/api/board-maps/by-quest-chain/${questChainId}${params.toString() ? `?${params.toString()}` : ''}`;
+            const boardRes = await fetch(boardApi);
+            const boardData = await boardRes.json();
+            if (!boardData.success) {
+                throw new Error(boardData.message || '載入大富翁內容失敗');
+            }
+            currentQuestChainId = questChainId;
+            currentEntryMode = 'board_game';
+            currentStoryCompleted = false;
+            currentBoardMaps = Array.isArray(boardData.boardMaps) ? boardData.boardMaps : [];
+            currentBoardMap = boardData.boardMap || null;
+            currentBoardTiles = Array.isArray(boardData.tiles) ? boardData.tiles : [];
+            isShellExperience = true;
+            updateShellModeUi();
+            loadPlayerHudStats();
+            await hydrateBoardRunState();
+            syncBoardMapQuery(currentBoardMap?.id || null);
+            renderBoardMapSelector();
+            const activeTile = currentBoardRun?.pendingTargetTile
+                ? getBoardTileByIndex(currentBoardRun.pendingTargetTile)
+                : getBoardTileByIndex(currentBoardRun?.currentTile)
+                    || currentBoardTiles.find(tile => tile.task_id)
+                    || currentBoardTiles[0]
+                    || null;
+
+            if (gameShellMode) gameShellMode.textContent = '大富翁模式';
+            if (gameShellTitle) gameShellTitle.textContent = currentBoardMap?.name || '濱海大富翁';
+            if (gameShellSummary) gameShellSummary.textContent = currentBoardMap?.description || '擲骰、前進、觸發事件，並讓 AI 擔任每一步的裁判。';
+            updateGameShellProgress(activeTile);
+            renderGameShellEntries(currentBoardTiles, activeTile?.id);
+            if (activeTile) {
+                await focusBoardTile(activeTile);
+            }
+        }
+
+        async function loadGameShellFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const questChainId = params.get('questChainId');
+            const mode = params.get('mode');
+            const boardMapId = params.get('boardMapId');
+            const previewMode = params.get('preview') === '1';
+            if (!questChainId || !mode) return false;
+            if (gameShellPanel) gameShellPanel.classList.remove('collapsed');
+            try {
+                if (mode === 'board_game') {
+                    await loadBoardShell(questChainId, boardMapId, previewMode);
+                } else {
+                    await loadStoryShell(questChainId);
+                }
+                return true;
+            } catch (err) {
+                console.error('載入遊戲殼失敗', err);
+                isShellExperience = false;
+                updateShellModeUi();
+                if (gameShellObjective) gameShellObjective.textContent = '玩法內容載入失敗，請返回首頁重新選擇。';
+                if (gameShellProgress) gameShellProgress.textContent = '目前無法取得進度';
+                if (gameShellEntries) gameShellEntries.innerHTML = '<div class="game-shell-entry muted">暫時無法載入玩法內容。</div>';
+                return false;
+            }
         }
 
         function getLoginUser() {
@@ -473,10 +1363,27 @@ document.addEventListener('DOMContentLoaded', () => {
             const loginUser = getLoginUser();
             if (!loginUser || !loginUser.username) return null;
             try {
-                const res = await fetch(`/api/user-tasks?username=${encodeURIComponent(loginUser.username)}`);
-                const data = await res.json();
+                const loadTasks = async () => {
+                    const res = await fetch(`/api/user-tasks?username=${encodeURIComponent(loginUser.username)}`, {
+                        credentials: 'include'
+                    });
+                    return res.json();
+                };
+
+                let data = await loadTasks();
                 if (!data.success || !Array.isArray(data.tasks)) return null;
-                const t = data.tasks.find((x) => String(x.id) === String(currentTaskId));
+                let t = data.tasks.find((x) => String(x.id) === String(currentTaskId));
+                if (!t) {
+                    await fetch('/api/user-tasks', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ task_id: currentTaskId })
+                    });
+                    data = await loadTasks();
+                    if (!data.success || !Array.isArray(data.tasks)) return null;
+                    t = data.tasks.find((x) => String(x.id) === String(currentTaskId));
+                }
                 if (!t) return null;
                 currentUserTaskId = t.user_task_id;
                 return currentUserTaskId;
@@ -504,6 +1411,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const x = Math.cos(toRad(startLat)) * Math.sin(toRad(destLat))
                 - Math.sin(toRad(startLat)) * Math.cos(toRad(destLat)) * Math.cos(toRad(destLng - startLng));
             return (toDeg(Math.atan2(y, x)) + 360) % 360;
+        }
+
+        function renderTaskDebug() {
+            if (!debugMode) return;
+            console.log('Task debug state', {
+                currentTaskId,
+                currentUserTaskId,
+                currentQuestChainId,
+                orientationPermissionState,
+                currentMode,
+                missionMode
+            });
         }
 
         async function ensureOrientationPermission() {
@@ -538,13 +1457,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (dockModePanel) dockModePanel.classList.add('hidden');
             if (dockLangPanel) dockLangPanel.classList.add('hidden');
             if (dockZoomPanel) dockZoomPanel.classList.add('hidden');
+            if (dockHudPanel) dockHudPanel.classList.add('hidden');
+            if (dockBoardPanel) dockBoardPanel.classList.add('hidden');
         }
 
         function toggleDockPanel(panelName) {
             const panels = {
                 mode: dockModePanel,
                 lang: dockLangPanel,
-                zoom: dockZoomPanel
+                zoom: dockZoomPanel,
+                hud: dockHudPanel,
+                board: dockBoardPanel
             };
             const panel = panels[panelName];
             if (!panel || !featureDrawerPanel) return;
@@ -834,12 +1757,23 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!completionModal) return;
             if (completionReward) completionReward.innerHTML = message || '✅ 任務已完成';
             completionModal.classList.remove('hidden');
+            loadPlayerHudStats();
         }
 
         function showAnswerModal(task) {
             if (!answerModal || !task) return;
             answerTaskName.textContent = task.name || '任務';
-            answerTaskDescription.textContent = task.description || '請根據提示完成任務';
+            const descriptionParts = [task.description || '請根據提示完成任務'];
+            if (isCurrentQuestDemoMode()) {
+                if (task.task_type === 'photo') {
+                    descriptionParts.push('體驗模式：任意拍攝一張照片就能通過，先讓你把整段流程走完。');
+                } else if (task.task_type === 'multiple_choice') {
+                    descriptionParts.push('體驗模式：任意選一個選項都會先通關，先讓你熟悉對話與流程。');
+                } else {
+                    descriptionParts.push('體驗模式：這一關會先放行，讓你能直接往下體驗。');
+                }
+            }
+            answerTaskDescription.textContent = descriptionParts.join('\n\n');
             answerInputContainer.innerHTML = '';
             answerMessage.textContent = '';
             btnAnswerSubmit.disabled = true;
@@ -900,6 +1834,7 @@ document.addEventListener('DOMContentLoaded', () => {
         async function submitTaskAnswer() {
             if (!currentTask) return;
             let answer = '';
+            const isAiPhotoTask = currentTask.task_type === 'photo' && currentTask.validation_mode && currentTask.validation_mode.startsWith('ai_');
             if (currentTask.task_type === 'multiple_choice') {
                 const selected = document.querySelector('.answer-choice.selected');
                 if (!selected) {
@@ -911,6 +1846,63 @@ document.addEventListener('DOMContentLoaded', () => {
                 const photoInput = document.getElementById('answerPhotoInput');
                 if (!photoInput?.files?.[0]) {
                     answerMessage.textContent = '❌ 請上傳照片';
+                    return;
+                }
+                if (isAiPhotoTask) {
+                    const fd = new FormData();
+                    fd.append('image', photoInput.files[0]);
+                    answerMessage.textContent = '⏳ AI 判定中...';
+                    const aiRes = await fetch(`/api/ai-tasks/${currentTask.id}/submit`, {
+                        method: 'POST',
+                        body: fd
+                    });
+                    const aiData = await aiRes.json();
+                    if (aiData.success && aiData.passed) {
+                        currentUserTaskId = aiData.user_task_id || currentUserTaskId;
+                        answerModal.classList.add('hidden');
+                        if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
+                            await completeBoardTurn(true, {
+                                speakerKey: 'judge',
+                                mood: 'AI 通關',
+                                text: aiData.message || 'AI 已確認你完成這一步，棋盤將推進到新的位置。',
+                                autoCloseMs: 2400
+                            });
+                        } else {
+                            await showNpcDialog({
+                                speakerKey: 'judge',
+                                mood: 'AI 通關',
+                                text: aiData.message || 'AI 已確認你完成這一步，準備解鎖下一段旅程。',
+                                autoCloseMs: 2400
+                            });
+                        }
+                        if (currentEntryMode === 'story_campaign' && currentQuestChainId) {
+                            await loadStoryShell(currentQuestChainId);
+                        }
+                        showCompletionModal(aiData.earnedItemName ? `🎁 獲得：${aiData.earnedItemName}` : (aiData.message || '✅ AI 驗證通過'));
+                    } else {
+                        const failText = aiData.message || aiData.retry_advice || 'AI 驗證未通過，請再試一次';
+                        if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
+                            answerModal.classList.add('hidden');
+                            await completeBoardTurn(false, {
+                                speakerKey: 'judge',
+                                mood: '未通過',
+                                text: aiData.retry_advice
+                                    ? `${aiData.message || '這次還沒通過。'} ${aiData.retry_advice}`
+                                    : failText,
+                                autoCloseMs: 2600
+                            });
+                        } else {
+                            answerMessage.textContent = '❌ ' + failText;
+                            await showNpcDialog({
+                                speakerKey: 'rescue',
+                                mood: '裁定未通過',
+                                text: aiData.retry_advice
+                                    ? `鯨語的裁定是：${aiData.message || '這次還沒通過。'}\n\n海羽補充：${aiData.retry_advice}`
+                                    : `鯨語的裁定是：${failText}\n\n海羽建議你再整理一下畫面，重新挑戰。`
+                            });
+                            btnAnswerSubmit.disabled = false;
+                        }
+                    }
                     return;
                 }
                 const fd = new FormData();
@@ -947,10 +1939,44 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             if (data.success && (data.isCompleted || (data.message && data.message.includes('已完成')))) {
                 answerModal.classList.add('hidden');
+                if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
+                    await completeBoardTurn(true, {
+                        speakerKey: 'judge',
+                        mood: '規則通關',
+                        text: data.message || '規則判定通過，棋盤將推進到下一格。',
+                        autoCloseMs: 2200
+                    });
+                } else {
+                    await showNpcDialog({
+                        speakerKey: 'judge',
+                        mood: isCurrentQuestDemoMode() ? '體驗模式通關' : '規則通關',
+                        text: data.message || '這一關已完成，下一段劇情正在展開。',
+                        autoCloseMs: 2200
+                    });
+                }
+                if (currentEntryMode === 'story_campaign' && currentQuestChainId) {
+                    await loadStoryShell(currentQuestChainId);
+                }
                 showCompletionModal(data.earnedItemName ? `🎁 獲得：${data.earnedItemName}` : '✅ 任務已完成');
             } else {
-                answerMessage.textContent = '❌ ' + (data.message || '答案錯誤，請重試');
-                btnAnswerSubmit.disabled = false;
+                const failText = data.message || '答案錯誤，請重試';
+                if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
+                    answerModal.classList.add('hidden');
+                    await completeBoardTurn(false, {
+                        speakerKey: 'rescue',
+                        mood: '規則未通過',
+                        text: `${failText}，這一步會依棋盤規則回退後重新展開。`,
+                        autoCloseMs: 2400
+                    });
+                } else {
+                    answerMessage.textContent = '❌ ' + failText;
+                    await showNpcDialog({
+                        speakerKey: 'rescue',
+                        mood: '規則未通過',
+                        text: `這一題還沒有通過。\n\n海羽提醒：${failText}`
+                    });
+                    btnAnswerSubmit.disabled = false;
+                }
             }
         }
 
@@ -969,9 +1995,40 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             if (data.success && data.isCompleted) {
                 lockOverlay.classList.add('hidden');
+                if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
+                    await completeBoardTurn(true, {
+                        speakerKey: 'judge',
+                        mood: '密碼通關',
+                        text: data.message || '密碼鎖已解除，棋盤正在推進。',
+                        autoCloseMs: 2200
+                    });
+                } else {
+                    await showNpcDialog({
+                        speakerKey: 'judge',
+                        mood: '密碼通關',
+                        text: data.message || '鎖陣已解除，前路已為你打開。',
+                        autoCloseMs: 2200
+                    });
+                }
                 showCompletionModal(data.earnedItemName ? `🎁 獲得：${data.earnedItemName}` : '✅ 任務已完成');
             } else {
-                lockMsg.textContent = data.message || '答案錯誤';
+                const failText = data.message || '答案錯誤';
+                if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
+                    lockOverlay.classList.add('hidden');
+                    await completeBoardTurn(false, {
+                        speakerKey: 'rescue',
+                        mood: '密碼失誤',
+                        text: `${failText}，這一步會依棋盤規則退回並重新整隊。`,
+                        autoCloseMs: 2400
+                    });
+                } else {
+                    lockMsg.textContent = failText;
+                    await showNpcDialog({
+                        speakerKey: 'rescue',
+                        mood: '密碼失誤',
+                        text: `鎖陣還沒解除。\n\n海羽提醒：${failText}`
+                    });
+                }
             }
         }
 
@@ -979,12 +2036,15 @@ document.addEventListener('DOMContentLoaded', () => {
             closeTaskEncounter();
             if (!currentTask) return;
             if (currentTask.task_type === 'location') {
-                if (!lastLatLng) {
+                const demoMode = isCurrentQuestDemoMode();
+                if (!lastLatLng && !demoMode) {
                     Swal.fire({ icon: 'info', title: '尚未取得位置', text: '請先靠近任務地點後再試' });
                     return;
                 }
-                const dist = haversineDistance(lastLatLng.latitude, lastLatLng.longitude, targetLat, targetLng);
-                if (dist > Math.max(6, currentTask.radius || 30)) {
+                const dist = lastLatLng
+                    ? haversineDistance(lastLatLng.latitude, lastLatLng.longitude, targetLat, targetLng)
+                    : Number.MAX_SAFE_INTEGER;
+                if (!demoMode && dist > Math.max(6, currentTask.radius || 30)) {
                     Swal.fire({ icon: 'warning', title: '還沒到任務地點', text: `目前距離約 ${Math.round(dist)}m` });
                     return;
                 }
@@ -1000,6 +2060,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 const data = await res.json();
                 if (data.success && data.isCompleted) {
+                    if (demoMode && currentEntryMode === 'story_campaign') {
+                        await showNpcDialog({
+                            speakerKey: 'host',
+                            mood: '體驗模式通關',
+                            text: '工作室體驗模式已替你完成這一步報到，現在直接前往下一段劇情。',
+                            autoCloseMs: 2200
+                        });
+                    }
+                    if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
+                        await completeBoardTurn(true, {
+                            speakerKey: 'judge',
+                            mood: '到點判定',
+                            text: data.message || '已完成報到，棋盤將推進到下一格。',
+                            autoCloseMs: 2200
+                        });
+                    }
+                    if (currentEntryMode === 'story_campaign' && currentQuestChainId) {
+                        await loadStoryShell(currentQuestChainId);
+                    }
                     showCompletionModal(data.earnedItemName ? `🎁 獲得：${data.earnedItemName}` : '📍 打卡成功');
                 } else {
                     Swal.fire({ icon: 'warning', title: '打卡失敗', text: data.message || '請再試一次' });
@@ -1074,7 +2153,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // 取得當前劇本（任務模式使用 API 任務 currentTask，否則自由探索）
+        // 取得當前劇本（任務模式使用 API 任務 currentTask，否則為鏡頭待命）
         function getActiveScript() {
             if (currentMode === 'mission' && currentTask) {
                 const name = currentTask.name || '任務';
@@ -1521,7 +2600,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 Swal.fire({
                     icon: 'info',
                     title: '尚未承接任務',
-                    text: '請先從關卡簡報進入海底探索艙，或使用自由探索模式。'
+                    text: '請先從關卡簡報進入海底探索艙，或先用鏡頭待命模式熟悉環境。'
                 });
                 mode = 'free';
             }
@@ -1775,7 +2854,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function fetchQuestProgressMap() {
             try {
+                if (!getLoginUser()) return {};
                 const res = await fetch('/api/user/quest-progress', { credentials: 'include' });
+                if (res.status === 401 || res.status === 403) return {};
                 if (!res.ok) return {};
                 const data = await res.json();
                 if (!data.success || !data.progress || typeof data.progress !== 'object') return {};
@@ -1894,12 +2975,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (options.updateUrl !== false) {
                 const newUrl = new URL(window.location.href);
+                if (currentQuestChainId) newUrl.searchParams.set('questChainId', currentQuestChainId);
+                if (currentEntryMode) newUrl.searchParams.set('mode', currentEntryMode);
                 newUrl.searchParams.set('taskId', task.id);
-                newUrl.searchParams.set('lat', targetLat);
-                newUrl.searchParams.set('lng', targetLng);
+                if (Number.isFinite(targetLat)) newUrl.searchParams.set('lat', targetLat);
+                if (Number.isFinite(targetLng)) newUrl.searchParams.set('lng', targetLng);
                 window.history.replaceState({}, '', newUrl);
             }
-            loadNearbyVisibleTasks();
+            if (!options.skipNearbyReload) {
+                loadNearbyVisibleTasks();
+            }
             setMode('mission', false);
             startTaskNavigation();
         }
@@ -1917,6 +3002,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function loadDefaultVisibleTaskForUser() {
             try {
+                if (isShellExperience) return;
                 if (!getLoginUser()) return;
                 const [taskRes, questProgress, inProgressTasks, quickPos] = await Promise.all([
                     fetch('/api/tasks'),
@@ -2379,8 +3465,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 返回（有 taskId 時回任務詳情，與 AR-VIEW 一致）
         backBtn.addEventListener('click', () => {
-            const taskId = new URLSearchParams(window.location.search).get('taskId');
-            if (taskId) window.location.href = `/task-detail.html?id=${taskId}`;
+            const params = new URLSearchParams(window.location.search);
+            const taskId = params.get('taskId');
+            const questChainId = params.get('questChainId');
+            const mode = params.get('mode');
+            if (questChainId || mode) window.location.href = '/';
+            else if (taskId) window.location.href = `/task-detail.html?id=${taskId}`;
             else window.location.href = '/';
         });
 
@@ -2403,12 +3493,61 @@ document.addEventListener('DOMContentLoaded', () => {
         // 模式按鈕
         modeBtns.forEach(btn => {
             btn.addEventListener('click', () => {
+                if (isShellExperience) return;
                 setMode(btn.dataset.mode);
             });
         });
 
+        if (gameShellEntries) {
+            gameShellEntries.addEventListener('click', async (event) => {
+                const entryBtn = event.target.closest('.game-shell-entry[data-entry-id]');
+                if (!entryBtn) return;
+                const entryId = entryBtn.dataset.entryId;
+                const entryType = entryBtn.dataset.entryType;
+                if (entryType === 'board') {
+                    const tile = currentBoardTiles.find((item) => String(item.id) === String(entryId));
+                    if (tile) await focusBoardTile(tile);
+                    return;
+                }
+                const task = currentStoryTasks.find((item) => String(item.id) === String(entryId));
+                if (task) await focusStoryTask(task);
+            });
+        }
+
+        if (gameShellStartBtn) {
+            gameShellStartBtn.addEventListener('click', () => {
+                if (currentEntryMode === 'board_game') {
+                    if (currentBoardRun?.pendingTargetTile) {
+                        const focusTile = currentBoardTiles.find((tile) => Number(tile.tile_index) === Number(currentBoardRun.pendingTargetTile));
+                        if (focusTile) {
+                            if (focusTile.task_id) {
+                                focusBoardTile(focusTile)
+                                    .then(() => startTaskInteraction())
+                                    .catch(console.error);
+                            } else {
+                                focusBoardTile(focusTile).catch(console.error);
+                            }
+                        }
+                    } else {
+                        startBoardTurn().catch((err) => {
+                            console.error('開始大富翁回合失敗', err);
+                        });
+                    }
+                    return;
+                }
+                startTaskInteraction().catch((err) => {
+                    console.error('從遊戲殼開始關卡失敗', err);
+                    Swal.fire({ icon: 'error', title: '無法開始這一關', text: err.message || '請稍後再試' });
+                });
+            });
+        }
+
         // 重試按鈕
         retryBtn.addEventListener('click', retry);
+
+        if (npcDialogClose) {
+            npcDialogClose.addEventListener('click', closeNpcDialog);
+        }
 
         // 拍攝下一張按鈕
         if (addPhotoBtn) {
@@ -2454,7 +3593,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnReticleMode) btnReticleMode.addEventListener('click', () => setSelectionMode('reticle'));
         if (btnDrawMode) btnDrawMode.addEventListener('click', () => setSelectionMode('draw'));
         setSelectionMode('reticle');
-        loadTaskFromUrl();
+        loadGameShellFromUrl().then((loaded) => {
+            if (!loaded) loadTaskFromUrl();
+        });
 
         if (taskBgmBtn && taskBgm) {
             taskBgmBtn.addEventListener('click', () => {
@@ -2488,6 +3629,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 featureDockToggle.textContent = willOpen ? '×' : '☰';
             });
         }
+        if (gameShellToggle && gameShellPanel) {
+            gameShellToggle.addEventListener('click', () => {
+                gameShellPanel.classList.toggle('collapsed');
+            });
+        }
+        if (gameShellBtn && gameShellPanel) {
+            gameShellBtn.addEventListener('click', () => {
+                gameShellPanel.classList.toggle('collapsed');
+            });
+        }
         if (taskHudToggle && taskStatusBox) {
             taskHudToggle.addEventListener('click', () => {
                 const willOpen = taskStatusBox.classList.contains('hidden');
@@ -2511,6 +3662,53 @@ document.addEventListener('DOMContentLoaded', () => {
             dockZoomBtn.addEventListener('click', async () => {
                 await ensureOrientationPermission();
                 toggleDockPanel('zoom');
+            });
+        }
+        if (hudPanelBtn) {
+            hudPanelBtn.addEventListener('click', () => {
+                toggleDockPanel('hud');
+                renderHudSummary();
+            });
+        }
+        if (boardPanelBtn) {
+            boardPanelBtn.addEventListener('click', () => {
+                toggleDockPanel('board');
+                renderBoardPanel();
+            });
+        }
+        if (boardMapSelector) {
+            boardMapSelector.addEventListener('change', async () => {
+                const nextBoardMapId = boardMapSelector.value;
+                if (!nextBoardMapId || String(nextBoardMapId) === String(currentBoardMap?.id || '')) return;
+                const previewMode = new URLSearchParams(window.location.search).get('preview') === '1';
+                if (boardPanelStatus) boardPanelStatus.textContent = '正在切換棋盤...';
+                try {
+                    await loadBoardShell(currentQuestChainId, nextBoardMapId, previewMode);
+                    toggleDockPanel('board');
+                } catch (err) {
+                    console.error('切換棋盤失敗', err);
+                    if (boardPanelStatus) boardPanelStatus.textContent = '切換棋盤失敗，請稍後再試。';
+                }
+            });
+        }
+        if (rollDiceBtn) {
+            rollDiceBtn.addEventListener('click', () => {
+                startBoardTurn().catch((err) => {
+                    console.error('大富翁擲骰失敗', err);
+                    Swal.fire({ icon: 'error', title: '擲骰失敗', text: err.message || '請稍後再試' });
+                });
+            });
+        }
+        if (boardFocusBtn) {
+            boardFocusBtn.addEventListener('click', () => {
+                const focusTile = currentBoardRun?.pendingTargetTile
+                    ? currentBoardTiles.find((tile) => Number(tile.tile_index) === Number(currentBoardRun.pendingTargetTile))
+                    : null;
+                if (!focusTile) return;
+                focusBoardTile(focusTile).catch((err) => {
+                    console.error('聚焦大富翁目標失敗', err);
+                    Swal.fire({ icon: 'error', title: '無法聚焦目標', text: err.message || '請稍後再試' });
+                });
             });
         }
         if (taskTargetObj) {
@@ -3284,10 +4482,17 @@ document.addEventListener('DOMContentLoaded', () => {
         // ------------------------------------------------
         // 6. 初始化 (Initialization)
         // ------------------------------------------------
+        const initParams = new URLSearchParams(window.location.search);
+        const hasShellLaunch = Boolean(initParams.get('questChainId') && initParams.get('mode'));
         resizeCanvas();
         initLanguageSelector();
         initSpeechChat();
-        setMode('free'); // 預設模式
+        updateShellModeUi();
+        if (!hasShellLaunch) {
+            setMode('free');
+        }
+        renderHudSummary();
+        renderBoardPanel();
         initMiniMap();
         startCamera();
         

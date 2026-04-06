@@ -224,7 +224,7 @@ async function loadTasks() {
     applyFilters();
   } catch (err) {
     console.error(err);
-    showErrorState(err.message || '無法載入任務列表');
+    showErrorState(err.message || '無法載入關卡圖鑑');
   }
 }
 

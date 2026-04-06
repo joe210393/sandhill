@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>商品管理 | GPS 觸發任務系統</title>
+  <title>兌換內容控制台 | 沙丘</title>
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="icon" type="image/png" href="/images/mascot.png" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -274,7 +274,7 @@
     }
 
 
-    /* 商品管理樣式 */
+    /* 兌換內容控制台樣式 */
     .products-section {
       margin-bottom: 30px;
     }
@@ -568,19 +568,19 @@
 <body>
   <header id="mainHeader">
     <div class="header-content" id="headerContent">
-      <h1 id="pageTitle">兌換商品管理</h1>
+      <h1 id="pageTitle">兌換內容控制台</h1>
       <button id="hamburgerBtn" class="hamburger" aria-label="展開選單">&#9776;</button>
       <nav class="main-nav">
         <a href="/index.html">首頁</a>
-        <a href="/map.html">關卡地圖</a>
+        <a href="/index.html#gameEntries">玩法入口</a>
         <a href="/ai-lab.html">海底探索艙</a>
-        <a href="/tasks-list.html" id="navTasksList">任務列表</a>
+        <a href="/tasks-list.html" id="navTasksList">關卡列表</a>
         <a href="/products.html" id="navProducts">商品兌換</a>
-        <a href="/user-tasks.html">任務審核</a>
-        <a href="/staff-dashboard.html" id="navStaff" style="display:none;">新增任務</a>
+        <a href="/user-tasks.html">玩家挑戰紀錄</a>
+        <a href="/staff-dashboard.html" id="navStaff" style="display:none;">內容控制台</a>
         <a href="/role-management.html" id="navRoleMgmt" style="display:none;">權限管理</a>
-        <a href="/user-dashboard.html" id="navUserTasks" style="display:none;">用戶任務管理</a>
-        <a href="/redeem-tasks.html" id="navRedeem" class="current-page">兌換商品管理</a>
+        <a href="/user-dashboard.html" id="navUserTasks" style="display:none;">玩家內容管理</a>
+        <a href="/redeem-tasks.html" id="navRedeem" class="current-page">兌換內容控制台</a>
         <a href="/admin-users.html" id="navAdminUsers" style="display:none;">會員管理</a>
         <span id="loginUserInfo" style="display:none;color:#6b7280;text-decoration:none;cursor:default;"></span>
         <button id="logoutBtn" style="display:none;">登出</button>
@@ -590,15 +590,15 @@
   <main>
     <div class="tab-container">
       <div class="tab-buttons">
-        <button class="tab-btn active" onclick="switchTab('products')">商品管理</button>
-        <button class="tab-btn" onclick="switchTab('redemptions')">商品兌換記錄</button>
+        <button class="tab-btn active" onclick="switchTab('products')">兌換內容</button>
+        <button class="tab-btn" onclick="switchTab('redemptions')">兌換紀錄</button>
       </div>
 
       <div class="tab-content">
-        <!-- 商品管理標籤頁 -->
+        <!-- 兌換內容標籤頁 -->
         <div id="productsTab" class="tab-pane active">
           <section class="products-section">
-            <h3>商品管理</h3>
+            <h3>兌換內容管理</h3>
             <button class="add-product-btn" onclick="openProductModal()">新增商品</button>
             <div id="productsGrid" class="product-grid">
               <div class="loading">載入商品中...</div>
@@ -606,10 +606,10 @@
           </section>
         </div>
 
-        <!-- 商品兌換記錄標籤頁 -->
+        <!-- 兌換紀錄標籤頁 -->
         <div id="redemptionsTab" class="tab-pane">
           <section class="products-section">
-            <h3>商品兌換記錄</h3>
+            <h3>兌換紀錄</h3>
             <div class="redemption-filters">
               <select id="statusFilter">
                 <option value="">所有狀態</option>
@@ -667,7 +667,7 @@
     </div>
   </main>
   <footer>
-    &copy; 2025 GPS 任務系統 - 地方開箱任務遊戲 | <a href="https://laijiubo.zeabur.app/" target="_blank" style="color: #6b7280; text-decoration: none;">來就補多媒體行銷 製作</a>
+    &copy; 2026 沙丘 AI 實境遊戲平台 | <a href="https://laijiubo.zeabur.app/" target="_blank" style="color: #6b7280; text-decoration: none;">來就補多媒體行銷 製作</a>
   </footer>
   <script>
     // 權限檢查與帳號顯示
@@ -708,11 +708,11 @@
     function getUserDisplayName(loginUser) {
       switch(loginUser.role) {
         case 'admin':
-          return `管理員：${loginUser.username}`;
+          return `沙丘管理員：${loginUser.username}`;
         case 'shop':
-          return `商店：${loginUser.username}`;
+          return `兌換工作人員：${loginUser.username}`;
         case 'user':
-          return `用戶：${loginUser.username}`;
+          return `玩家：${loginUser.username}`;
         default:
           return loginUser.username;
       }
@@ -1105,7 +1105,7 @@
             <div>
               <div class="redemption-product">${redemption.product_name}</div>
               <div style="font-size: 0.9em; color: #666; margin-bottom: 5px;">🏪 商家：${redemption.merchant_name || '未知'}</div>
-              <div class="redemption-user" style="cursor: pointer;" onclick="viewUserTasks('${redemption.username}')">👤 用戶：${redemption.username}</div>
+              <div class="redemption-user" style="cursor: pointer;" onclick="viewUserTasks('${redemption.username}')">👤 玩家：${redemption.username}</div>
             </div>
             <div class="redemption-status ${statusClass}">${statusText}</div>
           </div>

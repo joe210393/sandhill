@@ -118,7 +118,6 @@ async function initDb() {
         
         -- AR 欄位
         ar_model_id INT,
-        ar_model_scale FLOAT DEFAULT 1.0,
         ar_order_model INT,
         ar_order_image INT,
         ar_order_youtube INT,

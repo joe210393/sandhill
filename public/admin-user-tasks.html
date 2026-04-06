@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>個人任務管理 | GPS 觸發任務系統</title>
+  <title>玩家任務紀錄管理 | 沙丘</title>
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="icon" type="image/png" href="/images/mascot.png" />
   <style>
@@ -324,18 +324,18 @@
   <header id="mainHeader">
     <button id="hamburgerBtn" class="hamburger" aria-label="展開選單">&#9776;</button>
     <div class="header-content" id="headerContent">
-      <h1 id="pageTitle">個人任務管理</h1>
+      <h1 id="pageTitle">玩家任務紀錄管理</h1>
       <nav class="main-nav">
         <a href="/index.html">首頁</a>
-        <a href="/map.html">關卡地圖</a>
+        <a href="/map.html">探索地圖</a>
         <a href="/ai-lab.html">海底探索艙</a>
-        <a href="/tasks-list.html" id="navTasksList">任務列表</a>
-        <a href="/products.html" id="navProducts">商品兌換</a>
-        <a href="/user-tasks.html">任務審核</a>
-        <a href="/staff-dashboard.html" id="navStaff" style="display:none;">新增任務</a>
+        <a href="/tasks-list.html" id="navTasksList">關卡圖鑑</a>
+        <a href="/products.html" id="navProducts">獎勵兌換</a>
+        <a href="/user-tasks.html">審核台</a>
+        <a href="/staff-dashboard.html" id="navStaff" style="display:none;">內容控制台</a>
         <a href="/role-management.html" id="navRoleMgmt" style="display:none;">權限管理</a>
-        <a href="/user-dashboard.html" id="navUserTasks" style="display:none;">用戶任務管理</a>
-        <a href="/redeem-tasks.html" id="navRedeem" style="display:none;">兌換商品管理</a>
+        <a href="/user-dashboard.html" id="navUserTasks" style="display:none;">玩家中心</a>
+        <a href="/redeem-tasks.html" id="navRedeem" style="display:none;">兌換內容控制台</a>
         <a href="/admin-users.html" id="navAdminUsers" style="display:none;">會員管理</a>
         <a href="/admin-user-tasks.html" class="current-page">玩家任務紀錄管理</a>
         <span id="loginUserInfo" style="display:none;color:#666;text-decoration:none;cursor:default;"></span>
@@ -378,7 +378,7 @@
   </main>
 
   <footer>
-    &copy; 2025 任務網頁系統
+    &copy; 2026 沙丘 AI 實境遊戲平台
   </footer>
 
   <script>
@@ -531,7 +531,7 @@
 
       // 顯示進行中任務
       if (inProgressTasks.length === 0) {
-        inProgressContainer.innerHTML = '<div class="empty-state"><h3>目前沒有進行中的關卡</h3><p>快去關卡地圖接下新的挑戰吧！</p></div>';
+        inProgressContainer.innerHTML = '<div class="empty-state"><h3>目前沒有進行中的關卡</h3><p>快去探索地圖展開新的挑戰吧！</p></div>';
       } else {
         inProgressContainer.innerHTML = '';
         inProgressTasks.forEach(task => {

@@ -7,7 +7,7 @@ if (formUser) {
     e.preventDefault();
     const username = this.username.value.trim();
     if (!/^09[0-9]{8}$/.test(username)) {
-      document.getElementById('loginMsgUser').textContent = '請輸入正確的手機門號';
+      document.getElementById('loginMsgUser').textContent = '請輸入正確的玩家手機門號';
       return;
     }
     const res = await fetch('/api/login', {
@@ -26,7 +26,7 @@ if (formUser) {
         window.location.href = '/index.html';
       }
     } else {
-      document.getElementById('loginMsgUser').textContent = data.message || '登入失敗';
+      document.getElementById('loginMsgUser').textContent = data.message || '進入沙丘失敗';
     }
   };
 }
@@ -75,7 +75,7 @@ if (formStaff) {
       // admin/shop 登入後導向後台
       window.location.href = '/staff-dashboard.html';
     } else {
-      document.getElementById('loginMsgStaff').textContent = data.message || '登入失敗';
+      document.getElementById('loginMsgStaff').textContent = data.message || '進入控制台失敗';
     }
   };
 }

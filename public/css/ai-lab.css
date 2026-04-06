@@ -205,7 +205,8 @@ canvas#drawingCanvas {
 .task-encounter-modal,
 .answer-modal,
 .lock-overlay,
-.completion-modal {
+.completion-modal,
+.dice-overlay {
     position: fixed;
     inset: 0;
     z-index: 6000;
@@ -220,7 +221,8 @@ canvas#drawingCanvas {
 .task-encounter-modal.hidden,
 .answer-modal.hidden,
 .lock-overlay.hidden,
-.completion-modal.hidden {
+.completion-modal.hidden,
+.dice-overlay.hidden {
     display: none !important;
 }
 
@@ -272,6 +274,7 @@ canvas#drawingCanvas {
     text-align: center;
     line-height: 1.5;
     color: rgba(255, 255, 255, 0.82);
+    white-space: pre-line;
 }
 
 .answer-input-group {
@@ -357,6 +360,173 @@ canvas#drawingCanvas {
     background: linear-gradient(135deg, rgba(34, 197, 94, 0.18), rgba(20, 20, 20, 0.98));
 }
 
+.dice-overlay-card {
+    width: min(260px, 76vw);
+    border-radius: 24px;
+    padding: 22px 18px;
+    background: linear-gradient(180deg, rgba(10, 18, 32, 0.98), rgba(28, 48, 80, 0.94));
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+    color: #fff;
+    display: grid;
+    gap: 12px;
+    justify-items: center;
+}
+
+.dice-overlay-label {
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.68);
+}
+
+.dice-cube {
+    width: 96px;
+    height: 96px;
+    border-radius: 24px;
+    display: grid;
+    place-items: center;
+    font-size: 3rem;
+    font-weight: 900;
+    background: linear-gradient(145deg, #fff5d6, #ffd76a);
+    color: #1e293b;
+    box-shadow: inset 0 2px 0 rgba(255,255,255,0.7), 0 12px 30px rgba(0,0,0,0.3);
+}
+
+.dice-cube.rolling {
+    animation: sandhillDiceRoll 0.85s cubic-bezier(.2,.8,.2,1);
+}
+
+@keyframes sandhillDiceRoll {
+    0% { transform: rotate(0deg) scale(0.86); }
+    20% { transform: rotate(110deg) scale(1.08); }
+    40% { transform: rotate(220deg) scale(0.94); }
+    60% { transform: rotate(330deg) scale(1.12); }
+    80% { transform: rotate(430deg) scale(0.98); }
+    100% { transform: rotate(540deg) scale(1); }
+}
+
+.dice-overlay-text {
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.npc-dialog {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    z-index: 6500;
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    pointer-events: auto;
+}
+
+.npc-dialog.hidden {
+    display: none !important;
+}
+
+.npc-dialog-portrait {
+    width: 58px;
+    height: 58px;
+    border-radius: 20px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 58px;
+    background: linear-gradient(180deg, #14b8a6, #164e63);
+    color: #fff;
+    font-size: 26px;
+    border: 2px solid rgba(255,255,255,0.25);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.28);
+}
+
+.npc-dialog-card {
+    flex: 1;
+    min-width: 0;
+    border-radius: 22px 22px 12px 22px;
+    padding: 14px 16px 14px;
+    background:
+        linear-gradient(180deg, rgba(7, 12, 20, 0.96), rgba(16, 24, 40, 0.92)),
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 36%);
+    border: 1px solid rgba(255,255,255,0.14);
+    color: #fff;
+    box-shadow: 0 18px 36px rgba(0,0,0,0.38);
+    backdrop-filter: blur(12px);
+    position: relative;
+}
+
+.npc-dialog-card::after {
+    content: '';
+    position: absolute;
+    left: 18px;
+    bottom: -10px;
+    width: 18px;
+    height: 18px;
+    background: rgba(16, 24, 40, 0.95);
+    border-left: 1px solid rgba(255,255,255,0.14);
+    border-bottom: 1px solid rgba(255,255,255,0.14);
+    transform: rotate(-45deg);
+}
+
+.npc-dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.npc-dialog-header strong {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(56, 189, 248, 0.14);
+    border: 1px solid rgba(125, 211, 252, 0.26);
+    font-size: 13px;
+    letter-spacing: 0.02em;
+}
+
+.npc-dialog-mood {
+    font-size: 12px;
+    color: rgba(255,255,255,0.72);
+}
+
+.npc-dialog-text {
+    font-size: 15px;
+    line-height: 1.72;
+    white-space: pre-wrap;
+}
+
+.npc-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+}
+
+.npc-dialog-btn {
+    border: none;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #38bdf8, #22d3ee);
+    color: #082f49;
+    font-weight: 800;
+    min-height: 40px;
+    padding: 8px 16px;
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(56, 189, 248, 0.28);
+}
+
+.npc-dialog-btn::after {
+    content: '▶';
+    margin-left: 8px;
+    font-size: 11px;
+    opacity: 0.75;
+}
+
 .completion-icon {
     font-size: 4rem;
     text-align: center;
@@ -370,6 +540,132 @@ canvas#drawingCanvas {
     height: 100%;
     z-index: 3;
     pointer-events: none; /* 讓點擊穿透到 canvas */
+}
+
+.game-shell-panel {
+    position: absolute;
+    top: 52px;
+    left: 12px;
+    z-index: 18;
+    width: min(88vw, 360px);
+    padding: 14px 14px 12px;
+    border-radius: 22px;
+    background: rgba(7, 12, 20, 0.76);
+    color: #fff;
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+    pointer-events: auto;
+}
+
+.game-shell-panel.collapsed .game-shell-summary,
+.game-shell-panel.collapsed .game-shell-body {
+    display: none;
+}
+
+.game-shell-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.game-shell-mode {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.08);
+    color: #9ed8ff;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.game-shell-title {
+    margin: 8px 0 0;
+    font-size: 1.1rem;
+    line-height: 1.35;
+}
+
+.game-shell-toggle {
+    border: none;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    padding: 8px 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.game-shell-summary {
+    margin: 10px 0 0;
+    font-size: 12px;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.8);
+}
+
+.game-shell-body {
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.game-shell-block {
+    padding: 10px 12px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.06);
+}
+
+.game-shell-label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.68);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.game-shell-objective,
+.game-shell-progress {
+    margin-top: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.game-shell-entries {
+    margin-top: 8px;
+    display: grid;
+    gap: 8px;
+    max-height: 190px;
+    overflow-y: auto;
+}
+
+.game-shell-entry {
+    padding: 9px 10px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid transparent;
+    font-size: 12px;
+    line-height: 1.5;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.game-shell-entry strong {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 13px;
+}
+
+.game-shell-entry.active {
+    border: 1px solid rgba(255, 209, 102, 0.55);
+    background: rgba(255, 209, 102, 0.14);
+}
+
+.game-shell-entry.muted {
+    color: rgba(255,255,255,0.7);
 }
 
 .mini-map-wrap {
@@ -542,6 +838,17 @@ canvas#drawingCanvas {
 }
 
 @media (max-width: 480px) {
+    .game-shell-panel {
+        top: 48px;
+        left: 10px;
+        width: min(92vw, 330px);
+        padding: 12px;
+    }
+
+    .game-shell-title {
+        font-size: 1rem;
+    }
+
     .feature-dock {
         top: 16px;
         left: 10px;
@@ -662,6 +969,37 @@ canvas#drawingCanvas {
     display: none;
 }
 
+.board-panel-track {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.board-track-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(14, 24, 38, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 11px;
+    line-height: 1.3;
+}
+
+.board-track-chip.current {
+    background: rgba(14, 116, 144, 0.85);
+    border-color: rgba(103, 232, 249, 0.45);
+    color: #ecfeff;
+}
+
+.board-track-chip.pending {
+    background: rgba(180, 83, 9, 0.88);
+    border-color: rgba(253, 186, 116, 0.5);
+    color: #fff7ed;
+}
+
 /* 讓按鈕可以被點擊 */
 .ui-layer button, .result-panel, .director-panel, .director-toggle {
     pointer-events: auto;
@@ -762,12 +1100,226 @@ canvas#drawingCanvas {
     backdrop-filter: blur(10px);
 }
 
+.game-hud {
+    position: absolute;
+    top: 62px;
+    right: 14px;
+    z-index: 24;
+    display: grid;
+    gap: 8px;
+    justify-items: end;
+    pointer-events: none;
+}
+
+.hud-chip {
+    min-width: 108px;
+    padding: 8px 12px;
+    border-radius: 16px;
+    background: rgba(6, 16, 30, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(14px);
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+}
+
+.hud-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.62);
+}
+
+.hud-chip strong {
+    display: block;
+    font-size: 14px;
+    line-height: 1.35;
+}
+
+.board-status-card {
+    position: absolute;
+    top: 62px;
+    left: 14px;
+    z-index: 24;
+    display: grid;
+    gap: 8px;
+    min-width: min(42vw, 240px);
+    padding: 12px;
+    border-radius: 18px;
+    background: rgba(6, 16, 30, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(14px);
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+    pointer-events: none;
+}
+
+.board-status-card.hidden {
+    display: none;
+}
+
+.board-status-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.board-status-row.wide {
+    display: grid;
+    gap: 6px;
+}
+
+.board-status-label {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.board-status-row strong {
+    font-size: 14px;
+    color: #fff;
+}
+
 .dock-panel .mode-switcher {
     position: static;
     transform: none;
     width: 100%;
     justify-content: center;
     pointer-events: auto;
+}
+
+.hud-panel-block,
+.board-panel-block {
+    display: grid;
+    gap: 8px;
+}
+
+.hud-panel-block + .hud-panel-block,
+.board-panel-block + .board-panel-block {
+    margin-top: 12px;
+}
+
+.hud-panel-title {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.62);
+}
+
+.hud-panel-summary {
+    font-size: 13px;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.92);
+}
+
+.board-map-selector-wrap {
+    display: grid;
+    gap: 10px;
+}
+
+.board-map-selector {
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    padding: 10px 12px;
+    font-size: 14px;
+}
+
+.board-map-selector option {
+    color: #0f172a;
+}
+
+.hud-panel-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.hud-panel-stages {
+    display: grid;
+    gap: 8px;
+}
+
+.hud-stage {
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid transparent;
+    font-size: 12px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.hud-stage.current {
+    border-color: rgba(255, 209, 102, 0.55);
+    background: rgba(255, 209, 102, 0.14);
+}
+
+.hud-stage.completed {
+    border-color: rgba(34, 197, 94, 0.45);
+    background: rgba(34, 197, 94, 0.16);
+}
+
+.hud-stage.muted {
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.hud-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    font-size: 12px;
+    color: #fff;
+}
+
+.hud-badge.muted {
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.board-panel-actions {
+    display: grid;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.board-action-btn {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.board-action-btn.primary {
+    background: linear-gradient(135deg, #ffd166 0%, #ff9f1c 100%);
+    color: #1c1405;
+    border-color: transparent;
+}
+
+.board-action-btn.secondary {
+    background: rgba(59, 130, 246, 0.24);
+}
+
+.board-action-btn.ghost {
+    background: rgba(239, 68, 68, 0.18);
+}
+
+.board-action-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 }
 
 .instruction {
@@ -1372,6 +1924,133 @@ canvas#drawingCanvas {
 
 /* Mobile: 直向顯示，避免右側分析區被擠到看不到（就會覺得「沒動畫沒結果」） */
 @media (max-width: 480px) {
+    .feature-dock {
+        top: auto;
+        left: 8px;
+        right: 8px;
+        bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 8px;
+    }
+
+    .feature-dock-menu {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+        max-width: calc(100vw - 76px);
+    }
+
+    .feature-drawer-panel {
+        min-width: min(82vw, 320px);
+    }
+
+    .game-shell-panel {
+        top: 54px;
+        left: 8px;
+        width: calc(100vw - 16px);
+        border-radius: 20px;
+        padding: 14px 13px 12px;
+    }
+
+    .game-hud {
+        top: 70px;
+        right: 10px;
+        gap: 6px;
+    }
+
+    .board-status-card {
+        top: 136px;
+        left: 8px;
+        min-width: min(72vw, 260px);
+        padding: 12px;
+        border-radius: 18px;
+    }
+
+    .hud-chip {
+        min-width: 92px;
+        padding: 9px 10px;
+        border-radius: 14px;
+    }
+
+    .hud-chip strong {
+        font-size: 13px;
+    }
+
+    .npc-dialog {
+        left: 8px;
+        right: 8px;
+        bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+        gap: 8px;
+    }
+
+    .npc-dialog-portrait {
+        width: 52px;
+        height: 52px;
+        flex-basis: 52px;
+        font-size: 22px;
+    }
+
+    .npc-dialog-card {
+        border-radius: 20px 20px 12px 20px;
+        padding: 13px 14px 14px;
+    }
+
+    .npc-dialog-text {
+        font-size: 14px;
+        line-height: 1.7;
+    }
+
+    .npc-dialog-btn {
+        width: 100%;
+        min-height: 48px;
+        font-size: 15px;
+    }
+
+    .icon-btn,
+    .feature-dock-toggle,
+    .mini-map-toggle,
+    .mini-map-refresh,
+    .task-hud-toggle,
+    .game-shell-toggle {
+        min-width: 48px;
+        min-height: 48px;
+    }
+
+    .icon-btn {
+        width: 48px;
+        height: 48px;
+        font-size: 22px;
+    }
+
+    .board-panel-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .board-action-btn,
+    #gameShellStartBtn {
+        min-height: 52px;
+        font-size: 15px;
+        border-radius: 16px;
+    }
+
+    .task-encounter-actions .btn,
+    .answer-actions .btn,
+    .lock-actions .btn,
+    .completion-actions .btn {
+        min-height: 48px;
+    }
+
+    .task-encounter-actions,
+    .answer-actions,
+    .lock-actions,
+    .completion-actions {
+        flex-direction: column;
+    }
+
     .result-panel {
         max-height: 70vh;
         overflow-y: auto;

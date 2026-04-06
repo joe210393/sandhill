@@ -18,6 +18,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const navRedeem = document.getElementById('navRedeem');
   const navAdminUsers = document.getElementById('navAdminUsers');
   const reviewLinks = document.querySelectorAll('a[href="/user-tasks.html"]');
+  const navEntryLinks = document.querySelectorAll('a[href="/index.html#gameEntries"]');
+  const navShellLinks = document.querySelectorAll('a[href="/ai-lab.html"]');
 
   const show = el => { if (el) el.style.display = ''; };
   const hide = el => { if (el) el.style.display = 'none'; };
@@ -32,8 +34,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
+  const showLinks = (links, isVisible) => {
+    links.forEach(link => {
+      link.style.display = isVisible ? '' : 'none';
+    });
+  };
+
   if (!loginUser) {
-    // 未登入：僅保留一般頁面
+    // 未登入：保留首頁入口與遊戲殼入口，不顯示管理導向
     show(navTasksList);
     hide(navUserTasks);
     hide(navStaff);
@@ -41,6 +49,8 @@ document.addEventListener('DOMContentLoaded', () => {
     hide(navRedeem);
     hide(navAdminUsers);
     showReviewLinks(false);
+    showLinks(navEntryLinks, true);
+    showLinks(navShellLinks, true);
     return;
   }
 
@@ -52,8 +62,10 @@ document.addEventListener('DOMContentLoaded', () => {
     hide(navRedeem);
     hide(navAdminUsers);
     showReviewLinks(false);
+    showLinks(navEntryLinks, true);
+    showLinks(navShellLinks, true);
   } else if (loginUser.role === 'staff') {
-    // staff：只能審核，不顯示任務列表/用戶任務管理
+    // staff：只保留遊戲紀錄與審核入口，不走玩家玩法入口
     hide(navTasksList);
     hide(navUserTasks);
     hide(navStaff);
@@ -61,6 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
     hide(navRedeem);
     hide(navAdminUsers);
     showReviewLinks(true);
+    showLinks(navEntryLinks, false);
+    showLinks(navShellLinks, false);
   } else {
     hide(navTasksList);
     hide(navUserTasks);
@@ -74,6 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
       hide(navAdminUsers);
     }
     showReviewLinks(true);
+    showLinks(navEntryLinks, false);
+    showLinks(navShellLinks, false);
   }
 });
-

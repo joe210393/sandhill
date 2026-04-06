@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>任務審核</title>
+  <title>審核台 | 沙丘</title>
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="icon" type="image/png" href="/images/mascot.png" />
 </head>
@@ -11,18 +11,18 @@
   <header id="mainHeader">
     <button id="hamburgerBtn" class="hamburger" aria-label="展開選單">&#9776;</button>
     <div class="header-content" id="headerContent">
-      <h1 id="pageTitle">任務審核</h1>
+      <h1 id="pageTitle">審核台</h1>
       <nav class="main-nav">
         <a href="/index.html">首頁</a>
-        <a href="/map.html">關卡地圖</a>
+        <a href="/map.html">探索地圖</a>
         <a href="/ai-lab.html">海底探索艙</a>
-        <a href="/tasks-list.html" id="navTasksList">任務列表</a>
-        <a href="/products.html" id="navProducts">商品兌換</a>
-        <a href="/user-tasks.html" class="current-page">任務審核</a>
-        <a href="/staff-dashboard.html" id="navStaff" style="display:none;">新增任務</a>
+        <a href="/tasks-list.html" id="navTasksList">關卡圖鑑</a>
+        <a href="/products.html" id="navProducts">獎勵兌換</a>
+        <a href="/user-tasks.html" class="current-page">審核台</a>
+        <a href="/staff-dashboard.html" id="navStaff" style="display:none;">內容控制台</a>
         <a href="/role-management.html" id="navRoleMgmt" style="display:none;">權限管理</a>
-        <a href="/user-dashboard.html" id="navUserTasks" style="display:none;">用戶任務管理</a>
-        <a href="/redeem-tasks.html" id="navRedeem" style="display:none;">兌換商品管理</a>
+        <a href="/user-dashboard.html" id="navUserTasks" style="display:none;">玩家中心</a>
+        <a href="/redeem-tasks.html" id="navRedeem" style="display:none;">兌換內容控制台</a>
         <a href="/admin-users.html" id="navAdminUsers" style="display:none;">會員管理</a>
         <span id="loginUserInfo" style="display:none;color:#666;text-decoration:none;cursor:default;"></span>
         <button id="logoutBtn" style="display:none;">登出</button>
@@ -299,7 +299,7 @@
   <main>
     <section id="staffReviewSection" style="display:none;">
       <div class="review-header">
-        <h2>任務審核</h2>
+        <h2>關卡審核</h2>
         <p>在此檢視並處理所有使用者正在進行中的任務</p>
       </div>
       <form id="searchForm" class="review-filter">
@@ -320,12 +320,12 @@
       <div id="staffPagination" class="review-pagination"></div>
     </section>
     <section id="userProgressSection" style="display:none;">
-      <h2>任務審核</h2>
+      <h2>審核進度</h2>
       <ul id="userTasks"></ul>
     </section>
   </main>
   <footer>
-    &copy; 2025 任務網頁系統
+    &copy; 2026 沙丘 AI 實境遊戲平台
   </footer>
   <script src="/js/user-tasks.js"></script>
   <script>

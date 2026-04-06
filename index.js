@@ -30,7 +30,7 @@ const JWT_EXPIRE = process.env.JWT_EXPIRE || '7d';
 // Web Push (VAPID) 設定
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@gpstask.app';
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@sandhill.app';
 
 // 初始化 webpush（如果提供了 VAPID 金鑰）
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
@@ -43,7 +43,7 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
 }
 
 const app = express();
-console.log('🚀 GPS Task Server (LM-only 視覺辨識，RAG 已停用)');
+console.log('🚀 沙丘遊戲伺服器（LM-only 視覺裁判，RAG 已停用）');
 
 // 🔥 關鍵設定：信任反向代理（Zeabur/Cloudflare 等）
 // 設定為 1 表示只信任第一層代理（Zeabur 通常只有一層負載均衡器）
@@ -90,8 +90,10 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
   : [
       'http://localhost:3000',
       'http://localhost:3001',
+      'http://localhost:4015',
       'http://127.0.0.1:3000',
       'http://127.0.0.1:3001',
+      'http://127.0.0.1:4015',
       'https://gpstask.zeabur.app',
       'https://sandhill.zeabur.app'
     ];
@@ -101,7 +103,9 @@ const corsOptions = {
     // 允許沒有 origin 的請求（如 Postman 或 curl）
     if (!origin) return callback(null, true);
 
-    if (allowedOrigins.includes(origin)) {
+    const isLocalDevOrigin = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+
+    if (allowedOrigins.includes(origin) || isLocalDevOrigin) {
       return callback(null, true);
     } else {
       console.warn(`🚫 CORS 阻擋來源: ${origin}`);
@@ -209,6 +213,99 @@ function sanitizeTaskRow(row) {
     ai_config: parseJsonField(row.ai_config, null),
     pass_criteria: parseJsonField(row.pass_criteria, null),
     location_required: Boolean(row.location_required)
+  };
+}
+
+function sanitizeQuestChainRow(row) {
+  if (!row) return row;
+  return {
+    ...row,
+    title: row.title || row.name || '',
+    is_active: Boolean(row.is_active),
+    game_rules: parseJsonField(row.game_rules, null),
+    content_blueprint: parseJsonField(row.content_blueprint, null)
+  };
+}
+
+function getQuestChainRuntimeFlags(questChainLike) {
+  const gameRules = parseJsonField(questChainLike?.game_rules, {}) || {};
+  const contentBlueprint = parseJsonField(questChainLike?.content_blueprint, {}) || {};
+  return {
+    demoAutoPass: normalizeBoolean(gameRules.demo_autopass) || normalizeBoolean(contentBlueprint.demo_autopass),
+    rpgStyleDialog: normalizeBoolean(gameRules.rpg_dialog) || normalizeBoolean(contentBlueprint.rpg_dialog)
+  };
+}
+
+function buildDemoAutoPassMessage(task, mode = 'story') {
+  const baseName = task?.name || '這一關';
+  if (mode === 'ai') {
+    return `體驗模式開啟中，沙丘已先讓你通過「${baseName}」，繼續往下一段劇情前進。`;
+  }
+  if (task?.task_type === 'location') {
+    return `體驗模式開啟中，沙丘已替你完成「${baseName}」的報到判定。`;
+  }
+  if (task?.task_type === 'multiple_choice') {
+    return `體驗模式開啟中，沙丘已記錄你的選擇，直接通過「${baseName}」。`;
+  }
+  if (task?.task_type === 'photo') {
+    return `體驗模式開啟中，沙丘已收下這張照片，直接通過「${baseName}」。`;
+  }
+  return `體驗模式開啟中，沙丘已替你通過「${baseName}」。`;
+}
+
+function buildDemoAiResult(task, submissionUrl = null) {
+  return {
+    passed: true,
+    confidence: 1,
+    label: (task?.pass_criteria && task.pass_criteria.target_label) || (task?.ai_config && task.ai_config.target_label) || 'demo_pass',
+    count_detected: Number(task?.pass_criteria?.target_count || 1),
+    score: Number(task?.pass_criteria?.min_score || 10),
+    same_location: true,
+    reason: buildDemoAutoPassMessage(task, 'ai'),
+    retry_advice: '',
+    source: 'sandhill_demo_autopass',
+    submission_url: submissionUrl
+  };
+}
+
+async function getUserIdByUsername(conn, username) {
+  const [users] = await conn.execute('SELECT id FROM users WHERE username = ? LIMIT 1', [username]);
+  return users[0]?.id || null;
+}
+
+function sanitizeBoardSessionRow(row) {
+  if (!row) return row;
+  return {
+    ...row,
+    current_tile: Number(row.current_tile || 1),
+    round_count: Number(row.round_count || 0),
+    pending_roll: row.pending_roll == null ? null : Number(row.pending_roll),
+    pending_target_tile: row.pending_target_tile == null ? null : Number(row.pending_target_tile),
+    gained_points: Number(row.gained_points || 0),
+    session_state: parseJsonField(row.session_state, null),
+    last_result: parseJsonField(row.last_result, null)
+  };
+}
+
+function sanitizeBoardMapRow(row) {
+  if (!row) return row;
+  return {
+    ...row,
+    tile_count: Number(row.tile_count || 0),
+    challenge_tile_count: Number(row.challenge_tile_count || 0),
+    event_tile_count: Number(row.event_tile_count || 0),
+    is_active: Boolean(row.is_active),
+    exact_finish_required: Boolean(row.exact_finish_required),
+    rules_json: parseJsonField(row.rules_json, null)
+  };
+}
+
+function sanitizeBoardTileRow(row) {
+  if (!row) return row;
+  return {
+    ...row,
+    is_active: Boolean(row.is_active),
+    tile_meta: parseJsonField(row.tile_meta, null)
   };
 }
 
@@ -419,6 +516,12 @@ function authenticateToken(req, res, next) {
 // 保留此函數以維持向後兼容性，實際上是 authenticateToken 的別名
 function authenticateTokenCompat(req, res, next) {
   return authenticateToken(req, res, next);
+}
+
+function getOptionalTokenUser(req) {
+  const token = req.cookies.token || req.headers.authorization?.replace('Bearer ', '');
+  if (!token) return null;
+  return verifyToken(token);
 }
 
 // RBAC 角色授權中間層
@@ -923,7 +1026,7 @@ app.get('/api/quest-chains', staffOrAdminAuth, async (req, res) => {
         : 'SELECT * FROM quest_chains WHERE created_by = ? ORDER BY id DESC',
       role === 'admin' ? [] : [username]
     );
-    res.json({ success: true, questChains: rows });
+    res.json({ success: true, questChains: rows.map(sanitizeQuestChainRow) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: '伺服器錯誤' });
@@ -934,7 +1037,12 @@ app.get('/api/quest-chains', staffOrAdminAuth, async (req, res) => {
 
 // 新增劇情 (支援圖片上傳)
 app.post('/api/quest-chains', staffOrAdminAuth, uploadImage.single('badge_image'), async (req, res) => {
-  const { title, description, chain_points, badge_name } = req.body;
+  const {
+    title, description, chain_points, badge_name,
+    mode_type, is_active, cover_image_url, short_description,
+    entry_order, entry_button_text, entry_scene_label, play_style,
+    game_rules, content_blueprint
+  } = req.body;
   if (!title) return res.status(400).json({ success: false, message: '缺少標題' });
 
   const creator = req.user?.username || req.user?.username;
@@ -943,22 +1051,730 @@ app.post('/api/quest-chains', staffOrAdminAuth, uploadImage.single('badge_image'
   let badge_image = null;
   if (req.file) {
     badge_image = '/images/' + req.file.filename;
-  } else if (req.body.badge_image_url) {
+  } else if (cover_image_url || req.body.badge_image_url) {
      // 如果有提供 URL (兼容舊方式或直接輸入)
-     badge_image = req.body.badge_image_url;
+     badge_image = cover_image_url || req.body.badge_image_url;
+  }
+
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const questChainColumns = await getTableColumnSet(conn, 'quest_chains');
+    const questChainRecord = {
+      title,
+      name: title,
+      description: description || '',
+      chain_points: chain_points || 0,
+      badge_name: badge_name || null,
+      badge_image: badge_image || null,
+      created_by: creator,
+      mode_type: normalizeNullableString(mode_type) || 'story_campaign',
+      is_active: normalizeBoolean(is_active),
+      cover_image: badge_image || null,
+      short_description: normalizeNullableString(short_description),
+      entry_order: entry_order ? Number(entry_order) : 0,
+      entry_button_text: normalizeNullableString(entry_button_text),
+      entry_scene_label: normalizeNullableString(entry_scene_label),
+      play_style: normalizeNullableString(play_style),
+      game_rules: stringifyJsonField(parseJsonField(game_rules, null)),
+      content_blueprint: stringifyJsonField(parseJsonField(content_blueprint, null))
+    };
+    const filteredRecord = Object.fromEntries(
+      Object.entries(questChainRecord).filter(([column]) => questChainColumns.has(column))
+    );
+    await insertDynamicRecord(conn, 'quest_chains', filteredRecord);
+    res.json({ success: true, message: '劇情建立成功' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.get('/api/game-entries', async (req, res) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const questChainColumns = await getTableColumnSet(conn, 'quest_chains');
+    const hasModeType = questChainColumns.has('mode_type');
+    const hasIsActive = questChainColumns.has('is_active');
+    const query = hasModeType
+      ? `SELECT * FROM quest_chains ${hasIsActive ? 'WHERE is_active = TRUE' : ''} ORDER BY entry_order ASC, id ASC`
+      : 'SELECT * FROM quest_chains ORDER BY id ASC';
+    const [rows] = await conn.execute(query);
+    const entries = rows.map(sanitizeQuestChainRow);
+    res.json({
+      success: true,
+      storyCampaigns: entries.filter(entry => (entry.mode_type || 'story_campaign') === 'story_campaign'),
+      boardGames: entries.filter(entry => entry.mode_type === 'board_game')
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.get('/api/quest-chains/:id/public-content', async (req, res) => {
+  const { id } = req.params;
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const questChainColumns = await getTableColumnSet(conn, 'quest_chains');
+    const taskColumns = await getTableColumnSet(conn, 'tasks');
+    const titleExpr = questChainColumns.has('title') ? 'COALESCE(title, name)' : 'name';
+    const [chains] = await conn.execute(`SELECT *, ${titleExpr} AS resolved_title FROM quest_chains WHERE id = ? LIMIT 1`, [id]);
+    if (!chains.length) {
+      return res.status(404).json({ success: false, message: '找不到此劇情' });
+    }
+    const activeFilter = taskColumns.has('is_active') ? 'AND (is_active = TRUE OR is_active IS NULL)' : '';
+    const [tasks] = await conn.execute(
+      `SELECT * FROM tasks WHERE quest_chain_id = ? ${activeFilter} ORDER BY quest_order ASC, id ASC`,
+      [id]
+    );
+    res.json({
+      success: true,
+      questChain: sanitizeQuestChainRow({ ...chains[0], title: chains[0].resolved_title }),
+      tasks: tasks.map(sanitizeTaskRow)
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.get('/api/board-maps/by-quest-chain/:questChainId', async (req, res) => {
+  const { questChainId } = req.params;
+  const requestedBoardMapId = Number(req.query.boardMapId || 0);
+  const previewMode = req.query.preview === '1';
+  const previewUser = getOptionalTokenUser(req);
+  const canPreviewInactive = previewMode && ['admin', 'shop', 'staff'].includes(previewUser?.role);
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [maps] = await conn.execute(
+      `SELECT bm.*,
+              COUNT(bt.id) AS tile_count,
+              SUM(CASE WHEN bt.tile_type = 'challenge' THEN 1 ELSE 0 END) AS challenge_tile_count,
+              SUM(CASE WHEN bt.tile_type = 'event' THEN 1 ELSE 0 END) AS event_tile_count
+       FROM board_maps bm
+       LEFT JOIN board_tiles bt ON bt.board_map_id = bm.id AND bt.is_active = TRUE
+       WHERE bm.quest_chain_id = ? AND (? = TRUE OR bm.is_active = TRUE)
+       GROUP BY bm.id
+       ORDER BY bm.id ASC`,
+      [questChainId, canPreviewInactive]
+    );
+    if (!maps.length) {
+      return res.status(404).json({ success: false, message: '找不到對應的大富翁地圖' });
+    }
+    const boardMap = (requestedBoardMapId
+      ? maps.find((map) => Number(map.id) === requestedBoardMapId)
+      : null) || maps[0];
+    const [tiles] = await conn.execute(
+      `SELECT bt.*, t.name AS task_name, t.description AS task_description, t.validation_mode, t.stage_template
+       FROM board_tiles bt
+       LEFT JOIN tasks t ON bt.task_id = t.id
+       WHERE bt.board_map_id = ? AND bt.is_active = TRUE
+       ORDER BY bt.tile_index ASC`,
+      [boardMap.id]
+    );
+    res.json({
+      success: true,
+      boardMap: sanitizeBoardMapRow(boardMap),
+      boardMaps: maps.map((row) => sanitizeBoardMapRow(row)),
+      tiles: tiles.map((row) => sanitizeBoardTileRow(row))
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.get('/api/board-maps/admin', staffOrAdminAuth, async (req, res) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [maps] = await conn.execute(`
+      SELECT bm.*, qc.title AS quest_chain_title, qc.mode_type, qc.is_active AS quest_chain_active,
+             COUNT(bt.id) AS tile_count,
+             SUM(CASE WHEN bt.tile_type = 'challenge' THEN 1 ELSE 0 END) AS challenge_tile_count,
+             SUM(CASE WHEN bt.tile_type = 'event' THEN 1 ELSE 0 END) AS event_tile_count
+      FROM board_maps bm
+      LEFT JOIN quest_chains qc ON bm.quest_chain_id = qc.id
+      LEFT JOIN board_tiles bt ON bt.board_map_id = bm.id
+      GROUP BY bm.id, qc.title, qc.mode_type, qc.is_active
+      ORDER BY bm.is_active DESC, bm.id DESC
+    `);
+    res.json({
+      success: true,
+      boardMaps: maps.map((row) => sanitizeBoardMapRow(row))
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '載入大富翁地圖失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.post('/api/board-maps', staffOrAdminAuth, async (req, res) => {
+  const {
+    quest_chain_id,
+    name,
+    description,
+    play_style,
+    cover_image,
+    center_lat,
+    center_lng,
+    max_rounds,
+    start_tile,
+    finish_tile,
+    dice_min,
+    dice_max,
+    failure_move,
+    exact_finish_required,
+    reward_points,
+    is_active,
+    rules_json
+  } = req.body || {};
+
+  if (!quest_chain_id || !name) {
+    return res.status(400).json({ success: false, message: '缺少 quest_chain_id 或 name' });
+  }
+
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [chains] = await conn.execute('SELECT id, mode_type FROM quest_chains WHERE id = ? LIMIT 1', [quest_chain_id]);
+    if (!chains.length) {
+      return res.status(404).json({ success: false, message: '找不到對應玩法入口' });
+    }
+
+    await conn.execute(
+      `INSERT INTO board_maps
+       (quest_chain_id, name, description, play_style, cover_image, center_lat, center_lng, max_rounds,
+        start_tile, finish_tile, dice_min, dice_max, failure_move, exact_finish_required, reward_points,
+        is_active, rules_json, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        Number(quest_chain_id),
+        name,
+        normalizeNullableString(description),
+        normalizeNullableString(play_style) || 'fixed_track_race',
+        normalizeNullableString(cover_image),
+        normalizeNullableString(center_lat),
+        normalizeNullableString(center_lng),
+        normalizeNullableString(max_rounds),
+        Number(start_tile || 1),
+        Number(finish_tile || 10),
+        Number(dice_min || 1),
+        Number(dice_max || 6),
+        Number(failure_move ?? -1),
+        normalizeBoolean(exact_finish_required),
+        Number(reward_points || 0),
+        normalizeBoolean(is_active),
+        stringifyJsonField(rules_json),
+        req.user?.username || null
+      ]
+    );
+    res.json({ success: true, message: '大富翁地圖建立成功' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '建立大富翁地圖失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.put('/api/board-maps/:id', staffOrAdminAuth, async (req, res) => {
+  const { id } = req.params;
+  const {
+    quest_chain_id,
+    name,
+    description,
+    play_style,
+    cover_image,
+    center_lat,
+    center_lng,
+    max_rounds,
+    start_tile,
+    finish_tile,
+    dice_min,
+    dice_max,
+    failure_move,
+    exact_finish_required,
+    reward_points,
+    is_active,
+    rules_json
+  } = req.body || {};
+
+  if (!quest_chain_id || !name) {
+    return res.status(400).json({ success: false, message: '缺少 quest_chain_id 或 name' });
   }
 
   let conn;
   try {
     conn = await pool.getConnection();
     await conn.execute(
-      'INSERT INTO quest_chains (title, description, chain_points, badge_name, badge_image, created_by) VALUES (?, ?, ?, ?, ?, ?)',
-      [title, description, chain_points || 0, badge_name || null, badge_image || null, creator]
+      `UPDATE board_maps
+       SET quest_chain_id = ?, name = ?, description = ?, play_style = ?, cover_image = ?,
+           center_lat = ?, center_lng = ?, max_rounds = ?, start_tile = ?, finish_tile = ?,
+           dice_min = ?, dice_max = ?, failure_move = ?, exact_finish_required = ?, reward_points = ?,
+           is_active = ?, rules_json = ?
+       WHERE id = ?`,
+      [
+        Number(quest_chain_id),
+        name,
+        normalizeNullableString(description),
+        normalizeNullableString(play_style) || 'fixed_track_race',
+        normalizeNullableString(cover_image),
+        normalizeNullableString(center_lat),
+        normalizeNullableString(center_lng),
+        normalizeNullableString(max_rounds),
+        Number(start_tile || 1),
+        Number(finish_tile || 10),
+        Number(dice_min || 1),
+        Number(dice_max || 6),
+        Number(failure_move ?? -1),
+        normalizeBoolean(exact_finish_required),
+        Number(reward_points || 0),
+        normalizeBoolean(is_active),
+        stringifyJsonField(rules_json),
+        Number(id)
+      ]
     );
-    res.json({ success: true, message: '劇情建立成功' });
+    res.json({ success: true, message: '大富翁地圖更新成功' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
+    res.status(500).json({ success: false, message: '更新大富翁地圖失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.delete('/api/board-maps/:id', staffOrAdminAuth, async (req, res) => {
+  const { id } = req.params;
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    await conn.execute('DELETE FROM board_maps WHERE id = ?', [id]);
+    res.json({ success: true, message: '大富翁地圖已刪除' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '刪除大富翁地圖失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.get('/api/board-maps/:boardMapId/tiles', staffOrAdminAuth, async (req, res) => {
+  const { boardMapId } = req.params;
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [tiles] = await conn.execute(
+      `SELECT bt.*, t.name AS task_name, t.validation_mode, t.task_type
+       FROM board_tiles bt
+       LEFT JOIN tasks t ON bt.task_id = t.id
+       WHERE bt.board_map_id = ?
+       ORDER BY bt.tile_index ASC, bt.id ASC`,
+      [boardMapId]
+    );
+    res.json({
+      success: true,
+      tiles: tiles.map((row) => sanitizeBoardTileRow(row))
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '載入格子列表失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.post('/api/board-maps/:boardMapId/tiles', staffOrAdminAuth, async (req, res) => {
+  const { boardMapId } = req.params;
+  const {
+    tile_index,
+    tile_name,
+    tile_type,
+    latitude,
+    longitude,
+    radius_meters,
+    task_id,
+    effect_type,
+    effect_value,
+    event_title,
+    event_body,
+    guide_content,
+    tile_meta,
+    is_active
+  } = req.body || {};
+
+  if (!tile_index || !tile_name || !tile_type) {
+    return res.status(400).json({ success: false, message: '缺少格子編號、名稱或類型' });
+  }
+
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    await conn.execute(
+      `INSERT INTO board_tiles
+       (board_map_id, tile_index, tile_name, tile_type, latitude, longitude, radius_meters, task_id,
+        effect_type, effect_value, event_title, event_body, guide_content, tile_meta, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        Number(boardMapId),
+        Number(tile_index),
+        tile_name,
+        tile_type,
+        normalizeNullableString(latitude),
+        normalizeNullableString(longitude),
+        normalizeNullableString(radius_meters),
+        normalizeNullableString(task_id),
+        normalizeNullableString(effect_type),
+        normalizeNullableString(effect_value),
+        normalizeNullableString(event_title),
+        normalizeNullableString(event_body),
+        normalizeNullableString(guide_content),
+        stringifyJsonField(tile_meta),
+        normalizeBoolean(is_active)
+      ]
+    );
+    res.json({ success: true, message: '格子建立成功' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '建立格子失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.put('/api/board-tiles/:id', staffOrAdminAuth, async (req, res) => {
+  const { id } = req.params;
+  const {
+    board_map_id,
+    tile_index,
+    tile_name,
+    tile_type,
+    latitude,
+    longitude,
+    radius_meters,
+    task_id,
+    effect_type,
+    effect_value,
+    event_title,
+    event_body,
+    guide_content,
+    tile_meta,
+    is_active
+  } = req.body || {};
+
+  if (!board_map_id || !tile_index || !tile_name || !tile_type) {
+    return res.status(400).json({ success: false, message: '缺少格子資料' });
+  }
+
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    await conn.execute(
+      `UPDATE board_tiles
+       SET board_map_id = ?, tile_index = ?, tile_name = ?, tile_type = ?, latitude = ?, longitude = ?,
+           radius_meters = ?, task_id = ?, effect_type = ?, effect_value = ?, event_title = ?, event_body = ?,
+           guide_content = ?, tile_meta = ?, is_active = ?
+       WHERE id = ?`,
+      [
+        Number(board_map_id),
+        Number(tile_index),
+        tile_name,
+        tile_type,
+        normalizeNullableString(latitude),
+        normalizeNullableString(longitude),
+        normalizeNullableString(radius_meters),
+        normalizeNullableString(task_id),
+        normalizeNullableString(effect_type),
+        normalizeNullableString(effect_value),
+        normalizeNullableString(event_title),
+        normalizeNullableString(event_body),
+        normalizeNullableString(guide_content),
+        stringifyJsonField(tile_meta),
+        normalizeBoolean(is_active),
+        Number(id)
+      ]
+    );
+    res.json({ success: true, message: '格子更新成功' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '更新格子失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.delete('/api/board-tiles/:id', staffOrAdminAuth, async (req, res) => {
+  const { id } = req.params;
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    await conn.execute('DELETE FROM board_tiles WHERE id = ?', [id]);
+    res.json({ success: true, message: '格子已刪除' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '刪除格子失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.post('/api/board/session/start', authenticateToken, async (req, res) => {
+  const { questChainId, boardMapId, preview } = req.body;
+  if (!questChainId) {
+    return res.status(400).json({ success: false, message: '缺少 questChainId' });
+  }
+
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const userId = await getUserIdByUsername(conn, req.user.username);
+    if (!userId) {
+      return res.status(400).json({ success: false, message: '使用者不存在' });
+    }
+
+    const canPreviewInactive = Boolean(preview) && ['admin', 'shop', 'staff'].includes(req.user?.role);
+    const mapSql = boardMapId
+      ? 'SELECT * FROM board_maps WHERE quest_chain_id = ? AND id = ? AND (? = TRUE OR is_active = TRUE) ORDER BY id ASC LIMIT 1'
+      : 'SELECT * FROM board_maps WHERE quest_chain_id = ? AND (? = TRUE OR is_active = TRUE) ORDER BY id ASC LIMIT 1';
+    const mapParams = boardMapId
+      ? [questChainId, Number(boardMapId), canPreviewInactive]
+      : [questChainId, canPreviewInactive];
+    const [maps] = await conn.execute(mapSql, mapParams);
+    if (!maps.length) {
+      return res.status(404).json({ success: false, message: '找不到對應的大富翁地圖' });
+    }
+    const boardMap = maps[0];
+
+    const [existing] = await conn.execute(
+      `SELECT * FROM user_game_sessions
+       WHERE user_id = ? AND mode_type = 'board_game' AND quest_chain_id = ? AND board_map_id = ? AND status = 'active'
+       ORDER BY id DESC LIMIT 1`,
+      [userId, questChainId, boardMap.id]
+    );
+
+    let sessionId = existing[0]?.id || null;
+    if (!sessionId) {
+      const [insertResult] = await conn.execute(
+        `INSERT INTO user_game_sessions
+         (user_id, mode_type, quest_chain_id, board_map_id, status, current_tile, round_count, gained_points)
+         VALUES (?, 'board_game', ?, ?, 'active', ?, 0, 0)`,
+        [userId, questChainId, boardMap.id, Number(boardMap.start_tile || 1)]
+      );
+      sessionId = insertResult.insertId;
+    }
+
+    const [sessions] = await conn.execute('SELECT * FROM user_game_sessions WHERE id = ? LIMIT 1', [sessionId]);
+    res.json({ success: true, session: sanitizeBoardSessionRow(sessions[0]), boardMap: { ...boardMap, rules_json: parseJsonField(boardMap.rules_json, null) } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '啟動大富翁 session 失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.post('/api/board/session/:sessionId/roll', authenticateToken, async (req, res) => {
+  const { sessionId } = req.params;
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const userId = await getUserIdByUsername(conn, req.user.username);
+    if (!userId) {
+      return res.status(400).json({ success: false, message: '使用者不存在' });
+    }
+
+    const [sessions] = await conn.execute(
+      'SELECT * FROM user_game_sessions WHERE id = ? AND user_id = ? LIMIT 1',
+      [sessionId, userId]
+    );
+    if (!sessions.length) {
+      return res.status(404).json({ success: false, message: '找不到這場大富翁 session' });
+    }
+
+    const session = sanitizeBoardSessionRow(sessions[0]);
+    if (session.pending_target_tile) {
+      return res.status(400).json({ success: false, message: '目前已有待結算的回合' });
+    }
+
+    const [maps] = await conn.execute('SELECT * FROM board_maps WHERE id = ? LIMIT 1', [session.board_map_id]);
+    if (!maps.length) {
+      return res.status(404).json({ success: false, message: '找不到棋盤資料' });
+    }
+    const boardMap = maps[0];
+
+    const diceMin = Number(boardMap.dice_min || 1);
+    const diceMax = Number(boardMap.dice_max || 6);
+    const rollValue = Math.floor(Math.random() * (diceMax - diceMin + 1)) + diceMin;
+    const finishTile = Number(boardMap.finish_tile || session.current_tile);
+    const exactFinishRequired = Boolean(boardMap.exact_finish_required);
+    const desiredTile = session.current_tile + rollValue;
+    const targetTileIndex = exactFinishRequired && desiredTile > finishTile
+      ? session.current_tile
+      : Math.min(desiredTile, finishTile);
+
+    const [tiles] = await conn.execute(
+      `SELECT bt.*, t.name AS task_name, t.description AS task_description, t.validation_mode, t.stage_template, t.points AS task_points
+       FROM board_tiles bt
+       LEFT JOIN tasks t ON bt.task_id = t.id
+       WHERE bt.board_map_id = ? AND bt.tile_index = ? LIMIT 1`,
+      [boardMap.id, targetTileIndex]
+    );
+    if (!tiles.length) {
+      return res.status(404).json({ success: false, message: '找不到目標格子' });
+    }
+
+    const targetTile = tiles[0];
+    await conn.execute(
+      `UPDATE user_game_sessions
+       SET pending_roll = ?, pending_target_tile = ?, last_result = ?
+       WHERE id = ?`,
+      [
+        rollValue,
+        targetTileIndex,
+        JSON.stringify({
+          phase: 'rolled',
+          rollValue,
+          targetTileIndex,
+          tileName: targetTile.tile_name,
+          message: `命運之骰顯示 ${rollValue}，請前往第 ${targetTileIndex} 格「${targetTile.tile_name || '未命名格子'}」。`
+        }),
+        session.id
+      ]
+    );
+
+    const [updatedRows] = await conn.execute('SELECT * FROM user_game_sessions WHERE id = ? LIMIT 1', [session.id]);
+    res.json({
+      success: true,
+      session: sanitizeBoardSessionRow(updatedRows[0]),
+      rollValue,
+      targetTile: {
+        ...targetTile,
+        tile_meta: parseJsonField(targetTile.tile_meta, null)
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '擲骰失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.post('/api/board/session/:sessionId/resolve', authenticateToken, async (req, res) => {
+  const { sessionId } = req.params;
+  const { success } = req.body;
+  if (typeof success !== 'boolean') {
+    return res.status(400).json({ success: false, message: '缺少 success 狀態' });
+  }
+
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const userId = await getUserIdByUsername(conn, req.user.username);
+    if (!userId) {
+      return res.status(400).json({ success: false, message: '使用者不存在' });
+    }
+
+    const [sessions] = await conn.execute(
+      'SELECT * FROM user_game_sessions WHERE id = ? AND user_id = ? LIMIT 1',
+      [sessionId, userId]
+    );
+    if (!sessions.length) {
+      return res.status(404).json({ success: false, message: '找不到這場大富翁 session' });
+    }
+
+    const session = sanitizeBoardSessionRow(sessions[0]);
+    if (!session.pending_target_tile) {
+      return res.status(400).json({ success: false, message: '目前沒有待結算的回合' });
+    }
+
+    const [maps] = await conn.execute('SELECT * FROM board_maps WHERE id = ? LIMIT 1', [session.board_map_id]);
+    if (!maps.length) {
+      return res.status(404).json({ success: false, message: '找不到棋盤資料' });
+    }
+    const boardMap = maps[0];
+
+    const [tiles] = await conn.execute(
+      `SELECT bt.*, t.points AS task_points
+       FROM board_tiles bt
+       LEFT JOIN tasks t ON bt.task_id = t.id
+       WHERE bt.board_map_id = ? AND bt.tile_index = ? LIMIT 1`,
+      [boardMap.id, session.pending_target_tile]
+    );
+    const pendingTile = tiles[0] || null;
+
+    const failureMove = Number(boardMap.failure_move || -1);
+    const nextTile = success
+      ? session.pending_target_tile
+      : Math.max(Number(boardMap.start_tile || 1), session.current_tile + failureMove);
+    const gainedPoints = success
+      ? Number(session.gained_points || 0) + Number(pendingTile?.task_points || pendingTile?.effect_value || 0)
+      : Number(session.gained_points || 0);
+    const nextRound = Number(session.round_count || 0) + 1;
+    const finishTile = Number(boardMap.finish_tile || nextTile);
+    const nextStatus = nextTile >= finishTile ? 'completed' : 'active';
+    const turnPoints = Number(pendingTile?.task_points || pendingTile?.effect_value || 0);
+    const tileName = pendingTile?.tile_name || pendingTile?.event_title || '未命名格子';
+    let resolveMessage = '';
+    if (success) {
+      if (pendingTile?.tile_type === 'event') {
+        resolveMessage = `${pendingTile?.event_title || tileName} 已觸發，你的隊伍推進到第 ${nextTile} 格。`;
+      } else {
+        resolveMessage = `「${tileName}」判定通過，你的隊伍推進到第 ${nextTile} 格。`;
+      }
+      if (turnPoints > 0) {
+        resolveMessage += ` 本回合獲得 ${turnPoints} 點旅程積分。`;
+      }
+      if (nextStatus === 'completed') {
+        resolveMessage += ' 你已抵達終點。';
+      }
+    } else {
+      resolveMessage = `「${tileName}」未通過，依棋盤規則退回到第 ${nextTile} 格。`;
+    }
+
+    await conn.execute(
+      `UPDATE user_game_sessions
+       SET current_tile = ?, round_count = ?, gained_points = ?, pending_roll = NULL, pending_target_tile = NULL,
+           status = ?, completed_at = ${nextStatus === 'completed' ? 'NOW()' : 'NULL'}, last_result = ?
+       WHERE id = ?`,
+      [
+        nextTile,
+        nextRound,
+        gainedPoints,
+        nextStatus,
+        JSON.stringify({
+          phase: 'resolved',
+          success,
+          nextTile,
+          roundCount: nextRound,
+          gainedPoints,
+          tileName,
+          tileType: pendingTile?.tile_type || null,
+          message: resolveMessage
+        }),
+        session.id
+      ]
+    );
+
+    const [updatedRows] = await conn.execute('SELECT * FROM user_game_sessions WHERE id = ? LIMIT 1', [session.id]);
+    res.json({ success: true, session: sanitizeBoardSessionRow(updatedRows[0]) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '結算回合失敗' });
   } finally {
     if (conn) conn.release();
   }
@@ -2221,9 +3037,11 @@ app.patch('/api/user-tasks/:id/answer', authenticateToken, async (req, res) => {
 
     // 1. 取得任務資訊
     const [rows] = await conn.execute(`
-      SELECT ut.*, t.task_type, t.correct_answer, t.points, t.name as task_name, ut.user_id, ut.task_id, t.quest_chain_id, t.quest_order
+      SELECT ut.*, t.task_type, t.correct_answer, t.points, t.name as task_name, ut.user_id, ut.task_id, t.quest_chain_id, t.quest_order,
+             qc.game_rules, qc.content_blueprint
       FROM user_tasks ut
       JOIN tasks t ON ut.task_id = t.id
+      LEFT JOIN quest_chains qc ON t.quest_chain_id = qc.id
       WHERE ut.id = ?
     `, [id]);
 
@@ -2254,9 +3072,13 @@ app.patch('/api/user-tasks/:id/answer', authenticateToken, async (req, res) => {
     let earnedItemName = null; // 移到外層宣告
     let questChainCompleted = false; // 移到外層宣告
     let questChainReward = null; // 移到外層宣告
+    const runtimeFlags = getQuestChainRuntimeFlags(userTask);
 
     // 2. 檢查是否為自動驗證題型且答案正確
-    if (['multiple_choice', 'number', 'keyword', 'location'].includes(userTask.task_type)) {
+    if (runtimeFlags.demoAutoPass) {
+      isCompleted = true;
+      message = buildDemoAutoPassMessage(userTask);
+    } else if (['multiple_choice', 'number', 'keyword', 'location'].includes(userTask.task_type)) {
       if (userTask.task_type === 'location') {
         // 地理圍欄任務：只要前端送出請求，即視為完成
         isCompleted = true;
@@ -2397,7 +3219,7 @@ app.post('/api/ai-tasks/:taskId/submit', authenticateToken, uploadAiTaskImage.si
     }
 
     const [tasks] = await conn.execute(
-      `SELECT t.*, qc.name AS quest_chain_name
+      `SELECT t.*, qc.name AS quest_chain_name, qc.game_rules, qc.content_blueprint
        FROM tasks t
        LEFT JOIN quest_chains qc ON t.quest_chain_id = qc.id
        WHERE t.id = ?`,
@@ -2429,11 +3251,17 @@ app.post('/api/ai-tasks/:taskId/submit', authenticateToken, uploadAiTaskImage.si
       return res.status(400).json({ success: false, message: '已達到此任務的最大挑戰次數' });
     }
 
+    const runtimeFlags = getQuestChainRuntimeFlags(task);
     const submissionUrl = saveBufferAsImage(req.file);
-    const evaluation = await evaluateAiTaskImage(task, req.file, {
-      latitude: req.body.latitude,
-      longitude: req.body.longitude
-    });
+    const evaluation = runtimeFlags.demoAutoPass
+      ? {
+          rawContent: JSON.stringify(buildDemoAiResult(task, submissionUrl)),
+          parsed: buildDemoAiResult(task, submissionUrl)
+        }
+      : await evaluateAiTaskImage(task, req.file, {
+          latitude: req.body.latitude,
+          longitude: req.body.longitude
+        });
 
     const attemptNo = attemptCount + 1;
     const result = evaluation.parsed;
@@ -2504,6 +3332,7 @@ app.post('/api/ai-tasks/:taskId/submit', authenticateToken, uploadAiTaskImage.si
       remaining_attempts: task.max_attempts ? Math.max(Number(task.max_attempts) - attemptNo, 0) : null,
       user_task_id: userTask.id,
       submission_url: submissionUrl,
+      demo_mode: runtimeFlags.demoAutoPass,
       isCompleted: result.passed,
       earnedItemName: completion?.earnedItemName || null,
       questChainCompleted: completion?.questChainCompleted || false,
@@ -3613,7 +4442,7 @@ async function getTaskReferenceImageDataUrl(task) {
     return `data:${mimeType};base64,${buffer.toString('base64')}`;
   }
 
-  const normalizedPath = photoUrl.replace(/^\/+/, '');
+  const normalizedPath = decodeURIComponent(photoUrl.replace(/^\/+/, ''));
   const candidatePaths = [
     path.join(__dirname, 'public', normalizedPath),
     normalizedPath.startsWith('images/')

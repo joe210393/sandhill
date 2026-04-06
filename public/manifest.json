@@ -1,8 +1,8 @@
 {
-  "name": "GPS 任務系統",
-  "short_name": "GPSTask",
-  "description": "實境導覽與 GPS 任務尋寶系統",
-  "start_url": "/map.html",
+  "name": "沙丘",
+  "short_name": "沙丘",
+  "description": "AI 驅動的戶外實境關卡遊戲平台",
+  "start_url": "/index.html#gameEntries",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2196f3",
@@ -21,21 +21,21 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["games", "travel", "navigation"],
+  "categories": ["games", "education", "travel"],
   "screenshots": [],
   "shortcuts": [
     {
-      "name": "關卡地圖",
-      "short_name": "地圖",
-      "description": "查看任務地圖",
-      "url": "/map.html",
+      "name": "玩法入口",
+      "short_name": "入口",
+      "description": "選擇劇情主線或大富翁玩法",
+      "url": "/index.html#gameEntries",
       "icons": [{ "src": "/images/mascot.png", "sizes": "192x192" }]
     },
     {
-      "name": "任務列表",
-      "short_name": "任務",
-      "description": "查看所有任務",
-      "url": "/tasks-list.html",
+      "name": "海底探索艙",
+      "short_name": "探索艙",
+      "description": "直接進入沙丘的主遊戲介面",
+      "url": "/ai-lab.html",
       "icons": [{ "src": "/images/mascot.png", "sizes": "192x192" }]
     }
   ]
