@@ -547,6 +547,27 @@
       align-self: end;
     }
 
+    .hero-summary {
+      display: grid;
+      gap: 10px;
+    }
+
+    .hero-summary-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      color: rgba(255, 255, 255, 0.9);
+      line-height: 1.7;
+      font-size: 0.94rem;
+    }
+
+    .hero-summary-row strong {
+      color: #fff;
+      min-width: 72px;
+      font-size: 0.86rem;
+      letter-spacing: 0.04em;
+    }
+
     .hero-panel,
     .section-card,
     .camp-card,
@@ -1016,6 +1037,14 @@
         grid-template-columns: 1fr;
       }
 
+      .hero-summary-row {
+        font-size: 0.9rem;
+      }
+
+      .hero-summary-row strong {
+        min-width: 64px;
+      }
+
       .hero-actions,
       .auth-actions,
       .cta-actions {
@@ -1068,6 +1097,28 @@
         padding: 10px 0;
         border-bottom: 1px solid rgba(10, 76, 99, 0.12);
       }
+
+      .hero-side {
+        display: none;
+      }
+
+      .hero-overlay .s4,
+      .hero-overlay .s6,
+      .hero-overlay .s7,
+      .hero-overlay .s8,
+      .hero-overlay .t3,
+      .hero-overlay .t5,
+      .hero-overlay .t6,
+      .hero-overlay .b5,
+      .hero-overlay .b6,
+      .hero-overlay .b7,
+      .hero-overlay .b8,
+      .hero-overlay .b9,
+      .hero-overlay .b10,
+      .hero-overlay .foam-line.f2,
+      .hero-overlay .current-ribbon.r3 {
+        display: none;
+      }
     }
   </style>
 </head>
@@ -1079,7 +1130,6 @@
       <nav class="main-nav">
         <a href="/index.html" class="current-page">首頁</a>
         <a href="#storySelector">劇本入口</a>
-        <a href="#info">活動資訊</a>
         <a href="/user-tasks.html">遊戲紀錄</a>
         <a href="/staff-dashboard.html" id="navStaff" style="display:none;">建立關卡</a>
         <a href="/role-management.html" id="navRoleMgmt" style="display:none;">權限管理</a>
@@ -1147,37 +1197,15 @@
         </p>
         <div class="hero-actions">
           <button class="ocean-btn ocean-btn-primary" id="heroStoryPickerBtn" type="button">立即選擇劇本</button>
-          <a class="ocean-btn ocean-btn-secondary" href="/ai-lab.html">先進入遊戲殼</a>
         </div>
         <div id="authBtns" class="auth-panel"></div>
       </div>
 
       <div class="hero-side">
         <div class="hero-panel">
-          <span class="hero-chip">海洋污染感動畫</span>
-          <strong>Hero 會持續漂流魚群、垃圾與污染水波</strong>
-          <span>讓首頁一打開就先感受到海洋正在呼吸，也正在被污染，這場冒險不是靜態看板，而是正在發生的海洋場景。</span>
-        </div>
-        <div class="hero-panel">
           <span class="hero-chip">手機優先</span>
-          <div class="hero-panel-grid">
-            <div>
-              <strong>玩家端</strong>
-              <p>單手就能選玩法、開鏡頭、看劇情框、交照片。</p>
-            </div>
-            <div>
-              <strong>工作人員端</strong>
-              <p>手機上也能快速進控制台、上架關卡、預覽玩法。</p>
-            </div>
-            <div>
-              <strong>教學模式</strong>
-              <p>先讓工作室與現場導覽都能順跑整段流程。</p>
-            </div>
-            <div>
-              <strong>AI 裁判</strong>
-              <p>物件、場景、條件與構圖判定都已接進主流程。</p>
-            </div>
-          </div>
+          <strong>先選劇本，再進遊戲。</strong>
+          <span>首頁只保留最重要的入口與登入方式，讓玩家一眼就知道下一步要做什麼。</span>
         </div>
       </div>
     </section>
@@ -1185,22 +1213,22 @@
     <section class="section-card" id="about">
       <div class="section-heading">
         <div>
-          <h3>海底大作戰的三個核心價值</h3>
-          <p>這一套首頁視覺會保留你喜歡的夏令營氣質，但把原本的報名頁邏輯換成可直接進遊戲的入口，讓活動感、故事感與玩法感同時成立。</p>
+          <h3>為什麼首頁要像遊戲入口</h3>
+          <p>首頁只做三件事：先建立海洋情緒、讓玩家快速登入或註冊、把人順順帶進目前開啟的劇本。</p>
         </div>
       </div>
       <div class="camp-grid">
         <article class="camp-card">
-          <h4>IP 核心營運</h4>
-          <p>用「史蛋、巴布、鯨魚」這組角色把孩子與家長先帶進世界觀，再由劇情主線與 NPC 對話延續這份情感。</p>
+          <h4>先知道怎麼開始</h4>
+          <p>玩家不需要理解所有功能，只要看見劇本入口，就能直接開始第一輪體驗。</p>
         </article>
         <article class="camp-card">
-          <h4>沉浸式海洋場景</h4>
-          <p>首頁不是平面海報，而是有水流、魚群、垃圾漂流與污染水色的動態場景，先把情緒建立起來。</p>
+          <h4>先感受到海洋</h4>
+          <p>魚群、污染水色與垃圾漂流會持續存在，但整體節奏更偏手機也能舒服閱讀的密度。</p>
         </article>
         <article class="camp-card">
-          <h4>親海行動變成遊戲</h4>
-          <p>玩家不是被叫去做任務，而是進入一場要觀察、拍攝、辨識、合作、通關的戶外冒險。</p>
+          <h4>先進到遊戲裡</h4>
+          <p>真正的劇情、AI 裁判、大富翁與 RPG 對話，都留在遊戲殼裡展開，不把首頁做成說明書。</p>
         </article>
       </div>
     </section>
@@ -1212,70 +1240,9 @@
           <p>首頁不再把所有玩法整頁攤開。民眾只要按下「立即選擇劇本」，就會跳出目前開啟中的劇情或大富翁卡片，再決定要直接進入遊戲殼，或先到遊戲殼裡挑選劇本。</p>
         </div>
       </div>
-      <div class="info-card">
-        <h4>進入方式</h4>
-        <p>你可以先選劇本再進遊戲殼，也可以先進遊戲殼，再在艙內挑選劇本。首頁只保留最必要的入口，避免玩家一進來就被太多內容干擾。</p>
-        <div class="cta-actions">
-          <button class="ocean-btn ocean-btn-primary" id="inlineStoryPickerBtn" type="button">立即選擇劇本</button>
-          <a class="ocean-btn ocean-btn-secondary" href="/ai-lab.html">先進入遊戲殼</a>
-        </div>
-      </div>
-    </section>
-
-    <section class="section-card">
-      <div class="section-heading">
-        <div>
-          <h3>這不是單純網站，而是手機上的 RPG 冒險入口</h3>
-          <p>首頁把原本零散的導覽和系統功能重新整理成手機可閱讀、可點擊、可理解的節奏。下面這些連結和資訊會繼續保留，但整體語氣與版面會更像在進入一場遊戲。</p>
-        </div>
-      </div>
-      <div class="highlight-grid">
-        <div>
-          <article class="highlight-card">
-            <h4>玩家端體驗</h4>
-            <p>從首頁進入後，玩家會看到教學模式、劇情主線與大富翁入口，接著直接進 `ai-lab` 玩，不需要自己找任務地圖。</p>
-          </article>
-          <article class="highlight-card">
-            <h4>AI 裁判類型</h4>
-            <p>AI 可以檢查照片裡的物件數量、指定場景、地點比對、條件蒐集和構圖分數，讓每一關都像真的守關。</p>
-          </article>
-        </div>
-        <div class="info-stack" id="info">
-          <article class="info-card">
-            <h4>活動資訊區塊</h4>
-            <table class="info-table">
-              <tr>
-                <td>主打介面</td>
-                <td>手機優先，玩家與工作人員都以手機操作為主。</td>
-              </tr>
-              <tr>
-                <td>核心模式</td>
-                <td>教學模式、劇情主線、大富翁模式。</td>
-              </tr>
-              <tr>
-                <td>目前重點</td>
-                <td>讓玩家從首頁就能直覺進入海洋冒險，不被舊系統式選單打斷。</td>
-              </tr>
-              <tr>
-                <td>後台連結</td>
-                <td>工作人員仍可從首頁進入內容控制台、玩家管理與獎勵兌換。</td>
-              </tr>
-            </table>
-          </article>
-          <article class="info-card">
-            <h4>目前入口策略</h4>
-            <p>首頁保留登入、註冊、劇本入口與進入遊戲殼。玩家不需要先讀完整頁玩法卡，就能先做選擇再開始遊玩。</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section class="cta-panel">
-      <h3>準備好進入今天開啟的劇本了嗎？</h3>
-      <p>首頁現在只做入口，不再像目錄頁把所有玩法鋪滿。先挑劇本，再進遊戲殼，或先進遊戲殼，再在艙內挑選今天要玩的內容。</p>
       <div class="cta-actions">
-        <button class="ocean-btn ocean-btn-primary" id="footerStoryPickerBtn" type="button">立即選擇劇本</button>
-        <a class="ocean-btn ocean-btn-secondary" href="/staff-dashboard.html">前往建立關卡</a>
+        <button class="ocean-btn ocean-btn-primary" id="inlineStoryPickerBtn" type="button">立即選擇劇本</button>
+        <a class="ocean-btn ocean-btn-secondary" href="/ai-lab.html">先進入遊戲殼</a>
       </div>
     </section>
   </main>
@@ -1446,7 +1413,7 @@
 
     loadGameEntries();
 
-    ['heroStoryPickerBtn', 'inlineStoryPickerBtn', 'footerStoryPickerBtn'].forEach((id) => {
+    ['heroStoryPickerBtn', 'inlineStoryPickerBtn'].forEach((id) => {
       const btn = document.getElementById(id);
       if (btn) {
         btn.addEventListener('click', () => toggleStoryPicker(true));
