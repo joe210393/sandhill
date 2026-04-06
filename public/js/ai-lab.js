@@ -787,12 +787,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return Boolean(
                 (rules && (rules.tutorial_mode || rules.tutorialMode))
                 || currentQuestChainData?.play_style === 'tutorial_story'
+                || currentQuestChainData?.play_style === 'tutorial_board'
                 || currentQuestChainData?.play_style === 'demo_story'
             );
         }
 
         function isTutorialGuestMode() {
-            return currentEntryMode === 'story_campaign' && isCurrentQuestTutorialMode() && !getLoginUser();
+            return isCurrentQuestTutorialMode() && !getLoginUser();
+        }
+
+        function isTutorialGuestStoryMode() {
+            return currentEntryMode === 'story_campaign' && isTutorialGuestMode();
         }
 
         function getTutorialGuestProgressKey(questChainId = currentQuestChainId) {
@@ -850,38 +855,60 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function shouldSuppressCameraAlert() {
-            const urlMode = new URLSearchParams(window.location.search).get('mode');
-            return isCurrentQuestTutorialMode() || urlMode === 'story_campaign';
+            const params = new URLSearchParams(window.location.search);
+            const urlMode = params.get('mode');
+            const questChainId = Number(params.get('questChainId') || 0);
+            return (
+                isCurrentQuestTutorialMode()
+                || questChainId === 9
+                || questChainId === 10
+                || urlMode === 'story_campaign'
+                || urlMode === 'board_game'
+            );
         }
 
         function renderTutorialModeUi() {
             const isTutorialStory = currentEntryMode === 'story_campaign' && isCurrentQuestTutorialMode();
-            const shouldHidePrimaryCard = isTutorialStory && (
+            const isTutorialBoard = currentEntryMode === 'board_game' && isCurrentQuestTutorialMode();
+            const shouldHideTutorialChrome = isTutorialStory || isTutorialBoard;
+            const shouldHidePrimaryCard = shouldHideTutorialChrome && (
                 tutorialFlowStarted
                 || !npcDialog?.classList.contains('hidden')
                 || !answerModal?.classList.contains('hidden')
                 || !completionModal?.classList.contains('hidden')
                 || !lockOverlay?.classList.contains('hidden')
             );
-            gameShellPanel?.classList.toggle('tutorial-mode', isTutorialStory);
+            gameShellPanel?.classList.toggle('tutorial-mode', shouldHideTutorialChrome);
             gameShellPanel?.classList.toggle('tutorial-hidden-card', shouldHidePrimaryCard);
             if (gameShellPanel) {
                 gameShellPanel.setAttribute('aria-hidden', shouldHidePrimaryCard ? 'true' : 'false');
             }
-            miniMapWrap?.classList.toggle('tutorial-hidden', isTutorialStory);
-            featureDock?.classList.toggle('tutorial-hidden', isTutorialStory);
-            selectionInstruction?.classList.toggle('tutorial-hidden', isTutorialStory);
-            floatingMicBtn?.classList.toggle('tutorial-hidden', isTutorialStory);
-            document.querySelector('.game-hud')?.classList.toggle('tutorial-hidden', isTutorialStory);
+            miniMapWrap?.classList.toggle('tutorial-hidden', shouldHideTutorialChrome);
+            featureDock?.classList.toggle('tutorial-hidden', shouldHideTutorialChrome);
+            selectionInstruction?.classList.toggle('tutorial-hidden', shouldHideTutorialChrome);
+            floatingMicBtn?.classList.toggle('tutorial-hidden', shouldHideTutorialChrome);
+            document.querySelector('.game-hud')?.classList.toggle('tutorial-hidden', shouldHideTutorialChrome);
+            document.querySelector('.game-shell-board-status')?.classList.toggle('tutorial-hidden', isTutorialBoard);
+            document.querySelector('.mini-selection-toolbar')?.classList.toggle('tutorial-hidden', shouldHideTutorialChrome);
+            if (selectionInstruction) {
+                selectionInstruction.style.display = shouldHideTutorialChrome ? 'none' : '';
+                selectionInstruction.style.opacity = shouldHideTutorialChrome ? '0' : '1';
+            }
+            if (captureReticleBtn) {
+                captureReticleBtn.style.display = shouldHideTutorialChrome ? 'none' : '';
+            }
+            if (locationBar) {
+                locationBar.style.display = shouldHideTutorialChrome ? 'none' : '';
+            }
 
             if (gameShellProgressBlock) {
-                gameShellProgressBlock.style.display = isTutorialStory ? 'none' : '';
+                gameShellProgressBlock.style.display = shouldHideTutorialChrome ? 'none' : '';
             }
             if (gameShellEntriesBlock) {
-                gameShellEntriesBlock.style.display = isTutorialStory ? 'none' : '';
+                gameShellEntriesBlock.style.display = shouldHideTutorialChrome ? 'none' : '';
             }
             if (gameShellToggle) {
-                gameShellToggle.textContent = isTutorialStory ? '教學' : '任務';
+                gameShellToggle.textContent = shouldHideTutorialChrome ? '教學' : '任務';
             }
         }
 
@@ -1421,7 +1448,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateShellModeUi();
             renderTutorialModeUi();
             loadPlayerHudStats();
-            const tutorialGuestState = isTutorialGuestMode() ? getTutorialGuestState(questChainId) : null;
+            const tutorialGuestState = isTutorialGuestStoryMode() ? getTutorialGuestState(questChainId) : null;
             if (tutorialGuestState) {
                 currentStoryCompletedTaskIds = new Set(tutorialGuestState.completedTaskIds || []);
             }
@@ -2063,7 +2090,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     answerMessage.textContent = tutorialPassMode ? '⏳ 正在整理教學判定...' : '⏳ AI 判定中...';
                     let aiData;
                     try {
-                        aiData = await requestJson(`${tutorialGuestMode ? `/api/tutorial/ai-tasks/${currentTask.id}/submit` : `/api/ai-tasks/${currentTask.id}/submit`}`, {
+                        aiData = await requestJson(`${tutorialPassMode ? `/api/tutorial/ai-tasks/${currentTask.id}/submit` : `/api/ai-tasks/${currentTask.id}/submit`}`, {
                             method: 'POST',
                             body: fd
                         }, '送出 AI 圖片判定');

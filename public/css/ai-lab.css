@@ -857,7 +857,9 @@ canvas#drawingCanvas {
 .feature-dock.tutorial-hidden,
 .selection-instruction.tutorial-hidden,
 .floating-mic-btn.tutorial-hidden,
-.game-hud.tutorial-hidden {
+.game-hud.tutorial-hidden,
+.mini-selection-toolbar.tutorial-hidden,
+.game-shell-board-status.tutorial-hidden {
     display: none !important;
 }
 
