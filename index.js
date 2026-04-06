@@ -1163,6 +1163,14 @@ app.get('/api/board-maps/by-quest-chain/:questChainId', async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
+    const [questRows] = await conn.execute(
+      `SELECT id, title, name, short_description, description, mode_type, play_style, game_rules, content_blueprint, is_active
+       FROM quest_chains
+       WHERE id = ?
+       LIMIT 1`,
+      [questChainId]
+    );
+    const questChain = questRows[0] || null;
     const [maps] = await conn.execute(
       `SELECT bm.*,
               COUNT(bt.id) AS tile_count,
@@ -1191,6 +1199,7 @@ app.get('/api/board-maps/by-quest-chain/:questChainId', async (req, res) => {
     );
     res.json({
       success: true,
+      questChain: sanitizeQuestChainRow(questChain),
       boardMap: sanitizeBoardMapRow(boardMap),
       boardMaps: maps.map((row) => sanitizeBoardMapRow(row)),
       tiles: tiles.map((row) => sanitizeBoardTileRow(row))

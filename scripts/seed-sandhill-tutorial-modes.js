@@ -214,15 +214,85 @@ async function insertBoardTutorialMap(conn, questChainId, taskIds) {
   const tiles = [
     { tile_index: 1, tile_name: '起點營地', tile_type: 'story', event_title: '教學開始', event_body: '主持人・史蛋宣布大富翁教學正式開始。', guide_content: '這張棋盤會一步一步帶你走完整段流程。' },
     { tile_index: 2, tile_name: '起航拍照格', tile_type: 'challenge', task_id: taskIds[0], event_title: '第一張紀錄', guide_content: '拍一張照片，感受 AI 裁判怎麼讓你前進。'},
-    { tile_index: 3, tile_name: '海風事件格', tile_type: 'event', event_title: '海風推了一把', event_body: '史蛋宣布：海風正好把隊伍往前送，這一格只要讀完事件就能繼續。', guide_content: '事件格不需要拍照，也會自動結算。'},
+    {
+      tile_index: 3,
+      tile_name: '海風機會卡',
+      tile_type: 'event',
+      event_title: '機會卡｜海風推了一把',
+      event_body: '史蛋把一張機會卡塞進你手裡，吃角子老虎機會決定這一格的額外獎勵。',
+      guide_content: '這一格會用吃角子老虎機抽出機會卡效果。',
+      tile_meta: {
+        template: 'event',
+        card_type: 'chance',
+        randomizer: 'slot',
+        draw_pool: [
+          { label: '獲得 6 點旅程積分', effect_type: 'gain_points', effect_value: 6, icon: '🌊', flavor: '海風吹來一小段順風積分。' },
+          { label: '獲得 10 點旅程積分', effect_type: 'gain_points', effect_value: 10, icon: '🎁', flavor: '你撿到一個漂流補給箱。' },
+          { label: '再前進 1 格', effect_type: 'move_forward', effect_value: 1, icon: '🧭', flavor: '順風把你直接往前推了一格。' }
+        ]
+      }
+    },
     { tile_index: 4, tile_name: '潮線挑戰格', tile_type: 'challenge', task_id: taskIds[1], event_title: '留下潮線記號', guide_content: '再拍一張，確認你已經熟悉第二種節奏。'},
-    { tile_index: 5, tile_name: '補給獎勵格', tile_type: 'reward', effect_type: 'gain_points', effect_value: 10, event_title: '補給成功', event_body: '海羽送來補給箱，這一格讓你獲得額外積分。', guide_content: '獎勵格會給正向回饋，但不需要額外操作。'},
+    {
+      tile_index: 5,
+      tile_name: '命運轉盤格',
+      tile_type: 'event',
+      event_title: '命運卡｜潮汐轉盤',
+      event_body: '潮聲打開了一面轉盤，命運會決定你這一步的額外變化。',
+      guide_content: '這一格會用轉盤抽出命運卡效果。',
+      tile_meta: {
+        template: 'event',
+        card_type: 'fate',
+        randomizer: 'wheel',
+        draw_pool: [
+          { label: '穩穩拿下 5 點', effect_type: 'gain_points', effect_value: 5, icon: '✨', flavor: '今天的海況平穩，穩穩加點。' },
+          { label: '順勢再前進 1 格', effect_type: 'move_forward', effect_value: 1, icon: '🧭', flavor: '命運把你往前再推一步。' },
+          { label: '保持節奏不加不減', effect_type: 'narrative', effect_value: 0, icon: '🐚', flavor: '這一步只是提醒你，節奏也很重要。' },
+          { label: '獲得 8 點旅程積分', effect_type: 'gain_points', effect_value: 8, icon: '🌊', flavor: '潮汐替你把旅程積分補滿一點。' }
+        ]
+      }
+    },
     { tile_index: 6, tile_name: '補給站合照格', tile_type: 'challenge', task_id: taskIds[2], event_title: '補給站合照', guide_content: '拍一張畫面，感受挑戰格與獎勵格交錯出現。'},
     { tile_index: 7, tile_name: '潮汐劇情格', tile_type: 'story', event_title: '潮聲導航', event_body: '導覽員・潮聲提醒你：教學棋盤的重點不是輸贏，而是理解每一步怎麼被推進。', guide_content: '劇情格主要負責敘事與節奏。'},
     { tile_index: 8, tile_name: '中繼觀測格', tile_type: 'challenge', task_id: taskIds[3], event_title: '中繼觀測', guide_content: '拍照後，棋盤會繼續往終點前進。'},
-    { tile_index: 9, tile_name: '輕微亂流格', tile_type: 'event', event_title: '亂流擦肩而過', event_body: '史蛋宣布：這股亂流只是在嚇你，今天不會把你吹回去。', guide_content: '教學棋盤保留事件感，但不會真的懲罰玩家。'},
+    {
+      tile_index: 9,
+      tile_name: '亂流機會卡',
+      tile_type: 'event',
+      event_title: '機會卡｜亂流擦肩而過',
+      event_body: '史蛋又拿出一張機會卡，看看這次亂流會帶來什麼獎勵。',
+      guide_content: '第二次機會卡，讓你多看一次吃角子老虎機動畫。',
+      tile_meta: {
+        template: 'event',
+        card_type: 'chance',
+        randomizer: 'slot',
+        draw_pool: [
+          { label: '獲得 4 點旅程積分', effect_type: 'gain_points', effect_value: 4, icon: '🌊', flavor: '輕微亂流沒有阻礙你，反而送來小加分。' },
+          { label: '獲得 12 點旅程積分', effect_type: 'gain_points', effect_value: 12, icon: '🎁', flavor: '你在亂流後方撿到一整袋補給。' },
+          { label: '再前進 1 格', effect_type: 'move_forward', effect_value: 1, icon: '🧭', flavor: '亂流把你甩到更前面去了。' }
+        ]
+      }
+    },
     { tile_index: 10, tile_name: '風向確認格', tile_type: 'challenge', task_id: taskIds[4], event_title: '風向確認', guide_content: '再拍一張，確認你已經掌握整個教學流程。'},
-    { tile_index: 11, tile_name: '救援補給格', tile_type: 'support', effect_type: 'grant_hint', effect_value: 1, event_title: '海羽支援', event_body: '海羽提醒你：即使卡關，沙丘也會用 NPC 與提示把你帶到終點。', guide_content: '這一格是救援系統的示意演出。'},
+    {
+      tile_index: 11,
+      tile_name: '命運轉盤格｜救援版',
+      tile_type: 'event',
+      event_title: '命運卡｜海羽支援',
+      event_body: '海羽讓你再轉一次命運轉盤，看看這次會拿到什麼保護。',
+      guide_content: '第二次命運卡，讓你多看一次轉盤抽獎。',
+      tile_meta: {
+        template: 'event',
+        card_type: 'fate',
+        randomizer: 'wheel',
+        draw_pool: [
+          { label: '獲得 6 點旅程積分', effect_type: 'gain_points', effect_value: 6, icon: '🌟', flavor: '海羽替你加了一點安心分數。' },
+          { label: '再前進 1 格', effect_type: 'move_forward', effect_value: 1, icon: '🧭', flavor: '海羽幫你把路線往前挪了一格。' },
+          { label: '這一步保持穩定', effect_type: 'narrative', effect_value: 0, icon: '🐋', flavor: '這一次沒有額外效果，但救援節奏很完整。' },
+          { label: '獲得 9 點旅程積分', effect_type: 'gain_points', effect_value: 9, icon: '🎁', flavor: '海羽塞給你一包額外補給。' }
+        ]
+      }
+    },
     { tile_index: 12, tile_name: '終點前留影格', tile_type: 'challenge', task_id: taskIds[5], event_title: '終點前留影', guide_content: '最後再感受一次 AI 裁判結算。'},
     { tile_index: 13, tile_name: '終點前劇情格', tile_type: 'story', event_title: '終點已現身', event_body: '潮聲說：前面就是燈塔，讀完這段話後就準備收尾。', guide_content: '這一格讓終點前有一個明確的情緒轉場。'},
     { tile_index: 14, tile_name: '終點燈塔', tile_type: 'finish', event_title: '教學棋盤完成', event_body: '主持人・史蛋宣布：你已經把整條教學棋盤走完，可以放心開始測真正的遊戲內容了。', guide_content: '終點用來收束整段教學體驗。'}
@@ -248,7 +318,7 @@ async function insertBoardTutorialMap(conn, questChainId, taskIds) {
         tile.event_title || null,
         tile.event_body || null,
         tile.guide_content || null,
-        JSON.stringify({
+        JSON.stringify(tile.tile_meta || {
           template: tile.tile_type,
           role_pack: tile.task_id ? ['gatekeeper', 'judge', 'rescue'] : ['host', 'guide']
         })

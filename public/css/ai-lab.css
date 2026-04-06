@@ -206,7 +206,8 @@ canvas#drawingCanvas {
 .answer-modal,
 .lock-overlay,
 .completion-modal,
-.dice-overlay {
+.dice-overlay,
+.board-card-overlay {
     position: fixed;
     inset: 0;
     z-index: 6000;
@@ -222,7 +223,8 @@ canvas#drawingCanvas {
 .answer-modal.hidden,
 .lock-overlay.hidden,
 .completion-modal.hidden,
-.dice-overlay.hidden {
+.dice-overlay.hidden,
+.board-card-overlay.hidden {
     display: none !important;
 }
 
@@ -432,6 +434,146 @@ canvas#drawingCanvas {
     font-size: 14px;
     line-height: 1.55;
     color: rgba(255, 255, 255, 0.9);
+}
+
+.board-card-shell {
+    width: min(440px, 90vw);
+    border-radius: 28px;
+    padding: 22px 20px 26px;
+    background: linear-gradient(180deg, rgba(8, 14, 28, 0.98), rgba(20, 34, 56, 0.94));
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+    color: #fff;
+    text-align: center;
+}
+
+.board-card-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 96px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff3c0;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+}
+
+.board-card-title {
+    margin-top: 14px;
+    font-size: 24px;
+    font-weight: 800;
+}
+
+.board-card-subtitle {
+    margin-top: 8px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.76);
+}
+
+.board-card-result {
+    margin-top: 18px;
+    min-height: 46px;
+    font-size: 16px;
+    line-height: 1.65;
+    color: #f8fbff;
+}
+
+.slot-machine {
+    margin: 20px auto 0;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+.slot-machine.hidden,
+.fortune-wheel-wrap.hidden {
+    display: none !important;
+}
+
+.slot-reel {
+    width: 84px;
+    height: 92px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 42px;
+    overflow: hidden;
+}
+
+.slot-reel span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.slot-reel.spinning span {
+    animation: slotBounce 0.16s linear infinite;
+}
+
+@keyframes slotBounce {
+    0% { transform: translateY(-10px) scale(0.94); opacity: 0.58; }
+    50% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(10px) scale(0.94); opacity: 0.58; }
+}
+
+.fortune-wheel-wrap {
+    margin: 18px auto 0;
+    width: 220px;
+    height: 220px;
+}
+
+.fortune-wheel {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    border-radius: 50%;
+    border: 8px solid rgba(255,255,255,0.12);
+    background: conic-gradient(
+        from 0deg,
+        rgba(255, 209, 102, 0.96) 0deg 90deg,
+        rgba(72, 187, 120, 0.96) 90deg 180deg,
+        rgba(96, 165, 250, 0.96) 180deg 270deg,
+        rgba(244, 114, 182, 0.96) 270deg 360deg
+    );
+    box-shadow: 0 16px 40px rgba(0,0,0,0.28);
+    transition: transform 2s cubic-bezier(.18,.89,.32,1.18);
+}
+
+.fortune-wheel::before {
+    content: '';
+    position: absolute;
+    top: -17px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 12px solid transparent;
+    border-right: 12px solid transparent;
+    border-bottom: 22px solid #fff4d3;
+}
+
+.fortune-wheel-center {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    background: rgba(7, 12, 20, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    letter-spacing: 0.08em;
 }
 
 .npc-dialog {
@@ -806,6 +948,63 @@ canvas#drawingCanvas {
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
     opacity: 0.9;
     pointer-events: auto;
+}
+
+body.tutorial-board-clean .mini-map-wrap {
+    right: 12px;
+    bottom: 16px;
+    opacity: 1;
+}
+
+body.tutorial-board-clean .mini-map {
+    width: 148px;
+    height: 148px;
+    opacity: 0.48;
+    background: rgba(3, 10, 22, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(6px);
+}
+
+body.tutorial-board-clean .mini-map-toggle,
+body.tutorial-board-clean .mini-map-refresh,
+body.tutorial-board-clean .location-info,
+body.tutorial-board-clean .mini-map-task-indicators {
+    opacity: 0.66;
+}
+
+body.tutorial-board-clean .feature-dock,
+body.tutorial-board-clean .game-hud,
+body.tutorial-board-clean .board-status-card,
+body.tutorial-board-clean .selection-instruction,
+body.tutorial-board-clean .floating-mic-btn,
+body.tutorial-board-clean .task-hud-dock,
+body.tutorial-board-clean .task-guide-arrow,
+body.tutorial-board-clean .task-target-obj,
+body.tutorial-board-clean .mini-selection-toolbar,
+body.tutorial-board-clean #resultPanel,
+body.tutorial-board-clean #voicePanel,
+body.tutorial-board-clean #answerToast {
+    display: none !important;
+}
+
+body.tutorial-board-clean .game-shell-panel {
+    top: 58px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: none;
+    background: linear-gradient(180deg, rgba(9, 14, 24, 0.88), rgba(9, 14, 24, 0.72));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+}
+
+body.tutorial-board-clean .game-shell-summary {
+    opacity: 0.82;
+}
+
+body.tutorial-board-clean .game-shell-block {
+    background: rgba(255, 255, 255, 0.04);
 }
 
 .mini-map-task-indicators {

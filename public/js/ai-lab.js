@@ -419,6 +419,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const diceOverlay = document.getElementById('diceOverlay');
         const diceCube = document.getElementById('diceCube');
         const diceOverlayText = document.getElementById('diceOverlayText');
+        const boardCardOverlay = document.getElementById('boardCardOverlay');
+        const boardCardBadge = document.getElementById('boardCardBadge');
+        const boardCardTitle = document.getElementById('boardCardTitle');
+        const boardCardSubtitle = document.getElementById('boardCardSubtitle');
+        const slotMachine = document.getElementById('slotMachine');
+        const slotReelA = document.getElementById('slotReelA');
+        const slotReelB = document.getElementById('slotReelB');
+        const slotReelC = document.getElementById('slotReelC');
+        const fortuneWheelWrap = document.getElementById('fortuneWheelWrap');
+        const fortuneWheel = document.getElementById('fortuneWheel');
+        const boardCardResult = document.getElementById('boardCardResult');
         const npcDialog = document.getElementById('npcDialog');
         const npcDialogPortrait = document.getElementById('npcDialogPortrait');
         const npcDialogSpeaker = document.getElementById('npcDialogSpeaker');
@@ -890,6 +901,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelector('.game-hud')?.classList.toggle('tutorial-hidden', shouldHideTutorialChrome);
             document.querySelector('.game-shell-board-status')?.classList.toggle('tutorial-hidden', isTutorialBoard);
             document.querySelector('.mini-selection-toolbar')?.classList.toggle('tutorial-hidden', shouldHideTutorialChrome);
+            document.body.classList.toggle('tutorial-board-clean', isTutorialBoard);
+            document.body.classList.toggle('tutorial-story-clean', isTutorialStory);
             if (selectionInstruction) {
                 selectionInstruction.style.display = shouldHideTutorialChrome ? 'none' : '';
                 selectionInstruction.style.opacity = shouldHideTutorialChrome ? '0' : '1';
@@ -910,6 +923,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (gameShellToggle) {
                 gameShellToggle.textContent = shouldHideTutorialChrome ? '教學' : '任務';
             }
+        }
+
+        function getBoardTileMeta(tile) {
+            if (!tile) return {};
+            if (tile.tile_meta && typeof tile.tile_meta === 'object') return tile.tile_meta;
+            if (typeof tile.tile_meta === 'string') {
+                try {
+                    return JSON.parse(tile.tile_meta);
+                } catch (err) {
+                    return {};
+                }
+            }
+            return {};
         }
 
         function getStoryIntroSpeaker(task) {
@@ -952,6 +978,76 @@ document.addEventListener('DOMContentLoaded', () => {
                 : `你擲出了 ${rollValue}。`;
             await new Promise((resolve) => setTimeout(resolve, 900));
             diceOverlay.classList.add('hidden');
+        }
+
+        function hideBoardCardOverlay() {
+            if (boardCardOverlay) boardCardOverlay.classList.add('hidden');
+            if (slotMachine) slotMachine.classList.add('hidden');
+            if (fortuneWheelWrap) fortuneWheelWrap.classList.add('hidden');
+            if (fortuneWheel) fortuneWheel.style.transform = 'rotate(0deg)';
+        }
+
+        async function playBoardDrawCardAnimation(tile) {
+            const meta = getBoardTileMeta(tile);
+            const cardType = meta.card_type || (tile.tile_type === 'reward' ? 'chance' : 'fate');
+            const drawPool = Array.isArray(meta.draw_pool) && meta.draw_pool.length
+                ? meta.draw_pool
+                : [
+                    { label: '獲得 5 點旅程積分', effect_type: 'gain_points', effect_value: 5, icon: '🌊', flavor: '海流替你送來一點順風。' },
+                    { label: '獲得 8 點旅程積分', effect_type: 'gain_points', effect_value: 8, icon: '🎁', flavor: '補給箱剛好漂到你腳邊。' },
+                    { label: '順風前進 1 格', effect_type: 'move_forward', effect_value: 1, icon: '🧭', flavor: '命運把你往前推了一小段。' },
+                    { label: '保持原地穩穩前進', effect_type: 'narrative', effect_value: 0, icon: '✨', flavor: '這一步沒有額外效果，但節奏依舊漂亮。' }
+                ];
+            const outcome = drawPool[Math.floor(Math.random() * drawPool.length)];
+            if (!boardCardOverlay || !boardCardBadge || !boardCardTitle || !boardCardSubtitle || !boardCardResult) {
+                return outcome;
+            }
+
+            boardCardBadge.textContent = cardType === 'chance' ? '機會卡' : '命運卡';
+            boardCardTitle.textContent = tile.tile_name || (cardType === 'chance' ? '抽取機會卡' : '抽取命運卡');
+            boardCardSubtitle.textContent = cardType === 'chance'
+                ? '吃角子老虎機正在替你翻出這一張卡。'
+                : '命運轉盤正在轉動，請等待落點。';
+            boardCardResult.textContent = '抽取結果中...';
+            boardCardOverlay.classList.remove('hidden');
+
+            if (cardType === 'chance') {
+                const symbols = ['🌊', '🧭', '🎁', '✨', '🐚', '🐟'];
+                slotMachine?.classList.remove('hidden');
+                fortuneWheelWrap?.classList.add('hidden');
+                [slotReelA, slotReelB, slotReelC].forEach((reel) => {
+                    reel?.parentElement?.classList.add('spinning');
+                });
+                for (let index = 0; index < 16; index += 1) {
+                    if (slotReelA) slotReelA.textContent = symbols[(index + 1) % symbols.length];
+                    if (slotReelB) slotReelB.textContent = symbols[(index + 3) % symbols.length];
+                    if (slotReelC) slotReelC.textContent = symbols[(index + 5) % symbols.length];
+                    await new Promise((resolve) => setTimeout(resolve, 85));
+                }
+                if (slotReelA) slotReelA.textContent = outcome.icon || '🌊';
+                if (slotReelB) slotReelB.textContent = outcome.icon || '🌊';
+                if (slotReelC) slotReelC.textContent = outcome.icon || '🌊';
+                [slotReelA, slotReelB, slotReelC].forEach((reel) => {
+                    reel?.parentElement?.classList.remove('spinning');
+                });
+            } else {
+                slotMachine?.classList.add('hidden');
+                fortuneWheelWrap?.classList.remove('hidden');
+                if (fortuneWheel) {
+                    const spins = 5 + Math.floor(Math.random() * 2);
+                    const sectors = drawPool.length;
+                    const chosenIndex = Math.max(0, drawPool.findIndex((item) => item.label === outcome.label));
+                    const sectorAngle = 360 / sectors;
+                    const stopAngle = 360 - (chosenIndex * sectorAngle) - sectorAngle / 2;
+                    fortuneWheel.style.transform = `rotate(${spins * 360 + stopAngle}deg)`;
+                }
+                await new Promise((resolve) => setTimeout(resolve, 2100));
+            }
+
+            boardCardResult.textContent = `${outcome.label}\n${outcome.flavor || ''}`.trim();
+            await new Promise((resolve) => setTimeout(resolve, 1250));
+            hideBoardCardOverlay();
+            return outcome;
         }
 
         async function loadPlayerHudStats() {
@@ -1184,7 +1280,15 @@ document.addEventListener('DOMContentLoaded', () => {
         async function completeBoardTurn(success, options = {}) {
             if (currentEntryMode !== 'board_game' || !currentBoardRun?.pendingTargetTile) return;
             const pendingTile = getBoardTileByIndex(currentBoardRun.pendingTargetTile);
-            const { speakerKey = success ? 'judge' : 'rescue', mood = success ? '通關判定' : '補救判定', text = null, autoCloseMs = 2200, skipDialog = false } = options;
+            const {
+                speakerKey = success ? 'judge' : 'rescue',
+                mood = success ? '通關判定' : '補救判定',
+                text = null,
+                autoCloseMs = 2200,
+                skipDialog = false,
+                bonusPoints = 0,
+                advanceExtra = 0
+            } = options;
             if (useRemoteBoardSession && currentBoardSessionId) {
                 const res = await fetch(`/api/board/session/${currentBoardSessionId}/resolve`, {
                     method: 'POST',
@@ -1220,14 +1324,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (success) {
-                currentBoardRun.currentTile = currentBoardRun.pendingTargetTile;
-                currentBoardRun.gainedPoints += Number(currentTask?.points || pendingTile?.effect_value || 0);
-                const turnPoints = Number(currentTask?.points || pendingTile?.effect_value || 0);
-                currentBoardRun.lastResultText = `「${pendingTile?.tile_name || '這一格'}」通過判定，已推進到第 ${currentBoardRun.currentTile} 格。${turnPoints > 0 ? ` 本回合獲得 ${turnPoints} 點旅程積分。` : ''}`;
+                const finishTile = Number(currentBoardMap?.finish_tile || currentBoardTiles.length || currentBoardRun.pendingTargetTile);
+                const nextTile = Math.min(finishTile, Number(currentBoardRun.pendingTargetTile) + Number(advanceExtra || 0));
+                currentBoardRun.currentTile = nextTile;
+                const turnPoints = Number(currentTask?.points || pendingTile?.effect_value || 0) + Number(bonusPoints || 0);
+                currentBoardRun.gainedPoints += turnPoints;
+                currentBoardRun.lastResultText = text || `「${pendingTile?.tile_name || '這一格'}」通過判定，已推進到第 ${currentBoardRun.currentTile} 格。${turnPoints > 0 ? ` 本回合獲得 ${turnPoints} 點旅程積分。` : ''}`;
             } else {
                 const failureMove = Number(currentBoardMap?.failure_move || -1);
                 currentBoardRun.currentTile = Math.max(Number(currentBoardMap?.start_tile || 1), Number(currentBoardRun.currentTile || 1) + failureMove);
-                currentBoardRun.lastResultText = `「${pendingTile?.tile_name || '這一格'}」未通過，依棋盤規則退回到第 ${currentBoardRun.currentTile} 格。`;
+                currentBoardRun.lastResultText = text || `「${pendingTile?.tile_name || '這一格'}」未通過，依棋盤規則退回到第 ${currentBoardRun.currentTile} 格。`;
             }
             currentBoardRun.round = Number(currentBoardRun.round || 0) + 1;
             currentBoardRun.pendingRoll = null;
@@ -1406,15 +1512,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             const eventText = tile.event_body || tile.guide_content || tile.description || `你來到第 ${tile.tile_index} 格，這裡有新的事件等待觸發。`;
+            const tileMeta = getBoardTileMeta(tile);
             const isResolvingPendingEvent = currentEntryMode === 'board_game'
                 && currentBoardRun?.pendingTargetTile
                 && Number(currentBoardRun.pendingTargetTile) === Number(tile.tile_index);
             if (isResolvingPendingEvent) {
+                let boardEventOutcome = null;
+                if (tileMeta.card_type) {
+                    boardEventOutcome = await playBoardDrawCardAnimation(tile);
+                }
+                const bonusPoints = boardEventOutcome?.effect_type === 'gain_points'
+                    ? Number(boardEventOutcome.effect_value || 0)
+                    : 0;
+                const advanceExtra = boardEventOutcome?.effect_type === 'move_forward'
+                    ? Number(boardEventOutcome.effect_value || 0)
+                    : 0;
+                const resolvedText = boardEventOutcome
+                    ? `${eventText}\n\n抽卡結果：${boardEventOutcome.label}。${boardEventOutcome.flavor || ''}`
+                    : `${eventText}\n命運已記錄這一步，你的隊伍會繼續向前推進。`;
                 await completeBoardTurn(true, {
-                    speakerKey: tile.tile_type === 'event' ? 'host' : 'lore',
-                    mood: tile.tile_type === 'event' ? '事件觸發' : '場景提示',
-                    text: `${eventText}\n命運已記錄這一步，你的隊伍會繼續向前推進。`,
+                    speakerKey: tile.tile_type === 'event'
+                        ? (tileMeta.card_type === 'chance' ? 'host' : 'lore')
+                        : 'lore',
+                    mood: tileMeta.card_type === 'chance'
+                        ? '機會卡結算'
+                        : tileMeta.card_type === 'fate'
+                            ? '命運卡結算'
+                            : (tile.tile_type === 'event' ? '事件觸發' : '場景提示'),
+                    text: resolvedText,
                     autoCloseMs: 2600
+                    ,
+                    bonusPoints,
+                    advanceExtra
                 });
                 return;
             }
@@ -1489,6 +1618,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(boardData.message || '載入大富翁內容失敗');
             }
             currentQuestChainId = questChainId;
+            currentQuestChainData = boardData.questChain || null;
             currentEntryMode = 'board_game';
             currentStoryCompleted = false;
             currentBoardMaps = Array.isArray(boardData.boardMaps) ? boardData.boardMaps : [];
