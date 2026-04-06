@@ -981,6 +981,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateReticlePosition();
             }
 
+            if (canvas) {
+                canvas.style.pointerEvents = isGuidedReticleLockMode() ? 'none' : '';
+            }
+
             if (gameShellProgressBlock) {
                 gameShellProgressBlock.style.display = shouldHideTutorialChrome ? 'none' : '';
             }

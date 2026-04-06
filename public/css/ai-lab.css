@@ -49,7 +49,7 @@ canvas#drawingCanvas {
 /* 單手框選：固定取景框 */
 .reticle-overlay {
     position: absolute;
-    z-index: 2;
+    z-index: 28;
     width: 70vmin;
     height: 70vmin;
     left: 50%;
@@ -74,6 +74,17 @@ canvas#drawingCanvas {
     flex-direction: column;
     align-items: flex-end;
     gap: 8px;
+}
+
+body.tutorial-board-clean #taskHudDock,
+body.tutorial-board-clean #taskGuideArrow,
+body.tutorial-board-clean #taskTargetObj,
+body.tutorial-board-clean #taskEncounterModal,
+body.tutorial-story-clean #taskHudDock,
+body.tutorial-story-clean #taskGuideArrow,
+body.tutorial-story-clean #taskTargetObj,
+body.tutorial-story-clean #taskEncounterModal {
+    display: none !important;
 }
 
 .task-hud-toggle {
@@ -1096,6 +1107,11 @@ body.tutorial-board-clean .reticle-overlay,
 body.tutorial-story-clean .reticle-overlay {
     transition: none;
     pointer-events: auto;
+}
+
+body.tutorial-board-clean #drawingCanvas,
+body.tutorial-story-clean #drawingCanvas {
+    touch-action: auto;
 }
 
 body.tutorial-board-clean .selection-instruction .selection-mode-toggle,
