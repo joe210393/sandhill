@@ -238,6 +238,20 @@ canvas#drawingCanvas {
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
+.answer-card {
+    display: flex;
+    flex-direction: column;
+    max-height: min(88vh, 760px);
+    overflow: hidden;
+}
+
+#answerInputContainer {
+    overflow-y: auto;
+    max-height: 48vh;
+    padding-right: 2px;
+    -webkit-overflow-scrolling: touch;
+}
+
 .task-encounter-cover {
     width: 100%;
     max-height: 300px;
@@ -263,6 +277,13 @@ canvas#drawingCanvas {
     display: flex;
     gap: 12px;
     margin-top: 18px;
+}
+
+.answer-actions {
+    position: sticky;
+    bottom: 0;
+    padding-top: 12px;
+    background: linear-gradient(180deg, rgba(25,25,25,0), rgba(25,25,25,0.98) 36%);
 }
 
 .answer-description,
@@ -563,6 +584,16 @@ canvas#drawingCanvas {
     display: none;
 }
 
+.game-shell-panel.tutorial-mode .game-shell-summary {
+    font-size: 13px;
+    color: rgba(255,255,255,0.88);
+}
+
+.game-shell-panel.tutorial-mode #gameShellProgressBlock,
+.game-shell-panel.tutorial-mode #gameShellEntriesBlock {
+    display: none;
+}
+
 .game-shell-top {
     display: flex;
     align-items: flex-start;
@@ -758,6 +789,14 @@ canvas#drawingCanvas {
     border-radius: 10px;
     line-height: 1.4;
     opacity: 0.95;
+}
+
+.mini-map-wrap.tutorial-hidden,
+.feature-dock.tutorial-hidden,
+.selection-instruction.tutorial-hidden,
+.floating-mic-btn.tutorial-hidden,
+.game-hud.tutorial-hidden {
+    display: none !important;
 }
 
 .mini-map-wrap.collapsed .mini-map,
@@ -1952,6 +1991,30 @@ canvas#drawingCanvas {
         width: calc(100vw - 16px);
         border-radius: 20px;
         padding: 14px 13px 12px;
+    }
+
+    .answer-modal,
+    .task-encounter-modal,
+    .completion-modal,
+    .lock-overlay {
+        align-items: flex-end;
+        padding: 12px 10px calc(12px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .answer-card,
+    .task-encounter-card,
+    .completion-card,
+    .lock-card {
+        width: 100%;
+        max-width: 100%;
+        max-height: calc(100vh - 24px - env(safe-area-inset-bottom, 0px));
+        border-radius: 22px 22px 16px 16px;
+        padding: 18px 16px 16px;
+        overflow: hidden;
+    }
+
+    #answerInputContainer {
+        max-height: 40vh;
     }
 
     .game-hud {

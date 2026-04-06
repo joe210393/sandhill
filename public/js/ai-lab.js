@@ -2,6 +2,7 @@
 // 全域工具函數 (Global Utils)
 // ==========================================
 const debugEl = document.getElementById('debugConsole');
+const debugMode = new URLSearchParams(window.location.search).get('debug') === '1';
 function log(msg) {
     console.log(msg);
     if (debugEl) debugEl.innerText = msg + '\n' + debugEl.innerText.substring(0, 100);
@@ -316,6 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const answerToastText = document.getElementById('answerToastText');
         const answerToastClose = document.getElementById('answerToastClose');
         const cameraContainer = document.querySelector('.camera-container');
+        const featureDock = document.getElementById('featureDock');
         const featureDockToggle = document.getElementById('featureDockToggle');
         const featureDockMenu = document.getElementById('featureDockMenu');
         const featureDrawerPanel = document.getElementById('featureDrawerPanel');
@@ -342,6 +344,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const gameShellProgress = document.getElementById('gameShellProgress');
         const gameShellEntries = document.getElementById('gameShellEntries');
         const gameShellStartBtn = document.getElementById('gameShellStartBtn');
+        const gameShellProgressBlock = document.getElementById('gameShellProgressBlock');
+        const gameShellEntriesBlock = document.getElementById('gameShellEntriesBlock');
         const hudModeValue = document.getElementById('hudModeValue');
         const hudStageValue = document.getElementById('hudStageValue');
         const hudPointsValue = document.getElementById('hudPointsValue');
@@ -447,6 +451,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let currentNpcDialogResolver = null;
         let currentNpcDialogAutoCloseTimer = null;
         let lastStoryDialogueKey = null;
+        let tutorialFlowStarted = false;
+        let tutorialIntroTaskId = null;
         let targetLat = null;
         let targetLng = null;
         let navigationWatchId = null;
@@ -738,6 +744,40 @@ document.addEventListener('DOMContentLoaded', () => {
             return Boolean(rules && (rules.demo_autopass || rules.demoAutoPass));
         }
 
+        function isCurrentQuestTutorialMode() {
+            const rules = getCurrentQuestRules();
+            return Boolean(
+                (rules && (rules.tutorial_mode || rules.tutorialMode))
+                || currentQuestChainData?.play_style === 'tutorial_story'
+                || currentQuestChainData?.play_style === 'demo_story'
+            );
+        }
+
+        function shouldSuppressCameraAlert() {
+            const urlMode = new URLSearchParams(window.location.search).get('mode');
+            return isCurrentQuestTutorialMode() || urlMode === 'story_campaign';
+        }
+
+        function renderTutorialModeUi() {
+            const isTutorialStory = currentEntryMode === 'story_campaign' && isCurrentQuestTutorialMode();
+            gameShellPanel?.classList.toggle('tutorial-mode', isTutorialStory);
+            miniMapWrap?.classList.toggle('tutorial-hidden', isTutorialStory);
+            featureDock?.classList.toggle('tutorial-hidden', isTutorialStory);
+            selectionInstruction?.classList.toggle('tutorial-hidden', isTutorialStory);
+            floatingMicBtn?.classList.toggle('tutorial-hidden', isTutorialStory);
+            document.querySelector('.game-hud')?.classList.toggle('tutorial-hidden', isTutorialStory);
+
+            if (gameShellProgressBlock) {
+                gameShellProgressBlock.style.display = isTutorialStory ? 'none' : '';
+            }
+            if (gameShellEntriesBlock) {
+                gameShellEntriesBlock.style.display = isTutorialStory ? 'none' : '';
+            }
+            if (gameShellToggle) {
+                gameShellToggle.textContent = isTutorialStory ? '教學' : '任務';
+            }
+        }
+
         function getStoryIntroSpeaker(task) {
             if (!task) return 'guide';
             if (task.task_type === 'location') return 'host';
@@ -757,7 +797,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 parts.push(`線索：${task.hint_text}`);
             }
             if (isCurrentQuestDemoMode()) {
-                parts.push('工作室體驗模式已啟動。這一條線會先讓你順順地走完整段流程，任意拍攝、任意選擇都會先通關。');
+                parts.push('教學模式已啟動。這一條線會先讓你順順地走完整段流程，任意拍攝、任意選擇都會先通關。');
             }
             return parts.join('\n\n');
         }
@@ -1189,6 +1229,9 @@ document.addEventListener('DOMContentLoaded', () => {
             updateGameShellProgress(task);
             applyTaskSelection(task, { updateUrl: false, skipNearbyReload: true });
             renderHudSummary();
+            if (isCurrentQuestTutorialMode() && !tutorialFlowStarted) {
+                return;
+            }
             const dialogueKey = `${currentQuestChainId || 'quest'}:${task.id}:${currentStoryCompleted ? 'done' : 'active'}`;
             if (lastStoryDialogueKey !== dialogueKey) {
                 lastStoryDialogueKey = dialogueKey;
@@ -1262,8 +1305,11 @@ document.addEventListener('DOMContentLoaded', () => {
             currentStoryTasks = Array.isArray(contentData.tasks) ? contentData.tasks : [];
             currentStoryCompleted = false;
             lastStoryDialogueKey = null;
+            tutorialFlowStarted = false;
+            tutorialIntroTaskId = null;
             isShellExperience = true;
             updateShellModeUi();
+            renderTutorialModeUi();
             loadPlayerHudStats();
             const progressOrder = Number(progressMap?.[String(questChainId)]);
             const maxStoryOrder = currentStoryTasks.reduce((max, task) => Math.max(max, Number(task.quest_order || 0)), 0);
@@ -1274,7 +1320,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? currentStoryTasks.find(task => Number(task.quest_order) === progressOrder) || currentStoryTasks[0]
                     : currentStoryTasks[0]);
 
-            if (gameShellMode) gameShellMode.textContent = isCurrentQuestDemoMode() ? '劇情體驗' : '劇情主線';
+            if (gameShellMode) gameShellMode.textContent = isCurrentQuestTutorialMode() ? '教學模式' : (isCurrentQuestDemoMode() ? '劇情體驗' : '劇情主線');
             if (gameShellTitle) gameShellTitle.textContent = contentData.questChain.title || contentData.questChain.name || '劇情主線';
             if (gameShellSummary) gameShellSummary.textContent = contentData.questChain.short_description || contentData.questChain.description || '跟著劇情節奏完成一連串 AI 關卡。';
             updateGameShellProgress(activeTask);
@@ -1304,7 +1350,10 @@ document.addEventListener('DOMContentLoaded', () => {
             currentBoardMap = boardData.boardMap || null;
             currentBoardTiles = Array.isArray(boardData.tiles) ? boardData.tiles : [];
             isShellExperience = true;
+            tutorialFlowStarted = false;
+            tutorialIntroTaskId = null;
             updateShellModeUi();
+            renderTutorialModeUi();
             loadPlayerHudStats();
             await hydrateBoardRunState();
             syncBoardMapQuery(currentBoardMap?.id || null);
@@ -1358,6 +1407,22 @@ document.addEventListener('DOMContentLoaded', () => {
             return null;
         }
 
+        async function createCurrentUserTaskRecord() {
+            if (!currentTaskId) return null;
+            const res = await fetch('/api/user-tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ task_id: currentTaskId })
+            });
+            const data = await res.json();
+            if (data.success && data.userTaskId) {
+                currentUserTaskId = data.userTaskId;
+                return currentUserTaskId;
+            }
+            return null;
+        }
+
         async function fetchCurrentUserTaskId() {
             if (!currentTaskId) return null;
             const loginUser = getLoginUser();
@@ -1374,12 +1439,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!data.success || !Array.isArray(data.tasks)) return null;
                 let t = data.tasks.find((x) => String(x.id) === String(currentTaskId));
                 if (!t) {
-                    await fetch('/api/user-tasks', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify({ task_id: currentTaskId })
-                    });
+                    await createCurrentUserTaskRecord();
                     data = await loadTasks();
                     if (!data.success || !Array.isArray(data.tasks)) return null;
                     t = data.tasks.find((x) => String(x.id) === String(currentTaskId));
@@ -1766,11 +1826,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const descriptionParts = [task.description || '請根據提示完成任務'];
             if (isCurrentQuestDemoMode()) {
                 if (task.task_type === 'photo') {
-                    descriptionParts.push('體驗模式：任意拍攝一張照片就能通過，先讓你把整段流程走完。');
+                    descriptionParts.push('教學模式：任意拍攝一張照片就能通過，先讓你把整段流程走完。');
                 } else if (task.task_type === 'multiple_choice') {
-                    descriptionParts.push('體驗模式：任意選一個選項都會先通關，先讓你熟悉對話與流程。');
+                    descriptionParts.push('教學模式：任意選一個選項都會先通關，先讓你熟悉對話與流程。');
                 } else {
-                    descriptionParts.push('體驗模式：這一關會先放行，讓你能直接往下體驗。');
+                    descriptionParts.push('教學模式：這一關會先放行，讓你能直接往下體驗。');
                 }
             }
             answerTaskDescription.textContent = descriptionParts.join('\n\n');
@@ -1814,6 +1874,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         preview.src = ev.target.result;
                         preview.style.display = 'block';
                         btnAnswerSubmit.disabled = false;
+                        setTimeout(() => {
+                            btnAnswerSubmit.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                        }, 60);
                     };
                     reader.readAsDataURL(file);
                 });
@@ -1829,6 +1892,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => input.focus(), 150);
             }
             answerModal.classList.remove('hidden');
+            answerInputContainer.scrollTop = 0;
         }
 
         async function submitTaskAnswer() {
@@ -1860,6 +1924,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (aiData.success && aiData.passed) {
                         currentUserTaskId = aiData.user_task_id || currentUserTaskId;
                         answerModal.classList.add('hidden');
+                        tutorialFlowStarted = false;
+                        renderTutorialModeUi();
                         if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
                             await completeBoardTurn(true, {
                                 speakerKey: 'judge',
@@ -1925,8 +1991,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (!currentUserTaskId) await fetchCurrentUserTaskId();
+            if (!currentUserTaskId) await createCurrentUserTaskRecord();
             if (!currentUserTaskId) {
-                answerMessage.textContent = '❌ 找不到任務記錄';
+                answerMessage.textContent = '❌ 無法建立關卡紀錄，請重新整理後再試';
                 return;
             }
             btnAnswerSubmit.disabled = true;
@@ -1939,6 +2006,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             if (data.success && (data.isCompleted || (data.message && data.message.includes('已完成')))) {
                 answerModal.classList.add('hidden');
+                tutorialFlowStarted = false;
+                renderTutorialModeUi();
                 if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
                     await completeBoardTurn(true, {
                         speakerKey: 'judge',
@@ -1949,7 +2018,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     await showNpcDialog({
                         speakerKey: 'judge',
-                        mood: isCurrentQuestDemoMode() ? '體驗模式通關' : '規則通關',
+                        mood: isCurrentQuestTutorialMode() ? '教學模式通關' : (isCurrentQuestDemoMode() ? '體驗模式通關' : '規則通關'),
                         text: data.message || '這一關已完成，下一段劇情正在展開。',
                         autoCloseMs: 2200
                     });
@@ -1982,8 +2051,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function submitLockCode() {
             if (!currentUserTaskId) await fetchCurrentUserTaskId();
+            if (!currentUserTaskId) await createCurrentUserTaskRecord();
             if (!currentUserTaskId) {
-                lockMsg.textContent = '找不到任務記錄';
+                lockMsg.textContent = '無法建立關卡紀錄';
                 return;
             }
             lockMsg.textContent = '驗證中...';
@@ -1995,6 +2065,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             if (data.success && data.isCompleted) {
                 lockOverlay.classList.add('hidden');
+                tutorialFlowStarted = false;
+                renderTutorialModeUi();
                 if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
                     await completeBoardTurn(true, {
                         speakerKey: 'judge',
@@ -2035,6 +2107,18 @@ document.addEventListener('DOMContentLoaded', () => {
         async function startTaskInteraction() {
             closeTaskEncounter();
             if (!currentTask) return;
+            const tutorialMode = isCurrentQuestTutorialMode();
+            tutorialFlowStarted = true;
+            renderTutorialModeUi();
+            if (tutorialMode && tutorialIntroTaskId !== currentTask.id) {
+                tutorialIntroTaskId = currentTask.id;
+                await showNpcDialog({
+                    speakerKey: getStoryIntroSpeaker(currentTask),
+                    mood: `第 ${currentTask.quest_order || '?'} 關教學`,
+                    text: buildStoryIntroDialogue(currentTask),
+                    buttonLabel: '開始操作'
+                });
+            }
             if (currentTask.task_type === 'location') {
                 const demoMode = isCurrentQuestDemoMode();
                 if (!lastLatLng && !demoMode) {
@@ -2049,8 +2133,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 if (!currentUserTaskId) await fetchCurrentUserTaskId();
+                if (!currentUserTaskId) await createCurrentUserTaskRecord();
                 if (!currentUserTaskId) {
-                    Swal.fire({ icon: 'error', title: '找不到任務紀錄' });
+                    Swal.fire({ icon: 'error', title: '無法建立關卡紀錄', text: tutorialMode ? '教學模式的關卡紀錄建立失敗，請重新整理後再試一次。' : '請重新整理後再試一次。' });
                     return;
                 }
                 const res = await fetch(`/api/user-tasks/${currentUserTaskId}/answer`, {
@@ -2060,11 +2145,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 const data = await res.json();
                 if (data.success && data.isCompleted) {
+                    tutorialFlowStarted = false;
+                    renderTutorialModeUi();
                     if (demoMode && currentEntryMode === 'story_campaign') {
                         await showNpcDialog({
                             speakerKey: 'host',
-                            mood: '體驗模式通關',
-                            text: '工作室體驗模式已替你完成這一步報到，現在直接前往下一段劇情。',
+                            mood: '教學模式通關',
+                            text: '教學模式已替你完成這一步報到，現在直接前往下一段劇情。',
                             autoCloseMs: 2200
                         });
                     }
@@ -2684,7 +2771,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 setupZoomControl();
                 
             } catch (err) {
-                console.error('相機啟動失敗:', err);
+                if (shouldSuppressCameraAlert()) {
+                    console.warn('教學模式略過相機啟動失敗:', err);
+                } else {
+                    console.error('相機啟動失敗:', err);
+                }
                 log('相機錯誤: ' + err.name);
                 
                 let msg = '無法存取相機，請確認權限';
@@ -2695,6 +2786,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     showRetry = true;
                 } else if (err.name === 'NotFoundError') {
                     msg = '找不到相機裝置';
+                }
+
+                if (shouldSuppressCameraAlert()) {
+                    updateLocationText(`${msg}（教學模式可繼續體驗）`);
+                    return;
                 }
                 
                 const result = await Swal.fire({
@@ -2953,6 +3049,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function applyTaskSelection(task, options = {}) {
             if (!task) return;
+            if (String(currentTaskId) !== String(task.id)) {
+                currentUserTaskId = null;
+            }
             currentTaskId = task.id;
             targetLat = Number(task.lat);
             targetLng = Number(task.lng);

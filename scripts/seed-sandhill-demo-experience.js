@@ -8,12 +8,18 @@ const DB_CONFIG = {
   database: process.env.MYSQL_DATABASE || 'zeabur'
 };
 
-const QUEST_TITLE = '沙丘體驗版｜工作室快速通關';
+const QUEST_TITLE = '沙丘教學模式｜手機流程導覽';
 
 async function main() {
   const conn = await mysql.createConnection(DB_CONFIG);
   try {
     await conn.beginTransaction();
+
+    await conn.execute(
+      `UPDATE quest_chains
+       SET is_active = FALSE
+       WHERE play_style = 'demo_story' OR title = '沙丘體驗版｜工作室快速通關'`
+    );
 
     const [existingChains] = await conn.execute(
       'SELECT id FROM quest_chains WHERE title = ? OR name = ? ORDER BY id DESC LIMIT 1',
@@ -30,26 +36,46 @@ async function main() {
         [
           QUEST_TITLE,
           QUEST_TITLE,
-          '這是一條給手機現場快速體驗的沙丘主線。玩家在工作室也能一路從開場走到完結，先感受 RPG 對話、拍照、判定與通關節奏。',
-          '工作室快速體驗線｜任意拍攝、任意選擇都會先通關，先讓你把完整流程走完。',
+          '這是一條給手機教學與現場導覽使用的沙丘主線。玩家在工作室也能一路從開場走到完結，先熟悉 RPG 對話、拍照、判定與通關節奏。',
+          '手機教學導覽線｜任意拍攝、任意選擇都會先通關，先把完整流程走一遍。',
           '立即體驗',
-          '工作室體驗線',
-          'demo_story',
+          '教學模式',
+          'tutorial_story',
           '/images/banner.png',
           'codex',
           JSON.stringify({
             demo_autopass: true,
             rpg_dialog: true,
-            mobile_single_hand: true
+            mobile_single_hand: true,
+            tutorial_mode: true
           }),
           JSON.stringify({
             demo_autopass: true,
-            rpg_dialog: true
+            rpg_dialog: true,
+            tutorial_mode: true
           })
         ]
       );
       questChainId = insertQuest.insertId;
     } else {
+      const [existingTasks] = await conn.execute(
+        'SELECT id FROM tasks WHERE quest_chain_id = ?',
+        [questChainId]
+      );
+      const existingTaskIds = existingTasks.map((row) => row.id);
+
+      if (existingTaskIds.length > 0) {
+        const placeholders = existingTaskIds.map(() => '?').join(',');
+        await conn.execute(
+          `DELETE FROM task_attempts WHERE task_id IN (${placeholders})`,
+          existingTaskIds
+        );
+        await conn.execute(
+          `DELETE FROM user_tasks WHERE task_id IN (${placeholders})`,
+          existingTaskIds
+        );
+      }
+
       await conn.execute(
         `UPDATE quest_chains
          SET name = ?, title = ?, description = ?, short_description = ?, mode_type = 'story_campaign',
@@ -59,20 +85,22 @@ async function main() {
         [
           QUEST_TITLE,
           QUEST_TITLE,
-          '這是一條給手機現場快速體驗的沙丘主線。玩家在工作室也能一路從開場走到完結，先感受 RPG 對話、拍照、判定與通關節奏。',
-          '工作室快速體驗線｜任意拍攝、任意選擇都會先通關，先讓你把完整流程走完。',
+          '這是一條給手機教學與現場導覽使用的沙丘主線。玩家在工作室也能一路從開場走到完結，先熟悉 RPG 對話、拍照、判定與通關節奏。',
+          '手機教學導覽線｜任意拍攝、任意選擇都會先通關，先把完整流程走一遍。',
           '立即體驗',
-          '工作室體驗線',
-          'demo_story',
+          '教學模式',
+          'tutorial_story',
           '/images/banner.png',
           JSON.stringify({
             demo_autopass: true,
             rpg_dialog: true,
-            mobile_single_hand: true
+            mobile_single_hand: true,
+            tutorial_mode: true
           }),
           JSON.stringify({
             demo_autopass: true,
-            rpg_dialog: true
+            rpg_dialog: true,
+            tutorial_mode: true
           }),
           questChainId
         ]
@@ -92,7 +120,7 @@ async function main() {
         photoUrl: '/images/feature-map.png',
         stage_template: 'story_intro',
         stage_intro: '引路人・砂舟已在艙門前等你。先啟動探索艙，讓整場冒險正式開始。',
-        hint_text: '工作室體驗模式：直接開始就能前進。',
+        hint_text: '教學模式：直接開始就能前進。',
         story_context: '你剛踏入沙丘，海底艙門在眼前亮起。',
         guide_content: '這一關是讓玩家感受「進入遊戲」的節奏，先由 NPC 帶入氛圍。',
         rescue_content: '如果現場沒有定位，也會由體驗模式直接放行。',
@@ -109,17 +137,17 @@ async function main() {
       },
       {
         name: '第 2 關｜拍下冒險起點',
-        description: '請任意拍下一張你眼前的畫面。這一關在工作室體驗模式下會先直接通關，但你依然能看到 AI 裁判與劇情框如何演出。',
+        description: '請任意拍下一張你眼前的畫面。這一關在教學模式下會先直接通關，但你依然能看到 AI 裁判與劇情框如何演出。',
         task_type: 'photo',
         points: 15,
         cover_image_url: '/images/feature-community.png',
         photoUrl: '/images/feature-community.png',
         stage_template: 'photo_memory',
         stage_intro: '潮汐關主・巴布要你留下第一張冒險紀錄。把眼前任何畫面拍下來，讓鯨語裁判替你蓋章。',
-        hint_text: '任意拍一張就好，體驗模式會先放行。',
+        hint_text: '任意拍一張就好，教學模式會先放行。',
         story_context: '第一張照片會成為你進入沙丘的起點印記。',
         guide_content: '這一關的目的，是讓玩家感受「拍照 -> AI 判定 -> 劇情推進」的節奏。',
-        rescue_content: '就算畫面不是正式挑戰內容，體驗模式也會讓你前進。',
+        rescue_content: '就算畫面不是正式挑戰內容，教學模式也會讓你前進。',
         location_required: 0,
         lat: 24.6782946,
         lng: 121.7602662,
@@ -139,7 +167,7 @@ async function main() {
       },
       {
         name: '第 3 關｜選擇前進航線',
-        description: '現在由導覽員・潮聲帶你做一個簡單選擇。工作室體驗模式下，任選一個選項都會通關，重點是感受 NPC 對話與流程推進。',
+        description: '現在由導覽員・潮聲帶你做一個簡單選擇。教學模式下，任選一個選項都會通關，重點是感受 NPC 對話與流程推進。',
         task_type: 'multiple_choice',
         points: 15,
         cover_image_url: '/images/feature-culture.png',
@@ -149,7 +177,7 @@ async function main() {
         hint_text: '任選一條航線即可。',
         story_context: '真正的重點不是選對，而是讓玩家看見劇情如何繼續往下流動。',
         guide_content: '這關是用來展示選擇題、NPC 劇情框與通關回饋。',
-        rescue_content: '體驗模式下，任何選擇都會被沙丘視為有效的前進決定。',
+        rescue_content: '教學模式下，任何選擇都會被沙丘視為有效的前進決定。',
         location_required: 0,
         lat: 24.6782946,
         lng: 121.7602662,
@@ -173,7 +201,7 @@ async function main() {
         hint_text: '任意拍一張，感受通關結尾即可。',
         story_context: '這一張照片是旅程的收束，也是玩家第一次完整走完沙丘流程的證明。',
         guide_content: '最終關保留拍照與裁判節奏，讓玩家感受完整收尾。',
-        rescue_content: '體驗模式下，任何畫面都會先算作通關紀念。',
+        rescue_content: '教學模式下，任何畫面都會先算作通關紀念。',
         location_required: 0,
         lat: 24.6782946,
         lng: 121.7602662,
@@ -219,8 +247,8 @@ async function main() {
           task.validation_mode,
           task.ai_config,
           task.pass_criteria,
-          '體驗模式會先放行，讓你直接往下走。',
-          '體驗模式通關，下一段旅程已開啟。',
+          '教學模式會先放行，讓你直接往下走。',
+          '教學模式通關，下一段旅程已開啟。',
           9,
           task.location_required,
           task.stage_template,

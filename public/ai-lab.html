@@ -6,7 +6,8 @@
     <meta name="description" content="沙丘・海底探索艙：劇情主線、大富翁棋盤與 AI 關卡都在同一個遊戲主介面中進行。">
     <meta name="theme-color" content="#000">
     <title>沙丘｜海底探索艙</title>
-    <link rel="stylesheet" href="css/ai-lab.css?v=13">
+    <link rel="icon" type="image/png" href="/images/mascot.png" />
+    <link rel="stylesheet" href="css/ai-lab.css?v=14">
     <link rel="stylesheet" href="css/mode-switch.css?v=2">
     <link
         rel="stylesheet"
@@ -177,18 +178,18 @@
                 </div>
                 <p id="gameShellSummary" class="game-shell-summary">進入鏡頭後，系統會把你帶進劇情主線或大富翁挑戰，不需要再跳去別的頁面。</p>
                 <div id="gameShellBody" class="game-shell-body">
-                    <div class="game-shell-block">
+                    <div class="game-shell-block" id="gameShellObjectiveBlock">
                         <div class="game-shell-label">當前目標</div>
                         <div id="gameShellObjective" class="game-shell-objective">尚未選擇玩法</div>
                         <div style="margin-top:12px;">
                             <button id="gameShellStartBtn" class="board-action-btn primary" type="button">開始這一關</button>
                         </div>
                     </div>
-                    <div class="game-shell-block">
+                    <div class="game-shell-block" id="gameShellProgressBlock">
                         <div class="game-shell-label">目前進度</div>
                         <div id="gameShellProgress" class="game-shell-progress">等待載入</div>
                     </div>
-                    <div class="game-shell-block">
+                    <div class="game-shell-block" id="gameShellEntriesBlock">
                         <div class="game-shell-label">關卡 / 格子清單</div>
                         <div id="gameShellEntries" class="game-shell-entries">
                             <div class="game-shell-entry muted">正在整理玩法內容...</div>
@@ -469,6 +470,6 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
         crossorigin=""></script>
-    <script src="js/ai-lab.js?v=16"></script>
+    <script src="js/ai-lab.js?v=18"></script>
 </body>
 </html>

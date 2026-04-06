@@ -2359,14 +2359,14 @@ app.post('/api/user-tasks', authenticateToken, async (req, res) => {
     const userId = user.id;
     // 檢查是否已經有進行中
     const [inProgress] = await conn.execute('SELECT id FROM user_tasks WHERE user_id = ? AND task_id = ? AND status = "進行中"', [userId, task_id]);
-    if (inProgress.length > 0) return res.json({ success: true, message: '已在進行中' });
+    if (inProgress.length > 0) return res.json({ success: true, message: '已在進行中', userTaskId: inProgress[0].id });
 
     // 檢查是否已經完成過
     const [completed] = await conn.execute('SELECT id FROM user_tasks WHERE user_id = ? AND task_id = ? AND status = "完成"', [userId, task_id]);
     if (completed.length > 0) return res.json({ success: false, message: '此任務已完成過，無法再次接取' });
 
-    await conn.execute('INSERT INTO user_tasks (user_id, task_id, status) VALUES (?, ?, "進行中")', [userId, task_id]);
-    res.json({ success: true, message: '已加入任務' });
+    const [insertResult] = await conn.execute('INSERT INTO user_tasks (user_id, task_id, status) VALUES (?, ?, "進行中")', [userId, task_id]);
+    res.json({ success: true, message: '已加入任務', userTaskId: insertResult.insertId });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: '伺服器錯誤' });
