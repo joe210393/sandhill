@@ -235,7 +235,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // ------------------------------------------------
         let isDrawing = false;
         let points = [];
-        let selectionMode = 'reticle';  // 'reticle' = 單手框選, 'draw' = 手繪圈選
+        let selectionMode = 'reticle';  // 'reticle' = 單手框選
+        let cameraCaptureMode = 'task'; // 'task' = 任務取景, 'scene' = 全景紀錄
         let reticleCenter = { x: 0, y: 0 };
         let reticleRadius = 0;
         let tapStart = null;           // 用於區分「點擊移動框」與「手繪」
@@ -266,12 +267,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const instruction = document.querySelector('.instruction');
         const selectionInstruction = document.getElementById('selectionInstruction');
         const instructionText = document.getElementById('instructionText');
-        const captureReticleBtn = document.getElementById('captureReticleBtn');
         const reticleOverlay = document.getElementById('reticleOverlay');
-        const reticleCenterCapture = document.getElementById('reticleCenterCapture');
         const reticleCenterHint = document.getElementById('reticleCenterHint');
-        const btnReticleMode = document.getElementById('btnReticleMode');
-        const btnDrawMode = document.getElementById('btnDrawMode');
+        const reticleCaptureHotspot = document.getElementById('reticleCaptureHotspot');
+        const cameraCaptureBar = document.getElementById('cameraCaptureBar');
+        const cameraModeTaskBtn = document.getElementById('cameraModeTaskBtn');
+        const cameraModeSceneBtn = document.getElementById('cameraModeSceneBtn');
+        const shutterBtn = document.getElementById('shutterBtn');
+        const cameraFlash = document.getElementById('cameraFlash');
+        const photoBasket = document.getElementById('photoBasket');
+        const photoBasketThumb = document.getElementById('photoBasketThumb');
+        const photoBasketCount = document.getElementById('photoBasketCount');
         const resultPanel = document.getElementById('resultPanel');
         const previewArea = document.getElementById('previewArea');
         const backBtn = document.getElementById('backBtn');
@@ -297,6 +303,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const CONFIDENCE_MEDIUM = 0.40;
         let needMorePhotosSession = null; // 補拍時儲存 session_data
         let currentAnswerPhotoDataUrl = null;
+        let photoCaptureModeActive = false;
+        let shutterBusy = false;
         
         // Director Panel Elements
         const directorToggle = document.getElementById('directorToggle');
@@ -570,6 +578,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function showTaskContext(task) {
+            if (currentTask && task && currentTask.id !== task.id && photoCaptureModeActive) {
+                resetPhotoCaptureState();
+            }
             currentTask = task;
             const statusPill = document.querySelector('.status-pill');
             if (statusPill) statusPill.textContent = task.name || '任務';
@@ -834,6 +845,113 @@ document.addEventListener('DOMContentLoaded', () => {
             );
         }
 
+        function isPhotoTaskCaptureActive() {
+            return Boolean(photoCaptureModeActive && currentTask?.task_type === 'photo');
+        }
+
+        function getRequiredShots() {
+            const aiConfig = currentTask?.ai_config && typeof currentTask.ai_config === 'object' ? currentTask.ai_config : {};
+            const passCriteria = currentTask?.pass_criteria && typeof currentTask.pass_criteria === 'object' ? currentTask.pass_criteria : {};
+            const raw = Number(
+                currentTask?.required_shots
+                || aiConfig.required_shots
+                || passCriteria.required_shots
+                || 1
+            );
+            return Math.max(1, Math.min(3, Number.isFinite(raw) ? raw : 1));
+        }
+
+        function shouldShowPhotoBasket() {
+            return isPhotoTaskCaptureActive() && getRequiredShots() > 1;
+        }
+
+        function playCameraFeedback() {
+            if (shutterBtn) {
+                shutterBtn.classList.add('is-firing');
+                setTimeout(() => shutterBtn.classList.remove('is-firing'), 140);
+            }
+            if (reticleCaptureHotspot) {
+                reticleCaptureHotspot.classList.add('is-firing');
+                setTimeout(() => reticleCaptureHotspot.classList.remove('is-firing'), 140);
+            }
+            if (cameraFlash) {
+                cameraFlash.classList.remove('hidden');
+                void cameraFlash.offsetWidth;
+                cameraFlash.classList.remove('hidden');
+                setTimeout(() => cameraFlash.classList.add('hidden'), 180);
+            }
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+        }
+
+        function updatePhotoBasketUi() {
+            if (!photoBasket || !photoBasketThumb || !photoBasketCount) return;
+            const requiredShots = getRequiredShots();
+            const count = capturedPhotos.length;
+            photoBasket.classList.toggle('hidden', !shouldShowPhotoBasket());
+            photoBasketCount.textContent = `${Math.min(count, requiredShots)}/${requiredShots}`;
+            if (count > 0) {
+                photoBasketThumb.classList.add('has-photo');
+                photoBasketThumb.style.backgroundImage = `url("${capturedPhotos[count - 1]}")`;
+                photoBasketThumb.textContent = '';
+            } else {
+                photoBasketThumb.classList.remove('has-photo');
+                photoBasketThumb.style.backgroundImage = '';
+                photoBasketThumb.textContent = '＋';
+            }
+        }
+
+        function setImmersiveCameraMode(active) {
+            document.body.classList.toggle('immersive-camera-mode', Boolean(active));
+            if (cameraCaptureBar) {
+                cameraCaptureBar.classList.toggle('hidden', !active);
+            }
+            if (!active) {
+                photoBasket?.classList.add('hidden');
+            }
+            updatePhotoBasketUi();
+        }
+
+        function setCameraCaptureMode(mode = 'task') {
+            cameraCaptureMode = mode === 'scene' ? 'scene' : 'task';
+            selectionMode = 'reticle';
+            if (cameraModeTaskBtn) cameraModeTaskBtn.classList.toggle('active', cameraCaptureMode === 'task');
+            if (cameraModeSceneBtn) cameraModeSceneBtn.classList.toggle('active', cameraCaptureMode === 'scene');
+            if (cameraCaptureBar) cameraCaptureBar.classList.toggle('task-primary', cameraCaptureMode === 'task');
+            if (reticleOverlay) reticleOverlay.classList.toggle('hidden', cameraCaptureMode !== 'task');
+            if (reticleCenterHint) {
+                reticleCenterHint.classList.toggle('hidden', cameraCaptureMode !== 'task' || !isPhotoTaskCaptureActive());
+            }
+            if (reticleCaptureHotspot) {
+                reticleCaptureHotspot.classList.toggle('hidden', cameraCaptureMode !== 'task' || !isPhotoTaskCaptureActive());
+            }
+            if (instructionText) {
+                instructionText.textContent = cameraCaptureMode === 'task'
+                    ? '把目標放進黃色圓框，直接點圓框中央拍照'
+                    : '按底部快門拍下整個畫面，作為全景紀錄';
+            }
+        }
+
+        async function buildPhotoSubmissionDataUrl() {
+            if (capturedPhotos.length > 1) {
+                return await combinePhotosToGrid(capturedPhotos);
+            }
+            return capturedPhotos[0] || currentAnswerPhotoDataUrl || null;
+        }
+
+        function resetPhotoCaptureState({ keepActive = false } = {}) {
+            capturedPhotos.length = 0;
+            needMorePhotosSession = null;
+            currentAnswerPhotoDataUrl = null;
+            if (!keepActive) {
+                photoCaptureModeActive = false;
+                tutorialBoardPhotoCaptureArmed = false;
+                setImmersiveCameraMode(false);
+            }
+            updatePhotoBasketUi();
+        }
+
         function getTutorialBoardRollValue(round = 0) {
             const sequence = currentBoardMap?.rules_json?.tutorial_roll_sequence;
             if (!Array.isArray(sequence) || !sequence.length) return null;
@@ -941,31 +1059,26 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelector('.mini-selection-toolbar')?.classList.toggle('tutorial-hidden', shouldHideTutorialChrome);
             document.body.classList.toggle('tutorial-board-clean', isTutorialBoard);
             document.body.classList.toggle('tutorial-story-clean', isTutorialStory);
+            setImmersiveCameraMode(isPhotoTaskCaptureActive());
             if (selectionInstruction) {
                 if (isTutorialStory) {
                     selectionInstruction.style.display = 'none';
-                } else if (isTutorialBoard && (tutorialBoardPhotoCaptureArmed || (!answerModal?.classList.contains('hidden') && currentTask?.task_type === 'photo'))) {
+                } else if (currentTask?.task_type === 'photo' && isPhotoTaskCaptureActive()) {
                     selectionInstruction.style.display = '';
                 } else if (isTutorialBoard) {
                     selectionInstruction.style.display = 'none';
                 } else {
                     selectionInstruction.style.display = '';
                 }
-                selectionInstruction.style.opacity = shouldHideTutorialChrome ? '0' : '1';
-            }
-            if (captureReticleBtn) {
-                captureReticleBtn.style.display = isTutorialBoard && currentTask?.task_type === 'photo' && (tutorialBoardPhotoCaptureArmed || !answerModal?.classList.contains('hidden'))
-                    ? ''
-                    : (shouldHideTutorialChrome ? 'none' : '');
-                captureReticleBtn.textContent = isTutorialBoard && tutorialBoardPhotoCaptureArmed
-                    ? '框內拍照並送出'
-                    : '框內拍照';
-            }
-            if (reticleCenterCapture) {
-                reticleCenterCapture.classList.toggle('hidden', !(isTutorialBoard && currentTask?.task_type === 'photo' && tutorialBoardPhotoCaptureArmed));
+                selectionInstruction.style.opacity = currentTask?.task_type === 'photo' && isPhotoTaskCaptureActive()
+                    ? '1'
+                    : (shouldHideTutorialChrome ? '0' : '1');
             }
             if (reticleCenterHint) {
-                reticleCenterHint.classList.toggle('hidden', !(isTutorialBoard && currentTask?.task_type === 'photo' && tutorialBoardPhotoCaptureArmed));
+                reticleCenterHint.classList.toggle('hidden', !(isPhotoTaskCaptureActive() && cameraCaptureMode === 'task'));
+            }
+            if (reticleCaptureHotspot) {
+                reticleCaptureHotspot.classList.toggle('hidden', !(isPhotoTaskCaptureActive() && cameraCaptureMode === 'task'));
             }
             if (locationBar) {
                 locationBar.style.display = shouldHideTutorialChrome ? 'none' : '';
@@ -982,7 +1095,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (canvas) {
-                canvas.style.pointerEvents = isGuidedReticleLockMode() ? 'none' : '';
+                canvas.style.pointerEvents = isGuidedReticleLockMode() || isPhotoTaskCaptureActive() ? 'none' : '';
             }
 
             if (gameShellProgressBlock) {
@@ -2399,7 +2512,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (currentTask.task_type === 'photo') {
                 if (!hasPhotoDraft && !photoInput?.files?.[0]) {
-                    answerMessage.textContent = '❌ 請先選擇一張照片';
+                    answerMessage.textContent = isPhotoTaskCaptureActive() ? '❌ 請先拍下一張畫面' : '❌ 請先選擇一張照片';
                     return;
                 }
                 if (isAiPhotoTask) {
@@ -2431,6 +2544,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const retrySummary = normalizeUiText(aiData.retry_advice, '');
                     if (aiData.success && aiData.passed) {
                         currentUserTaskId = aiData.user_task_id || currentUserTaskId;
+                        resetPhotoCaptureState();
                         answerModal.classList.add('hidden');
                         tutorialFlowStarted = false;
                         renderTutorialModeUi();
@@ -2464,6 +2578,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         const failText = judgeSummary || retrySummary || 'AI 驗證未通過，請再試一次';
                         if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
+                            resetPhotoCaptureState();
                             answerModal.classList.add('hidden');
                             await completeBoardTurn(false, {
                                 speakerKey: 'judge',
@@ -2475,6 +2590,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             });
                         } else {
                             answerMessage.textContent = `❌ ${failText}`;
+                            photoCaptureModeActive = true;
+                            setImmersiveCameraMode(true);
+                            renderTutorialModeUi();
                             await showNpcDialog({
                                 speakerKey: 'rescue',
                                 mood: '裁定未通過',
@@ -2553,6 +2671,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (tutorialPassMode) {
+                if (currentTask.task_type === 'photo') {
+                    resetPhotoCaptureState();
+                }
                 answerModal.classList.add('hidden');
                 tutorialFlowStarted = false;
                 renderTutorialModeUi();
@@ -2607,6 +2728,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             if (data.success && (data.isCompleted || (data.message && data.message.includes('已完成')))) {
+                if (currentTask.task_type === 'photo') {
+                    resetPhotoCaptureState();
+                }
                 answerModal.classList.add('hidden');
                 tutorialFlowStarted = false;
                 renderTutorialModeUi();
@@ -2633,6 +2757,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 const failText = data.message || '答案錯誤，請重試';
                 if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
+                    if (currentTask.task_type === 'photo') {
+                        resetPhotoCaptureState();
+                    }
                     answerModal.classList.add('hidden');
                     await completeBoardTurn(false, {
                         speakerKey: 'rescue',
@@ -2642,6 +2769,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 } else {
                     answerMessage.textContent = '❌ ' + failText;
+                    if (currentTask.task_type === 'photo') {
+                        photoCaptureModeActive = true;
+                        setImmersiveCameraMode(true);
+                        renderTutorialModeUi();
+                    }
                     await showNpcDialog({
                         speakerKey: 'rescue',
                         mood: '規則未通過',
@@ -2740,6 +2872,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        async function enterPhotoCaptureFlow() {
+            photoCaptureModeActive = true;
+            tutorialBoardPhotoCaptureArmed = currentEntryMode === 'board_game' && isCurrentQuestTutorialMode();
+            capturedPhotos.length = 0;
+            currentAnswerPhotoDataUrl = null;
+            needMorePhotosSession = null;
+            answerModal.classList.add('hidden');
+            closeDockPanels();
+            setCameraCaptureMode('task');
+            setImmersiveCameraMode(true);
+            renderTutorialModeUi();
+            await showNpcDialog({
+                speakerKey: 'gatekeeper',
+                mood: currentEntryMode === 'board_game' ? '圓框拍照挑戰' : '鏡頭挑戰開始',
+                text: `${currentTask?.stage_intro || currentTask?.description || '請先對準畫面。'}\n\n把目標放進黃色圓框後，直接點圓框中央拍照；如果想留下完整環境，再切到全景紀錄。`,
+                buttonLabel: '開始拍照',
+                blocking: false
+            });
+        }
+
         async function startTaskInteraction() {
             closeTaskEncounter();
             if (!currentTask) return;
@@ -2829,19 +2981,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 lockMsg.textContent = '';
                 lockOverlay.classList.remove('hidden');
             } else {
-                if (tutorialMode && currentEntryMode === 'board_game' && currentTask.task_type === 'photo') {
-                    tutorialBoardPhotoCaptureArmed = true;
-                    closeDockPanels();
-                    if (instructionText) {
-                        instructionText.textContent = '把想拍的內容放進黃色圓框，按下下方按鈕就會直接作答與結算。';
-                    }
-                    renderTutorialModeUi();
-                    await showNpcDialog({
-                        speakerKey: 'gatekeeper',
-                        mood: '圓框拍照挑戰',
-                        text: `${currentTask.stage_intro || currentTask.description || '請直接用黃色圓框拍下一張畫面。'}\n\n這一格不需要再跳出上傳檔案，你只要直接用圓框拍照就會送出。`,
-                        buttonLabel: '開始拍照'
-                    });
+                if (currentTask.task_type === 'photo') {
+                    await enterPhotoCaptureFlow();
                     return;
                 }
                 if (selectionInstruction) {
@@ -3963,7 +4104,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (resultPanel.style.display === 'flex') return;
             const pos = getPos(e);
             if (selectionMode === 'reticle') {
-                if (isGuidedReticleLockMode()) {
+                if (isGuidedReticleLockMode() || isPhotoTaskCaptureActive()) {
                     tapStart = null;
                     return;
                 }
@@ -3985,7 +4126,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function moveDraw(e) {
             if (selectionMode === 'reticle') {
-                if (isGuidedReticleLockMode()) return;
+                if (isGuidedReticleLockMode() || isPhotoTaskCaptureActive()) return;
                 if (tapStart) {
                     const pos = getPos(e);
                     const dx = pos.x - tapStart.x, dy = pos.y - tapStart.y;
@@ -4003,7 +4144,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function endDraw(e) {
             if (selectionMode === 'reticle') {
-                if (isGuidedReticleLockMode()) {
+                if (isGuidedReticleLockMode() || isPhotoTaskCaptureActive()) {
                     tapStart = null;
                     return;
                 }
@@ -4048,6 +4189,18 @@ document.addEventListener('DOMContentLoaded', () => {
             processSelectionFromRect(minX, minY, maxX, maxY);
         }
 
+        function captureFullFrameDataUrl() {
+            if (!video.videoWidth || !video.videoHeight) {
+                throw new Error('相機尚未就緒');
+            }
+            const photoCanvas = document.createElement('canvas');
+            photoCanvas.width = video.videoWidth;
+            photoCanvas.height = video.videoHeight;
+            const photoCtx = photoCanvas.getContext('2d');
+            photoCtx.drawImage(video, 0, 0, photoCanvas.width, photoCanvas.height);
+            return photoCanvas.toDataURL('image/jpeg', 0.95);
+        }
+
         // 添加照片到集合
         function addPhotoToCollection(dataUrl) {
             if (capturedPhotos.length >= MAX_PHOTOS) {
@@ -4059,7 +4212,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // 更新 UI
             updatePhotoStrip();
             updatePreviewArea();
-            showResultPanel();
+            updatePhotoBasketUi();
+            if (!isPhotoTaskCaptureActive()) {
+                showResultPanel();
+            }
         }
 
         // 更新照片條（每次從 DOM 取得 slot，確保顯示在結果面板內的縮圖正確）
@@ -4190,15 +4346,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 拍照
         captureBtn.addEventListener('click', () => {
             try {
-                if (!video.videoWidth || !video.videoHeight) {
-                    throw new Error('相機尚未就緒');
-                }
-                const photoCanvas = document.createElement('canvas');
-                photoCanvas.width = video.videoWidth;
-                photoCanvas.height = video.videoHeight;
-                const photoCtx = photoCanvas.getContext('2d');
-                photoCtx.drawImage(video, 0, 0, photoCanvas.width, photoCanvas.height);
-                const dataUrl = photoCanvas.toDataURL('image/jpeg', 0.95);
+                const dataUrl = captureFullFrameDataUrl();
                 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
                 if (navigator.canShare && !isIOS) {
                     fetch(dataUrl)
@@ -4343,22 +4491,62 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        async function handleTaskPhotoShutter() {
+            if (!isPhotoTaskCaptureActive() || shutterBusy) return;
+            shutterBusy = true;
+            try {
+                playCameraFeedback();
+                const dataUrl = video.videoWidth && video.videoHeight
+                    ? (cameraCaptureMode === 'scene' ? captureFullFrameDataUrl() : captureCurrentReticleDataUrl())
+                    : (isCurrentQuestTutorialMode() ? createTutorialFallbackCapture() : null);
+                if (!dataUrl) {
+                    throw new Error('相機尚未就緒，請稍後再試一次');
+                }
+                const requiredShots = getRequiredShots();
+                if (capturedPhotos.length >= requiredShots) {
+                    capturedPhotos.length = requiredShots - 1;
+                }
+                capturedPhotos.push(dataUrl);
+                currentAnswerPhotoDataUrl = dataUrl;
+                updatePhotoBasketUi();
+
+                if (capturedPhotos.length < requiredShots) {
+                    await showNpcDialog({
+                        speakerKey: 'guide',
+                        mood: '收進探索袋',
+                        text: `這張畫面已經收進探索袋，目前 ${capturedPhotos.length}/${requiredShots} 張。\n\n再拍 ${requiredShots - capturedPhotos.length} 張，就能交給潮汐裁判判定。`,
+                        autoCloseMs: 1800,
+                        blocking: false
+                    });
+                    return;
+                }
+
+                currentAnswerPhotoDataUrl = await buildPhotoSubmissionDataUrl();
+                await showNpcDialog({
+                    speakerKey: 'judge',
+                    mood: '正在判定',
+                    text: '潮汐裁判・鯨語正在檢查你剛剛拍下的畫面……',
+                    autoCloseMs: 1200,
+                    blocking: false
+                });
+                await submitTaskAnswer();
+            } catch (err) {
+                await showNpcDialog({
+                    speakerKey: 'rescue',
+                    mood: '拍攝失敗',
+                    text: `海羽沒有成功收下這張畫面。\n\n${err.message || '請再試一次。'}`,
+                    buttonLabel: '知道了'
+                });
+            } finally {
+                shutterBusy = false;
+            }
+        }
+
         // 框內拍照（單手模式）
         async function handleReticleCaptureAction() {
                 if (selectionMode !== 'reticle') return;
-                if (currentEntryMode === 'board_game' && isCurrentQuestTutorialMode() && currentTask?.task_type === 'photo' && tutorialBoardPhotoCaptureArmed) {
-                    try {
-                        currentAnswerPhotoDataUrl = video.videoWidth && video.videoHeight
-                            ? captureCurrentReticleDataUrl()
-                            : createTutorialFallbackCapture();
-                        tutorialBoardPhotoCaptureArmed = false;
-                        renderTutorialModeUi();
-                        await submitTaskAnswer();
-                    } catch (err) {
-                        tutorialBoardPhotoCaptureArmed = true;
-                        renderTutorialModeUi();
-                        Swal.fire({ icon: 'error', title: '無法使用圓框拍照', text: err.message || '請再試一次' });
-                    }
+                if (isPhotoTaskCaptureActive()) {
+                    await handleTaskPhotoShutter();
                     return;
                 }
                 if (!video.videoWidth || !video.videoHeight) {
@@ -4370,36 +4558,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 processSelectionFromRect(rect.minX, rect.minY, rect.maxX, rect.maxY);
         }
 
-        if (captureReticleBtn) {
-            captureReticleBtn.addEventListener('click', handleReticleCaptureAction);
-        }
-        if (reticleCenterCapture) {
-            reticleCenterCapture.addEventListener('click', handleReticleCaptureAction);
-        }
-        if (reticleOverlay) {
-            reticleOverlay.addEventListener('click', (event) => {
-                if (!isGuidedReticleLockMode() || !tutorialBoardPhotoCaptureArmed) return;
-                event.preventDefault();
-                event.stopPropagation();
+        if (shutterBtn) {
+            shutterBtn.addEventListener('click', () => {
+                if (isPhotoTaskCaptureActive()) {
+                    handleTaskPhotoShutter();
+                    return;
+                }
                 handleReticleCaptureAction();
+            });
+        }
+
+        if (reticleCaptureHotspot) {
+            reticleCaptureHotspot.addEventListener('click', () => {
+                if (!isPhotoTaskCaptureActive()) return;
+                handleTaskPhotoShutter();
             });
         }
 
         // 切換框選 / 手繪模式
         function setSelectionMode(mode) {
-            selectionMode = mode;
-            if (btnReticleMode) btnReticleMode.classList.toggle('active', mode === 'reticle');
-            if (btnDrawMode) btnDrawMode.classList.toggle('active', mode === 'draw');
-            if (reticleOverlay) reticleOverlay.classList.toggle('hidden', mode !== 'reticle');
-            if (selectionInstruction) selectionInstruction.classList.toggle('hide-for-draw', mode !== 'reticle');
-            if (instructionText) {
-                instructionText.textContent = mode === 'reticle'
-                    ? '將物體置於框內，點擊下方按鈕拍照'
-                    : '請用手指圈選物體';
+            selectionMode = 'reticle';
+            if (reticleOverlay) reticleOverlay.classList.toggle('hidden', cameraCaptureMode === 'scene');
+            if (instructionText && !isPhotoTaskCaptureActive()) {
+                instructionText.textContent = '把目標放進黃色圓框，直接點圓框中央拍照';
             }
         }
-        if (btnReticleMode) btnReticleMode.addEventListener('click', () => setSelectionMode('reticle'));
-        if (btnDrawMode) btnDrawMode.addEventListener('click', () => setSelectionMode('draw'));
+        if (cameraModeTaskBtn) cameraModeTaskBtn.addEventListener('click', () => setCameraCaptureMode('task'));
+        if (cameraModeSceneBtn) cameraModeSceneBtn.addEventListener('click', () => setCameraCaptureMode('scene'));
         setSelectionMode('reticle');
         loadGameShellFromUrl().then((loaded) => {
             if (!loaded) loadTaskFromUrl();
@@ -4538,6 +4723,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnAnswerCancel) {
             btnAnswerCancel.addEventListener('click', () => {
                 answerModal.classList.add('hidden');
+                resetPhotoCaptureState();
+                renderTutorialModeUi();
             });
         }
         if (btnAnswerSubmit) {

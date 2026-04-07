@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#000">
     <title>沙丘｜海底探索艙</title>
     <link rel="icon" type="image/png" href="/images/mascot.png" />
-    <link rel="stylesheet" href="css/ai-lab.css?v=21">
+    <link rel="stylesheet" href="css/ai-lab.css?v=23">
     <link rel="stylesheet" href="css/mode-switch.css?v=2">
     <link
         rel="stylesheet"
@@ -32,8 +32,13 @@
         <!-- 單手框選：取景框 (可點擊畫面移動框的位置) -->
         <div id="reticleOverlay" class="reticle-overlay" aria-hidden="true">
             <div id="reticleCenterHint" class="reticle-center-hint hidden">將目標放進圓框</div>
-            <button id="reticleCenterCapture" class="reticle-center-capture hidden" type="button" aria-label="使用圓框拍照">點這裡拍照</button>
+            <button id="reticleCaptureHotspot" class="reticle-capture-hotspot hidden" type="button" aria-label="點圓框拍照">
+                <span class="reticle-capture-icon">📸</span>
+                <span class="reticle-capture-text">點圓框拍照</span>
+            </button>
         </div>
+
+        <div id="cameraFlash" class="camera-flash hidden" aria-hidden="true"></div>
 
         <!-- AR-VIEW 整合：任務導航狀態、箭頭與可點擊任務物件 -->
         <div id="taskHudDock" class="task-hud-dock hidden">
@@ -347,12 +352,22 @@
             </div>
             
             <div id="selectionInstruction" class="selection-instruction">
-                <span class="selection-mode-toggle" role="group" aria-label="選擇圈選方式">
-                    <button type="button" id="btnReticleMode" class="mode-toggle-btn active" data-mode="reticle">框選（單手）</button>
-                    <button type="button" id="btnDrawMode" class="mode-toggle-btn" data-mode="draw">手繪圈選</button>
-                </span>
-                <p id="instructionText" class="instruction-text">將物體置於框內，點擊下方按鈕拍照</p>
-                <button type="button" id="captureReticleBtn" class="capture-reticle-btn">框內拍照</button>
+                <p id="instructionText" class="instruction-text">把目標放進黃色圓框，再按底部快門拍照</p>
+            </div>
+
+            <div id="cameraCaptureBar" class="camera-capture-bar hidden" aria-label="拍照控制列">
+                <div id="cameraModeSwitch" class="camera-mode-switch" role="group" aria-label="拍照模式">
+                    <button type="button" id="cameraModeTaskBtn" class="camera-mode-btn active" data-mode="task">🎯 任務取景</button>
+                    <button type="button" id="cameraModeSceneBtn" class="camera-mode-btn" data-mode="scene">📸 全景紀錄</button>
+                </div>
+                <button id="shutterBtn" class="shutter-btn" type="button" aria-label="拍照">
+                    <span class="shutter-btn-ring"></span>
+                    <span class="shutter-btn-core"></span>
+                </button>
+                <div id="photoBasket" class="photo-basket hidden" aria-live="polite">
+                    <div class="photo-basket-thumb" id="photoBasketThumb">＋</div>
+                    <div class="photo-basket-count" id="photoBasketCount">0/1</div>
+                </div>
             </div>
 
             <button id="floatingMicBtn" class="floating-mic-btn" type="button" aria-label="開啟語音提問">🎤</button>
@@ -495,6 +510,6 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
         crossorigin=""></script>
-    <script src="js/ai-lab.js?v=26"></script>
+    <script src="js/ai-lab.js?v=28"></script>
 </body>
 </html>

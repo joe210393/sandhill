@@ -246,7 +246,7 @@ async function insertBoardTutorialMap(conn, questChainId, taskIds) {
         tutorial_mode: true,
         board_tutorial: true,
         one_step_dice: false,
-        tutorial_roll_sequence: [1, 2, 1, 1, 2, 1, 1, 2],
+        tutorial_random_rolls: true,
         role_pack: ['host', 'judge', 'guide', 'rescue']
       })
     ]
