@@ -199,7 +199,11 @@ function stringifyJsonField(value) {
   if (typeof value === 'string') {
     const trimmed = value.trim();
     if (!trimmed) return null;
-    JSON.parse(trimmed);
+    try {
+      JSON.parse(trimmed);
+    } catch (e) {
+      return null;
+    }
     return trimmed;
   }
   return JSON.stringify(value);
@@ -232,6 +236,7 @@ function getQuestChainRuntimeFlags(questChainLike) {
   const contentBlueprint = parseJsonField(questChainLike?.content_blueprint, {}) || {};
   return {
     demoAutoPass: normalizeBoolean(gameRules.demo_autopass) || normalizeBoolean(contentBlueprint.demo_autopass),
+    tutorialMode: normalizeBoolean(gameRules.tutorial_mode) || normalizeBoolean(contentBlueprint.tutorial_mode),
     rpgStyleDialog: normalizeBoolean(gameRules.rpg_dialog) || normalizeBoolean(contentBlueprint.rpg_dialog)
   };
 }
@@ -316,23 +321,35 @@ function sanitizeBoardTileRow(row) {
   };
 }
 
+const VALID_SQL_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+function assertValidIdentifier(name, context) {
+  if (!VALID_SQL_IDENTIFIER.test(name)) {
+    throw new Error(`Invalid ${context}: ${name}`);
+  }
+}
+
 async function getTableColumnSet(conn, tableName) {
-  const [rows] = await conn.execute(`SHOW COLUMNS FROM ${tableName}`);
+  assertValidIdentifier(tableName, 'table name');
+  const [rows] = await conn.execute(`SHOW COLUMNS FROM \`${tableName}\``);
   return new Set(rows.map(row => row.Field));
 }
 
 async function insertDynamicRecord(conn, tableName, record) {
+  assertValidIdentifier(tableName, 'table name');
   const columns = Object.keys(record);
+  columns.forEach(col => assertValidIdentifier(col, 'column name'));
   const placeholders = columns.map(() => '?').join(', ');
-  const sql = `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${placeholders})`;
+  const sql = `INSERT INTO \`${tableName}\` (${columns.map(c => `\`${c}\``).join(', ')}) VALUES (${placeholders})`;
   const values = columns.map(column => record[column]);
   return conn.execute(sql, values);
 }
 
 async function updateDynamicRecord(conn, tableName, id, record) {
+  assertValidIdentifier(tableName, 'table name');
   const columns = Object.keys(record);
-  const assignments = columns.map(column => `${column} = ?`).join(', ');
-  const sql = `UPDATE ${tableName} SET ${assignments} WHERE id = ?`;
+  columns.forEach(col => assertValidIdentifier(col, 'column name'));
+  const assignments = columns.map(column => `\`${column}\` = ?`).join(', ');
+  const sql = `UPDATE \`${tableName}\` SET ${assignments} WHERE id = ?`;
   const values = [...columns.map(column => record[column]), id];
   return conn.execute(sql, values);
 }
@@ -807,11 +824,21 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({ success: false, message: '帳號已存在' });
     }
     // 寫入資料庫
-    await conn.execute(
+    const [insertResult] = await conn.execute(
       'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
       [username, null, 'user']
     );
-    res.json({ success: true, message: '註冊成功' });
+    // 自動登入：產生 JWT 並設定 cookie
+    const newUser = { id: insertResult.insertId, username, role: 'user' };
+    const token = generateToken(newUser);
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/'
+    });
+    res.json({ success: true, message: '註冊成功', user: newUser });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: '伺服器錯誤' });
@@ -1795,6 +1822,18 @@ app.post('/api/board/session/:sessionId/resolve', authenticateToken, async (req,
         session.id
       ]
     );
+
+    // 將本回合積分寫入 point_transactions
+    if (success && turnPoints > 0 && userId) {
+      try {
+        await conn.execute(
+          'INSERT INTO point_transactions (user_id, type, points, description, reference_type, reference_id) VALUES (?, ?, ?, ?, ?, ?)',
+          [userId, 'earned', turnPoints, `棋盤回合: ${tileName}`, 'board_game_turn', session.id]
+        );
+      } catch (ptErr) {
+        console.warn('棋盤積分寫入 point_transactions 失敗:', ptErr.message);
+      }
+    }
 
     const [updatedRows] = await conn.execute('SELECT * FROM user_game_sessions WHERE id = ? LIMIT 1', [session.id]);
     res.json({ success: true, session: sanitizeBoardSessionRow(updatedRows[0]) });
@@ -2922,10 +2961,10 @@ function staffOrAdminAuth(req, res, next) {
 function reviewerAuth(req, res, next) {
   authenticateTokenCompat(req, res, async () => {
     if (!req.user || !req.user.username) return res.status(401).json({ success: false, message: '未認證' });
+    let conn;
     try {
-      const conn = await pool.getConnection();
+      conn = await pool.getConnection();
       const [rows] = await conn.execute('SELECT role, managed_by FROM users WHERE username = ?', [req.user.username]);
-      conn.release();
       if (rows.length === 0) return res.status(401).json({ success: false, message: '用戶不存在' });
       const role = rows[0].role;
       if (!['admin', 'shop', 'staff'].includes(role)) {
@@ -2938,6 +2977,8 @@ function reviewerAuth(req, res, next) {
     } catch (e) {
       console.error(e);
       return res.status(500).json({ success: false, message: '伺服器錯誤' });
+    } finally {
+      if (conn) conn.release();
     }
   });
 }
@@ -3272,15 +3313,52 @@ app.post('/api/tutorial/ai-tasks/:taskId/submit', uploadAiTaskImage.single('imag
 
     const fallbackResult = buildDemoAiResult(task, submissionUrl);
     const lmResult = lmEvaluation?.parsed || null;
+
+    // 若有 JWT 登入，建立 user_task 完成紀錄以推進劇情進度
+    let userTaskId = null;
+    let earnedItemName = null;
+    const optionalUser = getOptionalTokenUser(req);
+    if (optionalUser) {
+      try {
+        const userId = await getUserIdByUsername(conn, optionalUser.username);
+        if (userId) {
+          await conn.beginTransaction();
+          try {
+            const userTask = await getOrCreateUserTask(conn, userId, Number(taskId));
+            if (userTask.status !== '完成') {
+              await conn.execute('UPDATE user_tasks SET answer = ? WHERE id = ?', [submissionUrl, userTask.id]);
+              const completion = await completeUserTask(conn, {
+                ...userTask,
+                task_name: task.name,
+                task_id: task.id,
+                user_id: userId,
+                points: task.points,
+                quest_chain_id: task.quest_chain_id,
+                quest_order: task.quest_order
+              });
+              earnedItemName = completion?.earnedItemName || null;
+            }
+            await conn.commit();
+            userTaskId = userTask.id;
+          } catch (txErr) {
+            try { await conn.rollback(); } catch (_) {}
+            console.warn('教學模式已登入用戶任務紀錄建立失敗:', txErr.message);
+          }
+        }
+      } catch (userErr) {
+        console.warn('教學模式查詢用戶失敗:', userErr.message);
+      }
+    }
+
     return res.json({
       success: true,
       passed: true,
-      tutorial_guest: true,
+      tutorial_guest: !optionalUser,
       message: '教學模式已完成這一步',
       reason: buildTutorialForcedAiReason(task, lmResult?.reason),
       retry_advice: '',
-      user_task_id: null,
-      earnedItemName: null,
+      user_task_id: userTaskId,
+      earnedItemName: earnedItemName,
       score: lmResult?.score ?? fallbackResult.score,
       count_detected: lmResult?.count_detected ?? fallbackResult.count_detected,
       label: lmResult?.label ?? fallbackResult.label,
@@ -3290,6 +3368,62 @@ app.post('/api/tutorial/ai-tasks/:taskId/submit', uploadAiTaskImage.single('imag
   } catch (error) {
     console.error('❌ 教學模式匿名 AI 任務提交失敗:', error);
     return res.status(500).json({ success: false, message: error.message || '教學模式 AI 判定失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// 教學模式非照片任務完成（已登入用戶）
+app.post('/api/tutorial/tasks/:taskId/complete', authenticateToken, async (req, res) => {
+  const { taskId } = req.params;
+  const { answer } = req.body;
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const userId = await getUserIdByUsername(conn, req.user.username);
+    if (!userId) return res.status(400).json({ success: false, message: '使用者不存在' });
+
+    const [tasks] = await conn.execute(
+      `SELECT t.*, qc.game_rules, qc.content_blueprint
+       FROM tasks t
+       LEFT JOIN quest_chains qc ON t.quest_chain_id = qc.id
+       WHERE t.id = ?`,
+      [taskId]
+    );
+    if (!tasks.length) return res.status(404).json({ success: false, message: '找不到任務' });
+    const task = sanitizeTaskRow(tasks[0]);
+
+    const runtimeFlags = getQuestChainRuntimeFlags(task);
+    if (!runtimeFlags.demoAutoPass && !runtimeFlags.tutorialMode) {
+      return res.status(403).json({ success: false, message: '此任務不允許教學模式完成' });
+    }
+
+    await conn.beginTransaction();
+    try {
+      const userTask = await getOrCreateUserTask(conn, userId, Number(taskId));
+      if (userTask.status === '完成') {
+        await conn.commit();
+        return res.json({ success: true, user_task_id: userTask.id, earnedItemName: null, message: '任務已完成' });
+      }
+      await conn.execute('UPDATE user_tasks SET answer = ? WHERE id = ?', [answer || 'tutorial_pass', userTask.id]);
+      const completion = await completeUserTask(conn, {
+        ...userTask,
+        task_name: task.name,
+        task_id: task.id,
+        user_id: userId,
+        points: task.points,
+        quest_chain_id: task.quest_chain_id,
+        quest_order: task.quest_order
+      });
+      await conn.commit();
+      res.json({ success: true, user_task_id: userTask.id, earnedItemName: completion?.earnedItemName || null });
+    } catch (txErr) {
+      try { await conn.rollback(); } catch (_) {}
+      throw txErr;
+    }
+  } catch (err) {
+    console.error('教學模式任務完成失敗:', err);
+    res.status(500).json({ success: false, message: err.message || '伺服器錯誤' });
   } finally {
     if (conn) conn.release();
   }
@@ -5363,8 +5497,9 @@ if (!SKIP_DB) {
       console.error('⚠️  警告: 資料庫連接失敗，部分功能可能無法正常運作');
     } else {
       // 自動執行 AR 系統資料庫遷移
+      let conn;
       try {
-        const conn = await pool.getConnection();
+        conn = await pool.getConnection();
         
         // 1. 建立 ar_models 表
         await conn.execute(`
@@ -5440,10 +5575,11 @@ if (!SKIP_DB) {
         `);
         console.log('✅ 資料庫遷移: push_subscriptions 表已建立');
         
-        conn.release();
         console.log('✅ AR 多步驟系統資料庫結構檢查完成');
       } catch (err) {
         console.error('❌ AR 系統資料庫遷移失敗:', err);
+      } finally {
+        if (conn) conn.release();
       }
     }
   })();

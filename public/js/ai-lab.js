@@ -1024,6 +1024,19 @@ document.addEventListener('DOMContentLoaded', () => {
             saveTutorialGuestState(nextState, currentQuestChainId);
         }
 
+        async function completeTutorialLoggedInTask(task, answer) {
+            if (!task || !getLoginUser()) return;
+            try {
+                await requestJson(`/api/tutorial/tasks/${task.id}/complete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ answer: answer || 'tutorial_pass' })
+                }, '教學模式完成任務');
+            } catch (err) {
+                console.warn('教學模式已登入任務完成失敗:', err.message);
+            }
+        }
+
         function shouldSuppressCameraAlert() {
             const params = new URLSearchParams(window.location.search);
             const urlMode = params.get('mode');
@@ -1121,6 +1134,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (gameShellToggle) {
                 gameShellToggle.textContent = shouldHideTutorialChrome ? '教學' : '任務';
+            }
+
+            let exitBtn = document.getElementById('tutorialExitBtn');
+            if (shouldHideTutorialChrome && !exitBtn) {
+                exitBtn = document.createElement('button');
+                exitBtn.id = 'tutorialExitBtn';
+                exitBtn.className = 'tutorial-exit-btn';
+                exitBtn.textContent = '退出教學';
+                exitBtn.addEventListener('click', () => {
+                    if (confirm('確定要退出教學模式嗎？')) {
+                        window.location.href = '/index.html';
+                    }
+                });
+                document.body.appendChild(exitBtn);
+            } else if (!shouldHideTutorialChrome && exitBtn) {
+                exitBtn.remove();
             }
         }
 
@@ -2806,6 +2835,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         if (tutorialGuestMode) {
                             completeTutorialGuestTask(currentTask);
+                        } else if (getLoginUser()) {
+                            await completeTutorialLoggedInTask(currentTask, answer);
                         }
                         await showNpcDialog({
                             speakerKey: 'lore',
@@ -2845,6 +2876,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     if (tutorialGuestMode) {
                         completeTutorialGuestTask(currentTask);
+                    } else if (getLoginUser()) {
+                        await completeTutorialLoggedInTask(currentTask, answer);
                     }
                     await showNpcDialog({
                         speakerKey: 'judge',
@@ -2966,12 +2999,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         autoCloseMs: 2400
                     });
                 } else {
+                    if (isTutorialGuestMode()) {
+                        completeTutorialGuestTask(currentTask);
+                    } else if (getLoginUser()) {
+                        await completeTutorialLoggedInTask(currentTask, getLockCode());
+                    }
                     await showNpcDialog({
                         speakerKey: 'judge',
                         mood: '教學解鎖',
                         text: `沙丘已記錄這組密碼：「${getLockCode()}」。\n\n教學模式先替你通過這一關，讓你繼續往下走。`,
                         buttonLabel: '繼續前進'
                     });
+                    scheduleStoryReloadAfterCompletion();
                 }
                 showCompletionModal('✅ 教學模式已完成這一步');
                 return;
@@ -3097,9 +3136,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
             if (currentTask.task_type === 'location') {
-                const demoMode = isCurrentQuestDemoMode();
+                const demoMode = isCurrentQuestDemoMode() || isCurrentQuestTutorialMode();
                 if (tutorialGuestMode) {
                     completeTutorialGuestTask(currentTask);
+                    tutorialFlowStarted = false;
+                    renderTutorialModeUi();
+                    await showNpcDialog({
+                        speakerKey: 'host',
+                        mood: '教學模式通關',
+                        text: '沙丘已替你完成這一步報到，現在直接前往下一段劇情。',
+                        buttonLabel: '前往下一關'
+                    });
+                    scheduleStoryReloadAfterCompletion();
+                    showCompletionModal('✅ 教學模式已完成這一步');
+                    return;
+                }
+                if (isCurrentQuestTutorialMode() && getLoginUser()) {
+                    await completeTutorialLoggedInTask(currentTask, 'checked_in');
                     tutorialFlowStarted = false;
                     renderTutorialModeUi();
                     await showNpcDialog({
@@ -4766,8 +4819,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 顯示預覽與確認按鈕
                 pendingPhotoDataUrl = dataUrl;
                 if (photoConfirmPreview) photoConfirmPreview.src = dataUrl;
-                if (photoConfirmOverlay) photoConfirmOverlay.classList.remove('hidden');
-                
+                if (photoConfirmOverlay) {
+                    photoConfirmOverlay.classList.remove('hidden');
+                } else {
+                    shutterBusy = false;
+                }
+
             } catch (err) {
                 console.error('拍照失敗', err);
                 await showNpcDialog({

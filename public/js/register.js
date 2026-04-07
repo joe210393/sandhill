@@ -26,7 +26,10 @@ document.getElementById('registerForm').onsubmit = async function(e) {
     }
 
     if (data?.success) {
-      window.location.href = '/login.html?username=' + encodeURIComponent(username);
+      if (data.user) {
+        localStorage.setItem('loginUser', JSON.stringify(data.user));
+      }
+      window.location.href = '/index.html';
       return;
     }
 

@@ -2,6 +2,32 @@
     --primary-color: #007aff;
     --accent-color: #ffd700;
     --bg-overlay: rgba(0, 0, 0, 0.6);
+    /* z-index 層級系統 */
+    --z-camera: 1;
+    --z-reticle: 2;
+    --z-reticle-hotspot: 3;
+    --z-controls: 10;
+    --z-map: 15;
+    --z-guide: 16;
+    --z-target: 17;
+    --z-panel: 18;
+    --z-director: 20;
+    --z-hud: 24;
+    --z-voice: 25;
+    --z-mic: 26;
+    --z-overlay: 28;
+    --z-dock: 30;
+    --z-toast: 34;
+    --z-tutorial-hud: 38;
+    --z-tutorial-dock: 46;
+    --z-tutorial-drawer: 47;
+    --z-capture-bar: 64;
+    --z-flash: 70;
+    --z-confirm: 5000;
+    --z-dice: 6000;
+    --z-dialog: 6500;
+    --z-transit: 7000;
+    --z-result: 10000;
 }
 
 * {
@@ -33,7 +59,7 @@ video#cameraFeed {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    z-index: 1;
+    z-index: var(--z-camera);
 }
 
 canvas#drawingCanvas {
@@ -42,14 +68,14 @@ canvas#drawingCanvas {
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: 2;
+    z-index: var(--z-reticle);
     touch-action: none; /* 防止滑動頁面 */
 }
 
 /* 單手框選：固定取景框 */
 .reticle-overlay {
     position: absolute;
-    z-index: 28;
+    z-index: var(--z-overlay);
     width: 70vmin;
     height: 70vmin;
     left: 50%;
@@ -221,7 +247,7 @@ body.tutorial-story-clean #taskEncounterModal {
 .board-card-overlay {
     position: fixed;
     inset: 0;
-    z-index: 6000;
+    z-index: var(--z-dice);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -592,7 +618,7 @@ body.tutorial-story-clean #taskEncounterModal {
     left: 10px;
     right: 10px;
     bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-    z-index: 6500;
+    z-index: var(--z-dialog);
     display: flex;
     align-items: flex-end;
     gap: 10px;
@@ -1499,7 +1525,7 @@ body.tutorial-board-clean #boardStatusCard {
     background: rgba(20, 20, 20, 0.97);
     border-radius: 20px 20px 0 0;
     box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
-    z-index: 5000;
+    z-index: var(--z-confirm);
     display: flex;
     flex-direction: column;
     pointer-events: auto;
@@ -2200,7 +2226,7 @@ body.tutorial-board-clean #boardStatusCard {
 .camera-flash {
     position: absolute;
     inset: 0;
-    z-index: 70;
+    z-index: var(--z-flash);
     background: rgba(255, 255, 255, 0.88);
     pointer-events: none;
     animation: cameraFlashPulse 0.18s ease-out forwards;
@@ -2220,7 +2246,7 @@ body.tutorial-board-clean #boardStatusCard {
     left: 0;
     right: 0;
     bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-    z-index: 64;
+    z-index: var(--z-capture-bar);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -2347,7 +2373,7 @@ body.tutorial-board-clean #boardStatusCard {
 .photo-confirm-overlay {
     position: fixed;
     inset: 0;
-    z-index: 5000;
+    z-index: var(--z-confirm);
     background: rgba(0, 0, 0, 0.9);
     display: flex;
     flex-direction: column;
@@ -2738,7 +2764,7 @@ body.immersive-camera-mode .reticle-overlay {
     left: 50%;
     bottom: 144px;
     transform: translateX(-50%);
-    z-index: 7000;
+    z-index: var(--z-transit);
     pointer-events: none;
 }
 
@@ -3004,7 +3030,7 @@ body.immersive-camera-mode .reticle-overlay {
     display: none;
     flex-direction: column;
     gap: 15px;
-    z-index: 10000;
+    z-index: var(--z-result);
 }
 
 .result-panel.active {
@@ -3490,4 +3516,20 @@ body.immersive-camera-mode .reticle-overlay {
     font-size: 13px;
     color: #795548;
     margin-top: 4px;
+}
+
+.tutorial-exit-btn {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    z-index: 48;
+    padding: 6px 14px;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
 }
