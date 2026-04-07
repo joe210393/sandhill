@@ -2605,6 +2605,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function submitTaskAnswer() {
             if (!currentTask) return;
+            if (btnAnswerSubmit) btnAnswerSubmit.disabled = true;
             let answer = '';
             const photoInput = document.getElementById('answerPhotoInput');
             const hasPhotoField = Boolean(photoInput);
@@ -2619,6 +2620,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (currentTask.task_type === 'photo') {
                 if (!hasPhotoDraft && !photoInput?.files?.[0]) {
                     answerMessage.textContent = isPhotoTaskCaptureActive() ? '❌ 請先拍下一張畫面' : '❌ 請先選擇一張照片';
+                    if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
                     return;
                 }
                 if (isAiPhotoTask) {
@@ -2630,6 +2632,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         fd.append('image', photoInput.files[0]);
                     }
                     answerMessage.textContent = tutorialPassMode ? '⏳ 正在整理教學判定...' : '⏳ AI 判定中...';
+                    if (typeof showQueryTransit === 'function') {
+                        showQueryTransit(tutorialPassMode ? '教學模式判定中，請稍候...' : '潮汐裁判・鯨語正在仔細檢查你的照片...');
+                    }
                     let aiData;
                     try {
                         aiData = await requestJson(`${tutorialPassMode ? `/api/tutorial/ai-tasks/${currentTask.id}/submit` : `/api/ai-tasks/${currentTask.id}/submit`}`, {
@@ -2637,6 +2642,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             body: fd
                         }, '送出 AI 圖片判定');
                     } catch (err) {
+                        if (typeof hideQueryTransit === 'function') hideQueryTransit();
                         answerMessage.textContent = `❌ ${err.message}`;
                         await showNpcDialog({
                             speakerKey: 'rescue',
@@ -2646,6 +2652,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         btnAnswerSubmit.disabled = false;
                         return;
                     }
+                    if (typeof hideQueryTransit === 'function') hideQueryTransit();
                     const judgeSummary = normalizeUiText(aiData.reason, '') || normalizeUiText(aiData.message, 'AI 已完成判定。');
                     const retrySummary = normalizeUiText(aiData.retry_advice, '');
                     if (aiData.success && aiData.passed) {
@@ -2723,16 +2730,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     fd.append('photo', photoInput.files[0]);
                 }
                 answerMessage.textContent = '📤 上傳照片中...';
+                if (typeof showQueryTransit === 'function') {
+                    showQueryTransit('正在將照片上傳至探索艙資料庫...');
+                }
                 let uploadData;
                 try {
                     uploadData = await requestJson('/api/upload', { method: 'POST', body: fd }, '上傳照片');
                 } catch (err) {
+                    if (typeof hideQueryTransit === 'function') hideQueryTransit();
                     answerMessage.textContent = `❌ ${err.message}`;
                     btnAnswerSubmit.disabled = false;
                     return;
                 }
+                if (typeof hideQueryTransit === 'function') hideQueryTransit();
                 if (!uploadData.success) {
                     answerMessage.textContent = '❌ 上傳失敗';
+                    if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
                     return;
                 }
                 answer = uploadData.url;
@@ -2740,6 +2753,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const selected = document.querySelector('.answer-choice.selected');
                 if (!selected) {
                     answerMessage.textContent = '❌ 請選擇一個答案';
+                    if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
                     return;
                 }
                 answer = selected.dataset.value;
@@ -2767,12 +2781,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         scheduleStoryReloadAfterCompletion();
                     }
                     showCompletionModal('✅ 教學模式已完成這一步');
+                    if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
                     return;
                 }
             } else {
                 answer = textInput?.value?.trim() || '';
                 if (!answer) {
                     answerMessage.textContent = '❌ 請輸入答案';
+                    if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
                     return;
                 }
             }
@@ -2804,6 +2820,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     scheduleStoryReloadAfterCompletion();
                 }
                 showCompletionModal('✅ 教學模式已完成這一步');
+                if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
                 return;
             }
 
@@ -2811,11 +2828,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!currentUserTaskId) await createCurrentUserTaskRecord();
             if (!currentUserTaskId) {
                 answerMessage.textContent = '❌ 無法建立關卡紀錄，請重新整理後再試';
+                if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
                 return;
             }
             btnAnswerSubmit.disabled = true;
             answerMessage.textContent = '⏳ 驗證中...';
             let data;
+            if (typeof showQueryTransit === 'function') {
+                showQueryTransit('正在將結果送回沙丘...');
+            }
             try {
                 data = await requestJson(`/api/user-tasks/${currentUserTaskId}/answer`, {
                     method: 'PATCH',
@@ -2823,6 +2844,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({ answer })
                 }, '送出答案');
             } catch (err) {
+                if (typeof hideQueryTransit === 'function') hideQueryTransit();
                 answerMessage.textContent = `❌ ${err.message}`;
                 await showNpcDialog({
                     speakerKey: 'rescue',
@@ -2832,6 +2854,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnAnswerSubmit.disabled = false;
                 return;
             }
+            if (typeof hideQueryTransit === 'function') hideQueryTransit();
             if (data.success && (data.isCompleted || (data.message && data.message.includes('已完成')))) {
                 if (currentTask.task_type === 'photo') {
                     resetPhotoCaptureState();
@@ -2857,6 +2880,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                     scheduleStoryReloadAfterCompletion();
                     showCompletionModal(data.earnedItemName ? `🎁 獲得：${data.earnedItemName}` : '✅ 任務已完成');
+                    if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
             } else {
                 document.body.classList.remove('shake-error');
                 void document.body.offsetWidth;
@@ -2875,6 +2899,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         text: `${failText}，這一步會依棋盤規則回退後重新展開。`,
                         autoCloseMs: 2400
                     });
+                    if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
                 } else {
                     answerMessage.textContent = '❌ ' + failText;
                     if (currentTask.task_type === 'photo') {
@@ -2924,6 +2949,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             lockMsg.textContent = '驗證中...';
             let data;
+            if (typeof showQueryTransit === 'function') {
+                showQueryTransit('正在將密碼送回沙丘...');
+            }
             try {
                 data = await requestJson(`/api/user-tasks/${currentUserTaskId}/answer`, {
                     method: 'PATCH',
@@ -2931,6 +2959,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({ answer: getLockCode() })
                 }, '送出密碼答案');
             } catch (err) {
+                if (typeof hideQueryTransit === 'function') hideQueryTransit();
                 document.body.classList.remove('shake-error');
                 void document.body.offsetWidth;
                 document.body.classList.add('shake-error');
@@ -2944,6 +2973,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 return;
             }
+            if (typeof hideQueryTransit === 'function') hideQueryTransit();
             if (data.success && data.isCompleted) {
                 lockOverlay.classList.add('hidden');
                 tutorialFlowStarted = false;
@@ -4679,6 +4709,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!isPhotoTaskCaptureActive() || shutterBusy) return;
             shutterBusy = true;
             try {
+                // 關閉任何可能遮擋的 NPC 對話框
+                if (typeof closeNpcDialog === 'function') closeNpcDialog();
+                
                 playCameraFeedback();
                 const dataUrl = video.videoWidth && video.videoHeight
                     ? (cameraCaptureMode === 'scene' ? captureFullFrameDataUrl() : captureCurrentReticleDataUrl())
