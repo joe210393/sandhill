@@ -1047,6 +1047,10 @@ document.addEventListener('DOMContentLoaded', () => {
             );
             gameShellPanel?.classList.toggle('tutorial-mode', shouldHideTutorialChrome);
             gameShellPanel?.classList.toggle('tutorial-hidden-card', shouldHidePrimaryCard);
+            if (gameShellPanel && isTutorialBoard) {
+                const shouldCompactBoardShell = Boolean(currentBoardRun?.round || currentBoardRun?.pendingTargetTile || currentBoardActiveTileId);
+                gameShellPanel.classList.toggle('collapsed', shouldCompactBoardShell);
+            }
             if (gameShellPanel) {
                 gameShellPanel.setAttribute('aria-hidden', shouldHidePrimaryCard ? 'true' : 'false');
             }
