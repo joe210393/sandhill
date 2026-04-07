@@ -749,8 +749,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     gameShellStartBtn.disabled = !currentTask || currentStoryCompleted;
                     gameShellStartBtn.classList.remove('hidden');
                 } else if (currentEntryMode === 'board_game') {
-                    gameShellStartBtn.textContent = currentBoardRun?.pendingTargetTile ? '前往本回合目標' : '擲骰展開回合';
-                    gameShellStartBtn.disabled = false;
+                    const hasPendingBoardTask = Boolean(currentBoardRun?.pendingTargetTile);
+                    gameShellStartBtn.textContent = hasPendingBoardTask ? '等待本回合完成' : '擲骰';
+                    gameShellStartBtn.disabled = hasPendingBoardTask;
+                    gameShellStartBtn.setAttribute('aria-label', hasPendingBoardTask ? '本回合尚未完成，暫時不能擲骰' : '擲骰');
                     gameShellStartBtn.classList.remove('hidden');
                 } else {
                     gameShellStartBtn.textContent = '開始遊戲';
@@ -1058,11 +1060,12 @@ document.addEventListener('DOMContentLoaded', () => {
             featureDock?.classList.toggle('tutorial-hidden', isTutorialStory);
             selectionInstruction?.classList.toggle('tutorial-hidden', isTutorialStory);
             floatingMicBtn?.classList.toggle('tutorial-hidden', shouldHideTutorialChrome);
-            document.querySelector('.game-hud')?.classList.toggle('tutorial-hidden', shouldHideTutorialChrome);
+            document.querySelector('.game-hud')?.classList.toggle('tutorial-hidden', isTutorialStory);
             document.querySelector('.game-shell-board-status')?.classList.toggle('tutorial-hidden', isTutorialBoard);
             document.querySelector('.mini-selection-toolbar')?.classList.toggle('tutorial-hidden', shouldHideTutorialChrome);
             document.body.classList.toggle('tutorial-board-clean', isTutorialBoard);
             document.body.classList.toggle('tutorial-story-clean', isTutorialStory);
+            featureDockMenu?.classList.toggle('hidden', !isTutorialBoard);
             setImmersiveCameraMode(isPhotoTaskCaptureActive());
             if (selectionInstruction) {
                 if (isTutorialStory) {
