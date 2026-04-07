@@ -623,7 +623,7 @@ body.tutorial-story-clean #taskEncounterModal {
     display: flex;
     align-items: flex-end;
     gap: 10px;
-    pointer-events: auto;
+    pointer-events: none;
 }
 
 body.immersive-camera-mode .npc-dialog {
@@ -636,7 +636,6 @@ body.immersive-camera-mode .npc-dialog {
 
 .npc-dialog.passive {
     opacity: 0.96;
-    /* 移除 pointer-events: none 讓玩家可以點擊「收起」按鈕 */
 }
 
 .npc-dialog-portrait {
@@ -651,6 +650,7 @@ body.immersive-camera-mode .npc-dialog {
     font-size: 26px;
     border: 2px solid rgba(255,255,255,0.25);
     box-shadow: 0 10px 20px rgba(0,0,0,0.28);
+    pointer-events: auto;
 }
 
 .npc-dialog[data-speaker="guide"] .npc-dialog-portrait {
@@ -715,6 +715,7 @@ body.immersive-camera-mode .npc-dialog {
     box-shadow: 0 18px 36px rgba(0,0,0,0.38);
     backdrop-filter: blur(12px);
     position: relative;
+    pointer-events: auto;
 }
 
 .npc-dialog.passive .npc-dialog-card {

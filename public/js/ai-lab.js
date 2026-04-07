@@ -452,12 +452,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const npcDialogClose = document.getElementById('npcDialogClose');
 
         const NPC_PROFILES = {
-            guide: { name: '引路人・砂舟', portrait: '🧭', button: '知道了', theme: 'guide' },
+            guide: { name: '引路人・史蛋', portrait: '🥚', button: '知道了', theme: 'guide' },
             gatekeeper: { name: '潮汐關主・巴布', portrait: '🦀', button: '接受挑戰', theme: 'gatekeeper' },
-            judge: { name: '潮汐裁判・鯨語', portrait: '🐋', button: '聽判定', theme: 'judge' },
-            host: { name: '事件主持人・史蛋', portrait: '🎲', button: '繼續前進', theme: 'host' },
-            rescue: { name: '救援員・海羽', portrait: '🛟', button: '重新整隊', theme: 'rescue' },
-            lore: { name: '導覽員・潮聲', portrait: '🌊', button: '繼續聽', theme: 'lore' }
+            judge: { name: '潮汐裁判・鯨老', portrait: '🐋', button: '聽判定', theme: 'judge' },
+            host: { name: '事件主持人・史蛋', portrait: '🥚', button: '繼續前進', theme: 'host' },
+            rescue: { name: '救援員・巴布', portrait: '🦀', button: '重新整隊', theme: 'rescue' },
+            lore: { name: '導覽員・鯨老', portrait: '🐋', button: '繼續聽', theme: 'lore' }
         };
 
         function buildFriendlyNetworkError(actionLabel = '連線') {
@@ -1955,97 +1955,125 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         async function loadStoryShell(questChainId) {
-            const [contentRes, progressMap] = await Promise.all([
-                fetch(`/api/quest-chains/${questChainId}/public-content`),
-                fetchQuestProgressMap()
-            ]);
-            const contentData = await contentRes.json();
-            if (!contentData.success) {
-                throw new Error(contentData.message || '載入劇情失敗');
-            }
-            currentQuestChainId = questChainId;
-            currentQuestChainData = contentData.questChain || null;
-            currentEntryMode = 'story_campaign';
-            currentStoryTasks = Array.isArray(contentData.tasks) ? contentData.tasks : [];
-            currentStoryCompleted = false;
-            currentStoryCompletedTaskIds = new Set();
-            lastStoryDialogueKey = null;
-            tutorialFlowStarted = false;
-            tutorialIntroTaskId = null;
-            isShellExperience = true;
-            updateShellModeUi();
-            renderTutorialModeUi();
-            loadPlayerHudStats();
-            const tutorialGuestState = isTutorialGuestStoryMode() ? getTutorialGuestState(questChainId) : null;
-            if (tutorialGuestState) {
-                currentStoryCompletedTaskIds = new Set(tutorialGuestState.completedTaskIds || []);
-            }
-            const progressOrder = tutorialGuestState
-                ? Number(tutorialGuestState.currentOrder || 1)
-                : Number(progressMap?.[String(questChainId)]);
-            const maxStoryOrder = currentStoryTasks.reduce((max, task) => Math.max(max, Number(task.quest_order || 0)), 0);
-            currentStoryCompleted = tutorialGuestState
-                ? Boolean(tutorialGuestState.completed)
-                : (Number.isFinite(progressOrder) && progressOrder > maxStoryOrder && maxStoryOrder > 0);
-            const activeTask = currentStoryCompleted
-                ? currentStoryTasks.find(task => Number(task.quest_order) === maxStoryOrder) || currentStoryTasks[currentStoryTasks.length - 1] || null
-                : ((Number.isFinite(progressOrder) && progressOrder > 0)
-                    ? currentStoryTasks.find(task => Number(task.quest_order) === progressOrder) || currentStoryTasks[0]
-                    : currentStoryTasks[0]);
-
-            if (gameShellMode) gameShellMode.textContent = isCurrentQuestTutorialMode() ? '教學模式' : (isCurrentQuestDemoMode() ? '劇情體驗' : '劇情主線');
-            if (gameShellTitle) gameShellTitle.textContent = contentData.questChain.title || contentData.questChain.name || '劇情主線';
-            if (gameShellSummary) gameShellSummary.textContent = contentData.questChain.short_description || contentData.questChain.description || '跟著劇情節奏完成一連串 AI 關卡。';
-            updateGameShellProgress(activeTask);
-            renderGameShellEntries(currentStoryTasks, activeTask?.id);
-            if (activeTask) {
-                await focusStoryTask(activeTask);
-                if (currentStoryCompleted && gameShellObjective) {
-                    gameShellObjective.textContent = '這條劇情主線已完成，現在可以回首頁切換其他劇情，或直接進入大富翁模式。';
+            Swal.fire({
+                title: '正在為你準備教學場景...',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => {
+                    Swal.showLoading();
                 }
+            });
+            try {
+                const [contentRes, progressMap] = await Promise.all([
+                    fetch(`/api/quest-chains/${questChainId}/public-content`),
+                    fetchQuestProgressMap()
+                ]);
+                const contentData = await contentRes.json();
+                if (!contentData.success) {
+                    throw new Error(contentData.message || '載入劇情失敗');
+                }
+                currentQuestChainId = questChainId;
+                currentQuestChainData = contentData.questChain || null;
+                currentEntryMode = 'story_campaign';
+                currentStoryTasks = Array.isArray(contentData.tasks) ? contentData.tasks : [];
+                currentStoryCompleted = false;
+                currentStoryCompletedTaskIds = new Set();
+                lastStoryDialogueKey = null;
+                tutorialFlowStarted = false;
+                tutorialIntroTaskId = null;
+                isShellExperience = true;
+                updateShellModeUi();
+                renderTutorialModeUi();
+                loadPlayerHudStats();
+                const tutorialGuestState = isTutorialGuestStoryMode() ? getTutorialGuestState(questChainId) : null;
+                if (tutorialGuestState) {
+                    currentStoryCompletedTaskIds = new Set(tutorialGuestState.completedTaskIds || []);
+                }
+                const progressOrder = tutorialGuestState
+                    ? Number(tutorialGuestState.currentOrder || 1)
+                    : Number(progressMap?.[String(questChainId)]);
+                const maxStoryOrder = currentStoryTasks.reduce((max, task) => Math.max(max, Number(task.quest_order || 0)), 0);
+                currentStoryCompleted = tutorialGuestState
+                    ? Boolean(tutorialGuestState.completed)
+                    : (Number.isFinite(progressOrder) && progressOrder > maxStoryOrder && maxStoryOrder > 0);
+                const activeTask = currentStoryCompleted
+                    ? currentStoryTasks.find(task => Number(task.quest_order) === maxStoryOrder) || currentStoryTasks[currentStoryTasks.length - 1] || null
+                    : ((Number.isFinite(progressOrder) && progressOrder > 0)
+                        ? currentStoryTasks.find(task => Number(task.quest_order) === progressOrder) || currentStoryTasks[0]
+                        : currentStoryTasks[0]);
+
+                if (gameShellMode) gameShellMode.textContent = isCurrentQuestTutorialMode() ? '教學模式' : (isCurrentQuestDemoMode() ? '劇情體驗' : '劇情主線');
+                if (gameShellTitle) gameShellTitle.textContent = contentData.questChain.title || contentData.questChain.name || '劇情主線';
+                if (gameShellSummary) gameShellSummary.textContent = contentData.questChain.short_description || contentData.questChain.description || '跟著劇情節奏完成一連串 AI 關卡。';
+                updateGameShellProgress(activeTask);
+                renderGameShellEntries(currentStoryTasks, activeTask?.id);
+                if (activeTask) {
+                    await focusStoryTask(activeTask);
+                    if (currentStoryCompleted && gameShellObjective) {
+                        gameShellObjective.textContent = '這條劇情主線已完成，現在可以回首頁切換其他劇情，或直接進入大富翁模式。';
+                    }
+                }
+                Swal.close();
+            } catch (err) {
+                Swal.close();
+                throw err;
             }
         }
 
         async function loadBoardShell(questChainId, preferredBoardMapId = null, previewMode = false) {
-            const params = new URLSearchParams();
-            if (preferredBoardMapId) params.set('boardMapId', String(preferredBoardMapId));
-            if (previewMode) params.set('preview', '1');
-            const boardApi = `/api/board-maps/by-quest-chain/${questChainId}${params.toString() ? `?${params.toString()}` : ''}`;
-            const boardRes = await fetch(boardApi);
-            const boardData = await boardRes.json();
-            if (!boardData.success) {
-                throw new Error(boardData.message || '載入大富翁內容失敗');
-            }
-            currentQuestChainId = questChainId;
-            currentQuestChainData = boardData.questChain || null;
-            currentEntryMode = 'board_game';
-            currentStoryCompleted = false;
-            currentBoardMaps = Array.isArray(boardData.boardMaps) ? boardData.boardMaps : [];
-            currentBoardMap = boardData.boardMap || null;
-            currentBoardTiles = Array.isArray(boardData.tiles) ? boardData.tiles : [];
-            isShellExperience = true;
-            tutorialFlowStarted = false;
-            tutorialIntroTaskId = null;
-            updateShellModeUi();
-            renderTutorialModeUi();
-            loadPlayerHudStats();
-            await hydrateBoardRunState();
-            syncBoardMapQuery(currentBoardMap?.id || null);
-            renderBoardMapSelector();
-            const activeTile = currentBoardRun?.pendingTargetTile
-                ? getBoardTileByIndex(currentBoardRun.pendingTargetTile)
-                : getBoardTileByIndex(currentBoardRun?.currentTile)
-                    || currentBoardTiles.find(tile => tile.task_id)
-                    || currentBoardTiles[0]
-                    || null;
+            Swal.fire({
+                title: '正在為你準備教學場景...',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            try {
+                const params = new URLSearchParams();
+                if (preferredBoardMapId) params.set('boardMapId', String(preferredBoardMapId));
+                if (previewMode) params.set('preview', '1');
+                const boardApi = `/api/board-maps/by-quest-chain/${questChainId}${params.toString() ? `?${params.toString()}` : ''}`;
+                const boardRes = await fetch(boardApi);
+                const boardData = await boardRes.json();
+                if (!boardData.success) {
+                    throw new Error(boardData.message || '載入大富翁內容失敗');
+                }
+                currentQuestChainId = questChainId;
+                currentQuestChainData = boardData.questChain || null;
+                currentEntryMode = 'board_game';
+                currentStoryCompleted = false;
+                currentBoardMaps = Array.isArray(boardData.boardMaps) ? boardData.boardMaps : [];
+                currentBoardMap = boardData.boardMap || null;
+                currentBoardTiles = Array.isArray(boardData.tiles) ? boardData.tiles : [];
+                isShellExperience = true;
+                tutorialFlowStarted = false;
+                tutorialIntroTaskId = null;
+                updateShellModeUi();
+                renderTutorialModeUi();
+                loadPlayerHudStats();
+                await hydrateBoardRunState();
+                syncBoardMapQuery(currentBoardMap?.id || null);
+                renderBoardMapSelector();
+                const activeTile = currentBoardRun?.pendingTargetTile
+                    ? getBoardTileByIndex(currentBoardRun.pendingTargetTile)
+                    : getBoardTileByIndex(currentBoardRun?.currentTile)
+                        || currentBoardTiles.find(tile => tile.task_id)
+                        || currentBoardTiles[0]
+                        || null;
 
-            if (gameShellMode) gameShellMode.textContent = '大富翁模式';
-            if (gameShellTitle) gameShellTitle.textContent = currentBoardMap?.name || '濱海大富翁';
-            if (gameShellSummary) gameShellSummary.textContent = currentBoardMap?.description || '擲骰、前進、觸發事件，並讓 AI 擔任每一步的裁判。';
-            updateGameShellProgress(activeTile);
-            renderGameShellEntries(currentBoardTiles, activeTile?.id);
-            if (activeTile) {
-                await focusBoardTile(activeTile);
+                if (gameShellMode) gameShellMode.textContent = '大富翁模式';
+                if (gameShellTitle) gameShellTitle.textContent = currentBoardMap?.name || '濱海大富翁';
+                if (gameShellSummary) gameShellSummary.textContent = currentBoardMap?.description || '擲骰、前進、觸發事件，讓史蛋、巴布與鯨老陪你一起闖關。';
+                updateGameShellProgress(activeTile);
+                renderGameShellEntries(currentBoardTiles, activeTile?.id);
+                if (activeTile) {
+                    await focusBoardTile(activeTile);
+                }
+                Swal.close();
+            } catch (err) {
+                Swal.close();
+                throw err;
             }
         }
 
@@ -5210,19 +5238,29 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         function showStorySummaryPage() {
-            const totalTasks = currentStoryCompletedTaskIds ? currentStoryCompletedTaskIds.size : 0;
+            let totalTasks = 0;
             let earnedPoints = 0;
-            if (currentStoryTasks && currentStoryCompletedTaskIds) {
-                currentStoryTasks.forEach(task => {
-                    if (currentStoryCompletedTaskIds.has(task.id)) {
+
+            if (currentStoryTasks) {
+                if (currentStoryCompleted) {
+                    // If completed, all tasks are done
+                    totalTasks = currentStoryTasks.length;
+                    currentStoryTasks.forEach(task => {
                         earnedPoints += Number(task.points || 0);
-                    }
-                });
+                    });
+                } else if (currentStoryCompletedTaskIds) {
+                    totalTasks = currentStoryCompletedTaskIds.size;
+                    currentStoryTasks.forEach(task => {
+                        if (currentStoryCompletedTaskIds.has(task.id)) {
+                            earnedPoints += Number(task.points || 0);
+                        }
+                    });
+                }
             }
             
             Swal.fire({
                 title: '🎉 旅程完成！',
-                html: `你完成了 <b>${totalTasks}</b> 個關卡！<br>獲得 <b>${earnedPoints}</b> 積分`,
+                html: `你完成了 <b>${totalTasks}</b> 個關卡！<br>本輪獲得 <b>${earnedPoints}</b> 積分`,
                 icon: 'success',
                 showCancelButton: true,
                 confirmButtonText: '前往大富翁',
@@ -5231,10 +5269,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 cancelButtonColor: '#6b7280',
                 allowOutsideClick: false,
                 allowEscapeKey: false
-            }).then((result) => {
+            }).then(async (result) => {
                 if (result.isConfirmed) {
-                    // Navigate to board game mode
-                    window.location.href = `/ai-lab.html?mode=board_game&questChainId=${currentQuestChainId}`;
+                    try {
+                        const res = await fetch('/api/quest-chains/public-entries');
+                        const data = await res.json();
+                        if (data.success && data.entries) {
+                            const boardEntry = data.entries.find(e => e.play_style === 'tutorial_board' || e.mode_type === 'board_game');
+                            if (boardEntry) {
+                                window.location.href = `/ai-lab.html?mode=board_game&questChainId=${boardEntry.id}`;
+                                return;
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Failed to fetch board entry', err);
+                    }
+                    // Fallback if not found
+                    window.location.href = '/index.html';
                 } else {
                     // Navigate to home
                     window.location.href = '/index.html';
