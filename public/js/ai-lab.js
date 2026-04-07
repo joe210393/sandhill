@@ -1182,8 +1182,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (task.hint_text) {
                 parts.push(`線索：${task.hint_text}`);
             }
-            if (isCurrentQuestDemoMode()) {
-                parts.push('教學模式已啟動。這一條線會先讓你順順地走完整段流程，任意拍攝、任意選擇都會先通關。');
+            if (isCurrentQuestTutorialMode() || isCurrentQuestDemoMode()) {
+                if (task.quest_order === 1 || task.quest_order === '1') {
+                    parts.push('你現在進入的是教學模式，所有關卡都會自動通過，正式遊玩時需要實際完成挑戰。');
+                }
             }
             return parts.join('\n\n');
         }
@@ -1678,14 +1680,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(data.message || '結算回合失敗');
                 }
                 updateBoardRunFromSession(data.session);
+                loadPlayerHudStats();
                 if (!skipDialog) {
+                    const finalMsg = (text
+                            || (success
+                                ? (data.session?.last_result?.message || `挑戰成功，你已正式推進到第 ${data.session.current_tile} 格。`)
+                                : (data.session?.last_result?.message || `這回合未通過，目前回退到第 ${data.session.current_tile} 格，調整後再出發。`))) + '\n\n按下骰子繼續前進';
                     await showNpcDialog({
                         speakerKey,
                         mood,
-                        text: text
-                            || (success
-                                ? (data.session?.last_result?.message || `挑戰成功，你已正式推進到第 ${data.session.current_tile} 格。`)
-                                : (data.session?.last_result?.message || `這回合未通過，目前回退到第 ${data.session.current_tile} 格，調整後再出發。`)),
+                        text: finalMsg,
                         autoCloseMs
                     });
                 }
@@ -1718,11 +1722,13 @@ document.addEventListener('DOMContentLoaded', () => {
             persistBoardRunState();
             renderBoardPanel();
             renderHudSummary();
+            loadPlayerHudStats();
             if (!skipDialog) {
+                const finalMsg = (text || currentBoardRun.lastResultText || (success ? '挑戰成功。' : '挑戰失敗，請重新調整。')) + '\n\n按下骰子繼續前進';
                 await showNpcDialog({
                     speakerKey,
                     mood,
-                    text: text || currentBoardRun.lastResultText || (success ? '挑戰成功。' : '挑戰失敗，請重新調整。'),
+                    text: finalMsg,
                     autoCloseMs
                 });
             }
@@ -2050,13 +2056,68 @@ document.addEventListener('DOMContentLoaded', () => {
             const boardMapId = params.get('boardMapId');
             const previewMode = params.get('preview') === '1';
             if (!questChainId || !mode) return false;
+            
             if (gameShellPanel) gameShellPanel.classList.remove('collapsed');
             try {
                 if (mode === 'board_game') {
                     await loadBoardShell(questChainId, boardMapId, previewMode);
+                    
+                    // Monopoly first dice prompt
+                    if (!localStorage.getItem('monopoly_first_dice_prompt_shown')) {
+                        const diceBtn = document.getElementById('gameShellStartBtn');
+                        if (diceBtn) {
+                            const tooltip = document.createElement('div');
+                            tooltip.textContent = '點這裡開始擲骰';
+                            tooltip.style.position = 'absolute';
+                            tooltip.style.bottom = '100%';
+                            tooltip.style.left = '50%';
+                            tooltip.style.transform = 'translateX(-50%) translateY(-10px)';
+                            tooltip.style.background = '#ff3b30';
+                            tooltip.style.color = '#fff';
+                            tooltip.style.padding = '6px 12px';
+                            tooltip.style.borderRadius = '8px';
+                            tooltip.style.fontSize = '14px';
+                            tooltip.style.fontWeight = 'bold';
+                            tooltip.style.whiteSpace = 'nowrap';
+                            tooltip.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+                            tooltip.style.pointerEvents = 'none';
+                            tooltip.style.zIndex = '100';
+                            tooltip.style.animation = 'bounce 1s infinite';
+                            
+                            const arrow = document.createElement('div');
+                            arrow.style.position = 'absolute';
+                            arrow.style.top = '100%';
+                            arrow.style.left = '50%';
+                            arrow.style.transform = 'translateX(-50%)';
+                            arrow.style.borderWidth = '6px';
+                            arrow.style.borderStyle = 'solid';
+                            arrow.style.borderColor = '#ff3b30 transparent transparent transparent';
+                            tooltip.appendChild(arrow);
+                            
+                            diceBtn.style.position = 'relative';
+                            diceBtn.appendChild(tooltip);
+                            
+                            diceBtn.addEventListener('click', () => {
+                                tooltip.remove();
+                                localStorage.setItem('monopoly_first_dice_prompt_shown', 'true');
+                            }, { once: true });
+                        }
+                    }
                 } else {
                     await loadStoryShell(questChainId);
                 }
+                
+                if (isCurrentQuestTutorialMode()) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: '權限提示',
+                        text: '正式遊玩需要相機和定位權限',
+                        confirmButtonText: '我知道了'
+                    });
+                }
+                
+                startTutorialHelper();
+                
                 return true;
             } catch (err) {
                 console.error('載入遊戲殼失敗', err);
@@ -2066,6 +2127,55 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (gameShellProgress) gameShellProgress.textContent = '目前無法取得進度';
                 if (gameShellEntries) gameShellEntries.innerHTML = '<div class="game-shell-entry muted">暫時無法載入玩法內容。</div>';
                 return false;
+            }
+        }
+
+        async function startTutorialHelper() {
+            if (localStorage.getItem('tutorial_helper_shown')) return;
+            localStorage.setItem('tutorial_helper_shown', 'true');
+            
+            const steps = [
+                {
+                    title: '歡迎來到沙丘',
+                    text: '這是一個結合 AI 與實境的探索遊戲。讓我來為你介紹畫面上的功能吧！',
+                    icon: 'info'
+                },
+                {
+                    title: '任務面板',
+                    text: '畫面左上角的面板會顯示你當前的任務目標與進度。',
+                    icon: 'info'
+                },
+                {
+                    title: '迷你地圖',
+                    text: '右下角的迷你地圖可以幫助你確認目前的位置與接下來的路線。',
+                    icon: 'info'
+                },
+                {
+                    title: '功能選單',
+                    text: '點擊右側的功能按鈕，可以展開更多選項，例如切換視角、查看背包等。',
+                    icon: 'info'
+                },
+                {
+                    title: '語音助理',
+                    text: '如果遇到困難，可以點擊右下角的麥克風按鈕呼叫 AI 助理。',
+                    icon: 'info'
+                },
+                {
+                    title: '準備出發',
+                    text: '現在，請點擊下方的「開始遊戲」或「擲骰」按鈕，開始你的冒險吧！',
+                    icon: 'success'
+                }
+            ];
+            
+            for (let i = 0; i < steps.length; i++) {
+                await Swal.fire({
+                    title: steps[i].title,
+                    text: steps[i].text,
+                    icon: steps[i].icon,
+                    confirmButtonText: i === steps.length - 1 ? '出發！' : '下一步',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false
+                });
             }
         }
 
@@ -4697,6 +4807,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (gameShellStartBtn) {
+            gameShellStartBtn.addEventListener('touchstart', () => {
+                gameShellStartBtn.style.animation = 'none';
+            }, { passive: true });
+            
             gameShellStartBtn.addEventListener('click', () => {
                 if (currentEntryMode === 'board_game') {
                     if (currentBoardRun?.pendingTargetTile) {
@@ -5027,6 +5141,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         if (floatingDiceBtn) {
+            floatingDiceBtn.addEventListener('touchstart', () => {
+                floatingDiceBtn.style.animation = 'none';
+            }, { passive: true });
+            
             floatingDiceBtn.addEventListener('click', () => {
                 startBoardTurn().catch((err) => {
                     console.error('大富翁擲骰失敗', err);
@@ -5091,6 +5209,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
         }
+        function showStorySummaryPage() {
+            const totalTasks = currentStoryCompletedTaskIds ? currentStoryCompletedTaskIds.size : 0;
+            let earnedPoints = 0;
+            if (currentStoryTasks && currentStoryCompletedTaskIds) {
+                currentStoryTasks.forEach(task => {
+                    if (currentStoryCompletedTaskIds.has(task.id)) {
+                        earnedPoints += Number(task.points || 0);
+                    }
+                });
+            }
+            
+            Swal.fire({
+                title: '🎉 旅程完成！',
+                html: `你完成了 <b>${totalTasks}</b> 個關卡！<br>獲得 <b>${earnedPoints}</b> 積分`,
+                icon: 'success',
+                showCancelButton: true,
+                confirmButtonText: '前往大富翁',
+                cancelButtonText: '回首頁',
+                confirmButtonColor: '#ff9f1c',
+                cancelButtonColor: '#6b7280',
+                allowOutsideClick: false,
+                allowEscapeKey: false
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Navigate to board game mode
+                    window.location.href = `/ai-lab.html?mode=board_game&questChainId=${currentQuestChainId}`;
+                } else {
+                    // Navigate to home
+                    window.location.href = '/index.html';
+                }
+            });
+        }
+
         if (btnCompletionClose) {
             btnCompletionClose.addEventListener('click', async () => {
                 completionModal.classList.add('hidden');
@@ -5098,6 +5249,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (pendingStoryReloadAfterCompletion && currentQuestChainId) {
                     pendingStoryReloadAfterCompletion = false;
                     await loadStoryShell(currentQuestChainId);
+                    
+                    if (currentStoryCompleted) {
+                        showStorySummaryPage();
+                    }
                 }
             });
         }

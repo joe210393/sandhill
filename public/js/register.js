@@ -29,6 +29,7 @@ document.getElementById('registerForm').onsubmit = async function(e) {
       if (data.user) {
         localStorage.setItem('loginUser', JSON.stringify(data.user));
       }
+      localStorage.setItem('justRegistered', 'true');
       window.location.href = '/index.html';
       return;
     }

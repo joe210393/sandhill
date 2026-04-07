@@ -1136,7 +1136,7 @@
         <a href="/user-dashboard.html" id="navUserTasks" style="display:none;">玩家管理</a>
         <a href="/products.html" id="navProducts">獎勵兌換</a>
         <a href="/redeem-tasks.html" id="navRedeem" style="display:none;">兌換管理</a>
-        <a href="/ai-lab.html">進入遊戲殼</a>
+        <a href="/ai-lab.html">直接進入遊戲畫面</a>
         <span id="loginUserInfo" style="color:#eef9ff;"></span>
         <button id="logoutBtn" style="display:none;">登出</button>
       </nav>
@@ -1193,7 +1193,7 @@
         <div class="eyebrow">海底大作戰 ・ 手機冒險入口</div>
         <h2>把戶外導覽、關卡闖關與 AI 裁判，做成孩子也能直接玩懂的海洋遊戲。</h2>
         <p>
-          `沙丘` 的首頁不是工具清單，而是一個真正的活動入口。玩家用手機就能選擇教學模式、劇情主線或大富翁玩法，進入後由 AI 當關主、裁判、導覽員與救援員，陪著一路往下玩。
+          「沙丘」的首頁不是工具清單，而是一個真正的活動入口。玩家用手機就能選擇教學模式、劇情主線或大富翁玩法，進入後由 AI 當關主、裁判、導覽員與救援員，陪著一路往下玩。
         </p>
         <div class="hero-actions">
           <button class="ocean-btn ocean-btn-primary" id="heroStoryPickerBtn" type="button">立即選擇劇本</button>
@@ -1242,7 +1242,7 @@
       </div>
       <div class="cta-actions">
         <button class="ocean-btn ocean-btn-primary" id="inlineStoryPickerBtn" type="button">立即選擇劇本</button>
-        <a class="ocean-btn ocean-btn-secondary" href="/ai-lab.html">先進入遊戲殼</a>
+        <a class="ocean-btn ocean-btn-secondary" href="/ai-lab.html">直接進入遊戲畫面</a>
       </div>
     </section>
   </main>
@@ -1254,7 +1254,7 @@
         <div>
           <div class="eyebrow">劇本入口</div>
           <h3>選擇目前開啟的劇本</h3>
-          <p>選完後就直接進入對應劇本。如果你還想先看艙內介面，也可以直接進遊戲殼後再選。</p>
+          <p>選完後就直接進入對應劇本。如果你還想先看艙內介面，也可以直接進入遊戲畫面後再選。</p>
         </div>
         <button id="storyPickerCloseBtn" class="hamburger" type="button" aria-label="關閉劇本選擇器" style="display:inline-flex;">✕</button>
       </div>
@@ -1262,7 +1262,7 @@
         <div class="loading-card">正在載入目前開啟的劇本...</div>
       </div>
       <div class="cta-actions" style="margin-top:18px;">
-        <a class="ocean-btn ocean-btn-secondary" href="/ai-lab.html">先進入遊戲殼</a>
+        <a class="ocean-btn ocean-btn-secondary" href="/ai-lab.html">直接進入遊戲畫面</a>
       </div>
     </div>
   </div>
@@ -1278,6 +1278,21 @@
     let cachedGameEntries = { stories: [], boards: [] };
 
     if (loginUser) {
+      if (localStorage.getItem('justRegistered') === 'true') {
+        localStorage.removeItem('justRegistered');
+        const toast = document.createElement('div');
+        toast.textContent = '歡迎加入沙丘！';
+        toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(34,197,94,0.9);color:white;padding:12px 24px;border-radius:999px;z-index:9999;font-weight:bold;box-shadow:0 4px 12px rgba(0,0,0,0.15);animation:fadeInOut 3s forwards;';
+        document.body.appendChild(toast);
+        if (!document.getElementById('toastStyles')) {
+          const style = document.createElement('style');
+          style.id = 'toastStyles';
+          style.textContent = '@keyframes fadeInOut { 0% { opacity: 0; transform: translate(-50%, -10px); } 10% { opacity: 1; transform: translate(-50%, 0); } 90% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -10px); } }';
+          document.head.appendChild(style);
+        }
+        setTimeout(() => toast.remove(), 3000);
+      }
+
       if (loginUser.role === 'admin') {
         document.getElementById('navStaff').style.display = '';
         document.getElementById('navRedeem').style.display = '';
@@ -1336,9 +1351,20 @@
       document.getElementById('headerContent').classList.toggle('open');
     };
 
+    function translateTag(tag) {
+      if (!tag) return '';
+      const map = {
+        'tutorial_story': '教學劇情',
+        'tutorial_board': '教學大富翁',
+        'story_campaign': '劇情主線',
+        'board_game': '大富翁模式'
+      };
+      return map[tag] || tag;
+    }
+
     function buildEntryCard(entry, fallbackMode) {
       const modeLabel = entry.mode_type === 'board_game' ? '大富翁模式' : '劇情主線';
-      const sceneLabel = entry.entry_scene_label || modeLabel;
+      const sceneLabel = translateTag(entry.entry_scene_label) || modeLabel;
       const buttonText = entry.entry_button_text || (entry.mode_type === 'board_game' ? '進入玩法' : '開始劇情');
       const params = new URLSearchParams();
       params.set('questChainId', entry.id);
@@ -1349,7 +1375,7 @@
           <div class="entry-meta">
             <span class="entry-pill">${modeLabel}</span>
             <span class="entry-pill">${sceneLabel}</span>
-            ${entry.play_style ? `<span class="entry-pill">${entry.play_style}</span>` : ''}
+            ${entry.play_style ? `<span class="entry-pill">${translateTag(entry.play_style)}</span>` : ''}
           </div>
           <h4>${entry.title || entry.name}</h4>
           <p>${entry.short_description || entry.description || '尚未提供簡介。'}</p>
@@ -1368,8 +1394,8 @@
         <article class="entry-card">
           <div class="entry-meta">
             <span class="entry-pill">${modeLabel}</span>
-            ${entry.entry_scene_label ? `<span class="entry-pill">${entry.entry_scene_label}</span>` : ''}
-            ${entry.play_style ? `<span class="entry-pill">${entry.play_style}</span>` : ''}
+            ${entry.entry_scene_label ? `<span class="entry-pill">${translateTag(entry.entry_scene_label)}</span>` : ''}
+            ${entry.play_style ? `<span class="entry-pill">${translateTag(entry.play_style)}</span>` : ''}
           </div>
           <h4>${entry.title || entry.name}</h4>
           <p>${entry.short_description || entry.description || '尚未提供簡介。'}</p>

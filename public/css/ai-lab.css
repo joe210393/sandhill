@@ -373,7 +373,8 @@ body.tutorial-story-clean #taskEncounterModal {
 
 .answer-choice.selected {
     border-color: #22c55e;
-    background: rgba(34, 197, 94, 0.22);
+    background: rgba(34, 197, 94, 0.4);
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.5);
 }
 
 .wheels {
@@ -1043,8 +1044,8 @@ body.immersive-camera-mode .npc-dialog {
 }
 
 .mini-map {
-    width: 220px;
-    height: 220px;
+    width: 280px;
+    height: 280px;
     border-radius: 12px;
     overflow: hidden;
     background: rgba(0, 0, 0, 0.35);
@@ -1703,8 +1704,8 @@ body.tutorial-board-clean #boardStatusCard {
     }
 
     .mini-map {
-        width: 180px;
-        height: 180px;
+        width: 220px;
+        height: 220px;
     }
 
     .mini-map-task-indicator {
@@ -1841,7 +1842,7 @@ body.tutorial-board-clean #boardStatusCard {
 
 @keyframes pulseDice {
     0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 159, 28, 0.7); }
-    70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(255, 159, 28, 0); }
+    50% { transform: scale(1); box-shadow: 0 0 0 15px rgba(255, 159, 28, 0); }
     100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 159, 28, 0); }
 }
 
@@ -3546,27 +3547,27 @@ body.immersive-camera-mode .reticle-overlay {
 }
 .mini-dot {
     display: block;
-    width: 7px;
-    height: 7px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.25);
+    background: #9e9e9e;
     border: 1px solid rgba(255, 255, 255, 0.35);
     transition: all 0.2s;
 }
 .mini-dot.visited {
-    background: rgba(255, 255, 255, 0.45);
-    border-color: rgba(255, 255, 255, 0.5);
+    background: #4caf50;
+    border-color: #388e3c;
 }
 .mini-dot.current {
-    width: 9px;
-    height: 9px;
+    width: 12px;
+    height: 12px;
     background: #ffd166;
-    border-color: #ffd166;
+    border-color: #ffb300;
     box-shadow: 0 0 6px rgba(255, 209, 102, 0.6);
 }
 .mini-dot.pending {
-    background: rgba(59, 130, 246, 0.7);
-    border-color: rgba(59, 130, 246, 0.9);
+    background: #3b82f6;
+    border-color: #2563eb;
     animation: dotPulse 1.2s ease-in-out infinite;
 }
 @keyframes dotPulse {
@@ -3588,4 +3589,5 @@ body.immersive-camera-mode .reticle-overlay {
     cursor: pointer;
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
+    min-height: 44px;
 }
