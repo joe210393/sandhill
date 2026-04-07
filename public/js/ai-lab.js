@@ -1472,26 +1472,69 @@ document.addEventListener('DOMContentLoaded', () => {
                         cls += ' pending';
                         prefix = '本回合目標';
                     }
+                    if (Number(tile.tile_index) === Number(currentBoardMap?.start_tile || 1)) {
+                        cls += ' start';
+                    }
+                    if (Number(tile.tile_index) === Number(currentBoardMap?.finish_tile || currentBoardTiles.length || 1)) {
+                        cls += ' finish';
+                    }
                     const tileTaskType = inferBoardChallengeType(tile);
                     const modeTag = tile.task_id
                         ? (tileTaskType === 'multiple_choice'
-                            ? '｜選擇題'
+                            ? '選擇題'
                             : (tileTaskType === 'keyword'
-                                ? '｜文字輸入'
+                                ? '文字輸入'
                                 : (tileTaskType === 'number'
-                                    ? '｜數字解鎖'
-                                    : '｜拍照挑戰')))
+                                    ? '數字解鎖'
+                                    : '拍照挑戰')))
                         : (getBoardTileMeta(tile).card_type === 'chance'
-                            ? '｜機會卡'
+                            ? '機會?'
                             : (getBoardTileMeta(tile).card_type === 'fate'
-                                ? '｜命運卡'
-                                : '｜事件 / 劇情'));
-                    return `<div class="${cls}">${prefix}｜${tile.tile_name || '未命名格子'}${modeTag}</div>`;
+                                ? '命運!'
+                                : '事件'));
+                    return `<button type="button" class="${cls}" data-tile-index="${tile.tile_index}" aria-label="${prefix} ${tile.tile_name || '未命名格子'} ${modeTag}">
+                        <span class="tile-index">${tile.tile_index}</span>
+                        <span class="tile-meta">${modeTag}</span>
+                        <span class="tile-name">${tile.tile_name || '未命名格子'}</span>
+                    </button>`;
                 }).join('');
             }
 
             if (rollDiceBtn) rollDiceBtn.disabled = Boolean(currentBoardRun?.pendingTargetTile);
             if (boardFocusBtn) boardFocusBtn.disabled = !currentBoardRun?.pendingTargetTile;
+        }
+
+        function showBoardTilePreview(tile) {
+            if (!tile) return;
+            const tileMeta = getBoardTileMeta(tile);
+            const tileTaskType = inferBoardChallengeType(tile);
+            const modeText = tile.task_id
+                ? (tileTaskType === 'multiple_choice'
+                    ? '這一格是選擇題挑戰。'
+                    : (tileTaskType === 'keyword'
+                        ? '這一格是文字輸入挑戰。'
+                        : (tileTaskType === 'number'
+                            ? '這一格是數字解鎖挑戰。'
+                            : '這一格是拍照挑戰。')))
+                : (tileMeta.card_type === 'chance'
+                    ? '這一格會抽出機會卡。'
+                    : (tileMeta.card_type === 'fate'
+                        ? '這一格會轉出命運卡。'
+                        : '這一格是事件或劇情格。'));
+            const detailText = tile.event_body || tile.task_description || tile.guide_content || '這一格會在輪到時展開內容。';
+            showNpcDialog({
+                speakerKey: tileMeta.card_type === 'chance'
+                    ? 'host'
+                    : tileMeta.card_type === 'fate'
+                        ? 'lore'
+                        : tile.task_id
+                            ? 'gatekeeper'
+                            : 'guide',
+                mood: `第 ${tile.tile_index} 格`,
+                text: `${tile.tile_name || '未命名格子'}\n\n${modeText}\n\n${detailText}`,
+                blocking: false,
+                autoCloseMs: 2400
+            });
         }
 
         async function completeBoardTurn(success, options = {}) {
@@ -4572,6 +4615,21 @@ document.addEventListener('DOMContentLoaded', () => {
             reticleCaptureHotspot.addEventListener('click', () => {
                 if (!isPhotoTaskCaptureActive()) return;
                 handleTaskPhotoShutter();
+            });
+        }
+
+        if (boardPanelTrack) {
+            boardPanelTrack.addEventListener('click', (event) => {
+                const tileButton = event.target.closest('.board-track-chip[data-tile-index]');
+                if (!tileButton) return;
+                const tileIndex = Number(tileButton.dataset.tileIndex);
+                if (!Number.isFinite(tileIndex)) return;
+                const tile = getBoardTileByIndex(tileIndex);
+                if (!tile) return;
+                currentBoardActiveTileId = tile.id;
+                renderGameShellEntries(currentBoardTiles, tile.id);
+                updateGameShellProgress(tile);
+                showBoardTilePreview(tile);
             });
         }
 
