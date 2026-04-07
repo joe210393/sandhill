@@ -1519,7 +1519,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 }).join('');
             }
 
-            if (rollDiceBtn) rollDiceBtn.disabled = Boolean(currentBoardRun?.pendingTargetTile);
+            if (rollDiceBtn) {
+                const isFinished = Number(currentBoardRun?.currentTile) === finishTile;
+                if (isFinished) {
+                    rollDiceBtn.disabled = true;
+                    rollDiceBtn.textContent = '🎉 已抵達終點';
+                    rollDiceBtn.classList.add('finished');
+                } else {
+                    rollDiceBtn.disabled = Boolean(currentBoardRun?.pendingTargetTile);
+                    rollDiceBtn.textContent = '擲骰前進';
+                    rollDiceBtn.classList.remove('finished');
+                }
+            }
             if (boardFocusBtn) boardFocusBtn.disabled = !currentBoardRun?.pendingTargetTile;
         }
 
@@ -2418,6 +2429,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (completionReward) completionReward.innerHTML = message || '✅ 任務已完成';
             completionModal.classList.remove('hidden');
+            
+            const card = completionModal.querySelector('.completion-card');
+            if (card) {
+                card.classList.remove('stamp-success');
+                void card.offsetWidth; // trigger reflow
+                card.classList.add('stamp-success');
+            }
+
             renderTutorialModeUi();
             loadPlayerHudStats();
         }
@@ -2661,6 +2680,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         scheduleStoryReloadAfterCompletion();
                         showCompletionModal(aiData.earnedItemName ? `🎁 獲得：${aiData.earnedItemName}` : (tutorialPassMode ? '✅ 教學模式已完成這一步' : (aiData.message || '✅ AI 驗證通過')));
                     } else {
+                        document.body.classList.remove('shake-error');
+                        void document.body.offsetWidth;
+                        document.body.classList.add('shake-error');
+                        setTimeout(() => document.body.classList.remove('shake-error'), 500);
+
                         const failText = judgeSummary || retrySummary || 'AI 驗證未通過，請再試一次';
                         if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
                             resetPhotoCaptureState();
@@ -2834,6 +2858,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     scheduleStoryReloadAfterCompletion();
                     showCompletionModal(data.earnedItemName ? `🎁 獲得：${data.earnedItemName}` : '✅ 任務已完成');
             } else {
+                document.body.classList.remove('shake-error');
+                void document.body.offsetWidth;
+                document.body.classList.add('shake-error');
+                setTimeout(() => document.body.classList.remove('shake-error'), 500);
+
                 const failText = data.message || '答案錯誤，請重試';
                 if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
                     if (currentTask.task_type === 'photo') {
@@ -2902,6 +2931,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({ answer: getLockCode() })
                 }, '送出密碼答案');
             } catch (err) {
+                document.body.classList.remove('shake-error');
+                void document.body.offsetWidth;
+                document.body.classList.add('shake-error');
+                setTimeout(() => document.body.classList.remove('shake-error'), 500);
+
                 lockMsg.textContent = err.message;
                 await showNpcDialog({
                     speakerKey: 'rescue',
@@ -2931,6 +2965,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 showCompletionModal(data.earnedItemName ? `🎁 獲得：${data.earnedItemName}` : '✅ 任務已完成');
             } else {
+                document.body.classList.remove('shake-error');
+                void document.body.offsetWidth;
+                document.body.classList.add('shake-error');
+                setTimeout(() => document.body.classList.remove('shake-error'), 500);
+
                 const failText = data.message || '答案錯誤';
                 if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
                     lockOverlay.classList.add('hidden');
@@ -4569,6 +4608,73 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        const photoConfirmOverlay = document.getElementById('photoConfirmOverlay');
+        const photoConfirmPreview = document.getElementById('photoConfirmPreview');
+        const photoRetakeBtn = document.getElementById('photoRetakeBtn');
+        const photoConfirmBtn = document.getElementById('photoConfirmBtn');
+
+        let pendingPhotoDataUrl = null;
+
+        if (photoRetakeBtn) {
+            photoRetakeBtn.addEventListener('click', () => {
+                pendingPhotoDataUrl = null;
+                if (photoConfirmOverlay) photoConfirmOverlay.classList.add('hidden');
+                shutterBusy = false;
+            });
+        }
+
+        if (photoConfirmBtn) {
+            photoConfirmBtn.addEventListener('click', async () => {
+                if (!pendingPhotoDataUrl) return;
+                if (photoConfirmOverlay) photoConfirmOverlay.classList.add('hidden');
+                
+                const dataUrl = pendingPhotoDataUrl;
+                pendingPhotoDataUrl = null;
+
+                try {
+                    const requiredShots = getRequiredShots();
+                    if (capturedPhotos.length >= requiredShots) {
+                        capturedPhotos.length = requiredShots - 1;
+                    }
+                    capturedPhotos.push(dataUrl);
+                    currentAnswerPhotoDataUrl = dataUrl;
+                    updatePhotoBasketUi();
+
+                    if (capturedPhotos.length < requiredShots) {
+                        await showNpcDialog({
+                            speakerKey: 'guide',
+                            mood: '收進探索袋',
+                            text: `這張畫面已經收進探索袋，目前 ${capturedPhotos.length}/${requiredShots} 張。\n\n再拍 ${requiredShots - capturedPhotos.length} 張，就能交給潮汐裁判判定。`,
+                            autoCloseMs: 1800,
+                            blocking: false
+                        });
+                        shutterBusy = false;
+                        return;
+                    }
+
+                    currentAnswerPhotoDataUrl = await buildPhotoSubmissionDataUrl();
+                    await showNpcDialog({
+                        speakerKey: 'judge',
+                        mood: '正在判定',
+                        text: '潮汐裁判・鯨語正在檢查你剛剛拍下的畫面……',
+                        autoCloseMs: 1200,
+                        blocking: false
+                    });
+                    await submitTaskAnswer();
+                } catch (err) {
+                    console.error('提交照片失敗', err);
+                    await showNpcDialog({
+                        speakerKey: 'rescue',
+                        mood: '拍攝失敗',
+                        text: `海羽沒有成功收下這張畫面。\n\n${err.message || '請再試一次。'}`,
+                        buttonLabel: '知道了'
+                    });
+                } finally {
+                    shutterBusy = false;
+                }
+            });
+        }
+
         async function handleTaskPhotoShutter() {
             if (!isPhotoTaskCaptureActive() || shutterBusy) return;
             shutterBusy = true;
@@ -4580,42 +4686,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!dataUrl) {
                     throw new Error('相機尚未就緒，請稍後再試一次');
                 }
-                const requiredShots = getRequiredShots();
-                if (capturedPhotos.length >= requiredShots) {
-                    capturedPhotos.length = requiredShots - 1;
-                }
-                capturedPhotos.push(dataUrl);
-                currentAnswerPhotoDataUrl = dataUrl;
-                updatePhotoBasketUi();
-
-                if (capturedPhotos.length < requiredShots) {
-                    await showNpcDialog({
-                        speakerKey: 'guide',
-                        mood: '收進探索袋',
-                        text: `這張畫面已經收進探索袋，目前 ${capturedPhotos.length}/${requiredShots} 張。\n\n再拍 ${requiredShots - capturedPhotos.length} 張，就能交給潮汐裁判判定。`,
-                        autoCloseMs: 1800,
-                        blocking: false
-                    });
-                    return;
-                }
-
-                currentAnswerPhotoDataUrl = await buildPhotoSubmissionDataUrl();
-                await showNpcDialog({
-                    speakerKey: 'judge',
-                    mood: '正在判定',
-                    text: '潮汐裁判・鯨語正在檢查你剛剛拍下的畫面……',
-                    autoCloseMs: 1200,
-                    blocking: false
-                });
-                await submitTaskAnswer();
+                
+                // 顯示預覽與確認按鈕
+                pendingPhotoDataUrl = dataUrl;
+                if (photoConfirmPreview) photoConfirmPreview.src = dataUrl;
+                if (photoConfirmOverlay) photoConfirmOverlay.classList.remove('hidden');
+                
             } catch (err) {
+                console.error('拍照失敗', err);
                 await showNpcDialog({
                     speakerKey: 'rescue',
                     mood: '拍攝失敗',
                     text: `海羽沒有成功收下這張畫面。\n\n${err.message || '請再試一次。'}`,
                     buttonLabel: '知道了'
                 });
-            } finally {
                 shutterBusy = false;
             }
         }

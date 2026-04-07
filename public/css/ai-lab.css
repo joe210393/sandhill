@@ -2319,6 +2319,67 @@ body.tutorial-board-clean #boardStatusCard {
     text-align: center;
 }
 
+/* 拍照確認預覽層 */
+.photo-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.photo-confirm-overlay.hidden {
+    display: none !important;
+}
+
+.photo-confirm-preview {
+    max-width: 100%;
+    max-height: 70vh;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    margin-bottom: 30px;
+    object-fit: contain;
+}
+
+.photo-confirm-actions {
+    display: flex;
+    gap: 16px;
+    width: 100%;
+    max-width: 400px;
+}
+
+.photo-confirm-actions .btn {
+    flex: 1;
+    height: 56px;
+    font-size: 1.1rem;
+    border-radius: 28px;
+}
+
+/* 過關/失敗動畫 */
+@keyframes stampIn {
+    0% { transform: scale(3) rotate(-15deg); opacity: 0; }
+    50% { transform: scale(0.9) rotate(5deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes screenShake {
+    0%, 100% { transform: translate(0, 0); }
+    10%, 30%, 50%, 70%, 90% { transform: translate(-10px, 0); }
+    20%, 40%, 60%, 80% { transform: translate(10px, 0); }
+}
+
+.stamp-success {
+    animation: stampIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.shake-error {
+    animation: screenShake 0.5s ease-in-out;
+}
+
 body.immersive-camera-mode .feature-dock,
 body.immersive-camera-mode .feature-drawer-panel,
 body.immersive-camera-mode .game-shell-board-status,
