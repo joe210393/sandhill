@@ -3072,9 +3072,10 @@ document.addEventListener('DOMContentLoaded', () => {
             await showNpcDialog({
                 speakerKey: 'gatekeeper',
                 mood: currentEntryMode === 'board_game' ? '圓框拍照挑戰' : '鏡頭挑戰開始',
-                text: `${currentTask?.stage_intro || currentTask?.description || '請先對準畫面。'}\n\n把目標放進黃色圓框後，直接點圓框中央拍照；如果想留下完整環境，再切到全景紀錄。`,
+                text: `${currentTask?.stage_intro || currentTask?.description || '請先對準畫面。'}\n\n把目標放進黃色圓框後，直接按底部快門拍照；如果想留下完整環境，再切到全景紀錄。`,
                 buttonLabel: '開始拍照',
-                blocking: false
+                blocking: false,
+                autoCloseMs: 4000
             });
         }
 
@@ -4658,6 +4659,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (npcDialogClose) {
             npcDialogClose.addEventListener('click', closeNpcDialog);
         }
+        if (npcDialog) {
+            npcDialog.addEventListener('click', (e) => {
+                // 如果點擊的不是按鈕本身，也允許點擊對話框來關閉
+                if (e.target !== npcDialogClose) {
+                    closeNpcDialog();
+                }
+            });
+        }
 
         // 拍攝下一張按鈕
         if (addPhotoBtn) {
@@ -4696,6 +4705,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const dataUrl = pendingPhotoDataUrl;
                 pendingPhotoDataUrl = null;
 
+                if (typeof showQueryTransit === 'function') {
+                    showQueryTransit('正在整理照片與傳送資料...');
+                }
+                
                 try {
                     const requiredShots = getRequiredShots();
                     if (capturedPhotos.length >= requiredShots) {
@@ -4706,6 +4719,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     updatePhotoBasketUi();
 
                     if (capturedPhotos.length < requiredShots) {
+                        if (typeof hideQueryTransit === 'function') hideQueryTransit();
                         await showNpcDialog({
                             speakerKey: 'guide',
                             mood: '收進探索袋',
@@ -4718,15 +4732,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     currentAnswerPhotoDataUrl = await buildPhotoSubmissionDataUrl();
-                    await showNpcDialog({
-                        speakerKey: 'judge',
-                        mood: '正在判定',
-                        text: '潮汐裁判・鯨語正在檢查你剛剛拍下的畫面……',
-                        autoCloseMs: 1200,
-                        blocking: false
-                    });
                     await submitTaskAnswer();
                 } catch (err) {
+                    if (typeof hideQueryTransit === 'function') hideQueryTransit();
                     console.error('提交照片失敗', err);
                     await showNpcDialog({
                         speakerKey: 'rescue',

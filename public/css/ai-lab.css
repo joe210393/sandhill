@@ -609,7 +609,7 @@ body.immersive-camera-mode .npc-dialog {
 
 .npc-dialog.passive {
     opacity: 0.96;
-    pointer-events: none;
+    /* 移除 pointer-events: none 讓玩家可以點擊「收起」按鈕 */
 }
 
 .npc-dialog-portrait {
