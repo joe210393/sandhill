@@ -206,6 +206,11 @@
                 </div>
             </section>
 
+            <!-- 迷你地圖：角落小縮圖，點擊展開大棋盤 -->
+            <div id="boardMiniMap" class="board-mini-map hidden" aria-label="棋盤迷你地圖">
+                <div id="boardMiniMapDots" class="board-mini-map-dots"></div>
+            </div>
+
             <div id="featureDock" class="feature-dock">
                 <div class="feature-dock-controls">
                     <button id="featureDockToggle" class="icon-btn feature-dock-toggle" type="button" aria-label="打開功能選單">☰</button>
@@ -301,7 +306,6 @@
                             </div>
                         </div>
                         <div class="board-panel-actions">
-                            <button id="rollDiceBtn" class="board-action-btn primary" type="button">擲骰前進</button>
                             <button id="boardFocusBtn" class="board-action-btn secondary" type="button">查看本回合目標</button>
                         </div>
                     </div>

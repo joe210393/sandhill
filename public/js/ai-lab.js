@@ -388,6 +388,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const boardMapSelectorStatus = document.getElementById('boardMapSelectorStatus');
         const floatingDiceBtn = document.getElementById('floatingDiceBtn');
         const boardFocusBtn = document.getElementById('boardFocusBtn');
+        const boardMiniMap = document.getElementById('boardMiniMap');
+        const boardMiniMapDots = document.getElementById('boardMiniMapDots');
         const taskBgmBtn = document.getElementById('taskBgmBtn');
         const taskIntroBtn = document.getElementById('taskIntroBtn');
         const taskIntroPanel = document.getElementById('taskIntroPanel');
@@ -809,11 +811,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     currentNpcDialogResolver = resolve;
                 })
                 : Promise.resolve();
-            if (autoCloseMs) {
-                currentNpcDialogAutoCloseTimer = setTimeout(() => {
-                    closeNpcDialog();
-                }, autoCloseMs);
-            }
             return dialogPromise;
         }
 
@@ -1596,6 +1593,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             if (boardFocusBtn) boardFocusBtn.disabled = !currentBoardRun?.pendingTargetTile;
+            renderBoardMiniMap();
+        }
+
+        function renderBoardMiniMap() {
+            if (!boardMiniMap || !boardMiniMapDots) return;
+            if (currentEntryMode !== 'board_game' || !currentBoardTiles.length) {
+                boardMiniMap.classList.add('hidden');
+                return;
+            }
+            boardMiniMap.classList.remove('hidden');
+            const currentTile = Number(currentBoardRun?.currentTile || 1);
+            const pendingTile = Number(currentBoardRun?.pendingTargetTile || 0);
+            boardMiniMapDots.innerHTML = currentBoardTiles.map((tile) => {
+                const idx = Number(tile.tile_index);
+                let cls = 'mini-dot';
+                if (idx === currentTile) cls += ' current';
+                else if (idx === pendingTile) cls += ' pending';
+                else if (idx < currentTile) cls += ' visited';
+                return `<span class="${cls}" data-tile-index="${idx}"></span>`;
+            }).join('');
         }
 
         function getCircledStepLabel(index) {
@@ -4975,6 +4992,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (boardPanelBtn) {
             boardPanelBtn.addEventListener('click', () => {
+                toggleDockPanel('board');
+                renderBoardPanel();
+            });
+        }
+        if (boardMiniMap) {
+            boardMiniMap.addEventListener('click', () => {
                 toggleDockPanel('board');
                 renderBoardPanel();
             });
