@@ -1469,6 +1469,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (boardPanelTrack) {
+                const tutorialBoardMode = currentEntryMode === 'board_game' && isCurrentQuestTutorialMode();
                 boardPanelTrack.innerHTML = currentBoardTiles.map((tile) => {
                     let cls = 'board-track-chip';
                     let prefix = `第 ${tile.tile_index} 格`;
@@ -1488,27 +1489,35 @@ document.addEventListener('DOMContentLoaded', () => {
                     const tileTaskType = inferBoardChallengeType(tile);
                     const modeTag = tile.task_id
                         ? (tileTaskType === 'multiple_choice'
-                            ? '選擇題'
+                            ? '問題關卡'
                             : (tileTaskType === 'keyword'
-                                ? '文字輸入'
+                                ? '文字關卡'
                                 : (tileTaskType === 'number'
-                                    ? '數字解鎖'
-                                    : '拍照挑戰')))
+                                    ? '數字關卡'
+                                    : '挑戰關卡')))
                         : (getBoardTileMeta(tile).card_type === 'chance'
-                            ? '機會?'
+                            ? '機會關卡'
                             : (getBoardTileMeta(tile).card_type === 'fate'
-                                ? '命運!'
-                                : '事件'));
+                                ? '命運關卡'
+                                : '事件關卡'));
+                    const stepLabel = tutorialBoardMode
+                        ? getCircledStepLabel(tile.tile_index)
+                        : String(tile.tile_index);
                     return `<button type="button" class="${cls}" data-tile-index="${tile.tile_index}" aria-label="${prefix} ${tile.tile_name || '未命名格子'} ${modeTag}">
-                        <span class="tile-index">${tile.tile_index}</span>
-                        <span class="tile-meta">${modeTag}</span>
                         <span class="tile-name">${tile.tile_name || '未命名格子'}</span>
+                        <span class="tile-index">${stepLabel}</span>
+                        <span class="tile-meta">${modeTag}</span>
                     </button>`;
                 }).join('');
             }
 
             if (rollDiceBtn) rollDiceBtn.disabled = Boolean(currentBoardRun?.pendingTargetTile);
             if (boardFocusBtn) boardFocusBtn.disabled = !currentBoardRun?.pendingTargetTile;
+        }
+
+        function getCircledStepLabel(index) {
+            const labels = ['⓪', '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩', '⑪', '⑫', '⑬', '⑭', '⑮', '⑯', '⑰', '⑱', '⑲', '⑳'];
+            return labels[Number(index)] || String(index);
         }
 
         function showBoardTilePreview(tile) {
