@@ -125,6 +125,7 @@ function fillForm(form, data) {
 
 // ── Blueprint System ──────────────────────────────────────────
 const blueprintConfigs = {
+  // 劇情主線
   story_ai_identify: {
     modeText: '劇情主線', judgeText: 'AI 指定物辨識',
     summary: '適合植物、物件觀察關。預設主線 + AI 辨識。',
@@ -140,15 +141,52 @@ const blueprintConfigs = {
     summary: '適合團體照、構圖拍攝。建議填評分主題與分數。',
     defaults: { category: 'quest', taskType: 'photo', validationMode: 'ai_score' }
   },
+  story_keyword: {
+    modeText: '劇情主線', judgeText: '關鍵字自動驗證',
+    summary: '適合知識問答、密語解謎。玩家輸入正確關鍵字即通關。',
+    defaults: { category: 'quest', taskType: 'keyword', validationMode: 'keyword' }
+  },
+  story_choice: {
+    modeText: '劇情主線', judgeText: '選擇題自動驗證',
+    summary: '適合情境選擇、知識測驗。四選一自動判定。',
+    defaults: { category: 'quest', taskType: 'multiple_choice', validationMode: 'manual' }
+  },
+  // 大富翁
   board_ai_count: {
     modeText: '大富翁模式', judgeText: 'AI 數量判斷',
     summary: '挑戰格用，自動偏向單點 + AI 計數。',
     defaults: { category: 'single', taskType: 'photo', validationMode: 'ai_count' }
   },
+  board_ai_identify: {
+    modeText: '大富翁模式', judgeText: 'AI 指定物辨識',
+    summary: '挑戰格用，拍攝指定物件即通過。',
+    defaults: { category: 'single', taskType: 'photo', validationMode: 'ai_identify' }
+  },
   board_event: {
     modeText: '大富翁模式', judgeText: '人工 / 劇情事件',
     summary: '事件格或補給格，無 AI 裁判。',
     defaults: { category: 'single', taskType: 'qa', validationMode: 'manual' }
+  },
+  // 教育課程
+  edu_observe: {
+    modeText: '教育課程', judgeText: 'AI 生物辨識',
+    summary: '自然觀察課程：學生拍攝指定生物或植物，AI 自動辨識驗證。適合生態踏查。',
+    defaults: { category: 'quest', taskType: 'photo', validationMode: 'ai_identify' }
+  },
+  edu_quiz: {
+    modeText: '教育課程', judgeText: '自動批改',
+    summary: '隨堂測驗：可設定選擇題或填答題，系統自動批改。適合導覽後的知識複習。',
+    defaults: { category: 'quest', taskType: 'multiple_choice', validationMode: 'manual' }
+  },
+  edu_fieldwork: {
+    modeText: '教育課程', judgeText: '地點打卡驗證',
+    summary: '實地考察：學生到達指定地點自動打卡完成。適合戶外教學路線。',
+    defaults: { category: 'quest', taskType: 'location', validationMode: 'manual' }
+  },
+  edu_creative: {
+    modeText: '教育課程', judgeText: 'AI 作品評分',
+    summary: '創意任務：學生拍攝作品由 AI 評分。適合美術、攝影、環境設計課程。',
+    defaults: { category: 'quest', taskType: 'photo', validationMode: 'ai_score' }
   }
 };
 
@@ -430,6 +468,10 @@ if (qcBadgeInput) {
 }
 
 // ── Drill-down: Load quest detail ─────────────────────────────
+let currentBoardMapId = null;
+let currentBoardMapName = '';
+let currentBoardTiles = [];
+
 function goToQuestDetail(questChainId) {
   const q = globalQuestChainsMap[questChainId];
   if (!q) return;
@@ -442,10 +484,31 @@ function goToQuestDetail(questChainId) {
   document.getElementById('task_locked_quest_name').textContent = q.title;
   document.getElementById('task_quest_chain_id').value = questChainId;
 
+  // Toggle buttons based on mode
+  const btnAddTask = document.getElementById('btnAddTask');
+  const btnAddTile = document.getElementById('btnAddTile');
+  const boardInfoBar = document.getElementById('boardMapInfoBar');
+
+  if (q.mode_type === 'board_game') {
+    btnAddTask.style.display = 'none';
+    btnAddTile.style.display = 'inline-flex';
+    boardInfoBar.style.display = 'block';
+  } else {
+    btnAddTask.style.display = 'inline-flex';
+    btnAddTile.style.display = 'none';
+    boardInfoBar.style.display = 'none';
+  }
+
   switchView('view-quest-detail');
-  loadTasksForQuest(questChainId);
+
+  if (q.mode_type === 'board_game') {
+    loadBoardContent(questChainId);
+  } else {
+    loadTasksForQuest(questChainId);
+  }
 }
 
+// ── Story mode: load tasks ────────────────────────────────────
 function loadTasksForQuest(questChainId) {
   const container = document.getElementById('questDetailContentContainer');
   container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div>載入中...</div>';
@@ -458,7 +521,6 @@ function loadTasksForQuest(questChainId) {
       if (!data.success) { container.innerHTML = '<div class="empty-state">載入失敗</div>'; return; }
 
       globalTaskRecords = data.tasks || [];
-      // Filter tasks for this quest chain
       const tasks = globalTaskRecords.filter(t => String(t.quest_chain_id) === String(questChainId));
       tasks.sort((a, b) => (a.quest_order || 0) - (b.quest_order || 0));
 
@@ -467,38 +529,305 @@ function loadTasksForQuest(questChainId) {
         return;
       }
 
-      container.innerHTML = tasks.map(t => {
-        let typeLabel = '問答';
-        if (t.validation_mode?.startsWith('ai_')) typeLabel = `AI (${t.validation_mode.replace('ai_', '')})`;
-        else if (t.task_type === 'multiple_choice') typeLabel = '選擇題';
-        else if (t.task_type === 'photo') typeLabel = '拍照';
-        else if (t.task_type === 'number') typeLabel = '數字';
-        else if (t.task_type === 'keyword') typeLabel = '關鍵字';
-        else if (t.task_type === 'location') typeLabel = '打卡';
+      container.innerHTML = tasks.map(t => renderTaskItem(t)).join('');
+    });
+}
 
-        const orderTag = t.quest_order ? `<span class="tag tag-blue">第 ${t.quest_order} 關</span>` : '';
-        const finalTag = t.is_final_step ? '<span class="tag tag-amber">🏆 結局</span>' : '';
+function renderTaskItem(t) {
+  let typeLabel = '問答';
+  if (t.validation_mode?.startsWith('ai_')) typeLabel = `AI (${t.validation_mode.replace('ai_', '')})`;
+  else if (t.task_type === 'multiple_choice') typeLabel = '選擇題';
+  else if (t.task_type === 'photo') typeLabel = '拍照';
+  else if (t.task_type === 'number') typeLabel = '數字';
+  else if (t.task_type === 'keyword') typeLabel = '關鍵字';
+  else if (t.task_type === 'location') typeLabel = '打卡';
 
-        return `
-          <div class="task-item">
-            <img src="${escHtml(t.photoUrl || '/images/mascot.png')}" class="task-item-img" onerror="this.src='/images/mascot.png'">
-            <div class="task-item-body">
-              <div class="task-item-title">${escHtml(t.name)}</div>
-              <div style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:4px;">
-                ${orderTag} ${finalTag}
-                <span class="tag tag-gray">${typeLabel}</span>
-                <span class="tag tag-gray">💰 ${t.points || 0}</span>
-                <span class="tag tag-gray">📍 ${Number(t.lat).toFixed(4)}, ${Number(t.lng).toFixed(4)}</span>
-              </div>
-              <div class="task-item-desc">${escHtml(t.description || '')}</div>
-            </div>
-            <div class="task-item-actions">
-              <button class="btn-sm btn-secondary-v2" onclick="editTask('${t.id}')">編輯</button>
-              <button class="btn-sm btn-danger-v2" onclick="deleteTask('${t.id}')">刪除</button>
-            </div>
-          </div>
-        `;
-      }).join('');
+  const orderTag = t.quest_order ? `<span class="tag tag-blue">第 ${t.quest_order} 關</span>` : '';
+  const finalTag = t.is_final_step ? '<span class="tag tag-amber">🏆 結局</span>' : '';
+
+  return `
+    <div class="task-item">
+      <img src="${escHtml(t.photoUrl || '/images/mascot.png')}" class="task-item-img" onerror="this.src='/images/mascot.png'">
+      <div class="task-item-body">
+        <div class="task-item-title">${escHtml(t.name)}</div>
+        <div style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:4px;">
+          ${orderTag} ${finalTag}
+          <span class="tag tag-gray">${typeLabel}</span>
+          <span class="tag tag-gray">💰 ${t.points || 0}</span>
+          <span class="tag tag-gray">📍 ${Number(t.lat).toFixed(4)}, ${Number(t.lng).toFixed(4)}</span>
+        </div>
+        <div class="task-item-desc">${escHtml(t.description || '')}</div>
+      </div>
+      <div class="task-item-actions">
+        <button class="btn-sm btn-secondary-v2" onclick="editTask('${t.id}')">編輯</button>
+        <button class="btn-sm btn-danger-v2" onclick="deleteTask('${t.id}')">刪除</button>
+      </div>
+    </div>
+  `;
+}
+
+// ── Board game mode: load board map + tiles ───────────────────
+function loadBoardContent(questChainId) {
+  const container = document.getElementById('questDetailContentContainer');
+  container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div>載入大富翁地圖...</div>';
+
+  // First load all tasks for tile binding
+  const tasksPromise = fetch(`${API_BASE}/api/tasks/admin`, {
+    headers: { 'x-username': loginUser.username }
+  }).then(r => r.json()).then(d => {
+    globalTaskRecords = d.success ? (d.tasks || []) : [];
+    populateTileTaskSelect();
+  });
+
+  // Then load board content
+  fetch(`${API_BASE}/api/board-maps/by-quest-chain/${questChainId}`, {
+    headers: { 'x-username': loginUser.username }
+  })
+    .then(r => r.json())
+    .then(async data => {
+      await tasksPromise;
+
+      if (!data.success || !data.boardMap) {
+        document.getElementById('boardMapInfoBar').innerHTML = '<span style="color:#94a3b8;">尚未建立地圖，請先在舊版後台建立大富翁地圖。</span>';
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🗺️</div>此入口尚未綁定大富翁地圖</div>';
+        return;
+      }
+
+      const bm = data.boardMap;
+      currentBoardMapId = bm.id;
+      currentBoardMapName = bm.name;
+
+      // Update info bar
+      document.getElementById('boardMapName').textContent = `🗺️ ${bm.name}`;
+      document.getElementById('boardMapStyle').textContent = `🎲 ${bm.play_style || 'fixed_track_race'}`;
+      document.getElementById('boardMapTileCount').textContent = `🧩 ${bm.tile_count || 0} 格`;
+      document.getElementById('boardMapDice').textContent = `🎯 骰子 ${bm.dice_min || 1}-${bm.dice_max || 6}`;
+      document.getElementById('boardMapRange').textContent = `🏁 ${bm.start_tile || 1} → ${bm.finish_tile || 8}`;
+
+      // Update tile form context
+      document.getElementById('tile_board_map_id').value = bm.id;
+      document.getElementById('tile_locked_map_name').textContent = bm.name;
+
+      // Load tiles
+      return fetch(`${API_BASE}/api/board-maps/${bm.id}/tiles`, {
+        headers: { 'x-username': loginUser.username }
+      });
+    })
+    .then(r => r ? r.json() : null)
+    .then(data => {
+      if (!data) return;
+      if (!data.success) { container.innerHTML = '<div class="empty-state">載入格子失敗</div>'; return; }
+
+      currentBoardTiles = data.tiles || [];
+      currentBoardTiles.sort((a, b) => (a.tile_index || 0) - (b.tile_index || 0));
+
+      if (!currentBoardTiles.length) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🧩</div>尚無格子，點右上角「+ 新增格子」</div>';
+        return;
+      }
+
+      container.innerHTML = currentBoardTiles.map(tile => renderTileItem(tile)).join('');
+    })
+    .catch(err => {
+      console.error(err);
+      container.innerHTML = '<div class="empty-state">載入失敗</div>';
+    });
+}
+
+const tileTypeIcons = {
+  challenge: '🎯', event: '✨', supply: '💊', reward: '🎁', penalty: '💀',
+  story: '📖', teleport: '🌀', finish: '🏁', fortune: '🔮', chance: '🎲',
+  quiz: '📝', rest: '☕'
+};
+
+const tileTypeLabels = {
+  challenge: '挑戰格', event: '事件格', supply: '補給格', reward: '獎勵格',
+  penalty: '懲罰格', story: '劇情格', teleport: '傳送格', finish: '終點格',
+  fortune: '命運格', chance: '機會格', quiz: '小考格', rest: '休息格'
+};
+
+function renderTileItem(tile) {
+  const icon = tileTypeIcons[tile.tile_type] || '⬜';
+  const typeLabel = tileTypeLabels[tile.tile_type] || tile.tile_type;
+  const taskBinding = tile.task_name ? `<span class="tag tag-blue">綁定：${escHtml(tile.task_name)}</span>` : '';
+  const effectTag = tile.effect_type
+    ? `<span class="tag tag-amber">${escHtml(tile.effect_type)}${tile.effect_value != null ? `(${tile.effect_value})` : ''}</span>` : '';
+  const activeTag = tile.is_active ? '' : '<span class="tag tag-red">未啟用</span>';
+  const eventPreview = tile.event_body
+    ? `<div class="task-item-desc" style="margin-top:2px;">${escHtml(tile.event_body)}</div>` : '';
+
+  return `
+    <div class="task-item">
+      <div style="width:50px; height:50px; border-radius:10px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; font-size:1.5rem; flex-shrink:0;">${icon}</div>
+      <div class="task-item-body">
+        <div class="task-item-title">第 ${tile.tile_index} 格｜${escHtml(tile.tile_name)}</div>
+        <div style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:2px;">
+          <span class="tag tag-gray">${typeLabel}</span>
+          ${taskBinding} ${effectTag} ${activeTag}
+        </div>
+        ${eventPreview}
+      </div>
+      <div class="task-item-actions">
+        <button class="btn-sm btn-secondary-v2" onclick="editTile('${tile.id}')">編輯</button>
+        <button class="btn-sm btn-danger-v2" onclick="deleteTile('${tile.id}')">刪除</button>
+      </div>
+    </div>
+  `;
+}
+
+// ── Tile type hints ───────────────────────────────────────────
+const tileTypeHints = {
+  challenge: '🎯 挑戰格：玩家需完成綁定的關卡（拍照、AI 驗證等）才能通過。',
+  event: '✨ 事件格：觸發一段劇情或事件文案，不需要挑戰。',
+  supply: '💊 補給格：自動給予玩家加分或道具，可設定效果。',
+  fortune: '🔮 命運格：隨機抽取一個效果（好或壞），在事件文案裡用分號分隔多個選項。',
+  chance: '🎲 機會格：類似命運格但偏向正面效果，適合獎勵型隨機事件。',
+  reward: '🎁 獎勵格：給予玩家額外獎勵積分或道具。',
+  penalty: '💀 懲罰格：扣分或退後，增加遊戲緊張感。',
+  story: '📖 劇情格：展示教育內容或故事文案，適合嵌入課程知識點。',
+  teleport: '🌀 傳送格：將玩家傳送到指定格子（在效果數值填入目標格編號）。',
+  quiz: '📝 小考格：到達此格時出一道隨堂問答，答對加分答錯扣分。把題目寫在事件文案。',
+  rest: '☕ 休息格：什麼都不發生，讓玩家喘口氣。',
+  finish: '🏁 終點格：到達即完成遊戲，觸發結算。'
+};
+
+const tileTypeSelect = document.getElementById('tileTypeSelect');
+if (tileTypeSelect) {
+  tileTypeSelect.addEventListener('change', () => {
+    const hint = document.getElementById('tileTypeHint');
+    if (hint) hint.textContent = tileTypeHints[tileTypeSelect.value] || '';
+  });
+}
+
+// ── Tile task select population ───────────────────────────────
+function populateTileTaskSelect() {
+  const sel = document.getElementById('tileTaskSelect');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">-- 不綁定（純事件/效果格）--</option>';
+  globalTaskRecords.forEach(t => {
+    const kind = t.validation_mode?.startsWith('ai_') ? 'AI 挑戰' : (t.task_type || '一般');
+    sel.innerHTML += `<option value="${t.id}">${escHtml(t.name)}｜${kind}</option>`;
+  });
+  sel.value = cur;
+}
+
+// ── Tile Drawer: Open for create ──────────────────────────────
+function openTileDrawerForCreate() {
+  openDrawer('新增格子', 'form-tile');
+  const form = document.getElementById('tileForm');
+  form.reset();
+  form.elements.id.value = '';
+  form.elements.is_active.checked = true;
+
+  // Auto-lock board map
+  if (currentBoardMapId) {
+    document.getElementById('tile_board_map_id').value = currentBoardMapId;
+    document.getElementById('tile_locked_map_name').textContent = currentBoardMapName;
+  }
+
+  // Auto-set next tile index
+  const maxIndex = currentBoardTiles.reduce((m, t) => Math.max(m, t.tile_index || 0), 0);
+  form.elements.tile_index.value = maxIndex + 1;
+
+  document.getElementById('tileFormMsg').textContent = '';
+  // Reset type hint
+  const hint = document.getElementById('tileTypeHint');
+  if (hint) hint.textContent = tileTypeHints.challenge || '';
+}
+
+// ── Tile Drawer: Open for edit ────────────────────────────────
+function editTile(tileId) {
+  const tile = currentBoardTiles.find(t => String(t.id) === String(tileId));
+  if (!tile) return;
+
+  openDrawer('編輯格子', 'form-tile');
+  const form = document.getElementById('tileForm');
+
+  form.elements.id.value = tile.id;
+  form.elements.tile_index.value = tile.tile_index;
+  form.elements.tile_type.value = tile.tile_type || 'event';
+  form.elements.tile_name.value = tile.tile_name || '';
+  form.elements.task_id.value = tile.task_id || '';
+  form.elements.latitude.value = tile.latitude || '';
+  form.elements.longitude.value = tile.longitude || '';
+  form.elements.radius_meters.value = tile.radius_meters || '';
+  form.elements.effect_type.value = tile.effect_type || '';
+  form.elements.effect_value.value = tile.effect_value ?? '';
+  form.elements.event_title.value = tile.event_title || '';
+  form.elements.event_body.value = tile.event_body || '';
+  form.elements.guide_content.value = tile.guide_content || '';
+  form.elements.is_active.checked = tile.is_active !== false && tile.is_active !== 0;
+
+  document.getElementById('tile_board_map_id').value = tile.board_map_id || currentBoardMapId;
+  document.getElementById('tile_locked_map_name').textContent = currentBoardMapName;
+
+  // Update hint
+  const hint = document.getElementById('tileTypeHint');
+  if (hint) hint.textContent = tileTypeHints[tile.tile_type] || '';
+
+  document.getElementById('tileFormMsg').textContent = '';
+}
+
+// ── Tile Form Submit ──────────────────────────────────────────
+document.getElementById('tileForm').addEventListener('submit', function (e) {
+  e.preventDefault();
+  const form = this;
+  const id = form.elements.id.value;
+  const boardMapId = form.elements.board_map_id.value;
+  const msgEl = document.getElementById('tileFormMsg');
+  msgEl.textContent = '';
+
+  if (!boardMapId) { msgEl.textContent = '缺少地圖 ID'; return; }
+
+  const payload = {
+    tile_index: Number(form.elements.tile_index.value),
+    tile_name: form.elements.tile_name.value.trim(),
+    tile_type: form.elements.tile_type.value,
+    task_id: form.elements.task_id.value || null,
+    latitude: form.elements.latitude.value || null,
+    longitude: form.elements.longitude.value || null,
+    radius_meters: form.elements.radius_meters.value || null,
+    effect_type: form.elements.effect_type.value || null,
+    effect_value: form.elements.effect_value.value || null,
+    event_title: form.elements.event_title.value.trim() || null,
+    event_body: form.elements.event_body.value.trim() || null,
+    guide_content: form.elements.guide_content.value.trim() || null,
+    is_active: form.elements.is_active.checked ? 1 : 0
+  };
+
+  msgEl.textContent = id ? '更新中...' : '建立中...';
+  const url = id ? `${API_BASE}/api/board-tiles/${id}` : `${API_BASE}/api/board-maps/${boardMapId}/tiles`;
+  const method = id ? 'PUT' : 'POST';
+
+  fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+    body: JSON.stringify(payload)
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        showToast(id ? '格子更新成功' : '格子建立成功');
+        closeDrawer();
+        if (currentQuestChainId) loadBoardContent(currentQuestChainId);
+      } else { msgEl.textContent = d.message || '操作失敗'; }
+    })
+    .catch(() => { msgEl.textContent = '伺服器連線失敗'; });
+});
+
+// ── Delete Tile ───────────────────────────────────────────────
+function deleteTile(tileId) {
+  if (!confirm('確定要刪除這個格子嗎？')) return;
+  fetch(`${API_BASE}/api/board-tiles/${tileId}`, {
+    method: 'DELETE', headers: { 'x-username': loginUser.username }
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        showToast('格子已刪除');
+        if (currentQuestChainId) loadBoardContent(currentQuestChainId);
+      } else showToast(d.message || '刪除失敗', 'error');
     });
 }
 
@@ -790,7 +1119,10 @@ document.getElementById('taskForm').addEventListener('submit', async function (e
     if (result.success) {
       showToast(id ? '關卡更新成功' : '關卡建立成功');
       closeDrawer();
-      if (currentQuestChainId) loadTasksForQuest(currentQuestChainId);
+      if (currentQuestChainId) {
+        if (currentQuestChainMode === 'board_game') loadBoardContent(currentQuestChainId);
+        else loadTasksForQuest(currentQuestChainId);
+      }
     } else {
       msgEl.textContent = result.message || '操作失敗';
     }
@@ -911,7 +1243,10 @@ function deleteTask(taskId) {
     .then(d => {
       if (d.success) {
         showToast('已刪除');
-        if (currentQuestChainId) loadTasksForQuest(currentQuestChainId);
+        if (currentQuestChainId) {
+          if (currentQuestChainMode === 'board_game') loadBoardContent(currentQuestChainId);
+          else loadTasksForQuest(currentQuestChainId);
+        }
       } else showToast(d.message || '刪除失敗', 'error');
     });
 }
