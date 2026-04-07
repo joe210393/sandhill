@@ -386,7 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const boardPanelTrack = document.getElementById('boardPanelTrack');
         const boardMapSelector = document.getElementById('boardMapSelector');
         const boardMapSelectorStatus = document.getElementById('boardMapSelectorStatus');
-        const rollDiceBtn = document.getElementById('rollDiceBtn');
+        const floatingDiceBtn = document.getElementById('floatingDiceBtn');
         const boardFocusBtn = document.getElementById('boardFocusBtn');
         const taskBgmBtn = document.getElementById('taskBgmBtn');
         const taskIntroBtn = document.getElementById('taskIntroBtn');
@@ -1169,13 +1169,52 @@ document.addEventListener('DOMContentLoaded', () => {
             diceOverlayText.textContent = '命運之骰正在翻滾，請稍候...';
             void diceCube.offsetWidth;
             diceCube.classList.add('rolling');
-            await new Promise((resolve) => setTimeout(resolve, 900));
+            
+            // 播放骰子音效
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.1);
+                osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.2);
+                osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.3);
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.3);
+            } catch (e) {
+                // ignore audio error
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, 400));
             diceCube.classList.remove('rolling');
             diceCube.textContent = String(rollValue);
             diceOverlayText.textContent = targetTile
                 ? `你擲出了 ${rollValue}，接下來前往第 ${targetTile.tile_index} 格「${targetTile.tile_name}」。`
                 : `你擲出了 ${rollValue}。`;
-            await new Promise((resolve) => setTimeout(resolve, 900));
+            
+            // 播放結果音效
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.5);
+            } catch (e) {
+                // ignore audio error
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, 800));
             diceOverlay.classList.add('hidden');
         }
 
@@ -1436,7 +1475,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (boardPanelMeta) boardPanelMeta.textContent = '請先從首頁選擇一場大富翁活動。';
                 if (boardPanelAction) boardPanelAction.textContent = '請先從首頁選擇大富翁活動。';
                 if (boardPanelTrack) boardPanelTrack.innerHTML = '<div class="board-track-chip muted">請先進入大富翁模式。</div>';
-                if (rollDiceBtn) rollDiceBtn.disabled = true;
+                if (floatingDiceBtn) floatingDiceBtn.classList.add('hidden');
                 if (boardFocusBtn) boardFocusBtn.disabled = true;
                 return;
             }
@@ -1519,16 +1558,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }).join('');
             }
 
-            if (rollDiceBtn) {
+            if (floatingDiceBtn) {
                 const isFinished = Number(currentBoardRun?.currentTile) === finishTile;
                 if (isFinished) {
-                    rollDiceBtn.disabled = true;
-                    rollDiceBtn.textContent = '🎉 已抵達終點';
-                    rollDiceBtn.classList.add('finished');
+                    floatingDiceBtn.classList.add('hidden');
                 } else {
-                    rollDiceBtn.disabled = Boolean(currentBoardRun?.pendingTargetTile);
-                    rollDiceBtn.textContent = '擲骰前進';
-                    rollDiceBtn.classList.remove('finished');
+                    floatingDiceBtn.classList.toggle('hidden', Boolean(currentBoardRun?.pendingTargetTile) || currentEntryMode !== 'board_game');
                 }
             }
             if (boardFocusBtn) boardFocusBtn.disabled = !currentBoardRun?.pendingTargetTile;
@@ -4896,6 +4931,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (rollDiceBtn) {
             rollDiceBtn.addEventListener('click', () => {
+                startBoardTurn().catch((err) => {
+                    console.error('大富翁擲骰失敗', err);
+                    Swal.fire({ icon: 'error', title: '擲骰失敗', text: err.message || '請稍後再試' });
+                });
+            });
+        }
+        if (floatingDiceBtn) {
+            floatingDiceBtn.addEventListener('click', () => {
                 startBoardTurn().catch((err) => {
                     console.error('大富翁擲骰失敗', err);
                     Swal.fire({ icon: 'error', title: '擲骰失敗', text: err.message || '請稍後再試' });

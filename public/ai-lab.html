@@ -207,7 +207,12 @@
             </section>
 
             <div id="featureDock" class="feature-dock">
-                <button id="featureDockToggle" class="icon-btn feature-dock-toggle" type="button" aria-label="打開功能選單">☰</button>
+                <div class="feature-dock-controls">
+                    <button id="featureDockToggle" class="icon-btn feature-dock-toggle" type="button" aria-label="打開功能選單">☰</button>
+                    <!-- 獨立的擲骰子按鈕，放在漢堡選單下方 -->
+                    <button id="floatingDiceBtn" class="icon-btn floating-dice-btn hidden" type="button" aria-label="擲骰子">🎲</button>
+                </div>
+
                 <div id="featureDockMenu" class="feature-dock-menu hidden">
                     <button id="backBtn" class="icon-btn exit-btn" type="button" aria-label="離開">EXIT</button>
                     <button id="gameShellBtn" class="icon-btn" type="button" title="玩法資訊" aria-label="玩法資訊">🎮</button>
