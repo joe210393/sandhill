@@ -2205,7 +2205,7 @@ body.tutorial-board-clean #boardStatusCard {
 }
 
 .camera-capture-bar.task-primary .shutter-btn {
-    display: none !important;
+    display: inline-flex;
 }
 
 .camera-mode-switch {
