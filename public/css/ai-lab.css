@@ -599,6 +599,10 @@ body.tutorial-story-clean #taskEncounterModal {
     pointer-events: auto;
 }
 
+body.immersive-camera-mode .npc-dialog {
+    bottom: calc(116px + env(safe-area-inset-bottom, 0px));
+}
+
 .npc-dialog.hidden {
     display: none !important;
 }

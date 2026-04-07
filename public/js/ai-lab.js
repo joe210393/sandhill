@@ -506,6 +506,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let currentBoardSessionId = null;
         let useRemoteBoardSession = false;
         let tutorialBoardPhotoCaptureArmed = false;
+        let pendingStoryReloadAfterCompletion = false;
         let currentNpcDialogResolver = null;
         let currentNpcDialogAutoCloseTimer = null;
         let lastStoryDialogueKey = null;
@@ -918,18 +919,19 @@ document.addEventListener('DOMContentLoaded', () => {
         function setCameraCaptureMode(mode = 'task') {
             cameraCaptureMode = mode === 'scene' ? 'scene' : 'task';
             selectionMode = 'reticle';
+            const shouldShowTaskReticle = cameraCaptureMode === 'task' && isPhotoTaskCaptureActive();
             if (cameraModeTaskBtn) cameraModeTaskBtn.classList.toggle('active', cameraCaptureMode === 'task');
             if (cameraModeSceneBtn) cameraModeSceneBtn.classList.toggle('active', cameraCaptureMode === 'scene');
             if (cameraCaptureBar) cameraCaptureBar.classList.toggle('task-primary', cameraCaptureMode === 'task');
-            if (reticleOverlay) reticleOverlay.classList.toggle('hidden', cameraCaptureMode !== 'task');
+            if (reticleOverlay) reticleOverlay.classList.toggle('hidden', !shouldShowTaskReticle);
             if (reticleCenterHint) {
-                reticleCenterHint.classList.toggle('hidden', cameraCaptureMode !== 'task' || !isPhotoTaskCaptureActive());
+                reticleCenterHint.classList.toggle('hidden', !shouldShowTaskReticle);
             }
             if (reticleCaptureHotspot) {
-                reticleCaptureHotspot.classList.toggle('hidden', cameraCaptureMode !== 'task' || !isPhotoTaskCaptureActive());
+                reticleCaptureHotspot.classList.toggle('hidden', !shouldShowTaskReticle);
             }
             if (instructionText) {
-                instructionText.textContent = cameraCaptureMode === 'task'
+                instructionText.textContent = shouldShowTaskReticle
                     ? '把目標放進黃色圓框，直接點圓框中央拍照'
                     : '按底部快門拍下整個畫面，作為全景紀錄';
             }
@@ -1039,6 +1041,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const isTutorialStory = currentEntryMode === 'story_campaign' && isCurrentQuestTutorialMode();
             const isTutorialBoard = currentEntryMode === 'board_game' && isCurrentQuestTutorialMode();
             const shouldHideTutorialChrome = isTutorialStory || isTutorialBoard;
+            const isPhotoCapture = isPhotoTaskCaptureActive();
             const shouldHidePrimaryCard = shouldHideTutorialChrome && (
                 tutorialFlowStarted
                 || isNpcDialogBlocking()
@@ -1066,26 +1069,31 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.classList.toggle('tutorial-board-clean', isTutorialBoard);
             document.body.classList.toggle('tutorial-story-clean', isTutorialStory);
             featureDockMenu?.classList.toggle('hidden', !isTutorialBoard);
-            setImmersiveCameraMode(isPhotoTaskCaptureActive());
+            setImmersiveCameraMode(isPhotoCapture);
             if (selectionInstruction) {
-                if (isTutorialStory) {
+                if (!isPhotoCapture) {
                     selectionInstruction.style.display = 'none';
-                } else if (currentTask?.task_type === 'photo' && isPhotoTaskCaptureActive()) {
+                } else if (isTutorialStory) {
+                    selectionInstruction.style.display = 'none';
+                } else if (currentTask?.task_type === 'photo') {
                     selectionInstruction.style.display = '';
                 } else if (isTutorialBoard) {
                     selectionInstruction.style.display = 'none';
                 } else {
                     selectionInstruction.style.display = '';
                 }
-                selectionInstruction.style.opacity = currentTask?.task_type === 'photo' && isPhotoTaskCaptureActive()
+                selectionInstruction.style.opacity = currentTask?.task_type === 'photo' && isPhotoCapture
                     ? '1'
                     : (shouldHideTutorialChrome ? '0' : '1');
             }
             if (reticleCenterHint) {
-                reticleCenterHint.classList.toggle('hidden', !(isPhotoTaskCaptureActive() && cameraCaptureMode === 'task'));
+                reticleCenterHint.classList.toggle('hidden', !(isPhotoCapture && cameraCaptureMode === 'task'));
             }
             if (reticleCaptureHotspot) {
-                reticleCaptureHotspot.classList.toggle('hidden', !(isPhotoTaskCaptureActive() && cameraCaptureMode === 'task'));
+                reticleCaptureHotspot.classList.toggle('hidden', !(isPhotoCapture && cameraCaptureMode === 'task'));
+            }
+            if (reticleOverlay) {
+                reticleOverlay.classList.toggle('hidden', !(isPhotoCapture && cameraCaptureMode === 'task'));
             }
             if (locationBar) {
                 locationBar.style.display = shouldHideTutorialChrome ? 'none' : '';
@@ -1635,6 +1643,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function startBoardTurn() {
             if (currentEntryMode !== 'board_game' || !currentBoardMap || currentBoardRun?.pendingTargetTile) return;
+            closeDockPanels();
+            if (npcDialog && npcDialog.classList.contains('passive') && !npcDialog.classList.contains('hidden')) {
+                closeNpcDialog();
+            }
             if (useRemoteBoardSession && currentBoardSessionId) {
                 const res = await fetch(`/api/board/session/${currentBoardSessionId}/roll`, {
                     method: 'POST',
@@ -1768,6 +1780,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function focusBoardTile(tile) {
             if (!tile) return;
+            closeDockPanels();
             currentBoardActiveTileId = tile.id;
             renderGameShellEntries(currentBoardTiles, tile.id);
             updateGameShellProgress(tile);
@@ -1781,12 +1794,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await res.json();
                 if (data.success && data.task) {
                     applyTaskSelection(data.task, { updateUrl: false, skipNearbyReload: true });
+                    const shouldAutoStartTutorialBoardTask = currentEntryMode === 'board_game'
+                        && isCurrentQuestTutorialMode()
+                        && currentBoardRun?.pendingTargetTile
+                        && Number(currentBoardRun.pendingTargetTile) === Number(tile.tile_index);
                     await showNpcDialog({
                         speakerKey: tile.tile_type === 'challenge' ? 'gatekeeper' : 'lore',
                         mood: tile.tile_type === 'challenge' ? '挑戰開始' : '關卡提示',
                         text: data.task.stage_intro || data.task.description || `第 ${tile.tile_index} 格的挑戰已展開，請讓 AI 裁判檢查你的表現。`,
-                        autoCloseMs: 2200
+                        autoCloseMs: shouldAutoStartTutorialBoardTask ? 1400 : 2200,
+                        blocking: !shouldAutoStartTutorialBoardTask
                     });
+                    if (shouldAutoStartTutorialBoardTask) {
+                        await startTaskInteraction();
+                    }
                 }
                 return;
             }
@@ -2392,10 +2413,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function showCompletionModal(message) {
             if (!completionModal) return;
+            if (npcDialog && !npcDialog.classList.contains('hidden')) {
+                closeNpcDialog();
+            }
             if (completionReward) completionReward.innerHTML = message || '✅ 任務已完成';
             completionModal.classList.remove('hidden');
             renderTutorialModeUi();
             loadPlayerHudStats();
+        }
+
+        function scheduleStoryReloadAfterCompletion() {
+            pendingStoryReloadAfterCompletion = Boolean(currentEntryMode === 'story_campaign' && currentQuestChainId);
         }
 
         async function dataUrlToBlob(dataUrl) {
@@ -2630,9 +2658,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 autoCloseMs: storyJudgeAutoClose
                             });
                         }
-                        if (currentEntryMode === 'story_campaign' && currentQuestChainId) {
-                            await loadStoryShell(currentQuestChainId);
-                        }
+                        scheduleStoryReloadAfterCompletion();
                         showCompletionModal(aiData.earnedItemName ? `🎁 獲得：${aiData.earnedItemName}` : (tutorialPassMode ? '✅ 教學模式已完成這一步' : (aiData.message || '✅ AI 驗證通過')));
                     } else {
                         const failText = judgeSummary || retrySummary || 'AI 驗證未通過，請再試一次';
@@ -2714,9 +2740,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             text: `潮聲已記住你的選擇：「${answer}」。\n\n教學模式先替你通過這一關，讓你把完整流程走完。`,
                             buttonLabel: '繼續前進'
                         });
-                        if (currentEntryMode === 'story_campaign' && currentQuestChainId) {
-                            await loadStoryShell(currentQuestChainId);
-                        }
+                        scheduleStoryReloadAfterCompletion();
                     }
                     showCompletionModal('✅ 教學模式已完成這一步');
                     return;
@@ -2753,9 +2777,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         text: `沙丘已記錄你的操作：「${answer || '已提交'}」。\n\n教學模式先替你通過這一步，讓你繼續往下走。`,
                         buttonLabel: '繼續前進'
                     });
-                    if (currentEntryMode === 'story_campaign' && currentQuestChainId) {
-                        await loadStoryShell(currentQuestChainId);
-                    }
+                    scheduleStoryReloadAfterCompletion();
                 }
                 showCompletionModal('✅ 教學模式已完成這一步');
                 return;
@@ -2809,10 +2831,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         autoCloseMs: 2200
                     });
                 }
-                if (currentEntryMode === 'story_campaign' && currentQuestChainId) {
-                    await loadStoryShell(currentQuestChainId);
-                }
-                showCompletionModal(data.earnedItemName ? `🎁 獲得：${data.earnedItemName}` : '✅ 任務已完成');
+                    scheduleStoryReloadAfterCompletion();
+                    showCompletionModal(data.earnedItemName ? `🎁 獲得：${data.earnedItemName}` : '✅ 任務已完成');
             } else {
                 const failText = data.message || '答案錯誤，請重試';
                 if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
@@ -2939,6 +2959,9 @@ document.addEventListener('DOMContentLoaded', () => {
             needMorePhotosSession = null;
             answerModal.classList.add('hidden');
             closeDockPanels();
+            if (npcDialog && !npcDialog.classList.contains('hidden')) {
+                closeNpcDialog();
+            }
             setCameraCaptureMode('task');
             setImmersiveCameraMode(true);
             renderTutorialModeUi();
@@ -2980,9 +3003,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         text: '沙丘已替你完成這一步報到，現在直接前往下一段劇情。',
                         buttonLabel: '前往下一關'
                     });
-                    if (currentEntryMode === 'story_campaign' && currentQuestChainId) {
-                        await loadStoryShell(currentQuestChainId);
-                    }
+                    scheduleStoryReloadAfterCompletion();
                     showCompletionModal('✅ 教學模式已完成這一步');
                     return;
                 }
@@ -3027,9 +3048,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             autoCloseMs: 2200
                         });
                     }
-                    if (currentEntryMode === 'story_campaign' && currentQuestChainId) {
-                        await loadStoryShell(currentQuestChainId);
-                    }
+                    scheduleStoryReloadAfterCompletion();
                     showCompletionModal(data.earnedItemName ? `🎁 獲得：${data.earnedItemName}` : '📍 打卡成功');
                 } else {
                     Swal.fire({ icon: 'warning', title: '打卡失敗', text: data.message || '請再試一次' });
@@ -4824,9 +4843,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         if (btnCompletionClose) {
-            btnCompletionClose.addEventListener('click', () => {
+            btnCompletionClose.addEventListener('click', async () => {
                 completionModal.classList.add('hidden');
                 renderTutorialModeUi();
+                if (pendingStoryReloadAfterCompletion && currentQuestChainId) {
+                    pendingStoryReloadAfterCompletion = false;
+                    await loadStoryShell(currentQuestChainId);
+                }
             });
         }
 
