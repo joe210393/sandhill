@@ -387,6 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const boardMapSelector = document.getElementById('boardMapSelector');
         const boardMapSelectorStatus = document.getElementById('boardMapSelectorStatus');
         const floatingDiceBtn = document.getElementById('floatingDiceBtn');
+        const rollDiceBtn = document.getElementById('rollDiceBtn');
         const boardFocusBtn = document.getElementById('boardFocusBtn');
         const boardMiniMap = document.getElementById('boardMiniMap');
         const boardMiniMapDots = document.getElementById('boardMiniMapDots');
