@@ -2949,7 +2949,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             });
                         }
                         scheduleStoryReloadAfterCompletion();
-                        showCompletionModal(aiData.earnedItemName ? `🎁 獲得：${aiData.earnedItemName}` : (tutorialPassMode ? '✅ 教學模式已完成這一步' : (aiData.message || '✅ AI 驗證通過')));
+                        const tutorialCompletionText = judgeSummary
+                            ? `🤖 鯨語判定：${judgeSummary}\n✅ 教學模式已完成這一步`
+                            : '✅ 教學模式已完成這一步';
+                        showCompletionModal(aiData.earnedItemName ? `🎁 獲得：${aiData.earnedItemName}` : (tutorialPassMode ? tutorialCompletionText : (aiData.message || '✅ AI 驗證通過')));
                     } else {
                         document.body.classList.remove('shake-error');
                         void document.body.offsetWidth;
