@@ -737,137 +737,155 @@
         </form>
       </div>
 
-      <!-- Form: Board Tile (Merged Add/Edit) -->
+      <!-- Form: Board Tile (Merged Add/Edit) — Type-Driven UX -->
       <div id="form-tile" class="drawer-form-section">
         <form id="tileForm" class="v2-form">
           <input type="hidden" name="id" id="tile_id">
           <input type="hidden" name="board_map_id" id="tile_board_map_id">
+          <input type="hidden" name="task_id" id="tileTaskId">
 
           <div class="locked-field" id="tileLockedContext">
             <div class="locked-field-label">所屬地圖</div>
             <div class="locked-field-value" id="tile_locked_map_name">—</div>
           </div>
 
-          <div class="section-title">格子基本設定</div>
+          <!-- Step 1: What kind of tile? -->
+          <div class="form-group">
+            <label class="form-label" style="font-weight:700; font-size:1rem;">這格要做什麼？</label>
+            <select class="form-select" name="tile_type" id="tileTypeSelect" style="font-size:1rem; padding:12px;">
+              <optgroup label="玩家要完成任務">
+                <option value="challenge">🎯 挑戰格 — 拍照、AI 辨識或回答問題</option>
+                <option value="quiz">📝 小考格 — 到達時出一題隨堂問答</option>
+              </optgroup>
+              <optgroup label="觸發事件（不需完成任務）">
+                <option value="event">✨ 事件格 — 顯示一段劇情或訊息</option>
+                <option value="story">📖 劇情/教學格 — 嵌入知識點或故事</option>
+                <option value="fortune">🔮 命運格 — 隨機好壞事件</option>
+                <option value="chance">🎲 機會格 — 隨機正面獎勵</option>
+              </optgroup>
+              <optgroup label="直接給效果">
+                <option value="supply">💊 補給格 — 自動加分或給道具</option>
+                <option value="reward">🎁 獎勵格 — 額外獎勵</option>
+                <option value="penalty">💀 懲罰格 — 扣分或退後</option>
+                <option value="teleport">🌀 傳送格 — 傳送到指定格子</option>
+              </optgroup>
+              <optgroup label="流程控制">
+                <option value="rest">☕ 休息格 — 什麼都不發生</option>
+                <option value="finish">🏁 終點格 — 到達即結算</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <!-- Hint that changes with type -->
+          <div id="tileTypeHint" style="border-radius:8px; padding:12px; margin-bottom:14px; font-size:0.88rem;"></div>
+
+          <!-- Step 2: Basic info -->
           <div class="grid-2">
             <div class="form-group">
-              <label class="form-label">格子編號</label>
-              <input class="form-input" type="number" name="tile_index" min="1" required>
-              <div class="form-hint">棋盤上的位置順序</div>
+              <label class="form-label">格子名稱</label>
+              <input class="form-input" type="text" name="tile_name" required placeholder="例如：起點營地">
             </div>
             <div class="form-group">
-              <label class="form-label">格子類型</label>
-              <select class="form-select" name="tile_type" id="tileTypeSelect">
-                <optgroup label="核心格子">
-                  <option value="challenge">🎯 挑戰格</option>
-                  <option value="event">✨ 事件格</option>
-                  <option value="supply">💊 補給格</option>
-                </optgroup>
-                <optgroup label="命運與機會">
-                  <option value="fortune">🔮 命運格</option>
-                  <option value="chance">🎲 機會格</option>
-                </optgroup>
-                <optgroup label="特殊格子">
-                  <option value="reward">🎁 獎勵格</option>
-                  <option value="penalty">💀 懲罰格</option>
-                  <option value="story">📖 劇情格</option>
-                  <option value="teleport">🌀 傳送格</option>
-                  <option value="quiz">📝 隨堂小考格</option>
-                  <option value="rest">☕ 休息格</option>
-                  <option value="finish">🏁 終點格</option>
-                </optgroup>
-              </select>
+              <label class="form-label">第幾格</label>
+              <input class="form-input" type="number" name="tile_index" min="1" required>
+              <div class="form-hint">棋盤上的順序位置</div>
             </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">格子名稱</label>
-            <input class="form-input" type="text" name="tile_name" required placeholder="例如：命運轉盤">
+          <!-- Challenge section: only for challenge/quiz -->
+          <div id="tileSec_challenge" style="display:none;">
+            <hr class="section-divider">
+            <div class="section-title">挑戰內容設定</div>
+            <div class="form-group">
+              <label class="form-label">選擇一個已建好的關卡</label>
+              <select class="form-select" id="tileTaskSelect">
+                <option value="">-- 請選擇關卡 --</option>
+              </select>
+              <div class="form-hint">關卡可以在「玩法入口 → 管理內容」裡建立。挑戰格的玩家需要完成這個關卡才能通過。</div>
+            </div>
           </div>
 
-          <!-- Tile type hint -->
-          <div id="tileTypeHint" style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:12px; margin-bottom:14px; font-size:0.88rem; color:#92400e;">
-            挑戰格：玩家需完成綁定的關卡才能通過。
+          <!-- Event/story section: for event, story, fortune, chance, quiz -->
+          <div id="tileSec_event" style="display:none;">
+            <hr class="section-divider">
+            <div class="section-title" id="tileEventSectionTitle">玩家會看到的內容</div>
+            <div class="form-group">
+              <label class="form-label" id="tileEventTitleLabel">事件標題</label>
+              <input class="form-input" type="text" name="event_title" placeholder="例如：海風的祝福">
+            </div>
+            <div class="form-group">
+              <label class="form-label" id="tileEventBodyLabel">事件文案</label>
+              <textarea class="form-textarea" name="event_body" style="height:90px;" id="tileEventBodyInput" placeholder="玩家踩到這格時看到的內容"></textarea>
+              <div class="form-hint" id="tileEventBodyHint"></div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">導覽 / 教育補充（給老師或導覽員看）</label>
+              <textarea class="form-textarea" name="guide_content" style="height:60px;" placeholder="選填：這格背後的教學知識或導覽說明"></textarea>
+            </div>
           </div>
 
-          <hr class="section-divider">
-          <div class="section-title">綁定關卡（挑戰格用）</div>
-          <div class="form-group">
-            <label class="form-label">綁定挑戰關卡</label>
-            <select class="form-select" name="task_id" id="tileTaskSelect">
-              <option value="">-- 不綁定（純事件/效果格）--</option>
-            </select>
-            <div class="form-hint">挑戰格可綁定既有關卡做 AI 驗證；事件格則填下方文案即可</div>
-          </div>
-
-          <hr class="section-divider">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <div class="section-title" style="margin-bottom:0;">位置設定</div>
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.88rem; color:#64748b;">
-              <input type="checkbox" id="tileLocationToggle" style="width:16px; height:16px;">
-              啟用定位導引
-            </label>
-          </div>
-          <div id="tileLocationFields" style="display:none;">
-            <div class="form-hint" style="margin-bottom:10px;">設定經緯度後，玩家在遊戲中會看到箭頭指向該格子的方位。不設定代表活動在小範圍內，不需要導航。</div>
+          <!-- Effect section: for supply, reward, penalty, teleport, fortune, chance -->
+          <div id="tileSec_effect" style="display:none;">
+            <hr class="section-divider">
+            <div class="section-title">效果設定</div>
             <div class="grid-2">
               <div class="form-group">
-                <label class="form-label">緯度</label>
-                <input class="form-input" type="number" name="latitude" step="any">
+                <label class="form-label">效果類型</label>
+                <select class="form-select" name="effect_type" id="tileEffectType">
+                  <option value="">-- 無 --</option>
+                  <option value="gain_points">加分</option>
+                  <option value="lose_points">扣分</option>
+                  <option value="move_forward">前進 N 格</option>
+                  <option value="move_backward">退後 N 格</option>
+                  <option value="extra_roll">再擲一次</option>
+                  <option value="skip_turn">暫停一回合</option>
+                  <option value="grant_hint">給提示</option>
+                  <option value="teleport_to_tile">傳送到指定格</option>
+                  <option value="random_effect">隨機效果</option>
+                </select>
               </div>
               <div class="form-group">
-                <label class="form-label">經度</label>
-                <input class="form-input" type="number" name="longitude" step="any">
+                <label class="form-label">數值</label>
+                <input class="form-input" type="number" name="effect_value" placeholder="例如：10">
+                <div class="form-hint">分數量、格數、目標格編號等</div>
               </div>
             </div>
-            <div class="form-group">
-              <label class="form-label">觸發半徑 (m)</label>
-              <input class="form-input" type="number" name="radius_meters" min="0">
+          </div>
+
+          <!-- Location section -->
+          <div id="tileSec_location">
+            <hr class="section-divider">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <label class="form-label" style="margin:0; font-weight:600;">位置導引</label>
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.85rem; color:#64748b;">
+                <input type="checkbox" id="tileLocationToggle" style="width:16px; height:16px;">
+                啟用 GPS 導航
+              </label>
+            </div>
+            <div id="tileLocationFields" style="display:none;">
+              <div class="form-hint" style="margin-bottom:8px;">玩家會看到箭頭指向這個格子。不啟用代表活動在小範圍內，不需導航。</div>
+              <div class="grid-2">
+                <div class="form-group">
+                  <label class="form-label">緯度</label>
+                  <input class="form-input" type="number" name="latitude" step="any">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">經度</label>
+                  <input class="form-input" type="number" name="longitude" step="any">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">觸發半徑 (m)</label>
+                <input class="form-input" type="number" name="radius_meters" min="0" placeholder="30">
+              </div>
             </div>
           </div>
 
           <hr class="section-divider">
-          <div class="section-title">效果與事件</div>
-          <div class="grid-2">
-            <div class="form-group">
-              <label class="form-label">效果類型</label>
-              <select class="form-select" name="effect_type">
-                <option value="">-- 無 --</option>
-                <option value="gain_points">加分</option>
-                <option value="lose_points">扣分</option>
-                <option value="move_forward">前進 N 格</option>
-                <option value="move_backward">退後 N 格</option>
-                <option value="extra_roll">再擲一次</option>
-                <option value="skip_turn">暫停一回合</option>
-                <option value="grant_hint">給提示</option>
-                <option value="teleport_to_tile">傳送到指定格</option>
-                <option value="random_effect">隨機效果</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">效果數值</label>
-              <input class="form-input" type="number" name="effect_value" placeholder="例如：3">
-              <div class="form-hint">加分/扣分的量、前進格數等</div>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">事件標題</label>
-            <input class="form-input" type="text" name="event_title" placeholder="例如：海風的祝福">
-          </div>
-          <div class="form-group">
-            <label class="form-label">事件 / 主持文案</label>
-            <textarea class="form-textarea" name="event_body" style="height:80px;" placeholder="玩家踩到這格時看到的內容。命運格/機會格可寫多個效果，用分號分隔讓系統隨機抽取。"></textarea>
-          </div>
-          <div class="form-group">
-            <label class="form-label">導覽 / 教育補充</label>
-            <textarea class="form-textarea" name="guide_content" style="height:70px;" placeholder="給導覽員的補充說明，或教育課程的知識點。"></textarea>
-          </div>
-
           <div class="form-group">
             <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
               <input type="checkbox" name="is_active" value="1" checked style="width:16px; height:16px;">
-              <span style="font-size:0.9rem;">格子已啟用</span>
+              <span style="font-size:0.9rem;">啟用這格</span>
             </label>
           </div>
 

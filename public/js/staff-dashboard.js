@@ -677,28 +677,119 @@ function renderTileItem(tile) {
   `;
 }
 
-// ── Tile type hints ───────────────────────────────────────────
-const tileTypeHints = {
-  challenge: '🎯 挑戰格：玩家需完成綁定的關卡（拍照、AI 驗證等）才能通過。',
-  event: '✨ 事件格：觸發一段劇情或事件文案，不需要挑戰。',
-  supply: '💊 補給格：自動給予玩家加分或道具，可設定效果。',
-  fortune: '🔮 命運格：隨機抽取一個效果（好或壞），在事件文案裡用分號分隔多個選項。',
-  chance: '🎲 機會格：類似命運格但偏向正面效果，適合獎勵型隨機事件。',
-  reward: '🎁 獎勵格：給予玩家額外獎勵積分或道具。',
-  penalty: '💀 懲罰格：扣分或退後，增加遊戲緊張感。',
-  story: '📖 劇情格：展示教育內容或故事文案，適合嵌入課程知識點。',
-  teleport: '🌀 傳送格：將玩家傳送到指定格子（在效果數值填入目標格編號）。',
-  quiz: '📝 小考格：到達此格時出一道隨堂問答，答對加分答錯扣分。把題目寫在事件文案。',
-  rest: '☕ 休息格：什麼都不發生，讓玩家喘口氣。',
-  finish: '🏁 終點格：到達即完成遊戲，觸發結算。'
+// ── Tile type-driven UX ───────────────────────────────────────
+const tileTypeMeta = {
+  challenge: {
+    hint: '玩家到達後需完成一個關卡任務（拍照、AI 辨識等），成功才能繼續前進。',
+    hintBg: '#eff6ff', hintColor: '#1d4ed8', hintBorder: '#bfdbfe',
+    showChallenge: true, showEvent: false, showEffect: false
+  },
+  quiz: {
+    hint: '玩家到達時會跳出一道問題，答對加分、答錯扣分。在下方填寫題目與答案。',
+    hintBg: '#fef3c7', hintColor: '#92400e', hintBorder: '#fde68a',
+    showChallenge: true, showEvent: true, showEffect: true,
+    eventTitle: '題目標題', eventBody: '把問題寫在這裡，選項可用 A/B/C/D 分行列出', eventHint: '答案寫在導覽補充裡，方便對答案'
+  },
+  event: {
+    hint: '玩家踩到後會看到一段文案訊息，不需要完成任何任務，看完就繼續。',
+    hintBg: '#fef3c7', hintColor: '#92400e', hintBorder: '#fde68a',
+    showChallenge: false, showEvent: true, showEffect: false
+  },
+  story: {
+    hint: '用來嵌入教學知識、劇情轉場或導覽內容。適合搭配教育課程使用。',
+    hintBg: '#eff6ff', hintColor: '#1d4ed8', hintBorder: '#bfdbfe',
+    showChallenge: false, showEvent: true, showEffect: false,
+    eventTitle: '章節標題', eventBody: '教學內容或故事段落', eventHint: '導覽補充可以放更深入的知識解說'
+  },
+  fortune: {
+    hint: '隨機事件！好事壞事都可能發生。用分號「;」分隔多個可能結果，系統會隨機抽一個。',
+    hintBg: '#faf5ff', hintColor: '#7c3aed', hintBorder: '#ddd6fe',
+    showChallenge: false, showEvent: true, showEffect: true,
+    eventTitle: '命運標題', eventBody: '前進兩格！;退後一格！;獲得 20 分！;暫停一回合！', eventHint: '用分號分隔多個結果，系統隨機抽取'
+  },
+  chance: {
+    hint: '正面隨機獎勵！只會發生好事。用分號「;」分隔多個獎勵選項。',
+    hintBg: '#ecfdf5', hintColor: '#047857', hintBorder: '#a7f3d0',
+    showChallenge: false, showEvent: true, showEffect: true,
+    eventTitle: '機會標題', eventBody: '獲得 30 分！;前進三格！;再擲一次骰子！', eventHint: '用分號分隔多個獎勵，系統隨機抽取'
+  },
+  supply: {
+    hint: '玩家踩到自動獲得加分或道具，不需要做任何事。設定下方的效果就好。',
+    hintBg: '#ecfdf5', hintColor: '#047857', hintBorder: '#a7f3d0',
+    showChallenge: false, showEvent: true, showEffect: true
+  },
+  reward: {
+    hint: '額外獎勵格，給予玩家積分或道具獎勵。',
+    hintBg: '#ecfdf5', hintColor: '#047857', hintBorder: '#a7f3d0',
+    showChallenge: false, showEvent: true, showEffect: true
+  },
+  penalty: {
+    hint: '懲罰格！扣分、退後或暫停一回合，增加遊戲緊張感。',
+    hintBg: '#fef2f2', hintColor: '#b91c1c', hintBorder: '#fecaca',
+    showChallenge: false, showEvent: true, showEffect: true
+  },
+  teleport: {
+    hint: '傳送格：把效果類型設成「傳送到指定格」，數值填目標格子的編號。',
+    hintBg: '#faf5ff', hintColor: '#7c3aed', hintBorder: '#ddd6fe',
+    showChallenge: false, showEvent: true, showEffect: true
+  },
+  rest: {
+    hint: '休息格，什麼都不會發生。讓玩家喘口氣。',
+    hintBg: '#f1f5f9', hintColor: '#475569', hintBorder: '#e2e8f0',
+    showChallenge: false, showEvent: false, showEffect: false
+  },
+  finish: {
+    hint: '終點格！玩家到達即完成遊戲，觸發結算與獎勵發放。',
+    hintBg: '#fef3c7', hintColor: '#92400e', hintBorder: '#fde68a',
+    showChallenge: false, showEvent: true, showEffect: false,
+    eventTitle: '結算標題', eventBody: '恭喜完成大富翁！你的成績是...'
+  }
 };
+
+function updateTileFormByType() {
+  const type = document.getElementById('tileTypeSelect').value;
+  const meta = tileTypeMeta[type] || tileTypeMeta.event;
+
+  // Hint
+  const hint = document.getElementById('tileTypeHint');
+  hint.textContent = meta.hint;
+  hint.style.background = meta.hintBg;
+  hint.style.color = meta.hintColor;
+  hint.style.border = `1px solid ${meta.hintBorder}`;
+
+  // Section visibility
+  document.getElementById('tileSec_challenge').style.display = meta.showChallenge ? 'block' : 'none';
+  document.getElementById('tileSec_event').style.display = meta.showEvent ? 'block' : 'none';
+  document.getElementById('tileSec_effect').style.display = meta.showEffect ? 'block' : 'none';
+
+  // Dynamic labels
+  if (meta.eventTitle) {
+    document.getElementById('tileEventTitleLabel').textContent = meta.eventTitle;
+  } else {
+    document.getElementById('tileEventTitleLabel').textContent = '事件標題';
+  }
+  if (meta.eventBody) {
+    document.getElementById('tileEventBodyInput').placeholder = meta.eventBody;
+  } else {
+    document.getElementById('tileEventBodyInput').placeholder = '玩家踩到這格時看到的內容';
+  }
+  document.getElementById('tileEventBodyHint').textContent = meta.eventHint || '';
+
+  // Section title
+  const titles = { story: '教學內容', quiz: '問答內容', fortune: '命運卡內容', chance: '機會卡內容' };
+  document.getElementById('tileEventSectionTitle').textContent = titles[type] || '玩家會看到的內容';
+
+  // Auto-set effect for some types
+  const effectSel = document.getElementById('tileEffectType');
+  if (type === 'penalty' && !effectSel.value) effectSel.value = 'lose_points';
+  if (type === 'supply' && !effectSel.value) effectSel.value = 'gain_points';
+  if (type === 'reward' && !effectSel.value) effectSel.value = 'gain_points';
+  if (type === 'teleport' && !effectSel.value) effectSel.value = 'teleport_to_tile';
+}
 
 const tileTypeSelect = document.getElementById('tileTypeSelect');
 if (tileTypeSelect) {
-  tileTypeSelect.addEventListener('change', () => {
-    const hint = document.getElementById('tileTypeHint');
-    if (hint) hint.textContent = tileTypeHints[tileTypeSelect.value] || '';
-  });
+  tileTypeSelect.addEventListener('change', updateTileFormByType);
 }
 
 // Tile location toggle
@@ -747,9 +838,10 @@ function openTileDrawerForCreate() {
   if (locToggle) locToggle.checked = false;
   if (locFields) locFields.style.display = 'none';
   document.getElementById('tileFormMsg').textContent = '';
-  // Reset type hint
-  const hint = document.getElementById('tileTypeHint');
-  if (hint) hint.textContent = tileTypeHints.challenge || '';
+
+  // Set default type and update form
+  document.getElementById('tileTypeSelect').value = 'event';
+  updateTileFormByType();
 }
 
 // ── Tile Drawer: Open for edit ────────────────────────────────
@@ -764,7 +856,10 @@ function editTile(tileId) {
   form.elements.tile_index.value = tile.tile_index;
   form.elements.tile_type.value = tile.tile_type || 'event';
   form.elements.tile_name.value = tile.tile_name || '';
-  form.elements.task_id.value = tile.task_id || '';
+  // Task binding (hidden + select)
+  document.getElementById('tileTaskId').value = tile.task_id || '';
+  const taskSel = document.getElementById('tileTaskSelect');
+  if (taskSel) taskSel.value = tile.task_id || '';
   // Set location toggle
   const hasLocation = !!(tile.latitude && tile.longitude);
   const locToggle = document.getElementById('tileLocationToggle');
@@ -784,9 +879,8 @@ function editTile(tileId) {
   document.getElementById('tile_board_map_id').value = tile.board_map_id || currentBoardMapId;
   document.getElementById('tile_locked_map_name').textContent = currentBoardMapName;
 
-  // Update hint
-  const hint = document.getElementById('tileTypeHint');
-  if (hint) hint.textContent = tileTypeHints[tile.tile_type] || '';
+  // Update form sections by type
+  updateTileFormByType();
 
   document.getElementById('tileFormMsg').textContent = '';
 }
@@ -802,11 +896,14 @@ document.getElementById('tileForm').addEventListener('submit', function (e) {
 
   if (!boardMapId) { msgEl.textContent = '缺少地圖 ID'; return; }
 
+  // Prefer visible select, fall back to hidden field
+  const taskIdFromSelect = document.getElementById('tileTaskSelect')?.value;
+  const taskIdFromHidden = document.getElementById('tileTaskId')?.value;
   const payload = {
     tile_index: Number(form.elements.tile_index.value),
     tile_name: form.elements.tile_name.value.trim(),
     tile_type: form.elements.tile_type.value,
-    task_id: form.elements.task_id.value || null,
+    task_id: taskIdFromSelect || taskIdFromHidden || null,
     latitude: form.elements.latitude.value || null,
     longitude: form.elements.longitude.value || null,
     radius_meters: form.elements.radius_meters.value || null,
