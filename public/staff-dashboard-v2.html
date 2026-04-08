@@ -137,6 +137,31 @@
     .drawer-form-section { display: none; }
     .drawer-form-section.active { display: block; }
     .wizard-shell { margin-bottom: 16px; }
+    .wizard-preview-card {
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #ecfeff, #f8fafc);
+      border: 1px solid #bae6fd;
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 10px 24px rgba(14, 116, 144, 0.08);
+    }
+    .wizard-preview-title {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 8px;
+    }
+    .wizard-preview-meta {
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-bottom:10px;
+    }
+    .wizard-preview-copy {
+      font-size:0.86rem;
+      color:#475569;
+      line-height:1.6;
+    }
     .wizard-steps {
       display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;
     }
@@ -247,6 +272,13 @@
       background:white; border:1px solid #e2e8f0; border-radius:16px; padding:18px;
       box-shadow: 0 6px 20px rgba(15,23,42,0.05);
     }
+    .structure-map-legend {
+      display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;
+    }
+    .structure-legend-item {
+      display:inline-flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0;
+      border-radius:999px; padding:6px 10px; color:#334155; font-size:0.8rem;
+    }
     .structure-map-canvas {
       display:flex; gap:16px; overflow-x:auto; padding-bottom:8px; align-items:stretch;
     }
@@ -266,6 +298,18 @@
     .structure-node-kind { font-size: 0.76rem; color:#64748b; margin-bottom:6px; font-weight:700; letter-spacing:.03em; }
     .structure-node-title { font-size: 0.98rem; font-weight: 700; color:#0f172a; margin-bottom:8px; }
     .structure-node-meta { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+    .structure-node-assets {
+      display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;
+    }
+    .structure-node-asset {
+      border-radius:12px; background:#f8fafc; border:1px solid #e2e8f0; padding:8px 10px;
+    }
+    .structure-node-asset-label {
+      font-size:0.72rem; color:#64748b; margin-bottom:4px; font-weight:700; letter-spacing:.02em;
+    }
+    .structure-node-asset-value {
+      font-size:0.82rem; color:#0f172a; line-height:1.45;
+    }
     .structure-node-desc { font-size:0.82rem; color:#64748b; line-height:1.45; }
     .structure-badge {
       display:inline-flex; align-items:center; gap:4px; background:#eff6ff; color:#1d4ed8; border-radius:999px; font-size:.72rem; padding:3px 8px; font-weight:600;
@@ -414,6 +458,7 @@
           <button id="detailModeListBtn" class="detail-switch-btn active" onclick="setDetailContentMode('list')">清單檢視</button>
           <button id="detailModeMapBtn" class="detail-switch-btn" onclick="setDetailContentMode('map')">主結構地圖</button>
         </div>
+        <div id="structureMapLegend" class="structure-map-legend" style="display:none;"></div>
         <!-- Board map info bar (for board_game mode) -->
         <div id="boardMapInfoBar" style="display:none; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:14px 18px; margin-bottom:16px;">
           <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
@@ -713,6 +758,11 @@
               </div>
             </div>
           </div>
+          <div class="wizard-preview-card">
+            <div class="wizard-preview-title">這一關目前會長這樣</div>
+            <div id="taskWizardPreviewMeta" class="wizard-preview-meta"></div>
+            <div id="taskWizardPreviewCopy" class="wizard-preview-copy">先選擇內容類型，沙丘會開始整理這一關的玩法、NPC 與素材摘要。</div>
+          </div>
 
           <div class="task-wizard-step active" data-task-step="1">
           <!-- Locked context -->
@@ -968,6 +1018,55 @@
           <div class="form-group">
             <label class="form-label">關卡說明</label>
             <textarea name="description" class="form-textarea" required style="height:80px;"></textarea>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">關卡模板</label>
+              <select name="stage_template" class="form-select">
+                <option value="story_intro">劇情開場</option>
+                <option value="story_clue">劇情線索</option>
+                <option value="board_challenge">棋盤挑戰</option>
+                <option value="board_event">棋盤事件</option>
+                <option value="photo_mission">拍照任務</option>
+                <option value="quiz_gate">問答關卡</option>
+                <option value="reward_gate">獎勵關卡</option>
+              </select>
+            </div>
+            <div class="form-group" style="display:flex; align-items:flex-end;">
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer; padding-bottom:10px;">
+                <input type="checkbox" name="is_active" value="1" checked style="width:16px; height:16px;">
+                <span style="font-size:0.88rem;">建立後立即啟用</span>
+              </label>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">上場時的標題</label>
+              <textarea name="stage_intro" class="form-textarea" style="height:66px;" placeholder="NPC 第一句會先看到的標題或開場詞"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">提示文字</label>
+              <textarea name="hint_text" class="form-textarea" style="height:66px;" placeholder="玩家卡關時最先看到的提示"></textarea>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">劇情上下文</label>
+            <textarea name="story_context" class="form-textarea" style="height:72px;" placeholder="這一關在整條主結構裡扮演什麼角色"></textarea>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">導覽內容</label>
+              <textarea name="guide_content" class="form-textarea" style="height:72px;" placeholder="給導覽員 / NPC 的補充內容"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">救援內容</label>
+              <textarea name="rescue_content" class="form-textarea" style="height:72px;" placeholder="玩家失敗多次時要說什麼 / 怎麼救援"></textarea>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">事件設定（JSON，可選）</label>
+            <textarea name="event_config" class="form-textarea" style="height:84px;" placeholder='例如 {"npc":"潮聲","sfx":"fortune-wheel","mood":"mystic"}'></textarea>
+            <div class="form-hint">可先留空；結構地圖會顯示這些事件設定供管理員對照。</div>
           </div>
 
           <div class="grid-2">

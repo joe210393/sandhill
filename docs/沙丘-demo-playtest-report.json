@@ -1,0 +1,869 @@
+{
+  "baseUrl": "http://127.0.0.1:4325",
+  "userCount": 5,
+  "startedAt": "2026-04-08T16:22:18.498Z",
+  "entries": [
+    {
+      "id": 40,
+      "title": "沙丘 Demo｜潮聲巡航線",
+      "mode_type": "story_campaign",
+      "play_style": "demo_story_coast"
+    },
+    {
+      "id": 41,
+      "title": "沙丘 Demo｜燈塔搜查線",
+      "mode_type": "story_campaign",
+      "play_style": "demo_story_lighthouse"
+    },
+    {
+      "id": 42,
+      "title": "沙丘 Demo｜濱海命運棋盤",
+      "mode_type": "board_game",
+      "play_style": "demo_board_fortune"
+    },
+    {
+      "id": 43,
+      "title": "沙丘 Demo｜燈塔競速棋盤",
+      "mode_type": "board_game",
+      "play_style": "demo_board_sprint"
+    }
+  ],
+  "users": [
+    {
+      "username": "0903100001",
+      "playedAt": "2026-04-08T16:22:18.553Z",
+      "steps": [
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 1 關｜碼頭報到",
+          "mode": "location",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 2 關｜找回海岸視角",
+          "mode": "ai_reference_match",
+          "passed": true,
+          "reason": "鯨語觀察：玩家照片展示的是一個卡通風格的插圖，包含熊、鹿和鳥等動物，以及篝火。與參考照片中海岸/碼頭的視角完全不符。插圖場景更像是森林或公園，而非海岸線。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 3 關｜選擇巡航策略",
+          "mode": "multiple_choice",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 4 關｜說出你想找的東西",
+          "mode": "keyword",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 5 關｜留下海岸合照",
+          "mode": "ai_score",
+          "passed": true,
+          "reason": "鯨語觀察：照片中沒有海岸線或海洋元素，與任務「留下海岸合照」的要求不符。圖片呈現的是森林營火場景，動物們圍繞著火焰，氛圍溫馨可愛，但與任務主題無關。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 1 關｜燈塔開機",
+          "mode": "location",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 2 關｜辨識海邊物件",
+          "mode": "ai_identify",
+          "passed": true,
+          "reason": "鯨語觀察：The image depicts animals (bear, bird, goat) gathered around a campfire with text in Chinese. It does not contain any coastal objects.\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 3 關｜數一數眼前線索",
+          "mode": "ai_count",
+          "passed": true,
+          "reason": "鯨語觀察：畫面中明顯可見一個熊的圖案。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 4 關｜輸入燈塔密碼",
+          "mode": "number",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 5 關｜檢查場景條件",
+          "mode": "ai_rule_check",
+          "passed": true,
+          "reason": "鯨語觀察：畫面包含視野（整體圖面）、主體（熊、鳥、山羊、火焰）、背景（樹木、地面），構成一個完整的觀測場景。雖然是卡通風格，但元素清晰可辨識。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "機會｜海風補給",
+          "mode": "chance",
+          "lmReason": "機會關卡"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "問題｜路線判斷",
+          "task": "棋盤挑戰｜回答海岸問題",
+          "mode": "manual",
+          "lmReason": "已完成"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "挑戰｜輸入口令",
+          "task": "棋盤挑戰｜輸入口令",
+          "mode": "manual",
+          "lmReason": "已完成"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "機會｜捷徑",
+          "mode": "chance",
+          "lmReason": "機會關卡"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "事件｜潮水回退",
+          "mode": "event",
+          "lmReason": "事件關卡"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "終點｜命運靠岸",
+          "mode": "story",
+          "lmReason": "終點"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "挑戰｜第一張觀測照",
+          "task": "燈塔挑戰｜第一張觀測照",
+          "mode": "ai_score",
+          "lmReason": "鯨語觀察：圖片包含一個卡通風格的插圖，描繪了熊、鳥和山羊圍繞篝火的場景，並且有文字標籤「Mnibu」以及其他中文文字。這符合任務要求中描述玩家照片的定義。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "事件｜補給",
+          "mode": "event",
+          "lmReason": "事件關卡"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "機會｜再前進",
+          "mode": "chance",
+          "lmReason": "機會關卡"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "問題｜終點前確認",
+          "task": "燈塔挑戰｜快速作答",
+          "mode": "manual",
+          "lmReason": "已完成"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "終點｜燈塔衝線",
+          "mode": "story",
+          "lmReason": "終點"
+        }
+      ]
+    },
+    {
+      "username": "0903100002",
+      "playedAt": "2026-04-08T16:24:10.461Z",
+      "steps": [
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 1 關｜碼頭報到",
+          "mode": "location",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 2 關｜找回海岸視角",
+          "mode": "ai_reference_match",
+          "passed": true,
+          "reason": "鯨語觀察：玩家照片展示的是一個卡通風格的插圖，包含熊、鹿和鳥等動物，以及篝火。與參考照片中海岸/碼頭的視角完全不符。插圖場景更像是森林或公園，而非海岸線。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 3 關｜選擇巡航策略",
+          "mode": "multiple_choice",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 4 關｜說出你想找的東西",
+          "mode": "keyword",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 5 關｜留下海岸合照",
+          "mode": "ai_score",
+          "passed": true,
+          "reason": "鯨語觀察：照片中沒有海岸線或海洋元素，與任務「留下海岸合照」的要求不符。圖片呈現的是森林營火場景，動物們圍繞著火焰，氛圍溫馨可愛，但與任務主題無關。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 1 關｜燈塔開機",
+          "mode": "location",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 2 關｜辨識海邊物件",
+          "mode": "ai_identify",
+          "passed": true,
+          "reason": "鯨語觀察：The image depicts animals (bear, bird, goat) gathered around a campfire with text in Chinese. It does not contain any coastal objects.\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 3 關｜數一數眼前線索",
+          "mode": "ai_count",
+          "passed": true,
+          "reason": "鯨語觀察：畫面中明顯可見一個熊的圖案。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 4 關｜輸入燈塔密碼",
+          "mode": "number",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 5 關｜檢查場景條件",
+          "mode": "ai_rule_check",
+          "passed": true,
+          "reason": "鯨語觀察：畫面包含視野（整體圖面）、主體（熊、鳥、山羊、火焰）、背景（樹木、地面），構成一個完整的觀測場景。雖然是卡通風格，但元素清晰可辨識。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "機會｜海風補給",
+          "mode": "chance",
+          "lmReason": "機會關卡"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "問題｜路線判斷",
+          "task": "棋盤挑戰｜回答海岸問題",
+          "mode": "manual",
+          "lmReason": "已完成"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "挑戰｜輸入口令",
+          "task": "棋盤挑戰｜輸入口令",
+          "mode": "manual",
+          "lmReason": "已完成"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "機會｜捷徑",
+          "mode": "chance",
+          "lmReason": "機會關卡"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "事件｜潮水回退",
+          "mode": "event",
+          "lmReason": "事件關卡"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "終點｜命運靠岸",
+          "mode": "story",
+          "lmReason": "終點"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "挑戰｜第一張觀測照",
+          "task": "燈塔挑戰｜第一張觀測照",
+          "mode": "ai_score",
+          "lmReason": "鯨語觀察：圖片包含一個卡通風格的插圖，描繪了熊、鳥和山羊圍繞篝火的場景，並且有文字標籤「Mnibu」以及其他中文文字。這符合任務要求中描述玩家照片的定義。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "事件｜補給",
+          "mode": "event",
+          "lmReason": "事件關卡"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "機會｜再前進",
+          "mode": "chance",
+          "lmReason": "機會關卡"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "問題｜終點前確認",
+          "task": "燈塔挑戰｜快速作答",
+          "mode": "manual",
+          "lmReason": "已完成"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "終點｜燈塔衝線",
+          "mode": "story",
+          "lmReason": "終點"
+        }
+      ]
+    },
+    {
+      "username": "0903100003",
+      "playedAt": "2026-04-08T16:26:04.007Z",
+      "steps": [
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 1 關｜碼頭報到",
+          "mode": "location",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 2 關｜找回海岸視角",
+          "mode": "ai_reference_match",
+          "passed": true,
+          "reason": "鯨語觀察：玩家照片展示的是一個卡通風格的插圖，包含熊、鹿和鳥等動物，以及篝火。與參考照片中海岸/碼頭的視角完全不符。插圖場景更像是森林或公園，而非海岸線。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 3 關｜選擇巡航策略",
+          "mode": "multiple_choice",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 4 關｜說出你想找的東西",
+          "mode": "keyword",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 5 關｜留下海岸合照",
+          "mode": "ai_score",
+          "passed": true,
+          "reason": "鯨語觀察：照片中沒有海岸線或海洋元素，與任務「留下海岸合照」的要求不符。圖片呈現的是森林營火場景，動物們圍繞著火焰，氛圍溫馨可愛，但與任務主題無關。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 1 關｜燈塔開機",
+          "mode": "location",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 2 關｜辨識海邊物件",
+          "mode": "ai_identify",
+          "passed": true,
+          "reason": "鯨語觀察：The image depicts animals (bear, bird, goat) gathered around a campfire with text in Chinese. It does not contain any coastal objects.\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 3 關｜數一數眼前線索",
+          "mode": "ai_count",
+          "passed": true,
+          "reason": "鯨語觀察：畫面中明顯可見一個熊的圖案。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 4 關｜輸入燈塔密碼",
+          "mode": "number",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 5 關｜檢查場景條件",
+          "mode": "ai_rule_check",
+          "passed": true,
+          "reason": "鯨語觀察：畫面包含視野（整體圖面）、主體（熊、鳥、山羊、火焰）、背景（樹木、地面），構成一個完整的觀測場景。雖然是卡通風格，但元素清晰可辨識。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "機會｜海風補給",
+          "mode": "chance",
+          "lmReason": "機會關卡"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "問題｜路線判斷",
+          "task": "棋盤挑戰｜回答海岸問題",
+          "mode": "manual",
+          "lmReason": "已完成"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "挑戰｜輸入口令",
+          "task": "棋盤挑戰｜輸入口令",
+          "mode": "manual",
+          "lmReason": "已完成"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "機會｜捷徑",
+          "mode": "chance",
+          "lmReason": "機會關卡"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "事件｜潮水回退",
+          "mode": "event",
+          "lmReason": "事件關卡"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "終點｜命運靠岸",
+          "mode": "story",
+          "lmReason": "終點"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "挑戰｜第一張觀測照",
+          "task": "燈塔挑戰｜第一張觀測照",
+          "mode": "ai_score",
+          "lmReason": "鯨語觀察：圖片包含一個卡通風格的插圖，描繪了熊、鳥和山羊圍繞篝火的場景，並且有文字標籤「Mnibu」以及其他中文文字。這符合任務要求中描述玩家照片的定義。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "事件｜補給",
+          "mode": "event",
+          "lmReason": "事件關卡"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "機會｜再前進",
+          "mode": "chance",
+          "lmReason": "機會關卡"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "問題｜終點前確認",
+          "task": "燈塔挑戰｜快速作答",
+          "mode": "manual",
+          "lmReason": "已完成"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "終點｜燈塔衝線",
+          "mode": "story",
+          "lmReason": "終點"
+        }
+      ]
+    },
+    {
+      "username": "0903100004",
+      "playedAt": "2026-04-08T16:27:57.280Z",
+      "steps": [
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 1 關｜碼頭報到",
+          "mode": "location",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 2 關｜找回海岸視角",
+          "mode": "ai_reference_match",
+          "passed": true,
+          "reason": "鯨語觀察：玩家照片展示的是一個卡通風格的插圖，包含熊、鹿和鳥等動物，以及篝火。與參考照片中海岸/碼頭的視角完全不符。插圖場景更像是森林或公園，而非海岸線。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 3 關｜選擇巡航策略",
+          "mode": "multiple_choice",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 4 關｜說出你想找的東西",
+          "mode": "keyword",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 5 關｜留下海岸合照",
+          "mode": "ai_score",
+          "passed": true,
+          "reason": "鯨語觀察：照片中沒有海岸線或海洋元素，與任務「留下海岸合照」的要求不符。圖片呈現的是森林營火場景，動物們圍繞著火焰，氛圍溫馨可愛，但與任務主題無關。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 1 關｜燈塔開機",
+          "mode": "location",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 2 關｜辨識海邊物件",
+          "mode": "ai_identify",
+          "passed": true,
+          "reason": "鯨語觀察：The image depicts animals (bear, bird, goat) gathered around a campfire with text in Chinese. It does not contain any coastal objects.\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 3 關｜數一數眼前線索",
+          "mode": "ai_count",
+          "passed": true,
+          "reason": "鯨語觀察：畫面中明顯可見一個熊的圖案。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 4 關｜輸入燈塔密碼",
+          "mode": "number",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 5 關｜檢查場景條件",
+          "mode": "ai_rule_check",
+          "passed": true,
+          "reason": "鯨語觀察：畫面包含視野（整體圖面）、主體（熊、鳥、山羊、火焰）、背景（樹木、地面），構成一個完整的觀測場景。雖然是卡通風格，但元素清晰可辨識。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "機會｜海風補給",
+          "mode": "chance",
+          "lmReason": "機會關卡"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "問題｜路線判斷",
+          "task": "棋盤挑戰｜回答海岸問題",
+          "mode": "manual",
+          "lmReason": "已完成"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "挑戰｜輸入口令",
+          "task": "棋盤挑戰｜輸入口令",
+          "mode": "manual",
+          "lmReason": "已完成"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "機會｜捷徑",
+          "mode": "chance",
+          "lmReason": "機會關卡"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "事件｜潮水回退",
+          "mode": "event",
+          "lmReason": "事件關卡"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "終點｜命運靠岸",
+          "mode": "story",
+          "lmReason": "終點"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "挑戰｜第一張觀測照",
+          "task": "燈塔挑戰｜第一張觀測照",
+          "mode": "ai_score",
+          "lmReason": "鯨語觀察：圖片包含一個卡通風格的插圖，描繪了熊、鳥和山羊圍繞篝火的場景，並且有文字標籤「Mnibu」以及其他中文文字。這符合任務要求中描述玩家照片的定義。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "事件｜補給",
+          "mode": "event",
+          "lmReason": "事件關卡"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "機會｜再前進",
+          "mode": "chance",
+          "lmReason": "機會關卡"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "問題｜終點前確認",
+          "task": "燈塔挑戰｜快速作答",
+          "mode": "manual",
+          "lmReason": "已完成"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "終點｜燈塔衝線",
+          "mode": "story",
+          "lmReason": "終點"
+        }
+      ]
+    },
+    {
+      "username": "0903100005",
+      "playedAt": "2026-04-08T16:31:22.337Z",
+      "steps": [
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 1 關｜碼頭報到",
+          "mode": "location",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 2 關｜找回海岸視角",
+          "mode": "ai_reference_match",
+          "passed": true,
+          "reason": "鯨語觀察：玩家照片展示的是一個卡通風格的插圖，包含熊、鹿和鳥等動物，以及篝火。與參考照片中海岸/碼頭的視角完全不符。插圖場景更像是森林或公園，而非海岸線。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 3 關｜選擇巡航策略",
+          "mode": "multiple_choice",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 4 關｜說出你想找的東西",
+          "mode": "keyword",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 5 關｜留下海岸合照",
+          "mode": "ai_score",
+          "passed": true,
+          "reason": "鯨語觀察：照片中沒有海岸線或海洋元素，與任務「留下海岸合照」的要求不符。圖片呈現的是森林營火場景，動物們圍繞著火焰，氛圍溫馨可愛，但與任務主題無關。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 1 關｜燈塔開機",
+          "mode": "location",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 2 關｜辨識海邊物件",
+          "mode": "ai_identify",
+          "passed": true,
+          "reason": "鯨語觀察：The image depicts animals (bear, bird, goat) gathered around a campfire with text in Chinese. It does not contain any coastal objects.\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 3 關｜數一數眼前線索",
+          "mode": "ai_count",
+          "passed": true,
+          "reason": "鯨語觀察：畫面中明顯可見一個熊的圖案。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 4 關｜輸入燈塔密碼",
+          "mode": "number",
+          "passed": true,
+          "reason": "已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 5 關｜檢查場景條件",
+          "mode": "ai_rule_check",
+          "passed": true,
+          "reason": "鯨語觀察：畫面包含視野（整體圖面）、主體（熊、鳥、山羊、火焰）、背景（樹木、地面），構成一個完整的觀測場景。雖然是卡通風格，但元素清晰可辨識。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "機會｜海風補給",
+          "mode": "chance",
+          "lmReason": "機會關卡"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "問題｜路線判斷",
+          "task": "棋盤挑戰｜回答海岸問題",
+          "mode": "manual",
+          "lmReason": "已完成"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "挑戰｜輸入口令",
+          "task": "棋盤挑戰｜輸入口令",
+          "mode": "manual",
+          "lmReason": "已完成"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "機會｜捷徑",
+          "mode": "chance",
+          "lmReason": "機會關卡"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "事件｜潮水回退",
+          "mode": "event",
+          "lmReason": "事件關卡"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "終點｜命運靠岸",
+          "mode": "story",
+          "lmReason": "終點"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "挑戰｜第一張觀測照",
+          "task": "燈塔挑戰｜第一張觀測照",
+          "mode": "ai_score",
+          "lmReason": "鯨語觀察：圖片包含一個卡通風格的插圖，描繪了熊、鳥和山羊圍繞篝火的場景，並且有文字標籤「Mnibu」以及其他中文文字。這符合任務要求中描述玩家照片的定義。\n\n教學模式先替你放行，讓你可以繼續往下體驗。"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "事件｜補給",
+          "mode": "event",
+          "lmReason": "事件關卡"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "機會｜再前進",
+          "mode": "chance",
+          "lmReason": "機會關卡"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "問題｜終點前確認",
+          "task": "燈塔挑戰｜快速作答",
+          "mode": "manual",
+          "lmReason": "已完成"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "終點｜燈塔衝線",
+          "mode": "story",
+          "lmReason": "終點"
+        }
+      ]
+    }
+  ],
+  "completedAt": "2026-04-08T16:33:43.059Z"
+}

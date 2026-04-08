@@ -1,7 +1,7 @@
 const puppeteer = require('puppeteer');
 const path = require('path');
 
-const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:4315';
+const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:4325';
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin';
 const COVER_PATH = process.env.COVER_PATH || path.resolve(__dirname, '../public/images/mascot.png');

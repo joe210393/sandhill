@@ -216,6 +216,8 @@ function sanitizeTaskRow(row) {
     options: parseJsonField(row.options, row.options),
     ai_config: parseJsonField(row.ai_config, null),
     pass_criteria: parseJsonField(row.pass_criteria, null),
+    event_config: parseJsonField(row.event_config, null),
+    is_active: row.is_active == null ? true : Boolean(row.is_active),
     location_required: Boolean(row.location_required)
   };
 }
@@ -2532,7 +2534,9 @@ app.post('/api/tasks', staffOrAdminAuth, async (req, res) => {
     ar_model_id,
     ar_order_model, ar_order_image, ar_order_youtube,
     // 背景音樂
-    bgm_url
+    bgm_url,
+    stage_template, stage_intro, hint_text, story_context, guide_content, rescue_content,
+    event_config, is_active
   } = req.body;
 
   console.log('[POST /api/tasks] Received:', req.body);
@@ -2642,7 +2646,16 @@ app.post('/api/tasks', staffOrAdminAuth, async (req, res) => {
       ar_order_model: orderModel,
       ar_order_image: orderImage,
       ar_order_youtube: orderYoutube,
-      bgm_url: bgmUrlValue
+      bgm_url: bgmUrlValue,
+      cover_image_url: photoUrl,
+      stage_template: normalizeNullableString(stage_template),
+      stage_intro: normalizeNullableString(stage_intro),
+      hint_text: normalizeNullableString(hint_text),
+      story_context: normalizeNullableString(story_context),
+      guide_content: normalizeNullableString(guide_content),
+      rescue_content: normalizeNullableString(rescue_content),
+      event_config: stringifyJsonField(parseJsonField(event_config, null)),
+      is_active: is_active === undefined ? true : normalizeBoolean(is_active)
     };
     const filteredRecord = Object.fromEntries(
       Object.entries(taskRecord).filter(([column]) => taskColumns.has(column))
@@ -2972,7 +2985,9 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
     ar_model_id,
     ar_order_model, ar_order_image, ar_order_youtube,
     // 背景音樂
-    bgm_url
+    bgm_url,
+    stage_template, stage_intro, hint_text, story_context, guide_content, rescue_content,
+    event_config, is_active
   } = req.body;
 
   let conn;
@@ -3091,7 +3106,16 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
       ar_order_model: orderModel,
       ar_order_image: orderImage,
       ar_order_youtube: orderYoutube,
-      bgm_url: bgmUrlValue
+      bgm_url: bgmUrlValue,
+      cover_image_url: photoUrl,
+      stage_template: normalizeNullableString(stage_template),
+      stage_intro: normalizeNullableString(stage_intro),
+      hint_text: normalizeNullableString(hint_text),
+      story_context: normalizeNullableString(story_context),
+      guide_content: normalizeNullableString(guide_content),
+      rescue_content: normalizeNullableString(rescue_content),
+      event_config: stringifyJsonField(parseJsonField(event_config, null)),
+      is_active: is_active === undefined ? true : normalizeBoolean(is_active)
     };
     const filteredRecord = Object.fromEntries(
       Object.entries(taskRecord).filter(([column]) => taskColumns.has(column))
@@ -3842,7 +3866,9 @@ app.post('/api/tutorial/ai-tasks/:taskId/submit', uploadAiTaskImage.single('imag
     try {
       lmEvaluation = await evaluateAiTaskImage(task, req.file, {
         latitude: req.body.latitude,
-        longitude: req.body.longitude
+        longitude: req.body.longitude,
+        timeoutMs: runtimeFlags.demoAutoPass ? 3000 : 180000,
+        maxRetries: runtimeFlags.demoAutoPass ? 0 : 2
       });
     } catch (lmErr) {
       console.warn('教學模式匿名 LM 判定失敗，改用自動放行內容:', lmErr?.message || lmErr);
@@ -4025,7 +4051,9 @@ app.post('/api/ai-tasks/:taskId/submit', authenticateToken, uploadAiTaskImage.si
       try {
         lmEvaluation = await evaluateAiTaskImage(task, req.file, {
           latitude: req.body.latitude,
-          longitude: req.body.longitude
+          longitude: req.body.longitude,
+          timeoutMs: runtimeFlags.demoAutoPass ? 3000 : 180000,
+          maxRetries: runtimeFlags.demoAutoPass ? 0 : 2
         });
       } catch (lmErr) {
         console.warn('教學模式 LM 判定失敗，改用自動放行內容:', lmErr?.message || lmErr);
@@ -4047,7 +4075,9 @@ app.post('/api/ai-tasks/:taskId/submit', authenticateToken, uploadAiTaskImage.si
     } else {
       evaluation = await evaluateAiTaskImage(task, req.file, {
         latitude: req.body.latitude,
-        longitude: req.body.longitude
+        longitude: req.body.longitude,
+        timeoutMs: 180000,
+        maxRetries: 2
       });
     }
 
@@ -5299,7 +5329,10 @@ async function evaluateAiTaskImage(task, file, extraContext = {}) {
         temperature: 0
       })
     },
-    { timeoutMs: 180000, maxRetries: 2 }
+    {
+      timeoutMs: Number(extraContext.timeoutMs || 180000),
+      maxRetries: Number.isFinite(Number(extraContext.maxRetries)) ? Number(extraContext.maxRetries) : 2
+    }
   );
 
   const aiData = await response.json();
