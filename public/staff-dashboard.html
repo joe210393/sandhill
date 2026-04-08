@@ -1373,20 +1373,7 @@
 
   <script src="/js/staff-dashboard.js"></script>
   <script>
-    // Auth
     window.loginUser = JSON.parse(localStorage.getItem('loginUser') || 'null');
-    if (!window.loginUser || !['admin', 'shop', 'staff'].includes(window.loginUser.role)) {
-      alert('僅限管理員、商店或工作人員使用');
-      window.location.href = '/index.html';
-    }
-    if (window.loginUser) {
-      const info = document.getElementById('loginUserInfo');
-      const roles = { admin: '管理員', shop: '工作人員', user: '玩家' };
-      info.textContent = `${roles[window.loginUser.role] || ''}：${window.loginUser.username}`;
-      const logoutBtn = document.getElementById('logoutBtn');
-      logoutBtn.style.display = 'inline-block';
-      logoutBtn.onclick = () => { localStorage.removeItem('loginUser'); window.location.href = '/login.html'; };
-    }
   </script>
 </body>
 </html>

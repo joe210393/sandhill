@@ -4,12 +4,69 @@
 // Backend API unchanged — only presentation layer refactored
 // ============================================================
 
-const loginUser = window.loginUser || JSON.parse(localStorage.getItem('loginUser') || 'null');
-if (!loginUser || !['admin', 'shop', 'staff'].includes(loginUser.role)) {
-  window.location.href = '/login.html';
-}
+let loginUser = window.loginUser || JSON.parse(localStorage.getItem('loginUser') || 'null');
 
 const API_BASE = '';
+const nativeFetch = window.fetch.bind(window);
+
+function withActorHeaders(extra = {}) {
+  return loginUser?.username && !extra['x-username']
+    ? { ...extra, 'x-username': loginUser.username }
+    : extra;
+}
+
+window.fetch = async function patchedStaffFetch(input, options = {}) {
+  const mergedOptions = {
+    credentials: 'same-origin',
+    ...options,
+    headers: withActorHeaders(options.headers || {})
+  };
+
+  try {
+    const res = await nativeFetch(input, mergedOptions);
+    const contentType = (res.headers.get('content-type') || '').toLowerCase();
+    if (contentType.includes('application/json') || res.status === 204) {
+      return res;
+    }
+
+    const text = await res.text();
+    const message =
+      res.status === 401 ? '登入已失效，請重新登入' :
+      res.status === 502 ? '伺服器暫時無法回應（Bad Gateway），請稍後再試' :
+      (text || `HTTP ${res.status}`);
+
+    return new Response(JSON.stringify({ success: false, message }), {
+      status: res.status,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      message: '網路連線失敗，請稍後再試'
+    }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+};
+
+async function apiJson(url, options = {}) {
+  const res = await fetch(url, options);
+  let data = null;
+  try {
+    data = await res.json();
+  } catch (error) {
+    throw new Error('伺服器回應格式異常');
+  }
+
+  if (res.status === 401) {
+    localStorage.removeItem('loginUser');
+    window.location.href = '/login.html';
+    throw new Error(data?.message || '登入已失效，請重新登入');
+  }
+
+  return data;
+}
 
 // ── Global State ──────────────────────────────────────────────
 let globalQuestChainsMap = {};
@@ -235,7 +292,12 @@ function closeDrawer() {
 function submitActiveForm() {
   if (!activeFormId) return;
   const form = document.getElementById(activeFormId);
-  if (form.reportValidity()) {
+  if (!form) {
+    showToast('目前沒有可儲存的表單', 'error');
+    activeFormId = null;
+    return;
+  }
+  if (typeof form.reportValidity === 'function' && form.reportValidity()) {
     form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
   }
 }
@@ -2353,6 +2415,56 @@ function applySidebarRBAC() {
   if (createSection) createSection.style.display = role === 'admin' ? 'block' : 'none';
 }
 
+function hydrateLoginHeader() {
+  const info = document.getElementById('loginUserInfo');
+  const roles = { admin: '管理員', shop: '工作人員', staff: '工作人員', user: '玩家' };
+  if (info && loginUser) {
+    info.textContent = `${roles[loginUser.role] || ''}：${loginUser.username}`;
+  }
+
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+    logoutBtn.style.display = loginUser ? 'inline-block' : 'none';
+    logoutBtn.onclick = async () => {
+      try {
+        await apiJson(`${API_BASE}/api/logout`, { method: 'POST' });
+      } catch (error) {
+        // ignore logout API errors; local cleanup below is sufficient
+      }
+      localStorage.removeItem('loginUser');
+      window.location.href = '/login.html';
+    };
+  }
+}
+
+async function bootstrapSession() {
+  try {
+    const data = await apiJson(`${API_BASE}/api/me`);
+    loginUser = data.user;
+    window.loginUser = data.user;
+    localStorage.setItem('loginUser', JSON.stringify(data.user));
+    hydrateLoginHeader();
+    applySidebarRBAC();
+    selectInitialStaffView();
+
+    const role = loginUser?.role || '';
+    const initLoads = [];
+    if (role === 'admin') {
+      initLoads.push(loadQuestChains(), loadItems(), loadARModels(), loadBgmAssets(), loadProducts());
+    } else if (role === 'shop') {
+      initLoads.push(loadProducts());
+    } else if (role !== 'staff') {
+      throw new Error('僅限管理員、商店或工作人員使用');
+    }
+
+    await Promise.all(initLoads);
+  } catch (error) {
+    alert(error.message || '請先以管理員或工作人員登入內容控制台');
+    localStorage.removeItem('loginUser');
+    window.location.href = '/login.html';
+  }
+}
+
 // ── Mobile Sidebar Toggle ─────────────────────────────────────
 const sidebarToggle = document.getElementById('sidebarToggle');
 const mainSidebar = document.getElementById('mainSidebar');
@@ -2868,19 +2980,4 @@ window.addEventListener('hashchange', () => {
 });
 
 // ── Init: Load everything ─────────────────────────────────────
-applySidebarRBAC();
-selectInitialStaffView();
-
-// Load data based on role
-const role = loginUser?.role || '';
-const initLoads = [];
-if (role === 'admin') {
-  initLoads.push(loadQuestChains(), loadItems(), loadARModels(), loadBgmAssets(), loadProducts());
-} else if (role === 'shop') {
-  initLoads.push(loadProducts());
-} else if (role === 'staff') {
-  // 僅審核：由任務審核 iframe 自行載入
-}
-Promise.all(initLoads).then(() => {
-  // Ready
-});
+bootstrapSession();
