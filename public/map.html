@@ -135,12 +135,9 @@
         <a href="/ai-lab.html">海底探索艙</a>
         <a href="/tasks-list.html" id="navTasksList">關卡圖鑑</a>
         <a href="/products.html" id="navProducts">獎勵兌換</a>
-        <a href="/user-tasks.html">審核台</a>
-        <a href="/staff-dashboard.html" id="navStaff" style="display:none;">內容控制台</a>
-        <a href="/role-management.html" id="navRoleMgmt" style="display:none;">權限管理</a>
+        <a href="/user-tasks.html" id="navReviewDesk">審核台</a>
+        <a href="/staff-dashboard.html" id="navStaff" style="display:none;">管理控制台</a>
         <a href="/user-dashboard.html" id="navUserTasks" style="display:none;">玩家中心</a>
-        <a href="/redeem-tasks.html" id="navRedeem" style="display:none;">兌換內容控制台</a>
-        <a href="/admin-users.html" id="navAdminUsers" style="display:none;">會員管理</a>
         <span id="loginUserInfo" style="display:none; color:#666;text-decoration:none;cursor:default;"></span>
         <button id="logoutBtn" style="display:none;">登出</button>
       </nav>
@@ -178,10 +175,8 @@
       // 根據權限顯示導航鏈接
       if (loginUser.role === 'admin') {
         document.getElementById('navStaff').style.display = '';
-        document.getElementById('navRedeem').style.display = '';
       } else if (loginUser.role === 'shop') {
         document.getElementById('navStaff').style.display = '';
-        document.getElementById('navRedeem').style.display = '';
       }
       // 所有已登入用戶都可以看到用戶任務管理 (僅限一般用戶)
       if (loginUser.role === 'user') {

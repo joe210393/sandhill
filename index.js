@@ -1240,6 +1240,34 @@ app.get('/api/board-maps/by-quest-chain/:questChainId', async (req, res) => {
   }
 });
 
+// 後台：依玩法入口列出大富翁地圖（無地圖時仍 200，供控制台建立流程）
+app.get('/api/board-maps/for-admin/:questChainId', staffOrAdminAuth, async (req, res) => {
+  const { questChainId } = req.params;
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [maps] = await conn.execute(
+      `SELECT bm.*,
+              (SELECT COUNT(*) FROM board_tiles bt WHERE bt.board_map_id = bm.id) AS tile_count,
+              (SELECT COUNT(*) FROM board_tiles bt WHERE bt.board_map_id = bm.id AND bt.tile_type = 'challenge') AS challenge_tile_count,
+              (SELECT COUNT(*) FROM board_tiles bt WHERE bt.board_map_id = bm.id AND bt.tile_type = 'event') AS event_tile_count
+       FROM board_maps bm
+       WHERE bm.quest_chain_id = ?
+       ORDER BY bm.id ASC`,
+      [questChainId]
+    );
+    res.json({
+      success: true,
+      boardMaps: maps.map((row) => sanitizeBoardMapRow(row))
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '載入大富翁地圖失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
 app.get('/api/board-maps/admin', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
@@ -1300,7 +1328,7 @@ app.post('/api/board-maps', staffOrAdminAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: '找不到對應玩法入口' });
     }
 
-    await conn.execute(
+    const [insertResult] = await conn.execute(
       `INSERT INTO board_maps
        (quest_chain_id, name, description, play_style, cover_image, center_lat, center_lng, max_rounds,
         start_tile, finish_tile, dice_min, dice_max, failure_move, exact_finish_required, reward_points,
@@ -1327,7 +1355,11 @@ app.post('/api/board-maps', staffOrAdminAuth, async (req, res) => {
         req.user?.username || null
       ]
     );
-    res.json({ success: true, message: '大富翁地圖建立成功' });
+    res.json({
+      success: true,
+      message: '大富翁地圖建立成功',
+      id: insertResult.insertId
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: '建立大富翁地圖失敗' });
@@ -2284,8 +2316,12 @@ app.post('/api/tasks', staffOrAdminAuth, async (req, res) => {
     const filteredRecord = Object.fromEntries(
       Object.entries(taskRecord).filter(([column]) => taskColumns.has(column))
     );
-    await insertDynamicRecord(conn, 'tasks', filteredRecord);
-    res.json({ success: true, message: '新增成功' });
+    const [insertHeader] = await insertDynamicRecord(conn, 'tasks', filteredRecord);
+    res.json({
+      success: true,
+      message: '新增成功',
+      id: insertHeader.insertId
+    });
   } catch (err) {
     console.error(err);
     res.status(err.message?.includes('AI ') || err.message?.includes('max_attempts') || err.message?.includes('信心值') ? 400 : 500).json({ success: false, message: err.message || '伺服器錯誤' });
@@ -4326,23 +4362,29 @@ app.get('/api/product-redemptions/admin', staffOrAdminAuth, async (req, res) => 
 // 獲取所有用戶列表（含統計資訊，支持分頁）- 僅 admin
 app.get('/api/admin/users', adminAuth, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 50;
+  const limit = Math.min(parseInt(req.query.limit) || 50, 200);
   const offset = (page - 1) * limit;
+  const searchRaw = String(req.query.search || '').trim().slice(0, 120);
+  const safeSearch = searchRaw.replace(/[%_\\]/g, '');
+  const searchPattern = safeSearch.length ? `%${safeSearch}%` : null;
 
   let conn;
   try {
     conn = await pool.getConnection();
 
-    // 獲取總用戶數
-    const [totalCount] = await conn.execute(
-      'SELECT COUNT(*) as total FROM users WHERE role = ?',
-      ['user']
-    );
+    let countSql = `SELECT COUNT(*) as total FROM users u WHERE u.role = 'user'`;
+    const countParams = [];
+    if (searchPattern) {
+      countSql += ' AND u.username LIKE ?';
+      countParams.push(searchPattern);
+    }
+    const [totalCount] = await conn.execute(countSql, countParams);
     const totalUsers = totalCount[0].total;
 
-    // 獲取用戶列表 + 統計資訊
-    // 注意：直接將 limit 和 offset 放入查詢字串，避免 prepared statement 參數問題
-    const [users] = await conn.query(`
+    const searchSql = searchPattern ? 'AND u.username LIKE ?' : '';
+    const listParams = searchPattern ? [searchPattern, limit, offset] : [limit, offset];
+    const [users] = await conn.execute(
+      `
       SELECT 
         u.id,
         u.username,
@@ -4356,16 +4398,20 @@ app.get('/api/admin/users', adminAuth, async (req, res) => {
       LEFT JOIN point_transactions pt ON pt.user_id = u.id
       LEFT JOIN user_tasks ut ON ut.user_id = u.id
       WHERE u.role = 'user'
+      ${searchSql}
       GROUP BY u.id, u.username, u.role, u.created_at
       ORDER BY u.created_at DESC
-      LIMIT ${limit} OFFSET ${offset}
-    `);
+      LIMIT ? OFFSET ?
+    `,
+      listParams
+    );
 
-    const totalPages = Math.ceil(totalUsers / limit);
+    const totalPages = Math.max(1, Math.ceil(totalUsers / limit));
 
     res.json({
       success: true,
       users,
+      total: totalUsers,
       pagination: {
         page,
         limit,
@@ -5560,6 +5606,114 @@ app.get('/api/coupons/redeem-history', shopOrAdminAuth, async (req, res) => {
   }
 });
 
+// ── 遊戲 NPC 設定（後台編輯文案／頭像；ai-lab 仍以 npc_key 對照）────────
+const VALID_NPC_KEY = /^[a-z][a-z0-9_]{0,30}$/;
+
+app.get('/api/game-npcs', async (req, res) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [rows] = await conn.execute(
+      'SELECT id, npc_key, display_name, portrait_emoji, role_line, description, sort_order FROM game_npcs ORDER BY sort_order ASC, id ASC'
+    );
+    res.json({ success: true, npcs: rows });
+  } catch (err) {
+    console.error('game-npcs list', err);
+    res.status(500).json({ success: false, message: '讀取 NPC 失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.post('/api/game-npcs', adminAuth, async (req, res) => {
+  const { npc_key, display_name, portrait_emoji, role_line, description, sort_order } = req.body || {};
+  if (!npc_key || !display_name) {
+    return res.status(400).json({ success: false, message: '缺少 npc_key 或 display_name' });
+  }
+  if (!VALID_NPC_KEY.test(String(npc_key).trim())) {
+    return res.status(400).json({
+      success: false,
+      message: 'npc_key 僅能使用小寫英數與底線，且需以字母開頭'
+    });
+  }
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [r] = await conn.execute(
+      `INSERT INTO game_npcs (npc_key, display_name, portrait_emoji, role_line, description, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        String(npc_key).trim(),
+        String(display_name).trim(),
+        portrait_emoji != null ? String(portrait_emoji).trim().slice(0, 16) : '🧭',
+        role_line != null ? String(role_line).trim().slice(0, 64) : '',
+        description != null ? String(description).trim() : '',
+        Number(sort_order) || 0
+      ]
+    );
+    res.json({ success: true, message: 'NPC 已建立', id: r.insertId });
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ success: false, message: 'npc_key 已存在' });
+    }
+    console.error('game-npcs create', err);
+    res.status(500).json({ success: false, message: '建立 NPC 失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.put('/api/game-npcs/:id', adminAuth, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ success: false, message: '無效的 ID' });
+  }
+  const { display_name, portrait_emoji, role_line, description, sort_order } = req.body || {};
+  if (!display_name) {
+    return res.status(400).json({ success: false, message: '缺少 display_name' });
+  }
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    await conn.execute(
+      `UPDATE game_npcs SET display_name = ?, portrait_emoji = ?, role_line = ?, description = ?, sort_order = ?
+       WHERE id = ?`,
+      [
+        String(display_name).trim(),
+        portrait_emoji != null ? String(portrait_emoji).trim().slice(0, 16) : '🧭',
+        role_line != null ? String(role_line).trim().slice(0, 64) : '',
+        description != null ? String(description).trim() : '',
+        Number(sort_order) || 0,
+        id
+      ]
+    );
+    res.json({ success: true, message: 'NPC 已更新' });
+  } catch (err) {
+    console.error('game-npcs update', err);
+    res.status(500).json({ success: false, message: '更新 NPC 失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.delete('/api/game-npcs/:id', adminAuth, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ success: false, message: '無效的 ID' });
+  }
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    await conn.execute('DELETE FROM game_npcs WHERE id = ?', [id]);
+    res.json({ success: true, message: 'NPC 已刪除' });
+  } catch (err) {
+    console.error('game-npcs delete', err);
+    res.status(500).json({ success: false, message: '刪除 NPC 失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 
 // catch-all route for static html (avoid 404 on /), 只針對非 /api/ 路徑
@@ -5714,6 +5868,33 @@ if (!SKIP_DB) {
           )
         `);
         console.log('✅ 資料庫遷移: user_coupons 表已建立');
+
+        await conn.execute(`
+          CREATE TABLE IF NOT EXISTS game_npcs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            npc_key VARCHAR(32) NOT NULL,
+            display_name VARCHAR(100) NOT NULL,
+            portrait_emoji VARCHAR(16) DEFAULT '🧭',
+            role_line VARCHAR(64) DEFAULT '',
+            description TEXT,
+            sort_order INT DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_game_npcs_key (npc_key)
+          )
+        `);
+        const [npcCountRows] = await conn.execute('SELECT COUNT(*) AS c FROM game_npcs');
+        if (npcCountRows[0].c === 0) {
+          await conn.execute(
+            `INSERT INTO game_npcs (npc_key, display_name, portrait_emoji, role_line, description, sort_order) VALUES
+             ('guide', '引路人・史蛋', '🥚', 'guide / host', '負責引導、事件主持', 1),
+             ('gatekeeper', '潮汐關主・巴布', '🦀', 'gatekeeper / rescue', '負責挑戰、救援提示', 2),
+             ('judge', '潮汐裁判・鯨老', '🐋', 'judge / lore', '負責判定、知識導覽', 3)`
+          );
+          console.log('✅ 資料庫遷移: game_npcs 已寫入預設三角色');
+        } else {
+          console.log('✅ 資料庫遷移: game_npcs 表已就緒');
+        }
 
         // 5. 建立推送訂閱表
         await conn.execute(`

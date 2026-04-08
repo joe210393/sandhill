@@ -1131,11 +1131,9 @@
         <a href="/index.html" class="current-page">首頁</a>
         <a href="#storySelector">劇本入口</a>
         <a href="/user-tasks.html">遊戲紀錄</a>
-        <a href="/staff-dashboard.html" id="navStaff" style="display:none;">建立關卡</a>
-        <a href="/role-management.html" id="navRoleMgmt" style="display:none;">權限管理</a>
+        <a href="/staff-dashboard.html" id="navStaff" style="display:none;">管理控制台</a>
         <a href="/user-dashboard.html" id="navUserTasks" style="display:none;">玩家管理</a>
         <a href="/products.html" id="navProducts">獎勵兌換</a>
-        <a href="/redeem-tasks.html" id="navRedeem" style="display:none;">兌換管理</a>
         <a href="/ai-lab.html">直接進入遊戲畫面</a>
         <span id="loginUserInfo" style="color:#eef9ff;"></span>
         <button id="logoutBtn" style="display:none;">登出</button>
@@ -1295,11 +1293,8 @@
 
       if (loginUser.role === 'admin') {
         document.getElementById('navStaff').style.display = '';
-        document.getElementById('navRedeem').style.display = '';
-        document.getElementById('navRoleMgmt').style.display = '';
       } else if (loginUser.role === 'shop') {
         document.getElementById('navStaff').style.display = '';
-        document.getElementById('navRedeem').style.display = '';
       } else if (loginUser.role === 'user') {
         document.getElementById('navUserTasks').style.display = '';
       }

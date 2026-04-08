@@ -358,12 +358,10 @@
         <a href="/map.html">探索地圖</a>
         <a href="/tasks-list.html" id="navTasksList">關卡列表</a>
         <a href="/ai-lab.html">海底探索艙</a>
-        <a href="/user-tasks.html">任務紀錄</a>
-        <a href="/staff-dashboard.html" id="navStaff" style="display:none;">建立關卡</a>
-        <a href="/role-management.html" id="navRoleMgmt" style="display:none;">權限管理</a>
+        <a href="/user-tasks.html" id="navReviewDesk">任務紀錄</a>
+        <a href="/staff-dashboard.html" id="navStaff" style="display:none;">管理控制台</a>
         <a href="/user-dashboard.html" id="navUserTasks" style="display:none;">玩家管理</a>
         <a href="/products.html">獎勵兌換</a>
-        <a href="/redeem-tasks.html" id="navRedeem" style="display:none;">兌換管理</a>
         <span id="loginUserInfo" style="display:none;color:#e2f7ff;padding:0.5rem 1rem;"></span>
         <button id="logoutBtn" style="display:none;">登出</button>
       </nav>
@@ -399,6 +397,7 @@
       switch (user.role) {
         case 'admin': return `管理員：${user.username}`;
         case 'shop': return `主辦單位：${user.username}`;
+        case 'staff': return `工作人員：${user.username}`;
         case 'user': return `冒險者：${user.username}`;
         default: return user.username;
       }
@@ -457,18 +456,21 @@
 
         if (loginUser.role === 'admin') {
           document.getElementById('navStaff').style.display = '';
-          document.getElementById('navRedeem').style.display = '';
-          document.getElementById('navRoleMgmt').style.display = '';
         } else if (loginUser.role === 'shop') {
           document.getElementById('navStaff').style.display = '';
-          document.getElementById('navRedeem').style.display = '';
+        } else if (loginUser.role === 'staff') {
+          const ns = document.getElementById('navStaff');
+          ns.style.display = '';
+          ns.href = '/staff-dashboard.html#review';
         } else if (loginUser.role === 'user') {
           document.getElementById('navUserTasks').style.display = '';
         }
 
-        if (loginUser.role === 'shop' || loginUser.role === 'admin') {
+        if (loginUser.role === 'shop' || loginUser.role === 'admin' || loginUser.role === 'staff') {
           const navTasksList = document.getElementById('navTasksList');
           if (navTasksList) navTasksList.style.display = 'none';
+          const navRd = document.getElementById('navReviewDesk');
+          if (navRd) navRd.style.display = 'none';
         }
       }
 

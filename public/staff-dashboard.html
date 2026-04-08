@@ -226,6 +226,9 @@
       <div class="v2-nav-item" data-view="view-assets" data-roles="admin">
         <span>🧊</span> 共用素材庫
       </div>
+      <div class="v2-nav-item" data-view="view-review" data-roles="admin,shop,staff">
+        <span>✅</span> 任務審核
+      </div>
       <div class="v2-sidebar-label" style="margin-top:12px;">兌換營運</div>
       <div class="v2-nav-item" data-view="view-products" data-roles="admin,shop">
         <span>📦</span> 兌換商品管理
@@ -266,19 +269,28 @@
         <div class="breadcrumb" onclick="switchView('view-quest-chains')">← 返回玩法入口列表</div>
         <div class="view-header">
           <h2 id="detailQuestTitle">載入中...</h2>
-          <div id="detailActions" style="display:flex; gap:8px;">
+          <div id="detailActions" style="display:flex; gap:8px; flex-wrap:wrap;">
             <button id="btnAddTask" class="btn-md btn-primary-v2" onclick="openTaskDrawerForCreate()">+ 新增關卡</button>
             <button id="btnAddTile" class="btn-md btn-primary-v2" style="display:none;" onclick="openTileDrawerForCreate()">+ 新增格子</button>
           </div>
         </div>
         <!-- Board map info bar (for board_game mode) -->
         <div id="boardMapInfoBar" style="display:none; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:14px 18px; margin-bottom:16px;">
-          <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
-            <span id="boardMapName" style="font-weight:600; color:#1d4ed8;"></span>
-            <span class="tag tag-gray" id="boardMapStyle"></span>
-            <span class="tag tag-gray" id="boardMapTileCount"></span>
-            <span class="tag tag-gray" id="boardMapDice"></span>
-            <span class="tag tag-gray" id="boardMapRange"></span>
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:12px; justify-content:space-between;">
+            <div id="boardMapStatsBlock" style="display:none; flex-wrap:wrap; gap:12px; align-items:center;">
+              <span id="boardMapName" style="font-weight:600; color:#1d4ed8;"></span>
+              <span class="tag tag-gray" id="boardMapStyle"></span>
+              <span class="tag tag-gray" id="boardMapTileCount"></span>
+              <span class="tag tag-gray" id="boardMapDice"></span>
+              <span class="tag tag-gray" id="boardMapRange"></span>
+            </div>
+            <div id="boardMapEmptyBlock" style="display:none; color:#64748b; font-size:0.92rem;">
+              此大富翁入口尚未建立地圖，請先建立地圖後再新增格子。
+            </div>
+            <div style="display:flex; gap:8px; flex-shrink:0;">
+              <button type="button" id="btnCreateBoardMap" class="btn-sm btn-primary-v2" style="display:none;" onclick="openBoardMapDrawer(false)">+ 建立大富翁地圖</button>
+              <button type="button" id="btnEditBoardMap" class="btn-sm btn-secondary-v2" style="display:none;" onclick="openBoardMapDrawer(true)">編輯地圖</button>
+            </div>
           </div>
         </div>
         <div id="questDetailContentContainer" style="display:grid; gap:10px;">
@@ -290,9 +302,10 @@
       <div id="view-assets" class="v2-view">
         <div class="view-header">
           <h2>共用素材庫</h2>
-          <div id="assetActions" style="display:flex; gap:8px;">
+          <div id="assetActions" style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn-md btn-primary-v2" id="btnAssetAdd" onclick="openDrawer('上傳模型', 'form-asset')">+ 上傳模型</button>
             <button class="btn-md btn-primary-v2" id="btnItemAdd" style="display:none;" onclick="openDrawer('新增道具', 'form-item')">+ 新增道具</button>
+            <button class="btn-md btn-primary-v2" id="btnNpcAdd" style="display:none;" onclick="openNpcDrawer(false)">+ 新增 NPC</button>
           </div>
         </div>
         <div class="asset-tabs">
@@ -311,27 +324,21 @@
           </div>
         </div>
         <div id="assetSection-npc" class="asset-section">
-          <p class="view-subtitle">NPC 角色目前為系統內建，管理員可在關卡中選擇哪個角色出場。</p>
-          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:12px;">
-            <div style="background:white; padding:16px; border-radius:10px; border:1px solid #e2e8f0; text-align:center;">
-              <div style="font-size:3rem; margin-bottom:8px;">🥚</div>
-              <div style="font-weight:600;">引路人・史蛋</div>
-              <div style="font-size:0.82rem; color:#64748b;">guide / host</div>
-              <div style="font-size:0.82rem; color:#94a3b8; margin-top:4px;">負責引導、事件主持</div>
-            </div>
-            <div style="background:white; padding:16px; border-radius:10px; border:1px solid #e2e8f0; text-align:center;">
-              <div style="font-size:3rem; margin-bottom:8px;">🦀</div>
-              <div style="font-weight:600;">潮汐關主・巴布</div>
-              <div style="font-size:0.82rem; color:#64748b;">gatekeeper / rescue</div>
-              <div style="font-size:0.82rem; color:#94a3b8; margin-top:4px;">負責挑戰、救援提示</div>
-            </div>
-            <div style="background:white; padding:16px; border-radius:10px; border:1px solid #e2e8f0; text-align:center;">
-              <div style="font-size:3rem; margin-bottom:8px;">🐋</div>
-              <div style="font-weight:600;">潮汐裁判・鯨老</div>
-              <div style="font-size:0.82rem; color:#64748b;">judge / lore</div>
-              <div style="font-size:0.82rem; color:#94a3b8; margin-top:4px;">負責判定、知識導覽</div>
-            </div>
+          <p class="view-subtitle">NPC 文案與頭像會影響遊戲內對白顯示；<code>npc_key</code> 為程式對照用，建立後不可改。</p>
+          <div id="npcListContainer" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:12px;">
+            <div class="empty-state"><div class="empty-state-icon">🎭</div>載入中...</div>
           </div>
+        </div>
+      </div>
+
+      <!-- View: 任務審核（內嵌審核台） -->
+      <div id="view-review" class="v2-view">
+        <div class="view-header">
+          <h2>任務審核</h2>
+        </div>
+        <p class="view-subtitle">審核進行中關卡、人工判定與補件。以下為審核台頁面內嵌顯示。</p>
+        <div class="review-iframe-wrap" style="border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; background:#fff;">
+          <iframe id="reviewTasksIframe" title="任務審核" src="about:blank" style="width:100%; min-height:min(85vh, 900px); border:0; display:block;"></iframe>
         </div>
       </div>
 
@@ -341,7 +348,15 @@
           <h2>兌換商品管理</h2>
           <button class="btn-md btn-primary-v2" onclick="openDrawer('新增商品', 'form-product')">+ 新增商品</button>
         </div>
-        <p class="view-subtitle">管理玩家可用積分兌換的商品。</p>
+        <div id="shopOpsBanner" style="display:none; background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:12px 16px; margin-bottom:14px; color:#92400e; font-size:0.9rem;">
+          您目前為<strong>商店帳號</strong>：此處僅顯示<strong>您建立的</strong>兌換商品；兌換紀錄亦只會列出與這些商品相關的申請。
+        </div>
+        <p class="view-subtitle">後台維護可兌換品項、庫存與上下架。玩家實際兌換請至前台商城操作。</p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; align-items:center;">
+          <a href="/products.html" target="_blank" rel="noopener" class="btn-sm btn-secondary-v2" style="text-decoration:none;">開啟玩家兌換商城（新分頁）</a>
+          <button type="button" class="btn-sm btn-secondary-v2" onclick="switchView('view-redemptions')">前往兌換紀錄</button>
+          <button type="button" class="btn-sm btn-secondary-v2" onclick="switchView('view-pos')">前往優惠券核銷</button>
+        </div>
         <div id="productListContainer" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:14px;">
           <div class="empty-state"><div class="empty-state-icon">📦</div>載入中...</div>
         </div>
@@ -352,6 +367,7 @@
         <div class="view-header">
           <h2>兌換紀錄</h2>
         </div>
+        <p class="view-subtitle">此為<strong>積分兌換商品</strong>的處理佇列（待簽收／已完成）。<strong>優惠券現場核銷</strong>請至「現場核銷」分頁。</p>
         <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
           <select id="redemptionStatusFilter" class="form-select" style="width:auto; min-width:140px;" onchange="loadRedemptions()">
             <option value="">全部狀態</option>
@@ -369,11 +385,12 @@
       <!-- View 6: POS -->
       <div id="view-pos" class="v2-view">
         <div class="view-header"><h2>現場核銷台</h2></div>
+        <p class="view-subtitle">查詢並核銷<strong>優惠券／兌換碼</strong>（與積分商城的「兌換紀錄」不同）。</p>
         <div style="max-width:500px; margin:0 auto;">
           <div style="background:white; padding:24px; border-radius:14px; border:1px solid #e2e8f0; margin-bottom:16px;">
             <label class="form-label" style="font-size:1.1rem; font-weight:700;">輸入優惠券代碼</label>
             <div style="display:flex; gap:10px; margin-top:10px;">
-              <input type="text" id="couponCodeInput" class="form-input" placeholder="請輸入或掃描代碼" style="font-size:1.1rem; flex:1;">
+              <input type="text" id="couponCodeInput" class="form-input" placeholder="請輸入或掃描代碼" style="font-size:1.1rem; flex:1;" autocomplete="off">
               <button class="btn-md btn-primary-v2" onclick="lookupCoupon()" style="white-space:nowrap;">查詢</button>
             </div>
           </div>
@@ -395,8 +412,13 @@
             <button class="btn-md btn-primary-v2" onclick="openDrawer('匯入會員', 'form-import-users')">匯入</button>
           </div>
         </div>
+        <p class="view-subtitle">僅列出角色為「一般玩家」的帳號；搜尋為帳號名稱模糊比對。</p>
+        <div style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; align-items:center;">
+          <input type="search" id="userSearchInput" class="form-input" placeholder="搜尋帳號關鍵字…" style="max-width:280px;" autocomplete="off">
+          <button type="button" class="btn-sm btn-primary-v2" onclick="loadUsers(1)">搜尋</button>
+        </div>
         <div id="userStatsBar" style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:12px 18px; margin-bottom:16px;">
-          <span style="color:#1d4ed8; font-weight:600;">會員總數：<span id="totalUserCount">-</span></span>
+          <span style="color:#1d4ed8; font-weight:600;">符合條件會員數：<span id="totalUserCount">-</span></span>
         </div>
         <div id="userListContainer" style="display:grid; gap:10px;">
           <div class="empty-state"><div class="empty-state-icon">👥</div>載入中...</div>
@@ -407,6 +429,7 @@
       <!-- View 8: Roles -->
       <div id="view-roles" class="v2-view">
         <div class="view-header"><h2>權限管理</h2></div>
+        <p class="view-subtitle" id="rolesViewSubtitle">管理後台帳號與工作人員權限。商店帳號可指派／撤銷 staff；建立 admin／shop 僅限管理員。</p>
         <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
           <div style="background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0;" id="roleSection_createAccount">
             <h3 style="margin:0 0 12px; font-size:1rem;">建立管理帳號</h3>
@@ -517,6 +540,78 @@
               <span style="font-size:0.9rem;">建立後立即開放</span>
             </label>
           </div>
+        </form>
+      </div>
+
+      <!-- Form: Board map (大富翁) -->
+      <div id="form-board-map" class="drawer-form-section">
+        <form id="boardMapForm" class="v2-form">
+          <input type="hidden" name="id" id="bm_id">
+          <input type="hidden" name="quest_chain_id" id="bm_quest_chain_id">
+          <div class="locked-field">
+            <div class="locked-field-label">綁定玩法入口</div>
+            <div class="locked-field-value" id="bm_locked_chain_title">—</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">地圖名稱</label>
+            <input class="form-input" type="text" name="name" required placeholder="例如：濱海大富翁主線">
+          </div>
+          <div class="form-group">
+            <label class="form-label">地圖說明（選填）</label>
+            <textarea class="form-textarea" name="description" style="height:70px;" placeholder="給工作人員或玩家看的簡短說明"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">玩法模板</label>
+            <select class="form-select" name="play_style">
+              <option value="fixed_track_race">終點競走型</option>
+              <option value="random_trip">三回合探索型</option>
+              <option value="round_score">積分累積型</option>
+            </select>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">起點格編號</label>
+              <input class="form-input" type="number" name="start_tile" min="1" value="1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">終點格編號</label>
+              <input class="form-input" type="number" name="finish_tile" min="1" value="8">
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">骰子最小點</label>
+              <input class="form-input" type="number" name="dice_min" min="1" value="1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">骰子最大點</label>
+              <input class="form-input" type="number" name="dice_max" min="1" value="6">
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">挑戰失敗時移動格數</label>
+              <input class="form-input" type="number" name="failure_move" value="-1">
+              <div class="form-hint">通常為負數表示退後</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">通關獎勵積分</label>
+              <input class="form-input" type="number" name="reward_points" min="0" value="0">
+            </div>
+          </div>
+          <div class="form-group">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="checkbox" name="exact_finish_required" value="1" style="width:16px; height:16px;">
+              <span style="font-size:0.9rem;">必須精準停在終點格才算完成</span>
+            </label>
+          </div>
+          <div class="form-group">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="checkbox" name="is_active" value="1" checked style="width:16px; height:16px;">
+              <span style="font-size:0.9rem;">啟用此張地圖</span>
+            </label>
+          </div>
+          <div id="boardMapFormMsg" style="color:#dc2626; font-size:0.88rem; min-height:20px;"></div>
         </form>
       </div>
 
@@ -636,12 +731,17 @@
           <div class="grid-2">
             <div class="form-group">
               <label class="form-label">緯度</label>
-              <input class="form-input" type="number" name="lat" step="any" required>
+              <input class="form-input" type="number" name="lat" id="taskLatInput" step="any" required>
             </div>
             <div class="form-group">
               <label class="form-label">經度</label>
-              <input class="form-input" type="number" name="lng" step="any" required>
+              <input class="form-input" type="number" name="lng" id="taskLngInput" step="any" required>
             </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">貼上座標（選填）</label>
+            <input class="form-input" type="text" id="taskLatLngPaste" placeholder="貼上 Google 地圖座標，如 24.678, 121.760 或 24.678 121.760" autocomplete="off">
+            <div class="form-hint">貼上後會自動填入上方緯度、經度欄位</div>
           </div>
           <div class="grid-2">
             <div class="form-group">
@@ -748,12 +848,14 @@
               </div>
             </div>
             <div class="form-group">
-              <label class="form-label">AI 系統提示詞</label>
-              <textarea name="ai_system_prompt" class="form-textarea" style="height:70px;" placeholder="你是海洋任務判定員..."></textarea>
+              <label class="form-label">給 AI 的角色設定（系統提示）</label>
+              <textarea name="ai_system_prompt" class="form-textarea" style="height:70px;" placeholder="例如：你是海洋保育關卡的公平裁判，只根據規則判斷..."></textarea>
+              <div class="form-hint">對應欄位 <code>ai_system_prompt</code>，決定 AI 的語氣與判斷原則</div>
             </div>
             <div class="form-group">
-              <label class="form-label">AI 使用者提示詞</label>
-              <textarea name="ai_user_prompt" class="form-textarea" style="height:70px;" placeholder="請判斷照片中是否有..."></textarea>
+              <label class="form-label">給 AI 的任務說明（玩家情境）</label>
+              <textarea name="ai_user_prompt" class="form-textarea" style="height:70px;" placeholder="例如：請判斷照片中是否出現寶特瓶，且數量是否足夠..."></textarea>
+              <div class="form-hint">對應欄位 <code>ai_user_prompt</code>，描述本次要檢查的具體內容</div>
             </div>
             <div class="grid-2">
               <div class="form-group">
@@ -914,7 +1016,11 @@
               <select class="form-select" id="tileTaskSelect">
                 <option value="">-- 請選擇關卡 --</option>
               </select>
-              <div class="form-hint">關卡可以在「玩法入口 → 管理內容」裡建立。挑戰格的玩家需要完成這個關卡才能通過。</div>
+              <div class="form-hint">關卡可在本頁右上角「+ 新增關卡」建立。挑戰格的玩家需完成該關卡才能前進。</div>
+            </div>
+            <div class="form-group">
+              <button type="button" class="btn-sm btn-primary-v2" onclick="openTaskDrawerFromTileChallenge()">＋ 建立新關卡並綁定</button>
+              <div class="form-hint">會暫存目前格子表單，建好關卡後自動帶回並選取新關卡</div>
             </div>
           </div>
 
@@ -977,14 +1083,18 @@
             </div>
             <div id="tileLocationFields" style="display:none;">
               <div class="form-hint" style="margin-bottom:8px;">玩家會看到箭頭指向這個格子。不啟用代表活動在小範圍內，不需導航。</div>
+              <div class="form-group">
+                <label class="form-label">貼上座標（選填）</label>
+                <input class="form-input" type="text" id="tileLatLngPaste" placeholder="貼上 Google 地圖座標，如 24.678, 121.760" autocomplete="off">
+              </div>
               <div class="grid-2">
                 <div class="form-group">
                   <label class="form-label">緯度</label>
-                  <input class="form-input" type="number" name="latitude" step="any">
+                  <input class="form-input" type="number" name="latitude" id="tileLatInput" step="any">
                 </div>
                 <div class="form-group">
                   <label class="form-label">經度</label>
-                  <input class="form-input" type="number" name="longitude" step="any">
+                  <input class="form-input" type="number" name="longitude" id="tileLngInput" step="any">
                 </div>
               </div>
               <div class="form-group">
@@ -1051,6 +1161,41 @@
             <input class="form-input" type="number" name="scale" step="0.1" value="1.0">
           </div>
           <div id="assetFormMsg" style="color:#dc2626; font-size:0.88rem; min-height:20px; margin-top:8px;"></div>
+        </form>
+      </div>
+
+      <!-- Form: NPC -->
+      <div id="form-npc" class="drawer-form-section">
+        <form id="npcForm" class="v2-form">
+          <input type="hidden" name="id" id="npc_form_id">
+          <div class="form-group">
+            <label class="form-label">程式鍵值 <code>npc_key</code></label>
+            <input class="form-input" type="text" name="npc_key" id="npc_key_input" required pattern="[a-z][a-z0-9_]{0,30}" placeholder="例如 guide、shop_keeper">
+            <div class="form-hint">僅小寫英數與底線；建立後不可修改</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">顯示名稱</label>
+            <input class="form-input" type="text" name="display_name" required placeholder="玩家看到的稱呼">
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">頭像 Emoji</label>
+              <input class="form-input" type="text" name="portrait_emoji" maxlength="16" placeholder="🧭">
+            </div>
+            <div class="form-group">
+              <label class="form-label">排序</label>
+              <input class="form-input" type="number" name="sort_order" value="0">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">一句角色定位</label>
+            <input class="form-input" type="text" name="role_line" maxlength="64" placeholder="例如：負責引導與講解">
+          </div>
+          <div class="form-group">
+            <label class="form-label">詳細說明（選填）</label>
+            <textarea class="form-textarea" name="description" style="height:80px;" placeholder="給企劃或工程備註用"></textarea>
+          </div>
+          <div id="npcFormMsg" style="color:#dc2626; font-size:0.88rem; min-height:20px; margin-top:8px;"></div>
         </form>
       </div>
 
@@ -1140,8 +1285,8 @@
   <script>
     // Auth
     window.loginUser = JSON.parse(localStorage.getItem('loginUser') || 'null');
-    if (!window.loginUser || (window.loginUser.role !== 'admin' && window.loginUser.role !== 'shop')) {
-      alert('僅限管理員或工作人員使用');
+    if (!window.loginUser || !['admin', 'shop', 'staff'].includes(window.loginUser.role)) {
+      alert('僅限管理員、商店或工作人員使用');
       window.location.href = '/index.html';
     }
     if (window.loginUser) {

@@ -5,7 +5,7 @@
 // ============================================================
 
 const loginUser = window.loginUser || JSON.parse(localStorage.getItem('loginUser') || 'null');
-if (!loginUser || (loginUser.role !== 'admin' && loginUser.role !== 'shop')) {
+if (!loginUser || !['admin', 'shop', 'staff'].includes(loginUser.role)) {
   window.location.href = '/login.html';
 }
 
@@ -40,8 +40,102 @@ function escHtml(str) {
   return d.innerHTML;
 }
 
-// ── View Switching ────────────────────────────────────────────
-function switchView(viewId) {
+/** Paste from Google Maps etc.: "lat, lng" or two decimals */
+function parseLatLngPaste(text) {
+  const t = (text || '').trim();
+  const m = t.match(/(-?\d+\.?\d*)\s*[,，]\s*(-?\d+\.?\d*)/);
+  if (!m) return null;
+  const a = parseFloat(m[1]);
+  const b = parseFloat(m[2]);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  let lat;
+  let lng;
+  if (a >= -90 && a <= 90 && b >= -180 && b <= 180) {
+    lat = a;
+    lng = b;
+  } else if (b >= -90 && b <= 90 && a >= -180 && a <= 180) {
+    lat = b;
+    lng = a;
+  } else {
+    lat = a;
+    lng = b;
+  }
+  return { lat, lng };
+}
+
+function wireLatLngPaste(inputEl, latEl, lngEl) {
+  if (!inputEl || !latEl || !lngEl) return;
+  const apply = () => {
+    const parsed = parseLatLngPaste(inputEl.value);
+    if (!parsed) return;
+    latEl.value = parsed.lat;
+    lngEl.value = parsed.lng;
+    inputEl.value = '';
+    showToast('已填入緯度、經度');
+  };
+  inputEl.addEventListener('paste', e => {
+    const txt = e.clipboardData?.getData('text') || '';
+    const parsed = parseLatLngPaste(txt);
+    if (parsed) {
+      e.preventDefault();
+      latEl.value = parsed.lat;
+      lngEl.value = parsed.lng;
+      showToast('已填入緯度、經度');
+    }
+  });
+  inputEl.addEventListener('blur', () => {
+    if (inputEl.value.trim()) apply();
+  });
+}
+
+// ── View Switching（支援網址 #hash 深連結）──────────────────────
+const STAFF_DASH_HASH_BY_VIEW = {
+  'view-quest-chains': 'quests',
+  'view-assets': 'assets',
+  'view-review': 'review',
+  'view-products': 'products',
+  'view-redemptions': 'redemptions',
+  'view-pos': 'pos',
+  'view-users': 'users',
+  'view-roles': 'roles'
+};
+
+function setStaffViewHash(viewId) {
+  const h = STAFF_DASH_HASH_BY_VIEW[viewId];
+  if (!h || typeof history === 'undefined' || !history.replaceState) return;
+  const next = `${location.pathname}${location.search}#${h}`;
+  if (location.hash !== `#${h}`) history.replaceState(null, '', next);
+}
+
+/** 在側欄可見性套用後呼叫：優先還原網址 #hash，否則選第一個可見分頁 */
+function selectInitialStaffView() {
+  const raw = (location.hash || '').replace(/^#\/?/, '').toLowerCase();
+  const fromHash = raw
+    ? Object.keys(STAFF_DASH_HASH_BY_VIEW).find(k => STAFF_DASH_HASH_BY_VIEW[k] === raw)
+    : null;
+
+  if (fromHash) {
+    const nav = document.querySelector(`.v2-nav-item[data-view="${fromHash}"]`);
+    if (nav && nav.style.display !== 'none') {
+      document.querySelectorAll('.v2-nav-item').forEach(n => n.classList.remove('active'));
+      nav.classList.add('active');
+      switchView(fromHash, { skipHash: true });
+      return;
+    }
+  }
+
+  let pick = null;
+  document.querySelectorAll('.v2-nav-item[data-roles]').forEach(n => {
+    if (!pick && n.style.display !== 'none') pick = n;
+  });
+  if (pick) {
+    document.querySelectorAll('.v2-nav-item').forEach(n => n.classList.remove('active'));
+    pick.classList.add('active');
+    switchView(pick.dataset.view);
+  }
+}
+
+function switchView(viewId, opts = {}) {
   document.querySelectorAll('.v2-view').forEach(el => el.classList.remove('active'));
   document.getElementById(viewId)?.classList.add('active');
 
@@ -49,6 +143,7 @@ function switchView(viewId) {
     'view-quest-chains': 'view-quest-chains',
     'view-quest-detail': 'view-quest-chains',
     'view-assets': 'view-assets',
+    'view-review': 'view-review',
     'view-products': 'view-products',
     'view-redemptions': 'view-redemptions',
     'view-pos': 'view-pos',
@@ -60,11 +155,22 @@ function switchView(viewId) {
     el.classList.toggle('active', el.dataset.view === targetNav);
   });
 
+  if (!opts.skipHash) setStaffViewHash(viewId);
+
   // Lazy-load data for new views
+  if (viewId === 'view-review') ensureReviewIframe();
   if (viewId === 'view-products') loadProducts();
   if (viewId === 'view-redemptions') loadRedemptions();
   if (viewId === 'view-pos') loadPosHistory();
   if (viewId === 'view-users') loadUsers(1);
+}
+
+function ensureReviewIframe() {
+  const iframe = document.getElementById('reviewTasksIframe');
+  if (!iframe) return;
+  if (!iframe.getAttribute('src') || iframe.getAttribute('src') === 'about:blank') {
+    iframe.src = '/user-tasks.html?embed=1';
+  }
 }
 
 // Sidebar click handlers
@@ -79,7 +185,7 @@ const drawerTitle = document.getElementById('drawerTitle');
 
 overlay.addEventListener('click', closeDrawer);
 
-function openDrawer(title, formSectionId, data) {
+function openDrawer(title, formSectionId, data, opts = {}) {
   drawerTitle.textContent = title;
 
   document.querySelectorAll('.drawer-form-section').forEach(el => el.classList.remove('active'));
@@ -91,7 +197,7 @@ function openDrawer(title, formSectionId, data) {
 
   if (data && form) {
     fillForm(form, data);
-  } else if (form) {
+  } else if (form && !opts.skipReset) {
     form.reset();
     // Clear hidden id fields
     const idField = form.querySelector('input[name="id"]');
@@ -480,6 +586,48 @@ if (qcBadgeInput) {
 let currentBoardMapId = null;
 let currentBoardMapName = '';
 let currentBoardTiles = [];
+let lastLoadedBoardMap = null;
+
+const boardPlayStyleLabels = {
+  fixed_track_race: '終點競走型',
+  random_trip: '三回合探索型',
+  round_score: '積分累積型'
+};
+
+function setBoardMapToolbar(hasMap, bm) {
+  const stats = document.getElementById('boardMapStatsBlock');
+  const empty = document.getElementById('boardMapEmptyBlock');
+  const btnCreate = document.getElementById('btnCreateBoardMap');
+  const btnEdit = document.getElementById('btnEditBoardMap');
+  const btnAddTile = document.getElementById('btnAddTile');
+  const btnAddTask = document.getElementById('btnAddTask');
+  if (!stats || !empty || !btnCreate || !btnEdit) return;
+
+  if (hasMap && bm) {
+    lastLoadedBoardMap = bm;
+    stats.style.display = 'flex';
+    empty.style.display = 'none';
+    btnCreate.style.display = 'none';
+    btnEdit.style.display = 'inline-flex';
+    const styleKey = bm.play_style || 'fixed_track_race';
+    const styleLabel = boardPlayStyleLabels[styleKey] || styleKey;
+    document.getElementById('boardMapName').textContent = `🗺️ ${bm.name || '未命名地圖'}`;
+    document.getElementById('boardMapStyle').textContent = `🎮 ${styleLabel}`;
+    document.getElementById('boardMapTileCount').textContent = `🧩 ${bm.tile_count || 0} 格`;
+    document.getElementById('boardMapDice').textContent = `🎯 骰子 ${bm.dice_min || 1}-${bm.dice_max || 6}`;
+    document.getElementById('boardMapRange').textContent = `🏁 ${bm.start_tile || 1} → ${bm.finish_tile || 8}`;
+    if (btnAddTile) btnAddTile.style.display = 'inline-flex';
+    if (btnAddTask) btnAddTask.style.display = 'inline-flex';
+  } else {
+    lastLoadedBoardMap = null;
+    stats.style.display = 'none';
+    empty.style.display = 'block';
+    btnCreate.style.display = 'inline-flex';
+    btnEdit.style.display = 'none';
+    if (btnAddTile) btnAddTile.style.display = 'none';
+    if (btnAddTask) btnAddTask.style.display = 'inline-flex';
+  }
+}
 
 function goToQuestDetail(questChainId) {
   const q = globalQuestChainsMap[questChainId];
@@ -499,8 +647,8 @@ function goToQuestDetail(questChainId) {
   const boardInfoBar = document.getElementById('boardMapInfoBar');
 
   if (q.mode_type === 'board_game') {
-    btnAddTask.style.display = 'none';
-    btnAddTile.style.display = 'inline-flex';
+    btnAddTask.style.display = 'inline-flex';
+    btnAddTile.style.display = 'none';
     boardInfoBar.style.display = 'block';
   } else {
     btnAddTask.style.display = 'inline-flex';
@@ -553,6 +701,11 @@ function renderTaskItem(t) {
 
   const orderTag = t.quest_order ? `<span class="tag tag-blue">第 ${t.quest_order} 關</span>` : '';
   const finalTag = t.is_final_step ? '<span class="tag tag-amber">🏆 結局</span>' : '';
+  const lat = Number(t.lat);
+  const lng = Number(t.lng);
+  const coordTag = Number.isFinite(lat) && Number.isFinite(lng)
+    ? `<span class="tag tag-gray">📍 ${lat.toFixed(4)}, ${lng.toFixed(4)}</span>`
+    : '<span class="tag tag-gray">📍 未設定</span>';
 
   return `
     <div class="task-item">
@@ -563,11 +716,12 @@ function renderTaskItem(t) {
           ${orderTag} ${finalTag}
           <span class="tag tag-gray">${typeLabel}</span>
           <span class="tag tag-gray">💰 ${t.points || 0}</span>
-          <span class="tag tag-gray">📍 ${Number(t.lat).toFixed(4)}, ${Number(t.lng).toFixed(4)}</span>
+          ${coordTag}
         </div>
         <div class="task-item-desc">${escHtml(t.description || '')}</div>
       </div>
       <div class="task-item-actions">
+        <button class="btn-sm btn-secondary-v2" onclick="duplicateTask('${t.id}')">複製</button>
         <button class="btn-sm btn-secondary-v2" onclick="editTask('${t.id}')">編輯</button>
         <button class="btn-sm btn-danger-v2" onclick="deleteTask('${t.id}')">刪除</button>
       </div>
@@ -580,52 +734,66 @@ function loadBoardContent(questChainId) {
   const container = document.getElementById('questDetailContentContainer');
   container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div>載入大富翁地圖...</div>';
 
-  // First load all tasks for tile binding
-  const tasksPromise = fetch(`${API_BASE}/api/tasks/admin`, {
-    headers: { 'x-username': loginUser.username }
-  }).then(r => r.json()).then(d => {
-    globalTaskRecords = d.success ? (d.tasks || []) : [];
-    populateTileTaskSelect();
-  });
+  const authHeaders = { 'x-username': loginUser.username };
 
-  // Then load board content
-  fetch(`${API_BASE}/api/board-maps/by-quest-chain/${questChainId}`, {
-    headers: { 'x-username': loginUser.username }
+  const tasksPromise = fetch(`${API_BASE}/api/tasks/admin`, {
+    headers: authHeaders,
+    credentials: 'include'
+  })
+    .then(r => r.json())
+    .then(d => {
+      globalTaskRecords = d.success ? (d.tasks || []) : [];
+      populateTileTaskSelect();
+    });
+
+  fetch(`${API_BASE}/api/board-maps/for-admin/${questChainId}`, {
+    headers: authHeaders,
+    credentials: 'include'
   })
     .then(r => r.json())
     .then(async data => {
       await tasksPromise;
 
-      if (!data.success || !data.boardMap) {
-        document.getElementById('boardMapInfoBar').innerHTML = '<span style="color:#94a3b8;">尚未建立地圖，請先在舊版後台建立大富翁地圖。</span>';
-        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🗺️</div>此入口尚未綁定大富翁地圖</div>';
-        return;
+      if (!data.success) {
+        setBoardMapToolbar(false, null);
+        currentBoardMapId = null;
+        currentBoardMapName = '';
+        document.getElementById('tile_board_map_id').value = '';
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🗺️</div>無法載入大富翁地圖</div>';
+        return null;
       }
 
-      const bm = data.boardMap;
+      const maps = data.boardMaps || [];
+      if (!maps.length) {
+        setBoardMapToolbar(false, null);
+        currentBoardMapId = null;
+        currentBoardMapName = '';
+        document.getElementById('tile_board_map_id').value = '';
+        container.innerHTML =
+          '<div class="empty-state"><div class="empty-state-icon">🗺️</div>尚未建立地圖，請先點上方「建立大富翁地圖」</div>';
+        return null;
+      }
+
+      const bm = maps[0];
       currentBoardMapId = bm.id;
       currentBoardMapName = bm.name;
+      setBoardMapToolbar(true, bm);
 
-      // Update info bar
-      document.getElementById('boardMapName').textContent = `🗺️ ${bm.name}`;
-      document.getElementById('boardMapStyle').textContent = `🎲 ${bm.play_style || 'fixed_track_race'}`;
-      document.getElementById('boardMapTileCount').textContent = `🧩 ${bm.tile_count || 0} 格`;
-      document.getElementById('boardMapDice').textContent = `🎯 骰子 ${bm.dice_min || 1}-${bm.dice_max || 6}`;
-      document.getElementById('boardMapRange').textContent = `🏁 ${bm.start_tile || 1} → ${bm.finish_tile || 8}`;
-
-      // Update tile form context
       document.getElementById('tile_board_map_id').value = bm.id;
       document.getElementById('tile_locked_map_name').textContent = bm.name;
 
-      // Load tiles
       return fetch(`${API_BASE}/api/board-maps/${bm.id}/tiles`, {
-        headers: { 'x-username': loginUser.username }
+        headers: authHeaders,
+        credentials: 'include'
       });
     })
-    .then(r => r ? r.json() : null)
+    .then(r => (r && r.json ? r.json() : null))
     .then(data => {
       if (!data) return;
-      if (!data.success) { container.innerHTML = '<div class="empty-state">載入格子失敗</div>'; return; }
+      if (!data.success) {
+        container.innerHTML = '<div class="empty-state">載入格子失敗</div>';
+        return;
+      }
 
       currentBoardTiles = data.tiles || [];
       currentBoardTiles.sort((a, b) => (a.tile_index || 0) - (b.tile_index || 0));
@@ -639,6 +807,7 @@ function loadBoardContent(questChainId) {
     })
     .catch(err => {
       console.error(err);
+      setBoardMapToolbar(false, null);
       container.innerHTML = '<div class="empty-state">載入失敗</div>';
     });
 }
@@ -679,6 +848,7 @@ function renderTileItem(tile) {
         ${eventPreview}
       </div>
       <div class="task-item-actions">
+        <button class="btn-sm btn-secondary-v2" onclick="duplicateTile('${tile.id}')">複製</button>
         <button class="btn-sm btn-secondary-v2" onclick="editTile('${tile.id}')">編輯</button>
         <button class="btn-sm btn-danger-v2" onclick="deleteTile('${tile.id}')">刪除</button>
       </div>
@@ -816,11 +986,150 @@ function populateTileTaskSelect() {
   if (!sel) return;
   const cur = sel.value;
   sel.innerHTML = '<option value="">-- 不綁定（純事件/效果格）--</option>';
-  globalTaskRecords.forEach(t => {
+  const chainId = currentQuestChainId;
+  const list = chainId
+    ? globalTaskRecords.filter(t => String(t.quest_chain_id) === String(chainId))
+    : globalTaskRecords;
+  list.forEach(t => {
     const kind = t.validation_mode?.startsWith('ai_') ? 'AI 挑戰' : (t.task_type || '一般');
     sel.innerHTML += `<option value="${t.id}">${escHtml(t.name)}｜${kind}</option>`;
   });
-  sel.value = cur;
+  if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
+}
+
+// ── 從挑戰格建立關卡後回綁 ───────────────────────────────────
+let afterTaskCreateHook = null;
+let pendingTileFormSnapshot = null;
+
+function snapshotTileForm() {
+  const f = document.getElementById('tileForm');
+  if (!f) return null;
+  const loc = document.getElementById('tileLocationToggle');
+  return {
+    id: f.id.value,
+    board_map_id: f.board_map_id.value,
+    task_id: document.getElementById('tileTaskId').value,
+    tile_type: f.tile_type.value,
+    tile_name: f.tile_name.value,
+    tile_index: f.tile_index.value,
+    latitude: f.latitude.value,
+    longitude: f.longitude.value,
+    radius_meters: f.radius_meters.value,
+    effect_type: f.effect_type.value,
+    effect_value: f.effect_value.value,
+    event_title: f.event_title.value,
+    event_body: f.event_body.value,
+    guide_content: f.guide_content.value,
+    is_active: f.is_active.checked,
+    locationToggle: loc ? loc.checked : false
+  };
+}
+
+function restoreTileForm(snap) {
+  if (!snap) return;
+  const f = document.getElementById('tileForm');
+  f.id.value = snap.id || '';
+  f.board_map_id.value = snap.board_map_id || '';
+  document.getElementById('tileTaskId').value = snap.task_id || '';
+  f.tile_type.value = snap.tile_type || 'challenge';
+  f.tile_name.value = snap.tile_name || '';
+  f.tile_index.value = snap.tile_index || '';
+  f.latitude.value = snap.latitude || '';
+  f.longitude.value = snap.longitude || '';
+  f.radius_meters.value = snap.radius_meters || '';
+  f.effect_type.value = snap.effect_type || '';
+  f.effect_value.value = snap.effect_value ?? '';
+  f.event_title.value = snap.event_title || '';
+  f.event_body.value = snap.event_body || '';
+  f.guide_content.value = snap.guide_content || '';
+  f.is_active.checked = snap.is_active !== false;
+  const locToggle = document.getElementById('tileLocationToggle');
+  const locFields = document.getElementById('tileLocationFields');
+  if (locToggle) locToggle.checked = !!snap.locationToggle;
+  if (locFields) locFields.style.display = snap.locationToggle ? 'block' : 'none';
+  updateTileFormByType();
+}
+
+function openTaskDrawerForBoardChallenge() {
+  openDrawer('新增關卡（挑戰格）', 'form-task');
+  const form = document.getElementById('taskForm');
+  document.getElementById('task_quest_chain_id').value = currentQuestChainId || '';
+  document.getElementById('task_locked_quest_name').textContent = currentQuestChainTitle || '';
+  document.getElementById('taskLockedContext').style.display = 'block';
+  document.getElementById('taskPhotoUrl').value = '';
+  document.getElementById('taskPhotoPreview').style.display = 'none';
+  document.getElementById('taskFormMsg').textContent = '';
+  const catSel = document.getElementById('taskCategorySelect');
+  catSel.value = 'single';
+  catSel.dispatchEvent(new Event('change'));
+  const qcSel = document.getElementById('questChainSelect');
+  if (qcSel && currentQuestChainId) qcSel.value = currentQuestChainId;
+  const bpSel = document.getElementById('taskBlueprintSelect');
+  bpSel.value = 'board_ai_identify';
+  applyBlueprint('board_ai_identify', false);
+}
+
+function openTaskDrawerFromTileChallenge() {
+  pendingTileFormSnapshot = snapshotTileForm();
+  afterTaskCreateHook = async newTaskId => {
+    const d = await fetch(`${API_BASE}/api/tasks/admin`, {
+      headers: { 'x-username': loginUser.username },
+      credentials: 'include'
+    }).then(r => r.json());
+    globalTaskRecords = d.success ? (d.tasks || []) : globalTaskRecords;
+    populateTileTaskSelect();
+    openDrawer('完成格子設定', 'form-tile', null, { skipReset: true });
+    restoreTileForm(pendingTileFormSnapshot);
+    pendingTileFormSnapshot = null;
+    const ts = document.getElementById('tileTaskSelect');
+    const tid = String(newTaskId);
+    if (ts && [...ts.options].some(o => o.value === tid)) {
+      ts.value = tid;
+      document.getElementById('tileTaskId').value = tid;
+    }
+    updateTileFormByType();
+    showToast('已建立關卡並選取，請按儲存完成格子');
+  };
+  closeDrawer();
+  openTaskDrawerForBoardChallenge();
+}
+
+function openBoardMapDrawer(isEdit) {
+  const title = isEdit ? '編輯大富翁地圖' : '建立大富翁地圖';
+  openDrawer(title, 'form-board-map', null, { skipReset: true });
+  const form = document.getElementById('boardMapForm');
+  document.getElementById('bm_locked_chain_title').textContent = currentQuestChainTitle || '—';
+  document.getElementById('bm_quest_chain_id').value = currentQuestChainId || '';
+  document.getElementById('boardMapFormMsg').textContent = '';
+
+  if (isEdit && lastLoadedBoardMap) {
+    const bm = lastLoadedBoardMap;
+    form.elements.id.value = bm.id;
+    form.elements.name.value = bm.name || '';
+    form.elements.description.value = bm.description || '';
+    form.elements.play_style.value = bm.play_style || 'fixed_track_race';
+    form.elements.start_tile.value = bm.start_tile ?? 1;
+    form.elements.finish_tile.value = bm.finish_tile ?? 8;
+    form.elements.dice_min.value = bm.dice_min ?? 1;
+    form.elements.dice_max.value = bm.dice_max ?? 6;
+    form.elements.failure_move.value = bm.failure_move ?? -1;
+    form.elements.reward_points.value = bm.reward_points ?? 0;
+    form.elements.exact_finish_required.checked = !!bm.exact_finish_required;
+    form.elements.is_active.checked = bm.is_active !== false && bm.is_active !== 0;
+  } else {
+    form.reset();
+    document.getElementById('bm_locked_chain_title').textContent = currentQuestChainTitle || '—';
+    document.getElementById('bm_quest_chain_id').value = currentQuestChainId || '';
+    form.elements.id.value = '';
+    form.elements.is_active.checked = true;
+    form.elements.exact_finish_required.checked = false;
+    form.elements.start_tile.value = 1;
+    form.elements.finish_tile.value = 8;
+    form.elements.dice_min.value = 1;
+    form.elements.dice_max.value = 6;
+    form.elements.failure_move.value = -1;
+    form.elements.reward_points.value = 0;
+  }
 }
 
 // ── Tile Drawer: Open for create ──────────────────────────────
@@ -894,6 +1203,83 @@ function editTile(tileId) {
   document.getElementById('tileFormMsg').textContent = '';
 }
 
+function duplicateTile(tileId) {
+  const tile = currentBoardTiles.find(t => String(t.id) === String(tileId));
+  if (!tile) return;
+  openTileDrawerForCreate();
+  const form = document.getElementById('tileForm');
+  form.elements.id.value = '';
+  form.elements.tile_name.value = `${tile.tile_name || ''}（複製）`.trim();
+  form.elements.tile_type.value = tile.tile_type || 'event';
+  document.getElementById('tileTaskId').value = tile.task_id || '';
+  const taskSel = document.getElementById('tileTaskSelect');
+  if (taskSel) taskSel.value = tile.task_id || '';
+  const hasLocation = !!(tile.latitude && tile.longitude);
+  const locToggle = document.getElementById('tileLocationToggle');
+  const locFields = document.getElementById('tileLocationFields');
+  if (locToggle) locToggle.checked = hasLocation;
+  if (locFields) locFields.style.display = hasLocation ? 'block' : 'none';
+  form.elements.latitude.value = tile.latitude || '';
+  form.elements.longitude.value = tile.longitude || '';
+  form.elements.radius_meters.value = tile.radius_meters || '';
+  form.elements.effect_type.value = tile.effect_type || '';
+  form.elements.effect_value.value = tile.effect_value ?? '';
+  form.elements.event_title.value = tile.event_title || '';
+  form.elements.event_body.value = tile.event_body || '';
+  form.elements.guide_content.value = tile.guide_content || '';
+  form.elements.is_active.checked = true;
+  updateTileFormByType();
+  document.getElementById('tileFormMsg').textContent = '';
+}
+
+// ── Board map form ────────────────────────────────────────────
+document.getElementById('boardMapForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  const form = this;
+  const msg = document.getElementById('boardMapFormMsg');
+  msg.textContent = '';
+  const mapId = form.elements.id.value;
+  const body = {
+    quest_chain_id: Number(form.quest_chain_id.value),
+    name: form.name.value.trim(),
+    description: form.description.value.trim() || null,
+    play_style: form.play_style.value || 'fixed_track_race',
+    start_tile: Number(form.start_tile.value || 1),
+    finish_tile: Number(form.finish_tile.value || 8),
+    dice_min: Number(form.dice_min.value || 1),
+    dice_max: Number(form.dice_max.value || 6),
+    failure_move: Number(form.failure_move.value),
+    reward_points: Number(form.reward_points.value || 0),
+    exact_finish_required: form.exact_finish_required.checked,
+    is_active: form.is_active.checked
+  };
+  if (!body.quest_chain_id || !body.name) {
+    msg.textContent = '請填寫地圖名稱';
+    return;
+  }
+  const url = mapId ? `${API_BASE}/api/board-maps/${mapId}` : `${API_BASE}/api/board-maps`;
+  const method = mapId ? 'PUT' : 'POST';
+  msg.textContent = '儲存中...';
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+      credentials: 'include',
+      body: JSON.stringify(body)
+    });
+    const d = await res.json();
+    if (d.success) {
+      showToast(mapId ? '地圖已更新' : '地圖已建立');
+      closeDrawer();
+      if (currentQuestChainId) loadBoardContent(currentQuestChainId);
+    } else {
+      msg.textContent = d.message || '儲存失敗';
+    }
+  } catch {
+    msg.textContent = '連線失敗';
+  }
+});
+
 // ── Tile Form Submit ──────────────────────────────────────────
 document.getElementById('tileForm').addEventListener('submit', function (e) {
   e.preventDefault();
@@ -931,6 +1317,7 @@ document.getElementById('tileForm').addEventListener('submit', function (e) {
   fetch(url, {
     method,
     headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+    credentials: 'include',
     body: JSON.stringify(payload)
   })
     .then(r => r.json())
@@ -946,17 +1333,20 @@ document.getElementById('tileForm').addEventListener('submit', function (e) {
 
 // ── Delete Tile ───────────────────────────────────────────────
 function deleteTile(tileId) {
-  if (!confirm('確定要刪除這個格子嗎？')) return;
-  fetch(`${API_BASE}/api/board-tiles/${tileId}`, {
-    method: 'DELETE', headers: { 'x-username': loginUser.username }
-  })
-    .then(r => r.json())
-    .then(d => {
-      if (d.success) {
-        showToast('格子已刪除');
-        if (currentQuestChainId) loadBoardContent(currentQuestChainId);
-      } else showToast(d.message || '刪除失敗', 'error');
-    });
+  showConfirm('確定要刪除這個格子嗎？', () => {
+    fetch(`${API_BASE}/api/board-tiles/${tileId}`, {
+      method: 'DELETE',
+      headers: { 'x-username': loginUser.username },
+      credentials: 'include'
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          showToast('格子已刪除');
+          if (currentQuestChainId) loadBoardContent(currentQuestChainId);
+        } else showToast(d.message || '刪除失敗', 'error');
+      });
+  });
 }
 
 // ── Task Drawer: Open for create ──────────────────────────────
@@ -970,15 +1360,19 @@ function openTaskDrawerForCreate() {
     document.getElementById('task_locked_quest_name').textContent = currentQuestChainTitle;
     document.getElementById('taskLockedContext').style.display = 'block';
 
-    // Auto-set category to quest if story mode
     if (currentQuestChainMode === 'story_campaign') {
       const catSel = document.getElementById('taskCategorySelect');
       catSel.value = 'quest';
       catSel.dispatchEvent(new Event('change'));
 
-      // Lock quest chain select to current
       const qcSel = document.getElementById('questChainSelect');
       if (qcSel) qcSel.value = currentQuestChainId;
+    } else if (currentQuestChainMode === 'board_game') {
+      const catSel = document.getElementById('taskCategorySelect');
+      catSel.value = 'single';
+      catSel.dispatchEvent(new Event('change'));
+      const qcSel = document.getElementById('questChainSelect');
+      if (qcSel && currentQuestChainId) qcSel.value = currentQuestChainId;
     }
   }
 
@@ -987,26 +1381,22 @@ function openTaskDrawerForCreate() {
   document.getElementById('taskPhotoPreview').style.display = 'none';
   document.getElementById('taskFormMsg').textContent = '';
 
-  // Apply default blueprint
   const bpSel = document.getElementById('taskBlueprintSelect');
-  bpSel.value = 'story_ai_identify';
-  applyBlueprint('story_ai_identify', false);
+  if (currentQuestChainMode === 'board_game') {
+    bpSel.value = 'board_ai_identify';
+    applyBlueprint('board_ai_identify', false);
+  } else {
+    bpSel.value = 'story_ai_identify';
+    applyBlueprint('story_ai_identify', false);
+  }
 }
 
-// ── Task Drawer: Open for edit ────────────────────────────────
-function editTask(taskId) {
-  fetch(`${API_BASE}/api/tasks/${taskId}`)
-    .then(r => r.json())
-    .then(data => {
-      if (!data.success) return;
-      const t = data.task;
+function populateTaskFormForEdit(t) {
+  const form = document.getElementById('taskForm');
 
-      openDrawer('編輯關卡', 'form-task');
-      const form = document.getElementById('taskForm');
-
-      // Fill basic fields
-      form.elements.id.value = t.id;
-      form.elements.name.value = t.name;
+  // Fill basic fields
+  form.elements.id.value = t.id;
+  form.elements.name.value = t.name;
       form.elements.lat.value = t.lat;
       form.elements.lng.value = t.lng;
       form.elements.radius.value = t.radius;
@@ -1117,11 +1507,39 @@ function editTask(taskId) {
         document.getElementById('taskLockedContext').style.display = 'block';
       }
 
-      // Blueprint
-      const bp = inferBlueprintFromTask(t);
-      document.getElementById('taskBlueprintSelect').value = bp;
-      applyBlueprint(bp, true);
+  // Blueprint
+  const bp = inferBlueprintFromTask(t);
+  document.getElementById('taskBlueprintSelect').value = bp;
+  applyBlueprint(bp, true);
 
+  document.getElementById('taskFormMsg').textContent = '';
+}
+
+function editTask(taskId) {
+  fetch(`${API_BASE}/api/tasks/${taskId}`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) return;
+      openDrawer('編輯關卡', 'form-task');
+      populateTaskFormForEdit(data.task);
+    });
+}
+
+function duplicateTask(taskId) {
+  fetch(`${API_BASE}/api/tasks/${taskId}`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) {
+        showToast('無法載入關卡', 'error');
+        return;
+      }
+      openDrawer('複製關卡', 'form-task');
+      populateTaskFormForEdit(data.task);
+      const form = document.getElementById('taskForm');
+      form.elements.id.value = '';
+      form.elements.name.value = `${data.task.name || ''}（複製）`.trim();
+      const photoIn = document.getElementById('taskPhotoInput');
+      if (photoIn) photoIn.value = '';
       document.getElementById('taskFormMsg').textContent = '';
     });
 }
@@ -1166,7 +1584,7 @@ document.getElementById('taskForm').addEventListener('submit', async function (e
     let photoUrl = document.getElementById('taskPhotoUrl').value;
     const photoFile = form.photo?.files[0];
 
-    if (!id && !photoFile) { msgEl.textContent = '請選擇封面圖'; return; }
+    if (!id && !photoFile && !photoUrl) { msgEl.textContent = '請選擇封面圖或保留複製的封面網址'; return; }
 
     if (photoFile) {
       if (photoFile.size > 5 * 1024 * 1024) { msgEl.textContent = '圖片超過 5MB'; return; }
@@ -1245,6 +1663,13 @@ document.getElementById('taskForm').addEventListener('submit', async function (e
     const result = await res.json();
 
     if (result.success) {
+      if (!id && result.id && typeof afterTaskCreateHook === 'function') {
+        const hook = afterTaskCreateHook;
+        afterTaskCreateHook = null;
+        await hook(result.id);
+        msgEl.textContent = '';
+        return;
+      }
       showToast(id ? '關卡更新成功' : '關卡建立成功');
       closeDrawer();
       if (currentQuestChainId) {
@@ -1321,6 +1746,17 @@ if (taskPhotoInput) {
     }
   });
 }
+
+wireLatLngPaste(
+  document.getElementById('taskLatLngPaste'),
+  document.getElementById('taskLatInput'),
+  document.getElementById('taskLngInput')
+);
+wireLatLngPaste(
+  document.getElementById('tileLatLngPaste'),
+  document.getElementById('tileLatInput'),
+  document.getElementById('tileLngInput')
+);
 
 // BGM manual preview
 const bgmUrlInputEl = document.getElementById('bgmUrlInput');
@@ -1605,7 +2041,157 @@ function switchAssetTab(tab, el) {
   // Toggle action buttons
   document.getElementById('btnAssetAdd').style.display = tab === 'models' ? 'inline-flex' : 'none';
   document.getElementById('btnItemAdd').style.display = tab === 'items' ? 'inline-flex' : 'none';
+  const btnNpc = document.getElementById('btnNpcAdd');
+  if (btnNpc) {
+    btnNpc.style.display = tab === 'npc' && loginUser.role === 'admin' ? 'inline-flex' : 'none';
+  }
+  if (tab === 'npc') loadNpcs();
 }
+
+let globalNpcs = [];
+
+function loadNpcs() {
+  const container = document.getElementById('npcListContainer');
+  if (!container) return;
+  fetch(`${API_BASE}/api/game-npcs`, { credentials: 'include' })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) {
+        container.innerHTML = '<div class="empty-state">載入 NPC 失敗</div>';
+        return;
+      }
+      globalNpcs = data.npcs || [];
+      renderNpcList(globalNpcs);
+    })
+    .catch(() => {
+      container.innerHTML = '<div class="empty-state">載入失敗</div>';
+    });
+}
+
+function renderNpcList(npcs) {
+  const container = document.getElementById('npcListContainer');
+  if (!container) return;
+  if (!npcs.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎭</div>尚無 NPC</div>';
+    return;
+  }
+  const isAdmin = loginUser.role === 'admin';
+  container.innerHTML = npcs.map(n => `
+    <div style="background:white; padding:16px; border-radius:10px; border:1px solid #e2e8f0; text-align:center;">
+      <div style="font-size:3rem; margin-bottom:8px;">${escHtml(n.portrait_emoji || '🧭')}</div>
+      <div style="font-weight:600;">${escHtml(n.display_name)}</div>
+      <div style="font-size:0.82rem; color:#64748b;">${escHtml(n.npc_key)}</div>
+      ${n.role_line ? `<div style="font-size:0.82rem; color:#94a3b8; margin-top:6px;">${escHtml(n.role_line)}</div>` : ''}
+      ${isAdmin ? `<div style="display:flex; gap:6px; justify-content:center; margin-top:10px; flex-wrap:wrap;">
+        <button type="button" class="btn-sm btn-secondary-v2" onclick="openNpcDrawer(true, '${n.id}')">編輯</button>
+        <button type="button" class="btn-sm btn-danger-v2" onclick="deleteNpc('${n.id}')">刪除</button>
+      </div>` : ''}
+    </div>
+  `).join('');
+}
+
+function openNpcDrawer(isEdit, npcId) {
+  openDrawer(isEdit ? '編輯 NPC' : '新增 NPC', 'form-npc');
+  const form = document.getElementById('npcForm');
+  const msg = document.getElementById('npcFormMsg');
+  const keyInput = document.getElementById('npc_key_input');
+  msg.textContent = '';
+
+  if (isEdit && npcId != null) {
+    const n = globalNpcs.find(x => String(x.id) === String(npcId));
+    if (!n) return;
+    document.getElementById('npc_form_id').value = n.id;
+    keyInput.value = n.npc_key;
+    keyInput.readOnly = true;
+    keyInput.removeAttribute('required');
+    form.display_name.value = n.display_name || '';
+    form.portrait_emoji.value = n.portrait_emoji || '';
+    form.role_line.value = n.role_line || '';
+    form.description.value = n.description || '';
+    form.sort_order.value = n.sort_order ?? 0;
+  } else {
+    form.reset();
+    document.getElementById('npc_form_id').value = '';
+    keyInput.readOnly = false;
+    keyInput.setAttribute('required', 'required');
+    keyInput.value = '';
+    form.sort_order.value = 0;
+    form.portrait_emoji.value = '🧭';
+  }
+}
+
+function deleteNpc(id) {
+  showConfirm('確定刪除此 NPC？若遊戲劇本仍引用該 npc_key，前端可能無法對應角色。', () => {
+    fetch(`${API_BASE}/api/game-npcs/${id}`, {
+      method: 'DELETE',
+      headers: { 'x-username': loginUser.username },
+      credentials: 'include'
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          showToast('已刪除');
+          loadNpcs();
+        } else showToast(d.message || '刪除失敗', 'error');
+      });
+  });
+}
+
+document.getElementById('npcForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  const form = this;
+  const msg = document.getElementById('npcFormMsg');
+  msg.textContent = '';
+  const fid = document.getElementById('npc_form_id').value;
+  const headers = { 'Content-Type': 'application/json', 'x-username': loginUser.username };
+
+  try {
+    if (fid) {
+      const body = {
+        display_name: form.display_name.value.trim(),
+        portrait_emoji: form.portrait_emoji.value.trim(),
+        role_line: form.role_line.value.trim(),
+        description: form.description.value.trim(),
+        sort_order: Number(form.sort_order.value) || 0
+      };
+      const res = await fetch(`${API_BASE}/api/game-npcs/${fid}`, {
+        method: 'PUT',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify(body)
+      });
+      const d = await res.json();
+      if (d.success) {
+        showToast('NPC 已更新');
+        closeDrawer();
+        loadNpcs();
+      } else msg.textContent = d.message || '更新失敗';
+    } else {
+      const body = {
+        npc_key: form.npc_key.value.trim(),
+        display_name: form.display_name.value.trim(),
+        portrait_emoji: form.portrait_emoji.value.trim() || '🧭',
+        role_line: form.role_line.value.trim(),
+        description: form.description.value.trim(),
+        sort_order: Number(form.sort_order.value) || 0
+      };
+      const res = await fetch(`${API_BASE}/api/game-npcs`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify(body)
+      });
+      const d = await res.json();
+      if (d.success) {
+        showToast('NPC 已建立');
+        closeDrawer();
+        loadNpcs();
+      } else msg.textContent = d.message || '建立失敗';
+    }
+  } catch {
+    msg.textContent = '連線失敗';
+  }
+});
 
 // ── RBAC Sidebar Control ──────────────────────────────────────
 function applySidebarRBAC() {
@@ -1624,13 +2210,6 @@ function applySidebarRBAC() {
     }
     label.style.display = hasVisible ? 'block' : 'none';
   });
-  // Auto-select first visible nav item
-  const firstVisible = document.querySelector('.v2-nav-item[style*="flex"], .v2-nav-item:not([style*="none"])');
-  if (firstVisible) {
-    document.querySelectorAll('.v2-nav-item').forEach(n => n.classList.remove('active'));
-    firstVisible.classList.add('active');
-    switchView(firstVisible.dataset.view);
-  }
   // Hide create account section for shop role
   const createSection = document.getElementById('roleSection_createAccount');
   if (createSection) createSection.style.display = role === 'admin' ? 'block' : 'none';
@@ -1678,13 +2257,25 @@ document.getElementById('confirmOkBtn').addEventListener('click', () => {
 
 // ── Products ──────────────────────────────────────────────────
 let globalProducts = [];
+let lastProductsAdminRole = null;
+
 function loadProducts() {
-  return fetch(`${API_BASE}/api/products/admin`, { headers: { 'x-username': loginUser.username } })
-    .then(r => r.json()).then(data => {
+  return fetch(`${API_BASE}/api/products/admin`, {
+    headers: { 'x-username': loginUser.username },
+    credentials: 'include'
+  })
+    .then(r => r.json())
+    .then(data => {
       if (!data.success) return;
       globalProducts = data.products || [];
+      lastProductsAdminRole = data.userRole || null;
+      const banner = document.getElementById('shopOpsBanner');
+      if (banner) {
+        banner.style.display = lastProductsAdminRole === 'shop' ? 'block' : 'none';
+      }
       renderProducts();
-    }).catch(() => {});
+    })
+    .catch(() => {});
 }
 
 function renderProducts() {
@@ -1696,10 +2287,11 @@ function renderProducts() {
       ${p.image_url ? `<img src="${escHtml(p.image_url)}" style="width:100%; height:120px; object-fit:cover; border-radius:8px; margin-bottom:10px;" onerror="this.style.display='none'">` : ''}
       <div style="font-weight:600; margin-bottom:4px;">${escHtml(p.name)}</div>
       <div style="font-size:0.82rem; color:#64748b; margin-bottom:8px;">${escHtml(p.description || '')}</div>
-      <div style="display:flex; gap:8px; margin-bottom:10px;">
+      <div style="display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
         <span class="tag tag-amber">💰 ${p.points_required} 分</span>
         <span class="tag tag-gray">庫存 ${p.stock ?? '∞'}</span>
         <span class="tag ${p.is_active ? 'tag-green' : 'tag-red'}">${p.is_active ? '上架中' : '已下架'}</span>
+        ${loginUser.role === 'admin' && p.created_by ? `<span class="tag tag-blue">🏪 ${escHtml(p.created_by)}</span>` : ''}
       </div>
       <div style="display:flex; gap:6px; justify-content:flex-end;">
         <button class="btn-sm btn-secondary-v2" onclick="editProduct('${p.id}')">編輯</button>
@@ -1726,7 +2318,11 @@ function editProduct(id) {
 
 function deleteProduct(id) {
   showConfirm('確定要刪除這個商品嗎？', () => {
-    fetch(`${API_BASE}/api/products/${id}`, { method: 'DELETE', headers: { 'x-username': loginUser.username } })
+    fetch(`${API_BASE}/api/products/${id}`, {
+      method: 'DELETE',
+      headers: { 'x-username': loginUser.username },
+      credentials: 'include'
+    })
       .then(r => r.json()).then(d => {
         if (d.success) { showToast('商品已刪除'); loadProducts(); } else showToast(d.message || '刪除失敗', 'error');
       });
@@ -1748,7 +2344,12 @@ document.getElementById('productForm').addEventListener('submit', function(e) {
   else if (id) fd.append('image_url', document.getElementById('productImageUrl').value);
   const url = id ? `${API_BASE}/api/products/${id}` : `${API_BASE}/api/products`;
   const method = id ? 'PUT' : 'POST';
-  fetch(url, { method, headers: { 'x-username': loginUser.username }, body: fd })
+  fetch(url, {
+    method,
+    headers: { 'x-username': loginUser.username },
+    credentials: 'include',
+    body: fd
+  })
     .then(r => r.json()).then(d => {
       if (d.success) { showToast(id ? '商品已更新' : '商品已建立'); closeDrawer(); loadProducts(); }
       else msgEl.textContent = d.message || '操作失敗';
@@ -1767,7 +2368,10 @@ if (productImageInput) {
 function loadRedemptions() {
   const status = document.getElementById('redemptionStatusFilter')?.value || '';
   const search = document.getElementById('redemptionSearch')?.value.trim() || '';
-  fetch(`${API_BASE}/api/product-redemptions/admin`, { headers: { 'x-username': loginUser.username } })
+  fetch(`${API_BASE}/api/product-redemptions/admin`, {
+    headers: { 'x-username': loginUser.username },
+    credentials: 'include'
+  })
     .then(r => r.json()).then(data => {
       if (!data.success) return;
       let records = data.redemptions || [];
@@ -1778,6 +2382,7 @@ function loadRedemptions() {
       c.innerHTML = records.map(r => {
         const statusColors = { pending: 'tag-amber', completed: 'tag-green', cancelled: 'tag-red' };
         const statusLabels = { pending: '待處理', completed: '已完成', cancelled: '已取消' };
+        const redeemedAt = r.redeemed_at ? new Date(r.redeemed_at).toLocaleString('zh-TW') : '';
         const actions = r.status === 'pending' ? `
           <button class="btn-sm btn-primary-v2" onclick="completeRedemption('${r.id}')">完成兌換</button>
           <button class="btn-sm btn-danger-v2" onclick="cancelRedemption('${r.id}')">取消</button>
@@ -1788,7 +2393,8 @@ function loadRedemptions() {
             <div style="display:flex; gap:4px; flex-wrap:wrap;">
               <span class="tag tag-gray">👤 ${escHtml(r.username || '')}</span>
               <span class="tag ${statusColors[r.status] || 'tag-gray'}">${statusLabels[r.status] || r.status}</span>
-              <span class="tag tag-gray">${r.created_at ? new Date(r.created_at).toLocaleString('zh-TW') : ''}</span>
+              <span class="tag tag-gray">💰 ${r.points_used ?? 0} 分</span>
+              ${redeemedAt ? `<span class="tag tag-gray">申請 ${redeemedAt}</span>` : ''}
             </div>
           </div>
           <div class="task-item-actions">${actions}</div>
@@ -1800,7 +2406,9 @@ function loadRedemptions() {
 function completeRedemption(id) {
   showConfirm('確定完成此兌換？', () => {
     fetch(`${API_BASE}/api/product-redemptions/${id}/status`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+      credentials: 'include',
       body: JSON.stringify({ status: 'completed' })
     }).then(r => r.json()).then(d => { if (d.success) { showToast('兌換已完成'); loadRedemptions(); } else showToast(d.message || '失敗', 'error'); });
   });
@@ -1809,7 +2417,9 @@ function completeRedemption(id) {
 function cancelRedemption(id) {
   showConfirm('確定取消此兌換？', () => {
     fetch(`${API_BASE}/api/product-redemptions/${id}/status`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+      credentials: 'include',
       body: JSON.stringify({ status: 'cancelled' })
     }).then(r => r.json()).then(d => { if (d.success) { showToast('兌換已取消'); loadRedemptions(); } else showToast(d.message || '失敗', 'error'); });
   });
@@ -1821,7 +2431,10 @@ function lookupCoupon() {
   if (!code) { showToast('請輸入代碼', 'error'); return; }
   const result = document.getElementById('couponResult');
   result.style.display = 'none';
-  fetch(`${API_BASE}/api/coupons/lookup/${encodeURIComponent(code)}`, { headers: { 'x-username': loginUser.username } })
+  fetch(`${API_BASE}/api/coupons/lookup/${encodeURIComponent(code)}`, {
+    headers: { 'x-username': loginUser.username },
+    credentials: 'include'
+  })
     .then(r => r.json()).then(data => {
       if (!data.success) { showToast(data.message || '查無此券', 'error'); return; }
       const c = data.coupon;
@@ -1843,7 +2456,9 @@ function lookupCoupon() {
 
 function redeemCoupon(id) {
   fetch(`${API_BASE}/api/coupons/${id}/redeem`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username }
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+    credentials: 'include'
   }).then(r => r.json()).then(d => {
     if (d.success) { showToast('核銷成功！'); document.getElementById('couponResult').style.display = 'none'; document.getElementById('couponCodeInput').value = ''; loadPosHistory(); }
     else showToast(d.message || '核銷失敗', 'error');
@@ -1851,7 +2466,10 @@ function redeemCoupon(id) {
 }
 
 function loadPosHistory() {
-  fetch(`${API_BASE}/api/coupons/redeem-history`, { headers: { 'x-username': loginUser.username } })
+  fetch(`${API_BASE}/api/coupons/redeem-history`, {
+    headers: { 'x-username': loginUser.username },
+    credentials: 'include'
+  })
     .then(r => r.json()).then(data => {
       const c = document.getElementById('posHistoryContainer');
       if (!data.success || !data.history?.length) { c.innerHTML = '<div style="color:#94a3b8; font-size:0.85rem;">今日尚無核銷紀錄</div>'; return; }
@@ -1866,14 +2484,27 @@ function loadPosHistory() {
 
 // ── Users ─────────────────────────────────────────────────────
 let currentUserPage = 1;
+let userSearchDebounceTimer = null;
+
 function loadUsers(page) {
   currentUserPage = page || 1;
-  fetch(`${API_BASE}/api/admin/users?page=${currentUserPage}&limit=50`, { headers: { 'x-username': loginUser.username } })
+  const q = document.getElementById('userSearchInput')?.value.trim() || '';
+  const qs = new URLSearchParams({ page: String(currentUserPage), limit: '50' });
+  if (q) qs.set('search', q);
+  fetch(`${API_BASE}/api/admin/users?${qs}`, {
+    headers: { 'x-username': loginUser.username },
+    credentials: 'include'
+  })
     .then(r => r.json()).then(data => {
       if (!data.success) return;
-      document.getElementById('totalUserCount').textContent = data.total || data.users?.length || 0;
+      const total = data.pagination?.totalUsers ?? data.total ?? data.users?.length ?? 0;
+      document.getElementById('totalUserCount').textContent = total;
       const c = document.getElementById('userListContainer');
-      if (!data.users?.length) { c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div>尚無會員</div>'; return; }
+      if (!data.users?.length) {
+        c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div>尚無符合的會員</div>';
+        document.getElementById('userPagination').innerHTML = '';
+        return;
+      }
       c.innerHTML = data.users.map(u => `
         <div class="task-item">
           <div class="task-item-body">
@@ -1887,12 +2518,11 @@ function loadUsers(page) {
           </div>
         </div>
       `).join('');
-      // Pagination
-      const totalPages = Math.ceil((data.total || data.users.length) / 50);
+      const totalPages = data.pagination?.totalPages ?? Math.max(1, Math.ceil(total / 50));
       const pag = document.getElementById('userPagination');
       if (totalPages <= 1) { pag.innerHTML = ''; return; }
-      pag.innerHTML = Array.from({length: totalPages}, (_, i) =>
-        `<button class="btn-sm ${i+1 === currentUserPage ? 'btn-primary-v2' : 'btn-secondary-v2'}" onclick="loadUsers(${i+1})">${i+1}</button>`
+      pag.innerHTML = Array.from({ length: totalPages }, (_, i) =>
+        `<button class="btn-sm ${i + 1 === currentUserPage ? 'btn-primary-v2' : 'btn-secondary-v2'}" onclick="loadUsers(${i + 1})">${i + 1}</button>`
       ).join('');
     });
 }
@@ -1913,7 +2543,12 @@ document.getElementById('importUsersForm').addEventListener('submit', function(e
     fd.append('endDate', form.endDate.value);
   }
   msgEl.textContent = '匯入中...';
-  fetch(`${API_BASE}/api/admin/import-users`, { method: 'POST', headers: { 'x-username': loginUser.username }, body: fd })
+  fetch(`${API_BASE}/api/admin/import-users`, {
+    method: 'POST',
+    headers: { 'x-username': loginUser.username },
+    credentials: 'include',
+    body: fd
+  })
     .then(r => r.json()).then(d => {
       if (d.success) { showToast(d.message || '匯入成功'); closeDrawer(); loadUsers(1); }
       else msgEl.textContent = d.message || '匯入失敗';
@@ -1936,7 +2571,9 @@ function createAccount() {
   if (!username || !password) { showToast('請填寫帳號和密碼', 'error'); return; }
   if (password.length < 6) { showToast('密碼至少 6 位', 'error'); return; }
   fetch(`${API_BASE}/api/admin/accounts`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+    credentials: 'include',
     body: JSON.stringify({ role, username, password })
   }).then(r => r.json()).then(d => {
     if (d.success) { showToast('帳號建立成功'); document.getElementById('newAccountUsername').value = ''; document.getElementById('newAccountPassword').value = ''; }
@@ -1948,7 +2585,9 @@ function assignStaff() {
   const phone = document.getElementById('staffPhoneInput').value.trim();
   if (!phone) { showToast('請輸入手機號碼', 'error'); return; }
   fetch(`${API_BASE}/api/staff/assign`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+    credentials: 'include',
     body: JSON.stringify({ phone })
   }).then(r => r.json()).then(d => {
     if (d.success) { showToast('已指派為工作人員'); document.getElementById('staffPhoneInput').value = ''; }
@@ -1961,7 +2600,9 @@ function revokeStaff() {
   if (!phone) { showToast('請輸入手機號碼', 'error'); return; }
   showConfirm(`確定要撤銷 ${phone} 的工作人員權限嗎？`, () => {
     fetch(`${API_BASE}/api/staff/revoke`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+      credentials: 'include',
       body: JSON.stringify({ phone })
     }).then(r => r.json()).then(d => {
       if (d.success) { showToast('已撤銷'); document.getElementById('staffPhoneInput').value = ''; }
@@ -1976,7 +2617,9 @@ function changePassword() {
   if (!oldPw || !newPw) { showToast('請填寫密碼', 'error'); return; }
   if (newPw.length < 6) { showToast('新密碼至少 6 位', 'error'); return; }
   fetch(`${API_BASE}/api/change-password`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+    credentials: 'include',
     body: JSON.stringify({ oldPassword: oldPw, newPassword: newPw })
   }).then(r => r.json()).then(d => {
     if (d.success) { showToast('密碼已更新'); document.getElementById('oldPasswordInput').value = ''; document.getElementById('newPasswordInput').value = ''; }
@@ -1984,9 +2627,34 @@ function changePassword() {
   });
 }
 
+// ── POS：Enter 查券 ────────────────────────────────────────────
+const couponCodeInputEl = document.getElementById('couponCodeInput');
+if (couponCodeInputEl) {
+  couponCodeInputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      lookupCoupon();
+    }
+  });
+}
+
+// ── 會員搜尋 debounce ─────────────────────────────────────────
+const userSearchInputEl = document.getElementById('userSearchInput');
+if (userSearchInputEl) {
+  userSearchInputEl.addEventListener('input', () => {
+    clearTimeout(userSearchDebounceTimer);
+    userSearchDebounceTimer = setTimeout(() => loadUsers(1), 360);
+  });
+}
+
+window.addEventListener('hashchange', () => {
+  applySidebarRBAC();
+  selectInitialStaffView();
+});
+
 // ── Init: Load everything ─────────────────────────────────────
-// Apply RBAC first
 applySidebarRBAC();
+selectInitialStaffView();
 
 // Load data based on role
 const role = loginUser?.role || '';
@@ -1995,6 +2663,8 @@ if (role === 'admin') {
   initLoads.push(loadQuestChains(), loadItems(), loadARModels(), loadProducts());
 } else if (role === 'shop') {
   initLoads.push(loadProducts());
+} else if (role === 'staff') {
+  // 僅審核：由任務審核 iframe 自行載入
 }
 Promise.all(initLoads).then(() => {
   // Ready

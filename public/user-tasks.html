@@ -6,8 +6,14 @@
   <title>審核台 | 沙丘</title>
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="icon" type="image/png" href="/images/mascot.png" />
+  <script>
+    try {
+      if (new URLSearchParams(location.search).get('embed') === '1') document.documentElement.classList.add('embed-mode');
+    } catch (e) {}
+  </script>
 </head>
 <body>
+  <div class="embed-topbar" id="embedTopbar" aria-hidden="true"><span>審核台</span><a href="/staff-dashboard.html#review">回管理控制台</a></div>
   <header id="mainHeader">
     <button id="hamburgerBtn" class="hamburger" aria-label="展開選單">&#9776;</button>
     <div class="header-content" id="headerContent">
@@ -18,12 +24,9 @@
         <a href="/ai-lab.html">海底探索艙</a>
         <a href="/tasks-list.html" id="navTasksList">關卡圖鑑</a>
         <a href="/products.html" id="navProducts">獎勵兌換</a>
-        <a href="/user-tasks.html" class="current-page">審核台</a>
-        <a href="/staff-dashboard.html" id="navStaff" style="display:none;">內容控制台</a>
-        <a href="/role-management.html" id="navRoleMgmt" style="display:none;">權限管理</a>
+        <a href="/user-tasks.html" class="current-page" id="navReviewDesk">審核台</a>
+        <a href="/staff-dashboard.html#review" id="navStaff" style="display:none;">管理控制台</a>
         <a href="/user-dashboard.html" id="navUserTasks" style="display:none;">玩家中心</a>
-        <a href="/redeem-tasks.html" id="navRedeem" style="display:none;">兌換內容控制台</a>
-        <a href="/admin-users.html" id="navAdminUsers" style="display:none;">會員管理</a>
         <span id="loginUserInfo" style="display:none;color:#666;text-decoration:none;cursor:default;"></span>
         <button id="logoutBtn" style="display:none;">登出</button>
       </nav>
@@ -295,6 +298,36 @@
       .main-nav a, .main-nav span, .main-nav button { display: block; margin: 10px 0; text-align: center; width: 90%; margin-left: 5%; color: #333 !important; background: none; z-index: 1002; }
       .hamburger { display: block; }
     }
+
+    .embed-topbar {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      padding: 0.55rem 1rem;
+      background: #1e293b;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+    }
+    .embed-topbar a {
+      color: #93c5fd;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .embed-topbar a:hover {
+      text-decoration: underline;
+    }
+    html.embed-mode #mainHeader,
+    html.embed-mode footer {
+      display: none !important;
+    }
+    html.embed-mode .embed-topbar {
+      display: flex !important;
+    }
+    html.embed-mode main {
+      padding-top: 0.5rem;
+    }
   </style>
   <main>
     <section id="staffReviewSection" style="display:none;">
@@ -349,15 +382,17 @@
 
       // 根據權限顯示導航鏈接
       if (window.loginUser.role === 'admin') {
-        document.getElementById('navStaff').style.display = '';
-        document.getElementById('navRedeem').style.display = '';
+        const ns = document.getElementById('navStaff');
+        ns.style.display = '';
+        ns.href = '/staff-dashboard.html';
       } else if (window.loginUser.role === 'shop') {
-        document.getElementById('navStaff').style.display = '';
-        document.getElementById('navRedeem').style.display = '';
+        const ns = document.getElementById('navStaff');
+        ns.style.display = '';
+        ns.href = '/staff-dashboard.html';
       } else if (window.loginUser.role === 'staff') {
-        // staff：僅審核，不顯示新增任務/兌換管理
-        document.getElementById('navStaff').style.display = 'none';
-        document.getElementById('navRedeem').style.display = 'none';
+        const ns = document.getElementById('navStaff');
+        ns.style.display = '';
+        ns.href = '/staff-dashboard.html#review';
       }
       // 工作人員與管理員不顯示任務列表
       if (window.loginUser && (window.loginUser.role === 'shop' || window.loginUser.role === 'admin' || window.loginUser.role === 'staff')) {

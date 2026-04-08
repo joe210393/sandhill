@@ -21,7 +21,7 @@ if (formUser) {
       localStorage.setItem('loginUser', JSON.stringify(data.user));
       // staff 也走一般登入，但登入後導向審核頁
       if (data.user && data.user.role === 'staff') {
-        window.location.href = '/user-tasks.html';
+        window.location.href = '/staff-dashboard.html#review';
       } else {
         window.location.href = '/index.html';
       }
@@ -44,7 +44,7 @@ if (formUser) {
       return;
     }
     if (loginUser.role === 'staff') {
-      window.location.replace('/user-tasks.html');
+      window.location.replace('/staff-dashboard.html#review');
       return;
     }
     // user
