@@ -1246,6 +1246,78 @@ app.get('/api/quest-chains/:id/public-content', async (req, res) => {
   }
 });
 
+// 後台：刪除玩法入口前的影響範圍
+app.get('/api/quest-chains/:id/delete-impact', staffOrAdminAuth, async (req, res) => {
+  const { id } = req.params;
+  const username = req.user?.username || null;
+  const userRole = req.user?.role || null;
+
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [questRows] = await conn.execute(
+      'SELECT id, title, name, created_by, mode_type FROM quest_chains WHERE id = ? LIMIT 1',
+      [id]
+    );
+    if (!questRows.length) {
+      return res.status(404).json({ success: false, message: '找不到此玩法入口' });
+    }
+
+    const questChain = sanitizeQuestChainRow(questRows[0]);
+    if (userRole !== 'admin' && questChain.created_by !== username) {
+      return res.status(403).json({ success: false, message: '無權限查看此玩法入口' });
+    }
+
+    const [taskRows] = await conn.execute(
+      'SELECT id, name, quest_order, task_type, validation_mode FROM tasks WHERE quest_chain_id = ? ORDER BY COALESCE(quest_order, 9999), id ASC',
+      [id]
+    );
+    const [boardMapRows] = await conn.execute(
+      'SELECT id, name, finish_tile, play_style FROM board_maps WHERE quest_chain_id = ? ORDER BY id ASC',
+      [id]
+    );
+    const [tileRows] = await conn.execute(
+      `SELECT bt.id, bt.tile_index, bt.tile_name, bt.tile_type, bt.board_map_id, bm.name AS board_map_name
+       FROM board_tiles bt
+       INNER JOIN board_maps bm ON bm.id = bt.board_map_id
+       WHERE bm.quest_chain_id = ?
+       ORDER BY bt.board_map_id ASC, bt.tile_index ASC`,
+      [id]
+    );
+    const [userQuestRows] = await conn.execute(
+      'SELECT COUNT(*) AS total FROM user_quests WHERE quest_chain_id = ?',
+      [id]
+    );
+    const [userTaskRows] = await conn.execute(
+      `SELECT COUNT(*) AS total
+       FROM user_tasks ut
+       INNER JOIN tasks t ON t.id = ut.task_id
+       WHERE t.quest_chain_id = ?`,
+      [id]
+    );
+
+    res.json({
+      success: true,
+      questChain,
+      impact: {
+        taskCount: taskRows.length,
+        tasks: taskRows.map((row) => sanitizeTaskRow(row)),
+        boardMapCount: boardMapRows.length,
+        boardMaps: boardMapRows,
+        boardTileCount: tileRows.length,
+        boardTiles: tileRows,
+        userQuestCount: Number(userQuestRows[0]?.total || 0),
+        userTaskCount: Number(userTaskRows[0]?.total || 0)
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '載入刪除影響範圍失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
 // 後台：主結構可視化地圖資料
 app.get('/api/quest-chains/:id/structure-map', staffOrAdminAuth, async (req, res) => {
   const { id } = req.params;
@@ -2046,30 +2118,59 @@ app.delete('/api/quest-chains/:id', staffOrAdminAuth, async (req, res) => {
       return res.status(403).json({ success: false, message: '無權限刪除此劇情' });
     }
 
-    // 2. 檢查是否有任務關聯到此劇情
-    const [tasks] = await conn.execute('SELECT id FROM tasks WHERE quest_chain_id = ?', [id]);
-    if (tasks.length > 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: `無法刪除：此劇情尚有 ${tasks.length} 個任務關聯中。請先刪除或移除相關任務。` 
-      });
-    }
-
+    // 2. 統計將一併刪除的子內容
+    const [tasks] = await conn.execute(
+      'SELECT id, name, quest_order, task_type, validation_mode FROM tasks WHERE quest_chain_id = ? ORDER BY COALESCE(quest_order, 9999), id ASC',
+      [id]
+    );
+    const [boardMaps] = await conn.execute(
+      'SELECT id, name, finish_tile, play_style FROM board_maps WHERE quest_chain_id = ? ORDER BY id ASC',
+      [id]
+    );
+    const [tileRows] = await conn.execute(
+      `SELECT bt.id
+       FROM board_tiles bt
+       INNER JOIN board_maps bm ON bm.id = bt.board_map_id
+       WHERE bm.quest_chain_id = ?`,
+      [id]
+    );
     // 3. 執行刪除（使用事務確保數據一致性）
     await conn.beginTransaction();
     try {
-      // 先刪除用戶的劇情進度 (user_quests) - 雖然理論上沒有任務應該就沒有進度，但保險起見
+      // 先刪除棋盤遊戲 session
+      await conn.execute('DELETE FROM user_game_sessions WHERE quest_chain_id = ?', [id]);
+
+      // 刪除關聯任務的玩家進度（task_attempts 會隨 user_tasks cascade）
+      if (tasks.length > 0) {
+        await conn.execute(
+          `DELETE ut
+           FROM user_tasks ut
+           INNER JOIN tasks t ON t.id = ut.task_id
+           WHERE t.quest_chain_id = ?`,
+          [id]
+        );
+      }
+
+      // 先刪除用戶的劇情進度
       await conn.execute('DELETE FROM user_quests WHERE quest_chain_id = ?', [id]);
-      
-      // 清理 point_transactions 中的關聯紀錄
-      // 將 reference_type 為 'quest_chain_completion' 且 reference_id 為此劇情 ID 的紀錄標記為已刪除
-      // 注意：不直接刪除積分紀錄，而是將 reference_id 設為 NULL，保留歷史記錄
+
+      // 清理 point_transactions 中的劇情完成關聯紀錄
       await conn.execute(
         'UPDATE point_transactions SET reference_id = NULL, description = CONCAT(description, " (劇情已刪除)") WHERE reference_type = "quest_chain_completion" AND reference_id = ?',
         [id]
       );
-      
-      // 刪除劇情
+
+      // 刪除關聯任務
+      if (tasks.length > 0) {
+        await conn.execute('DELETE FROM tasks WHERE quest_chain_id = ?', [id]);
+      }
+
+      // 刪除棋盤（board_tiles 將隨 FK cascade）
+      if (boardMaps.length > 0) {
+        await conn.execute('DELETE FROM board_maps WHERE quest_chain_id = ?', [id]);
+      }
+
+      // 最後刪除玩法入口
       await conn.execute('DELETE FROM quest_chains WHERE id = ?', [id]);
       
       await conn.commit();
@@ -2077,8 +2178,15 @@ app.delete('/api/quest-chains/:id', staffOrAdminAuth, async (req, res) => {
       await conn.rollback();
       throw err;
     }
-
-    res.json({ success: true, message: '劇情已刪除' });
+    res.json({
+      success: true,
+      message: '玩法入口已刪除，關聯內容已一併清理',
+      deleted: {
+        taskCount: tasks.length,
+        boardMapCount: boardMaps.length,
+        boardTileCount: tileRows.length
+      }
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: '伺服器錯誤' });

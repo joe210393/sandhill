@@ -443,11 +443,11 @@ function renderQuestChainList(chains) {
         </div>
         <div class="quest-card-actions">
           <button class="btn-sm btn-primary-v2" onclick="goToQuestDetail('${q.id}')">管理內容</button>
+          <button class="btn-sm btn-secondary-v2" onclick="goToQuestDetail('${q.id}'); setDetailContentMode('map');">結構地圖</button>
           <div class="card-menu-wrap">
             <button class="card-menu-btn" onclick="toggleCardMenu(event, 'quest-menu-${q.id}')">⋯</button>
             <div class="card-menu" id="quest-menu-${q.id}">
               <button onclick="editQuestChain('${q.id}'); closeAllCardMenus();">編輯入口</button>
-              <button onclick="goToQuestDetail('${q.id}'); setDetailContentMode('map'); closeAllCardMenus();">查看結構地圖</button>
               <button class="danger" onclick="deleteQuestChain('${q.id}'); closeAllCardMenus();">刪除入口</button>
             </div>
           </div>
@@ -487,18 +487,57 @@ function editQuestChain(id) {
 function deleteQuestChain(id) {
   const q = globalQuestChainsMap[id];
   const hint = q ? `「${q.title}」` : '這個玩法入口';
-  showConfirm(`確定要刪除 ${hint} 嗎？若底下仍有關卡或棋盤資料，系統會阻止刪除。`, async () => {
-    try {
-      await apiJson(`${API_BASE}/api/quest-chains/${id}`, {
-        method: 'DELETE',
-        headers: withActorHeaders()
-      });
-      showToast('玩法入口已刪除');
-      lastMutatedQuestChainId = null;
-      await loadQuestChains();
-    } catch (err) {
-      showToast(err.message || '刪除失敗', 'error');
+  apiJson(`${API_BASE}/api/quest-chains/${id}/delete-impact`, {
+    headers: withActorHeaders()
+  }).then(({ impact }) => {
+    const taskPreview = (impact.tasks || []).slice(0, 5).map((task) => {
+      const orderText = task.quest_order ? `第 ${task.quest_order} 關` : '未排順序';
+      return `- ${orderText}｜${task.name}`;
+    });
+    const boardPreview = (impact.boardMaps || []).slice(0, 4).map((map) => `- ${map.name}`);
+    const summary = [
+      `確定要刪除 ${hint} 嗎？`,
+      '',
+      '這次會一併清理下列子內容：',
+      `- 關聯關卡：${impact.taskCount || 0} 個`,
+      `- 大富翁棋盤：${impact.boardMapCount || 0} 張`,
+      `- 棋盤格子：${impact.boardTileCount || 0} 個`,
+      `- 玩家劇情進度：${impact.userQuestCount || 0} 筆`,
+      `- 玩家關卡進度：${impact.userTaskCount || 0} 筆`
+    ];
+
+    if (taskPreview.length) {
+      summary.push('', '關卡來源：', ...taskPreview);
     }
+    if (boardPreview.length) {
+      summary.push('', '棋盤來源：', ...boardPreview);
+    }
+    if ((impact.taskCount || 0) > taskPreview.length) {
+      summary.push(`- 其餘關卡 ${impact.taskCount - taskPreview.length} 個`);
+    }
+    if ((impact.boardMapCount || 0) > boardPreview.length) {
+      summary.push(`- 其餘棋盤 ${impact.boardMapCount - boardPreview.length} 張`);
+    }
+    summary.push('', '確認後系統會整包刪除，不需要再手動回頭拆關聯。');
+
+    showConfirm(summary.join('\n'), async () => {
+      try {
+        const result = await apiJson(`${API_BASE}/api/quest-chains/${id}`, {
+          method: 'DELETE',
+          headers: withActorHeaders()
+        });
+        showToast(result.message || '玩法入口已刪除');
+        lastMutatedQuestChainId = null;
+        await loadQuestChains();
+        if (String(currentQuestChainId) === String(id)) {
+          switchView('view-quest-chains');
+        }
+      } catch (err) {
+        showToast(err.message || '刪除失敗', 'error');
+      }
+    });
+  }).catch(err => {
+    showToast(err.message || '無法載入刪除影響範圍', 'error');
   });
 }
 
