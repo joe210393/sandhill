@@ -112,6 +112,79 @@
     .drawer-form-section { display: none; }
     .drawer-form-section.active { display: block; }
 
+    .wizard-shell { margin-bottom: 16px; }
+    .wizard-steps { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+    .wizard-step-chip {
+      min-width: 0; flex: 1 1 0; background:#f8fafc; border:1px solid #dbeafe; border-radius:12px;
+      padding:10px 12px; color:#64748b;
+    }
+    .wizard-step-chip.active {
+      background: linear-gradient(135deg,#eff6ff,#ecfeff); border-color:#0f766e; color:#0f172a;
+      box-shadow: 0 8px 18px rgba(15,118,110,0.12);
+    }
+    .wizard-step-chip.done { background:#f0fdf4; border-color:#86efac; color:#166534; }
+    .wizard-step-no { font-size:0.72rem; font-weight:700; letter-spacing:.04em; }
+    .wizard-step-title { font-size:0.88rem; font-weight:700; margin-top:4px; }
+    .wizard-step-subtitle { font-size:0.76rem; margin-top:2px; }
+    .task-wizard-step { display:none; }
+    .task-wizard-step.active { display:block; }
+    .wizard-footer-note { font-size:0.8rem; color:#64748b; margin-right:auto; }
+    .drawer-footer .hidden { display:none !important; }
+
+    .structure-map-panel {
+      display:none;
+      background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+      border: 1px solid #dbeafe;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+    }
+    .structure-map-panel.active { display:block; }
+    .structure-map-toolbar {
+      display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap;
+    }
+    .structure-map-shell, .structure-inspector {
+      background:#ffffff; border:1px solid #e2e8f0; border-radius:16px;
+      box-shadow: 0 8px 22px rgba(15,23,42,0.05);
+    }
+    .structure-map-legend {
+      display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;
+    }
+    .structure-map-canvas {
+      overflow:auto; padding:18px; display:flex; gap:18px; align-items:flex-start;
+    }
+    .structure-root-node {
+      min-width:220px; border-radius:20px; background:linear-gradient(135deg,#0f766e,#164e63); color:white;
+      padding:18px; box-shadow:0 12px 28px rgba(8,47,73,0.24);
+    }
+    .structure-root-node .structure-node-kind,
+    .structure-root-node .structure-node-desc { color:rgba(255,255,255,0.82); }
+    .structure-lane-wrap { display:flex; gap:16px; align-items:center; min-width:max-content; }
+    .structure-cluster { display:flex; flex-direction:column; gap:12px; }
+    .structure-cluster-label { font-size:.8rem; font-weight:700; color:#0f172a; }
+    .structure-node-link {
+      width:38px; min-width:38px; height:2px; background:linear-gradient(90deg,#94a3b8,#cbd5e1);
+      border-radius:999px;
+    }
+    .structure-node {
+      min-width:240px; max-width:260px; background:#fff; border:1px solid #dbeafe; border-radius:18px; padding:14px;
+      box-shadow: 0 10px 22px rgba(15,23,42,0.08); cursor:pointer; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    .structure-node:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(15,23,42,0.12); }
+    .structure-node.active { border-color:#0f766e; box-shadow: 0 0 0 3px rgba(20,184,166,0.16); }
+    .structure-node-kind { font-size:.76rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:#0f766e; }
+    .structure-node-title { font-size:1rem; font-weight:700; color:#0f172a; margin-top:6px; }
+    .structure-node-desc { font-size:.82rem; color:#64748b; margin-top:8px; line-height:1.5; }
+    .structure-node-meta { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+    .structure-node-badges { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+    .structure-inspector { padding:16px; margin-top:12px; }
+    .structure-inspector h3 { margin:0 0 10px; color:#0f172a; font-size:1.02rem; }
+    .structure-inspector-empty { color:#94a3b8; font-size:0.9rem; }
+    .structure-inspector-list { display:grid; gap:8px; }
+    .structure-inspector-row { display:flex; gap:8px; align-items:flex-start; font-size:.88rem; color:#334155; }
+    .structure-inspector-row strong { min-width:82px; color:#0f172a; }
+
     /* Form overrides for V2 */
     .v2-form .form-group { margin-bottom: 16px; }
     .v2-form .form-label { display: block; margin-bottom: 6px; font-weight: 500; color: #334155; font-size: 0.9rem; }
@@ -276,6 +349,7 @@
         <div class="view-header">
           <h2 id="detailQuestTitle">載入中...</h2>
           <div id="detailActions" style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="btnShowStructureMap" class="btn-md btn-secondary-v2" onclick="toggleStructureMap()">🗺️ 主結構地圖</button>
             <button id="btnAddTask" class="btn-md btn-primary-v2" onclick="openTaskDrawerForCreate()">+ 新增關卡</button>
             <button id="btnAddTile" class="btn-md btn-primary-v2" style="display:none;" onclick="openTileDrawerForCreate()">+ 新增格子</button>
           </div>
@@ -297,6 +371,27 @@
               <button type="button" id="btnCreateBoardMap" class="btn-sm btn-primary-v2" style="display:none;" onclick="openBoardMapDrawer(false)">+ 建立大富翁地圖</button>
               <button type="button" id="btnEditBoardMap" class="btn-sm btn-secondary-v2" style="display:none;" onclick="openBoardMapDrawer(true)">編輯地圖</button>
             </div>
+          </div>
+        </div>
+        <div id="structureMapPanel" class="structure-map-panel">
+          <div class="structure-map-toolbar">
+            <div>
+              <div style="font-size:1rem; font-weight:700; color:#0f172a;">主結構地圖</div>
+              <div style="font-size:0.86rem; color:#64748b;">查看這個入口底下的關卡、NPC、道具、音效與驗證方式。</div>
+            </div>
+            <button class="btn-sm btn-secondary-v2" type="button" onclick="refreshStructureMap()">重新整理</button>
+          </div>
+          <div id="structureMapSummary" class="structure-map-legend" style="margin-bottom:12px;"></div>
+          <div id="structureMapLegend" class="structure-map-legend"></div>
+          <div class="structure-map-shell">
+            <div id="structureMapCanvas" class="structure-map-canvas">
+              <div class="empty-state"><div class="empty-state-icon">🗺️</div>點上方按鈕載入主結構地圖</div>
+            </div>
+          </div>
+          <div id="structureInspector" class="structure-inspector">
+            <h3 id="structureInspectorTitle">節點詳情</h3>
+            <p id="structureInspectorLead" class="structure-inspector-empty">點一個節點，就能查看這個關卡或格子的完整設定。</p>
+            <div id="structureInspectorBody"></div>
           </div>
         </div>
         <div id="questDetailContentContainer" style="display:grid; gap:10px;">
@@ -543,7 +638,7 @@
     <div class="drawer-body">
 
       <!-- Form: Quest Chain -->
-      <div id="form-quest-chain" class="drawer-form-section">
+      <div id="form-quest-chain" class="drawer-form-section" data-form-id="questChainForm">
         <form id="questChainForm" class="v2-form">
           <input type="hidden" name="id" id="qc_id">
           <div class="form-group">
@@ -615,7 +710,7 @@
       </div>
 
       <!-- Form: Board map (大富翁) -->
-      <div id="form-board-map" class="drawer-form-section">
+      <div id="form-board-map" class="drawer-form-section" data-form-id="boardMapForm">
         <form id="boardMapForm" class="v2-form">
           <input type="hidden" name="id" id="bm_id">
           <input type="hidden" name="quest_chain_id" id="bm_quest_chain_id">
@@ -687,10 +782,43 @@
       </div>
 
       <!-- Form: Task (Merged Add/Edit) -->
-      <div id="form-task" class="drawer-form-section">
+      <div id="form-task" class="drawer-form-section" data-form-id="taskForm">
         <form id="taskForm" class="v2-form">
           <input type="hidden" name="id" id="task_id">
           <input type="hidden" name="quest_chain_id" id="task_quest_chain_id">
+
+          <div class="wizard-shell">
+            <div class="wizard-steps">
+              <div class="wizard-step-chip active" data-step-chip="1">
+                <div class="wizard-step-no">1</div>
+                <div>
+                  <div class="wizard-step-title">定位與模板</div>
+                  <div class="wizard-step-subtitle">先選類型與主結構</div>
+                </div>
+              </div>
+              <div class="wizard-step-chip" data-step-chip="2">
+                <div class="wizard-step-no">2</div>
+                <div>
+                  <div class="wizard-step-title">場域與目標</div>
+                  <div class="wizard-step-subtitle">名稱、座標、積分</div>
+                </div>
+              </div>
+              <div class="wizard-step-chip" data-step-chip="3">
+                <div class="wizard-step-no">3</div>
+                <div>
+                  <div class="wizard-step-title">互動與驗證</div>
+                  <div class="wizard-step-subtitle">作答方式與 AI 裁判</div>
+                </div>
+              </div>
+              <div class="wizard-step-chip" data-step-chip="4">
+                <div class="wizard-step-no">4</div>
+                <div>
+                  <div class="wizard-step-title">玩家體驗</div>
+                  <div class="wizard-step-subtitle">提示、素材、獎勵</div>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <!-- Locked context -->
           <div class="locked-field" id="taskLockedContext">
@@ -1027,7 +1155,7 @@
       </div>
 
       <!-- Form: Board Tile (Merged Add/Edit) — Type-Driven UX -->
-      <div id="form-tile" class="drawer-form-section">
+      <div id="form-tile" class="drawer-form-section" data-form-id="tileForm">
         <form id="tileForm" class="v2-form">
           <input type="hidden" name="id" id="tile_id">
           <input type="hidden" name="board_map_id" id="tile_board_map_id">
@@ -1191,7 +1319,7 @@
       </div>
 
       <!-- Form: Item (道具) -->
-      <div id="form-item" class="drawer-form-section">
+      <div id="form-item" class="drawer-form-section" data-form-id="itemForm">
         <form id="itemForm" class="v2-form">
           <input type="hidden" name="id" id="item_id">
           <div class="form-group">
@@ -1219,7 +1347,7 @@
       </div>
 
       <!-- Form: BGM library upload -->
-      <div id="form-bgm-asset" class="drawer-form-section">
+      <div id="form-bgm-asset" class="drawer-form-section" data-form-id="bgmAssetForm">
         <form id="bgmAssetForm" class="v2-form">
           <div class="form-group">
             <label class="form-label">音樂名稱</label>
@@ -1235,7 +1363,7 @@
       </div>
 
       <!-- Form: Asset upload -->
-      <div id="form-asset" class="drawer-form-section">
+      <div id="form-asset" class="drawer-form-section" data-form-id="assetForm">
         <form id="assetForm" class="v2-form">
           <div class="form-group">
             <label class="form-label">模型名稱</label>
@@ -1255,7 +1383,7 @@
       </div>
 
       <!-- Form: NPC -->
-      <div id="form-npc" class="drawer-form-section">
+      <div id="form-npc" class="drawer-form-section" data-form-id="npcForm">
         <form id="npcForm" class="v2-form">
           <input type="hidden" name="id" id="npc_form_id">
           <div class="form-group">
@@ -1290,7 +1418,7 @@
       </div>
 
       <!-- Form: Product -->
-      <div id="form-product" class="drawer-form-section">
+      <div id="form-product" class="drawer-form-section" data-form-id="productForm">
         <form id="productForm" class="v2-form">
           <input type="hidden" name="id" id="product_id">
           <div class="form-group">
@@ -1322,7 +1450,7 @@
       </div>
 
       <!-- Form: Import Users -->
-      <div id="form-import-users" class="drawer-form-section">
+      <div id="form-import-users" class="drawer-form-section" data-form-id="importUsersForm">
         <form id="importUsersForm" class="v2-form">
           <div class="form-group">
             <label class="form-label">選擇 Excel 檔案</label>
@@ -1352,8 +1480,11 @@
 
     </div>
     <div class="drawer-footer">
+      <div id="drawerFooterNote" class="wizard-footer-note"></div>
       <button class="btn-md btn-secondary-v2" onclick="closeDrawer()">取消</button>
-      <button class="btn-md btn-primary-v2" onclick="submitActiveForm()">儲存</button>
+      <button id="drawerBackBtn" class="btn-md btn-secondary-v2 hidden" type="button" onclick="goTaskWizardStep(-1)">上一步</button>
+      <button id="drawerNextBtn" class="btn-md btn-secondary-v2 hidden" type="button" onclick="goTaskWizardStep(1)">下一步</button>
+      <button id="drawerSubmitBtn" class="btn-md btn-primary-v2" onclick="submitActiveForm()">儲存</button>
     </div>
   </div>
 
@@ -1371,7 +1502,7 @@
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 
-  <script src="/js/staff-dashboard.js?v=20260408b"></script>
+  <script src="/js/staff-dashboard.js?v=20260409b"></script>
   <script>
     window.loginUser = JSON.parse(localStorage.getItem('loginUser') || 'null');
   </script>

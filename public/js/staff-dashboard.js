@@ -75,6 +75,22 @@ let globalBoardMaps = [];
 let globalModelsMap = {};
 let globalItemsMap = {};
 let globalBgmLibraryMap = {};
+let currentStructureMap = null;
+let currentStructureSelection = null;
+let taskWizardStep = 1;
+const TASK_WIZARD_TOTAL_STEPS = 4;
+const DRAWER_FORM_ID_MAP = {
+  'form-quest-chain': 'questChainForm',
+  'form-board-map': 'boardMapForm',
+  'form-task': 'taskForm',
+  'form-tile': 'tileForm',
+  'form-item': 'itemForm',
+  'form-bgm-asset': 'bgmAssetForm',
+  'form-asset': 'assetForm',
+  'form-npc': 'npcForm',
+  'form-product': 'productForm',
+  'form-import-users': 'importUsersForm'
+};
 
 // Current drill-down context
 let currentQuestChainId = null;
@@ -257,15 +273,142 @@ const drawerTitle = document.getElementById('drawerTitle');
 
 overlay.addEventListener('click', closeDrawer);
 
+function getTaskWizardStepElement(step) {
+  return document.querySelector(`.task-wizard-step[data-task-step="${step}"]`);
+}
+
+function scrollToFirstInvalid(scope) {
+  if (!scope) return;
+  const firstInvalid = scope.querySelector(':invalid');
+  if (firstInvalid && typeof firstInvalid.scrollIntoView === 'function') {
+    firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (typeof firstInvalid.focus === 'function') firstInvalid.focus();
+  }
+}
+
+function syncDrawerFooter() {
+  const note = document.getElementById('drawerFooterNote');
+  const backBtn = document.getElementById('drawerBackBtn');
+  const nextBtn = document.getElementById('drawerNextBtn');
+  const submitBtn = document.getElementById('drawerSubmitBtn');
+  const form = activeFormId ? document.getElementById(activeFormId) : null;
+  const isTaskWizard = activeFormId === 'taskForm';
+  const hasActiveForm = !!form;
+
+  backBtn?.classList.toggle('hidden', !isTaskWizard || taskWizardStep === 1);
+  nextBtn?.classList.toggle('hidden', !isTaskWizard || taskWizardStep === TASK_WIZARD_TOTAL_STEPS);
+  submitBtn?.classList.toggle('hidden', isTaskWizard && taskWizardStep !== TASK_WIZARD_TOTAL_STEPS);
+
+  if (submitBtn) {
+    submitBtn.disabled = !hasActiveForm;
+    submitBtn.style.opacity = hasActiveForm ? '1' : '0.55';
+    submitBtn.style.cursor = hasActiveForm ? 'pointer' : 'not-allowed';
+  }
+
+  if (!note) return;
+  if (isTaskWizard) {
+    note.textContent = `新增關卡流程：第 ${taskWizardStep} / ${TASK_WIZARD_TOTAL_STEPS} 步`;
+  } else if (activeFormId === 'tileForm') {
+    note.textContent = '大富翁格子會直接歸屬在目前這張棋盤底下。';
+  } else if (activeFormId === 'questChainForm') {
+    note.textContent = '玩法入口建立後，底下的關卡與棋盤都會獨立歸屬在這個入口。';
+  } else {
+    note.textContent = '';
+  }
+}
+
+function syncTaskWizardUI() {
+  document.querySelectorAll('.task-wizard-step[data-task-step]').forEach(el => {
+    el.classList.toggle('active', Number(el.dataset.taskStep) === taskWizardStep);
+  });
+  document.querySelectorAll('[data-step-chip]').forEach(chip => {
+    const step = Number(chip.dataset.stepChip);
+    chip.classList.toggle('active', step === taskWizardStep);
+    chip.classList.toggle('done', step < taskWizardStep);
+  });
+  syncDrawerFooter();
+}
+
+function validateTaskWizardStep(step) {
+  const stepEl = getTaskWizardStepElement(step);
+  if (!stepEl) return true;
+  const inputs = Array.from(stepEl.querySelectorAll('input, select, textarea')).filter((el) => {
+    if (el.disabled) return false;
+    if (el.closest('[style*="display:none"]')) return false;
+    return true;
+  });
+  for (const input of inputs) {
+    if (typeof input.reportValidity === 'function' && !input.reportValidity()) {
+      scrollToFirstInvalid(stepEl);
+      return false;
+    }
+  }
+  return true;
+}
+
+function goTaskWizardStep(direction) {
+  if (activeFormId !== 'taskForm') return;
+  if (direction > 0 && !validateTaskWizardStep(taskWizardStep)) return;
+  taskWizardStep = Math.min(TASK_WIZARD_TOTAL_STEPS, Math.max(1, taskWizardStep + direction));
+  syncTaskWizardUI();
+}
+
+function resetTaskWizard() {
+  taskWizardStep = 1;
+  syncTaskWizardUI();
+}
+
+function initializeTaskWizardDOM() {
+  const form = document.getElementById('taskForm');
+  if (!form || form.dataset.wizardReady === '1') return;
+  const shell = form.querySelector('.wizard-shell');
+  const taskLockedContext = document.getElementById('taskLockedContext');
+  const blueprintInfo = form.querySelector('.blueprint-info');
+  const gamePositionTitle = Array.from(form.querySelectorAll('.section-title')).find((el) => el.textContent.includes('遊戲定位'));
+  const fieldAreaTitle = Array.from(form.querySelectorAll('.section-title')).find((el) => el.textContent.includes('場域與目標'));
+  const interactionTitle = Array.from(form.querySelectorAll('.section-title')).find((el) => el.textContent.includes('互動方式'));
+  const playerContentTitle = Array.from(form.querySelectorAll('.section-title')).find((el) => el.textContent.includes('玩家感受到的內容'));
+  const taskFormMsg = document.getElementById('taskFormMsg');
+  if (!shell || !taskLockedContext || !blueprintInfo || !gamePositionTitle || !fieldAreaTitle || !interactionTitle || !playerContentTitle || !taskFormMsg) return;
+
+  const children = Array.from(form.children);
+  const beforeStep1 = children.indexOf(taskLockedContext);
+  const start2 = children.indexOf(fieldAreaTitle);
+  const start3 = children.indexOf(interactionTitle);
+  const start4 = children.indexOf(playerContentTitle);
+  const end4 = children.indexOf(taskFormMsg);
+  if ([beforeStep1, start2, start3, start4, end4].some((idx) => idx < 0)) return;
+
+  const makeStep = (stepNo) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = `task-wizard-step${stepNo === 1 ? ' active' : ''}`;
+    wrapper.dataset.taskStep = String(stepNo);
+    return wrapper;
+  };
+  const steps = [makeStep(1), makeStep(2), makeStep(3), makeStep(4)];
+  shell.insertAdjacentElement('afterend', steps[0]);
+  steps[0].after(steps[1]);
+  steps[1].after(steps[2]);
+  steps[2].after(steps[3]);
+
+  children.slice(beforeStep1, start2).forEach((node) => steps[0].appendChild(node));
+  children.slice(start2, start3).forEach((node) => steps[1].appendChild(node));
+  children.slice(start3, start4).forEach((node) => steps[2].appendChild(node));
+  children.slice(start4, end4 + 1).forEach((node) => steps[3].appendChild(node));
+  form.dataset.wizardReady = '1';
+}
+
 function openDrawer(title, formSectionId, data, opts = {}) {
   drawerTitle.textContent = title;
 
   document.querySelectorAll('.drawer-form-section').forEach(el => el.classList.remove('active'));
   const section = document.getElementById(formSectionId);
   section.classList.add('active');
+  drawer.dataset.activeSection = formSectionId;
 
   const form = section.querySelector('form');
   activeFormId = form ? form.id : null;
+  taskWizardStep = 1;
 
   if (data && form) {
     fillForm(form, data);
@@ -281,24 +424,43 @@ function openDrawer(title, formSectionId, data, opts = {}) {
 
   drawer.classList.add('open');
   overlay.classList.add('open');
+  syncDrawerFooter();
 }
 
 function closeDrawer() {
   drawer.classList.remove('open');
   overlay.classList.remove('open');
   activeFormId = null;
+  delete drawer.dataset.activeSection;
+  taskWizardStep = 1;
+  syncDrawerFooter();
 }
 
 function submitActiveForm() {
-  if (!activeFormId) return;
-  const form = document.getElementById(activeFormId);
+  let form = activeFormId ? document.getElementById(activeFormId) : null;
+  if (!form) {
+    const activeSection = drawer.dataset.activeSection
+      ? document.getElementById(drawer.dataset.activeSection)
+      : document.querySelector('.drawer-form-section.active');
+    if (activeSection) {
+      const fallbackFormId = activeSection.dataset.formId || DRAWER_FORM_ID_MAP[activeSection.id] || '';
+      form = fallbackFormId ? document.getElementById(fallbackFormId) : activeSection.querySelector('form');
+      activeFormId = form ? form.id : null;
+    }
+  }
   if (!form) {
     showToast('目前沒有可儲存的表單', 'error');
-    activeFormId = null;
+    syncDrawerFooter();
+    return;
+  }
+  if (activeFormId === 'taskForm' && taskWizardStep < TASK_WIZARD_TOTAL_STEPS) {
+    goTaskWizardStep(1);
     return;
   }
   if (typeof form.reportValidity === 'function' && form.reportValidity()) {
     form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+  } else {
+    scrollToFirstInvalid(activeFormId === 'taskForm' ? getTaskWizardStepElement(taskWizardStep) : form);
   }
 }
 
@@ -734,12 +896,292 @@ function goToQuestDetail(questChainId) {
   }
 
   switchView('view-quest-detail');
+  currentStructureMap = null;
+  currentStructureSelection = null;
+  const structurePanel = document.getElementById('structureMapPanel');
+  if (structurePanel) structurePanel.style.display = 'none';
+  const structureCanvas = document.getElementById('structureMapCanvas');
+  if (structureCanvas) {
+    structureCanvas.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🗺️</div>點上方按鈕載入主結構地圖</div>';
+  }
 
   if (q.mode_type === 'board_game') {
     loadBoardContent(questChainId);
   } else {
     loadTasksForQuest(questChainId);
   }
+}
+
+function inferNpcLabel(node) {
+  let eventConfig = null;
+  try { eventConfig = node.event_config ? JSON.parse(node.event_config) : null; } catch (err) { eventConfig = null; }
+  if (eventConfig?.npc) return String(eventConfig.npc);
+  const type = node.tile_type || node.type || '';
+  const validation = node.validation_mode || '';
+  const stage = node.stage_template || '';
+  if (type === 'fortune') return '主持人・史蛋';
+  if (type === 'chance') return '主持人・史蛋';
+  if (type === 'story') return '導覽員・潮聲';
+  if (type === 'event') return '引路人・史蛋';
+  if (type === 'quiz') return '潮汐關主・巴布';
+  if (type === 'finish') return '潮汐裁判・鯨老';
+  if (validation.startsWith('ai_')) return '潮汐裁判・鯨老';
+  if (stage.includes('intro') || stage.includes('story')) return '引路人・史蛋';
+  return '潮汐關主・巴布';
+}
+
+function inferNodeKindLabel(node, modeType) {
+  if (modeType === 'board_game') {
+    return tileTypeLabels[node.tile_type] || '棋盤節點';
+  }
+  if (node.type === 'quest') return '劇情主線關卡';
+  if (node.type === 'timed') return '限時關卡';
+  return '一般關卡';
+}
+
+function getTaskHumanType(task) {
+  if (task.validation_mode?.startsWith('ai_')) {
+    const map = {
+      ai_count: 'AI 數量判斷',
+      ai_identify: 'AI 指定物辨識',
+      ai_score: 'AI 圖像評分',
+      ai_rule_check: 'AI 規則檢查',
+      ai_reference_match: 'AI 地點照片比對'
+    };
+    return map[task.validation_mode] || 'AI 任務';
+  }
+  const map = {
+    multiple_choice: '選擇題',
+    photo: '拍照任務',
+    number: '數字解謎',
+    keyword: '關鍵字',
+    location: '地點打卡',
+    qa: '問答題'
+  };
+  return map[task.task_type] || '關卡';
+}
+
+function describeAudioLabel(node) {
+  let eventConfig = null;
+  try { eventConfig = node.event_config ? JSON.parse(node.event_config) : null; } catch (err) { eventConfig = null; }
+  if (eventConfig?.sfx) return `音效：${eventConfig.sfx}`;
+  if (node.bgm_url || node.linked_bgm_url) return '有背景音樂';
+  return '無音效設定';
+}
+
+function buildStructureNode(type, source, modeType) {
+  const isBoard = modeType === 'board_game';
+  let eventConfig = null;
+  try {
+    eventConfig = source.event_config ? JSON.parse(source.event_config) : null;
+  } catch (err) {
+    eventConfig = null;
+  }
+  return {
+    id: `${type}-${source.id}`,
+    nodeType: type,
+    sourceId: source.id,
+    order: isBoard ? Number(source.tile_index || 0) : Number(source.quest_order || 0),
+    title: isBoard ? (source.tile_name || `第 ${source.tile_index} 格`) : source.name,
+    subtitle: inferNodeKindLabel(source, modeType),
+    description: isBoard
+      ? (source.event_body || source.guide_content || source.task_description || '尚未填寫格子說明')
+      : (source.description || source.guide_content || '尚未填寫關卡說明'),
+    npcLabel: inferNpcLabel(source),
+    primaryLabel: isBoard
+      ? (tileTypeLabels[source.tile_type] || source.tile_type || '格子')
+      : getTaskHumanType(source),
+    requiredItem: source.required_item_name || null,
+    rewardItem: source.reward_item_name || null,
+    audioLabel: describeAudioLabel(source),
+    validationLabel: source.validation_mode || source.tile_type || source.task_type || '未設定',
+    stageTemplate: source.stage_template || null,
+    eventConfig,
+    raw: source
+  };
+}
+
+function renderStructureMap() {
+  const summary = document.getElementById('structureMapSummary');
+  const canvas = document.getElementById('structureMapCanvas');
+  const legend = document.getElementById('structureMapLegend');
+  const inspectorTitle = document.getElementById('structureInspectorTitle');
+  const inspectorLead = document.getElementById('structureInspectorLead');
+  const inspectorBody = document.getElementById('structureInspectorBody');
+  if (!summary || !canvas || !legend || !inspectorTitle || !inspectorLead || !inspectorBody) return;
+
+  if (!currentStructureMap) {
+    legend.style.display = 'none';
+    summary.innerHTML = '<span class="tag tag-gray">尚未載入主結構</span>';
+    canvas.innerHTML = '<div class="empty-state" style="width:100%;"><div class="empty-state-icon">🗺️</div>尚無結構資料</div>';
+    inspectorTitle.textContent = '節點詳情';
+    inspectorLead.textContent = '點擊左側節點，可查看這一關 / 這一格的 NPC、道具、音效與驗證方式。';
+    inspectorBody.innerHTML = '';
+    return;
+  }
+
+  const { questChain, tasks = [], boardMaps = [], boardTiles = [] } = currentStructureMap;
+  const modeType = questChain.mode_type || 'story_campaign';
+  legend.style.display = 'flex';
+  legend.innerHTML = [
+    ['🎯', '挑戰 / 主線關卡'],
+    ['🧑‍🚀', 'NPC'],
+    ['🎁', '道具'],
+    ['🎵', '音效 / BGM'],
+    ['🤖', 'AI 驗證 / 事件']
+  ].map(([icon, text]) => `<span class="tag tag-gray">${icon} ${escHtml(text)}</span>`).join('');
+
+  const nodes = modeType === 'board_game'
+    ? boardTiles.map(tile => buildStructureNode('tile', tile, modeType)).sort((a, b) => a.order - b.order)
+    : tasks.map(task => buildStructureNode('task', task, modeType)).sort((a, b) => a.order - b.order);
+
+  summary.innerHTML = `
+    <span class="tag tag-blue">${escHtml(questChain.title)}</span>
+    <span class="tag tag-gray">${modeType === 'board_game' ? '大富翁模式' : '劇情主線'}</span>
+    <span class="tag tag-gray">節點 ${nodes.length}</span>
+    <span class="tag tag-gray">NPC ${new Set(nodes.map(node => node.npcLabel)).size}</span>
+    ${boardMaps.length ? `<span class="tag tag-gray">棋盤 ${boardMaps.length}</span>` : ''}
+  `;
+
+  if (!nodes.length) {
+    canvas.innerHTML = '<div class="empty-state" style="width:100%;"><div class="empty-state-icon">🧩</div>此主結構還沒有任何節點</div>';
+    inspectorTitle.textContent = '主結構詳情';
+    inspectorLead.textContent = questChain.short_description || questChain.description || '這個主結構尚未建立內容。';
+    inspectorBody.innerHTML = '';
+    return;
+  }
+
+  if (!currentStructureSelection || !nodes.some(node => node.id === currentStructureSelection.id)) {
+    currentStructureSelection = nodes[0];
+  }
+
+  const mapCluster = boardMaps.length
+    ? `<div class="structure-cluster">
+         <div class="structure-cluster-label">棋盤結構</div>
+         ${boardMaps.map((map) => `
+           <div class="structure-node ${currentStructureSelection?.id === `board-map-${map.id}` ? 'active' : ''}" data-structure-board="${map.id}">
+             <div class="structure-node-kind">${escHtml(map.play_style || 'board_game')}</div>
+             <div class="structure-node-title">${escHtml(map.name)}</div>
+             <div class="structure-node-meta">
+               <span class="tag tag-gray">🧩 ${map.tile_count || 0} 格</span>
+               <span class="tag tag-gray">🎯 ${map.challenge_tile_count || 0} 挑戰格</span>
+               <span class="tag tag-gray">✨ ${map.event_tile_count || 0} 事件格</span>
+             </div>
+             <div class="structure-node-desc">起點 ${map.start_tile || 1} → 終點 ${map.finish_tile || 0}</div>
+           </div>
+         `).join('')}
+       </div>`
+    : '';
+
+  canvas.innerHTML = `
+    <div class="structure-lane-wrap">
+      <div class="structure-root-node">
+        <div class="structure-node-kind">${modeType === 'board_game' ? '大富翁玩法入口' : '劇情主線入口'}</div>
+        <div class="structure-node-title">${escHtml(questChain.title)}</div>
+        <div class="structure-node-badges">
+          <span class="tag tag-gray">${modeType === 'board_game' ? '🎲 棋盤玩法' : '📖 劇情玩法'}</span>
+          ${questChain.entry_scene_label ? `<span class="tag tag-gray">${escHtml(questChain.entry_scene_label)}</span>` : ''}
+          ${questChain.play_style ? `<span class="tag tag-gray">${escHtml(questChain.play_style)}</span>` : ''}
+        </div>
+        <div class="structure-node-desc">${escHtml(questChain.short_description || questChain.description || '尚未填寫玩法說明')}</div>
+      </div>
+      <div class="structure-node-link"></div>
+      ${mapCluster || ''}
+      ${mapCluster ? '<div class="structure-node-link"></div>' : ''}
+      <div class="structure-cluster">
+        <div class="structure-cluster-label">${modeType === 'board_game' ? '格子 / 關卡節點' : '關卡節點'}</div>
+        <div class="structure-lane">${
+          nodes.map((node, index) => `
+            <div class="structure-node ${currentStructureSelection.id === node.id ? 'active' : ''}" data-structure-node="${node.id}">
+              <div class="structure-node-kind">${node.order ? `#${node.order}｜` : ''}${escHtml(node.subtitle)}</div>
+              <div class="structure-node-title">${escHtml(node.title)}</div>
+              <div class="structure-node-badges">
+                <span class="tag tag-gray">${escHtml(node.primaryLabel)}</span>
+                <span class="tag tag-gray">${escHtml(node.npcLabel)}</span>
+                ${node.requiredItem ? `<span class="tag tag-gray">🔐 ${escHtml(node.requiredItem)}</span>` : ''}
+                ${node.rewardItem ? `<span class="tag tag-gray">🎁 ${escHtml(node.rewardItem)}</span>` : ''}
+              </div>
+              <div class="structure-node-meta">${escHtml(node.audioLabel)}｜${escHtml(node.validationLabel)}</div>
+              <div class="structure-node-desc">${escHtml(node.description || '尚未填寫說明')}</div>
+            </div>
+            ${index < nodes.length - 1 ? '<div class="structure-node-link">→</div>' : ''}
+          `).join('')
+        }</div>
+      </div>
+    </div>`;
+
+  canvas.querySelectorAll('[data-structure-node]').forEach(el => {
+    el.addEventListener('click', () => {
+      const selected = nodes.find(node => node.id === el.dataset.structureNode);
+      if (!selected) return;
+      currentStructureSelection = selected;
+      renderStructureMap();
+    });
+  });
+
+  canvas.querySelectorAll('[data-structure-board]').forEach(el => {
+    el.addEventListener('click', () => {
+      const selectedBoard = boardMaps.find(map => String(map.id) === String(el.dataset.structureBoard));
+      if (!selectedBoard) return;
+      inspectorTitle.textContent = selectedBoard.name;
+      inspectorLead.textContent = `這張棋盤屬於 ${questChain.title}，共有 ${selectedBoard.tile_count || 0} 格，採用 ${selectedBoard.play_style || 'fixed_track_race'} 規則。`;
+      inspectorBody.innerHTML = `
+        <div class="structure-inspector-list">
+          <div class="structure-inspector-row"><strong>玩法樣式</strong><span>${escHtml(selectedBoard.play_style || 'fixed_track_race')}</span></div>
+          <div class="structure-inspector-row"><strong>關卡分布</strong><span>${selectedBoard.challenge_tile_count || 0} 個挑戰格｜${selectedBoard.event_tile_count || 0} 個事件格</span></div>
+          <div class="structure-inspector-row"><strong>路線</strong><span>起點 ${selectedBoard.start_tile || 1} → 終點 ${selectedBoard.finish_tile || 0}</span></div>
+        </div>`;
+    });
+  });
+
+  const selected = currentStructureSelection;
+  inspectorTitle.textContent = selected.title;
+  inspectorLead.textContent = selected.description || '這個節點尚未填寫補充說明。';
+  inspectorBody.innerHTML = `
+    <div class="structure-inspector-list">
+      <div class="structure-inspector-row"><strong>節點類型</strong><span>${escHtml(selected.subtitle)}</span></div>
+      <div class="structure-inspector-row"><strong>主要玩法</strong><span>${escHtml(selected.primaryLabel)}</span></div>
+      <div class="structure-inspector-row"><strong>預設 NPC</strong><span>${escHtml(selected.npcLabel)}</span></div>
+      <div class="structure-inspector-row"><strong>音效 / BGM</strong><span>${escHtml(selected.audioLabel)}</span></div>
+      <div class="structure-inspector-row"><strong>道具關聯</strong><span>${selected.requiredItem ? `需 ${escHtml(selected.requiredItem)}` : '無前置需求'}${selected.rewardItem ? `｜完成得 ${escHtml(selected.rewardItem)}` : ''}</span></div>
+      <div class="structure-inspector-row"><strong>提示 / 劇情</strong><span>${escHtml(selected.raw.stage_intro || selected.raw.story_context || selected.raw.guide_content || selected.raw.hint_text || '尚未設定')}</span></div>
+      <div class="structure-inspector-row"><strong>驗證 / 節點資訊</strong><span>${escHtml(selected.validationLabel)}</span></div>
+      <div class="structure-inspector-row"><strong>模板 / 事件設定</strong><span>${escHtml(selected.stageTemplate || '未指定模板')}${selected.eventConfig ? `<br>${escHtml(JSON.stringify(selected.eventConfig))}` : ''}</span></div>
+    </div>`;
+}
+
+function loadStructureMap(questChainId) {
+  currentStructureSelection = null;
+  return apiJson(`${API_BASE}/api/quest-chains/${questChainId}/structure-map`, {
+    headers: withActorHeaders()
+  }).then(data => {
+    currentStructureMap = data;
+    renderStructureMap();
+  }).catch(err => {
+    currentStructureMap = null;
+    const canvas = document.getElementById('structureMapCanvas');
+    if (canvas) {
+      canvas.innerHTML = `<div class="empty-state" style="width:100%;"><div class="empty-state-icon">⚠️</div>${escHtml(err.message || '結構地圖載入失敗')}</div>`;
+    }
+  });
+}
+
+function toggleStructureMap() {
+  const panel = document.getElementById('structureMapPanel');
+  if (!panel || !currentQuestChainId) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) {
+    if (!currentStructureMap) loadStructureMap(currentQuestChainId);
+    else renderStructureMap();
+  }
+}
+
+function refreshStructureMap() {
+  if (!currentQuestChainId) return;
+  const panel = document.getElementById('structureMapPanel');
+  if (panel) panel.style.display = 'block';
+  loadStructureMap(currentQuestChainId);
 }
 
 // ── Story mode: load tasks ────────────────────────────────────
@@ -1429,6 +1871,7 @@ function deleteTile(tileId) {
 // ── Task Drawer: Open for create ──────────────────────────────
 function openTaskDrawerForCreate() {
   openDrawer('新增關卡', 'form-task');
+  resetTaskWizard();
   const form = document.getElementById('taskForm');
 
   // Auto-lock quest chain context
@@ -1466,6 +1909,7 @@ function openTaskDrawerForCreate() {
     bpSel.value = 'story_ai_identify';
     applyBlueprint('story_ai_identify', false);
   }
+  syncTaskWizardUI();
 }
 
 function populateTaskFormForEdit(t) {
@@ -1598,7 +2042,9 @@ function editTask(taskId) {
     .then(data => {
       if (!data.success) return;
       openDrawer('編輯關卡', 'form-task');
+      resetTaskWizard();
       populateTaskFormForEdit(data.task);
+      syncTaskWizardUI();
     });
 }
 
@@ -1611,6 +2057,7 @@ function duplicateTask(taskId) {
         return;
       }
       openDrawer('複製關卡', 'form-task');
+      resetTaskWizard();
       populateTaskFormForEdit(data.task);
       const form = document.getElementById('taskForm');
       form.elements.id.value = '';
@@ -1618,6 +2065,7 @@ function duplicateTask(taskId) {
       const photoIn = document.getElementById('taskPhotoInput');
       if (photoIn) photoIn.value = '';
       document.getElementById('taskFormMsg').textContent = '';
+      syncTaskWizardUI();
     });
 }
 
@@ -2439,6 +2887,8 @@ function hydrateLoginHeader() {
 
 async function bootstrapSession() {
   try {
+    initializeTaskWizardDOM();
+    syncDrawerFooter();
     const data = await apiJson(`${API_BASE}/api/me`);
     loginUser = data.user;
     window.loginUser = data.user;
