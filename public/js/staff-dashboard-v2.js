@@ -32,6 +32,15 @@ let activeFormId = null;
 let taskWizardStep = 1;
 const TASK_WIZARD_TOTAL_STEPS = 4;
 let currentWizardModeLabel = '劇情主線';
+const DRAWER_FORM_ID_MAP = {
+  'form-quest-chain': 'questChainForm',
+  'form-task': 'taskForm',
+  'form-tile': 'tileForm',
+  'form-item': 'itemForm',
+  'form-asset': 'assetForm',
+  'form-product': 'productForm',
+  'form-import-users': 'importUsersForm'
+};
 
 // ── Utilities ─────────────────────────────────────────────────
 function showToast(msg, type = 'success') {
@@ -142,10 +151,18 @@ function openDrawer(title, formSectionId, data) {
 
   document.querySelectorAll('.drawer-form-section').forEach(el => el.classList.remove('active'));
   const section = document.getElementById(formSectionId);
+  if (!section) {
+    activeFormId = null;
+    syncDrawerFooter();
+    showToast(`找不到表單區塊：${formSectionId}`, 'error');
+    return;
+  }
   section.classList.add('active');
 
-  const form = section.querySelector('form');
+  const explicitFormId = section.dataset.formId || DRAWER_FORM_ID_MAP[formSectionId] || '';
+  const form = explicitFormId ? document.getElementById(explicitFormId) : section.querySelector('form');
   activeFormId = form ? form.id : null;
+  drawer.dataset.activeSection = formSectionId;
 
   if (data && form) {
     fillForm(form, data);
@@ -170,15 +187,26 @@ function closeDrawer() {
   drawer.classList.remove('open');
   overlay.classList.remove('open');
   activeFormId = null;
+  delete drawer.dataset.activeSection;
   taskWizardStep = 1;
   syncDrawerFooter();
 }
 
 function submitActiveForm() {
-  if (!activeFormId) return;
-  const form = document.getElementById(activeFormId);
+  let form = activeFormId ? document.getElementById(activeFormId) : null;
+  if (!form) {
+    const activeSection = drawer.dataset.activeSection
+      ? document.getElementById(drawer.dataset.activeSection)
+      : document.querySelector('.drawer-form-section.active');
+    if (activeSection) {
+      const fallbackFormId = activeSection.dataset.formId || DRAWER_FORM_ID_MAP[activeSection.id] || '';
+      form = fallbackFormId ? document.getElementById(fallbackFormId) : activeSection.querySelector('form');
+      activeFormId = form ? form.id : null;
+    }
+  }
   if (!form) {
     showToast('目前沒有可儲存的表單', 'error');
+    syncDrawerFooter();
     return;
   }
   if (activeFormId === 'taskForm') {
@@ -199,10 +227,16 @@ function syncDrawerFooter() {
   const backBtn = document.getElementById('drawerBackBtn');
   const nextBtn = document.getElementById('drawerNextBtn');
   const submitBtn = document.getElementById('drawerSubmitBtn');
+  const hasActiveForm = !!(activeFormId && document.getElementById(activeFormId));
   const isTaskWizard = activeFormId === 'taskForm';
   backBtn?.classList.toggle('hidden', !isTaskWizard || taskWizardStep === 1);
   nextBtn?.classList.toggle('hidden', !isTaskWizard || taskWizardStep === TASK_WIZARD_TOTAL_STEPS);
   submitBtn?.classList.toggle('hidden', isTaskWizard && taskWizardStep !== TASK_WIZARD_TOTAL_STEPS);
+  if (submitBtn) {
+    submitBtn.disabled = !hasActiveForm;
+    submitBtn.style.opacity = hasActiveForm ? '1' : '0.55';
+    submitBtn.style.cursor = hasActiveForm ? 'pointer' : 'not-allowed';
+  }
   if (!note) return;
   if (isTaskWizard) {
     note.textContent = `新增關卡流程：第 ${taskWizardStep} / ${TASK_WIZARD_TOTAL_STEPS} 步`;

@@ -656,7 +656,7 @@
     <div class="drawer-body">
 
       <!-- Form: Quest Chain -->
-      <div id="form-quest-chain" class="drawer-form-section">
+      <div id="form-quest-chain" class="drawer-form-section" data-form-id="questChainForm">
         <form id="questChainForm" class="v2-form">
           <input type="hidden" name="id" id="qc_id">
           <div class="form-group">
@@ -729,7 +729,7 @@
       </div>
 
       <!-- Form: Task (Merged Add/Edit) -->
-      <div id="form-task" class="drawer-form-section">
+      <div id="form-task" class="drawer-form-section" data-form-id="taskForm">
         <form id="taskForm" class="v2-form">
           <input type="hidden" name="id" id="task_id">
           <input type="hidden" name="quest_chain_id" id="task_quest_chain_id">
@@ -1146,7 +1146,7 @@
       </div>
 
       <!-- Form: Board Tile (Merged Add/Edit) — Type-Driven UX -->
-      <div id="form-tile" class="drawer-form-section">
+      <div id="form-tile" class="drawer-form-section" data-form-id="tileForm">
         <form id="tileForm" class="v2-form">
           <input type="hidden" name="id" id="tile_id">
           <input type="hidden" name="board_map_id" id="tile_board_map_id">
@@ -1302,7 +1302,7 @@
       </div>
 
       <!-- Form: Item (道具) -->
-      <div id="form-item" class="drawer-form-section">
+      <div id="form-item" class="drawer-form-section" data-form-id="itemForm">
         <form id="itemForm" class="v2-form">
           <input type="hidden" name="id" id="item_id">
           <div class="form-group">
@@ -1330,7 +1330,7 @@
       </div>
 
       <!-- Form: Asset upload -->
-      <div id="form-asset" class="drawer-form-section">
+      <div id="form-asset" class="drawer-form-section" data-form-id="assetForm">
         <form id="assetForm" class="v2-form">
           <div class="form-group">
             <label class="form-label">模型名稱</label>
@@ -1350,7 +1350,7 @@
       </div>
 
       <!-- Form: Product -->
-      <div id="form-product" class="drawer-form-section">
+      <div id="form-product" class="drawer-form-section" data-form-id="productForm">
         <form id="productForm" class="v2-form">
           <input type="hidden" name="id" id="product_id">
           <div class="form-group">
@@ -1382,7 +1382,7 @@
       </div>
 
       <!-- Form: Import Users -->
-      <div id="form-import-users" class="drawer-form-section">
+      <div id="form-import-users" class="drawer-form-section" data-form-id="importUsersForm">
         <form id="importUsersForm" class="v2-form">
           <div class="form-group">
             <label class="form-label">選擇 Excel 檔案</label>
@@ -1434,6 +1434,6 @@
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 
-  <script src="/js/staff-dashboard-v2.js?v=20260408c"></script>
+  <script src="/js/staff-dashboard-v2.js?v=20260409a"></script>
 </body>
 </html>
