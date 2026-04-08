@@ -276,10 +276,10 @@ function buildDemoAiResult(task, submissionUrl = null) {
 }
 
 function buildTutorialForcedAiReason(task, aiReason = '') {
-  const fallback = buildDemoAutoPassMessage(task, 'ai');
+  const fallback = `我看見了你上傳的畫面，但因為現在是教學模式，所以「${task?.name || '這一關'}」先讓你通過，方便你把整段流程走完。`;
   const normalized = normalizeNullableString(aiReason);
   if (!normalized) return fallback;
-  return `鯨語觀察：${normalized}\n\n教學模式先替你放行，讓你可以繼續往下體驗。`;
+  return `我看見了：${normalized}\n\n但因為現在是教學模式，所以這一關先讓你通過，方便你繼續往下體驗。正式關卡時，仍然需要拍到任務要求的內容才會通過。`;
 }
 
 async function getUserIdByUsername(conn, username) {
