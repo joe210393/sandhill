@@ -2957,6 +2957,15 @@ function staffOrAdminAuth(req, res, next) {
   });
 }
 
+// 優惠券核銷台：僅 admin / shop（與 redeem-coupons.html 一致）
+function shopOrAdminAuth(req, res, next) {
+  authenticateTokenCompat(req, res, () => {
+    const role = req.user?.role;
+    if (role === 'admin' || role === 'shop') return next();
+    return res.status(403).json({ success: false, message: '僅管理員或商店帳號可核銷優惠券' });
+  });
+}
+
 // ===== Reviewer 權限：staff / shop / admin 都可審核（新規則）=====
 function reviewerAuth(req, res, next) {
   authenticateTokenCompat(req, res, async () => {
@@ -5425,6 +5434,132 @@ app.put('/api/product-redemptions/:id/status', staffOrAdminAuth, async (req, res
   }
 });
 
+// ── 優惠券核銷 API（現場 POS / staff-dashboard）────────────────
+function formatCouponDiscount(row) {
+  if (row.discount_amount != null && Number(row.discount_amount) > 0) {
+    return `${row.discount_amount} 元`;
+  }
+  if (row.discount_percent != null && Number(row.discount_percent) > 0) {
+    return `${row.discount_percent}%`;
+  }
+  return '';
+}
+
+function couponIsExpired(row) {
+  if (!row.expiry_date) return false;
+  const end = new Date(row.expiry_date);
+  end.setHours(23, 59, 59, 999);
+  return Date.now() > end.getTime();
+}
+
+// 查詢優惠券（依代碼）
+app.get('/api/coupons/lookup/:code', shopOrAdminAuth, async (req, res) => {
+  const raw = req.params.code || '';
+  const code = decodeURIComponent(raw).trim();
+  if (!code) {
+    return res.status(400).json({ success: false, message: '請提供優惠券代碼' });
+  }
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [rows] = await conn.execute(
+      `SELECT uc.*, u.username AS owner_username
+       FROM user_coupons uc
+       LEFT JOIN users u ON uc.user_id = u.id
+       WHERE LOWER(TRIM(uc.coupon_code)) = LOWER(?)`,
+      [code]
+    );
+    if (rows.length === 0) {
+      return res.json({ success: false, message: '查無此券' });
+    }
+    const row = rows[0];
+    const expired = couponIsExpired(row);
+    const status = row.is_used ? 'used' : (expired ? 'expired' : 'active');
+    const coupon = {
+      id: row.id,
+      coupon_code: row.coupon_code,
+      title: row.title,
+      username: row.owner_username || null,
+      status,
+      is_used: !!row.is_used,
+      discount_amount: row.discount_amount,
+      discount_percent: row.discount_percent,
+      discount: formatCouponDiscount(row),
+      expiry_date: row.expiry_date
+    };
+    res.json({ success: true, coupon });
+  } catch (err) {
+    console.error('coupon lookup', err);
+    res.status(500).json({ success: false, message: '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// 確認核銷
+app.post('/api/coupons/:id/redeem', shopOrAdminAuth, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const staffUser = req.user.username;
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ success: false, message: '無效的優惠券 ID' });
+  }
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [rows] = await conn.execute('SELECT * FROM user_coupons WHERE id = ?', [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: '優惠券不存在' });
+    }
+    const row = rows[0];
+    if (row.is_used) {
+      return res.status(400).json({ success: false, message: '此券已使用' });
+    }
+    if (couponIsExpired(row)) {
+      return res.status(400).json({ success: false, message: '此券已過期' });
+    }
+    await conn.execute(
+      'UPDATE user_coupons SET is_used = 1, used_at = NOW(), used_by = ? WHERE id = ? AND is_used = 0',
+      [staffUser, id]
+    );
+    res.json({ success: true, message: '核銷成功' });
+  } catch (err) {
+    console.error('coupon redeem', err);
+    res.status(500).json({ success: false, message: '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// 今日核銷紀錄（依伺服器本地日期的 used_at）
+app.get('/api/coupons/redeem-history', shopOrAdminAuth, async (req, res) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [rows] = await conn.execute(
+      `SELECT uc.coupon_code, uc.title, uc.used_at AS redeemed_at,
+              COALESCE(u.username, '') AS username
+       FROM user_coupons uc
+       LEFT JOIN users u ON uc.user_id = u.id
+       WHERE uc.is_used = 1 AND DATE(uc.used_at) = CURDATE()
+       ORDER BY uc.used_at DESC
+       LIMIT 100`
+    );
+    const history = rows.map((r) => ({
+      coupon_code: r.coupon_code,
+      title: r.title,
+      username: r.username,
+      redeemed_at: r.redeemed_at,
+      coupon_title: r.title
+    }));
+    res.json({ success: true, history });
+  } catch (err) {
+    console.error('coupon redeem-history', err);
+    res.status(500).json({ success: false, message: '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 
 // catch-all route for static html (avoid 404 on /), 只針對非 /api/ 路徑
@@ -5558,6 +5693,27 @@ if (!SKIP_DB) {
             await conn.execute("ALTER TABLE tasks ADD COLUMN bgm_url VARCHAR(512) DEFAULT NULL");
             console.log('✅ 資料庫遷移: tasks 表已新增 bgm_url');
         }
+
+        // 5b. 優惠券（現場核銷 / POS）
+        await conn.execute(`
+          CREATE TABLE IF NOT EXISTS user_coupons (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            coupon_code VARCHAR(64) NOT NULL,
+            user_id INT NULL,
+            title VARCHAR(255) NOT NULL DEFAULT '優惠券',
+            discount_amount DECIMAL(10,2) NULL,
+            discount_percent INT NULL,
+            expiry_date DATE NULL,
+            is_used BOOLEAN DEFAULT FALSE,
+            used_at TIMESTAMP NULL,
+            used_by VARCHAR(100) NULL,
+            status VARCHAR(32) DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_user_coupons_code (coupon_code),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+          )
+        `);
+        console.log('✅ 資料庫遷移: user_coupons 表已建立');
 
         // 5. 建立推送訂閱表
         await conn.execute(`
