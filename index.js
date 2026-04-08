@@ -4905,23 +4905,35 @@ app.get('/api/admin/users', adminAuth, async (req, res) => {
 
     const searchSql = searchPattern ? 'AND u.username LIKE ?' : '';
     const listParams = searchPattern ? [searchPattern, limit, offset] : [limit, offset];
-    const [users] = await conn.execute(
+    const [users] = await conn.query(
       `
-      SELECT 
+      SELECT
         u.id,
         u.username,
         u.role,
         u.created_at,
-        COALESCE(SUM(CASE WHEN pt.type = 'earned' THEN pt.points ELSE 0 END), 0) -
-        COALESCE(SUM(CASE WHEN pt.type = 'spent' THEN pt.points ELSE 0 END), 0) as total_points,
-        SUM(CASE WHEN ut.status = '完成' THEN 1 ELSE 0 END) as completed_tasks,
-        SUM(CASE WHEN ut.status = '進行中' THEN 1 ELSE 0 END) as in_progress_tasks
+        COALESCE(points.total_points, 0) AS total_points,
+        COALESCE(tasks.completed_tasks, 0) AS completed_tasks,
+        COALESCE(tasks.in_progress_tasks, 0) AS in_progress_tasks
       FROM users u
-      LEFT JOIN point_transactions pt ON pt.user_id = u.id
-      LEFT JOIN user_tasks ut ON ut.user_id = u.id
+      LEFT JOIN (
+        SELECT
+          user_id,
+          COALESCE(SUM(CASE WHEN type = 'earned' THEN points ELSE 0 END), 0) -
+          COALESCE(SUM(CASE WHEN type = 'spent' THEN points ELSE 0 END), 0) AS total_points
+        FROM point_transactions
+        GROUP BY user_id
+      ) points ON points.user_id = u.id
+      LEFT JOIN (
+        SELECT
+          user_id,
+          SUM(CASE WHEN status = '完成' THEN 1 ELSE 0 END) AS completed_tasks,
+          SUM(CASE WHEN status = '進行中' THEN 1 ELSE 0 END) AS in_progress_tasks
+        FROM user_tasks
+        GROUP BY user_id
+      ) tasks ON tasks.user_id = u.id
       WHERE u.role = 'user'
       ${searchSql}
-      GROUP BY u.id, u.username, u.role, u.created_at
       ORDER BY u.created_at DESC
       LIMIT ? OFFSET ?
     `,
@@ -5011,21 +5023,33 @@ app.get('/api/admin/users/export', adminAuth, async (req, res) => {
     conn = await pool.getConnection();
 
     // 獲取所有用戶 + 統計資訊
-    const [users] = await conn.execute(`
-      SELECT 
+    const [users] = await conn.query(`
+      SELECT
         u.id,
         u.username,
         u.role,
         DATE_FORMAT(u.created_at, '%Y-%m-%d %H:%i:%s') as created_at,
-        COALESCE(SUM(CASE WHEN pt.type = 'earned' THEN pt.points ELSE 0 END), 0) -
-        COALESCE(SUM(CASE WHEN pt.type = 'spent' THEN pt.points ELSE 0 END), 0) as total_points,
-        SUM(CASE WHEN ut.status = '完成' THEN 1 ELSE 0 END) as completed_tasks,
-        SUM(CASE WHEN ut.status = '進行中' THEN 1 ELSE 0 END) as in_progress_tasks
+        COALESCE(points.total_points, 0) AS total_points,
+        COALESCE(tasks.completed_tasks, 0) AS completed_tasks,
+        COALESCE(tasks.in_progress_tasks, 0) AS in_progress_tasks
       FROM users u
-      LEFT JOIN point_transactions pt ON pt.user_id = u.id
-      LEFT JOIN user_tasks ut ON ut.user_id = u.id
+      LEFT JOIN (
+        SELECT
+          user_id,
+          COALESCE(SUM(CASE WHEN type = 'earned' THEN points ELSE 0 END), 0) -
+          COALESCE(SUM(CASE WHEN type = 'spent' THEN points ELSE 0 END), 0) AS total_points
+        FROM point_transactions
+        GROUP BY user_id
+      ) points ON points.user_id = u.id
+      LEFT JOIN (
+        SELECT
+          user_id,
+          SUM(CASE WHEN status = '完成' THEN 1 ELSE 0 END) AS completed_tasks,
+          SUM(CASE WHEN status = '進行中' THEN 1 ELSE 0 END) AS in_progress_tasks
+        FROM user_tasks
+        GROUP BY user_id
+      ) tasks ON tasks.user_id = u.id
       WHERE u.role = 'user'
-      GROUP BY u.id, u.username, u.role, u.created_at
       ORDER BY u.created_at DESC
     `);
 

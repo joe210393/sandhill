@@ -2344,28 +2344,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function renderTaskMetrics(distanceMeters = lastTaskDistance, bearing = lastTaskBearing) {
+            const tutorialLikeMode = isCurrentQuestTutorialMode() || isCurrentQuestDemoMode();
             const angle = (Number.isFinite(bearing) && lastHeadingUpdateAt)
                 ? ((bearing - deviceHeading + 540) % 360) - 180
                 : null;
             if (taskHudDock) {
-                taskHudDock.classList.remove('hidden');
+                taskHudDock.classList.toggle('hidden', tutorialLikeMode);
             }
             if (taskBearingValue) {
-                taskBearingValue.textContent = Number.isFinite(bearing) ? `${Math.round(bearing)}°` : '--°';
+                taskBearingValue.textContent = tutorialLikeMode
+                    ? 'Demo'
+                    : (Number.isFinite(bearing) ? `${Math.round(bearing)}°` : '--°');
             }
             if (taskDistanceValue) {
-                taskDistanceValue.textContent = Number.isFinite(distanceMeters) ? `${Math.max(0, Math.round(distanceMeters))}m` : '--m';
+                taskDistanceValue.textContent = tutorialLikeMode
+                    ? '不限'
+                    : (Number.isFinite(distanceMeters) ? `${Math.max(0, Math.round(distanceMeters))}m` : '--m');
             }
             if (taskAngleValue) {
-                taskAngleValue.textContent = angle != null ? `${Math.round(angle)}°` : '--°';
+                taskAngleValue.textContent = tutorialLikeMode
+                    ? '--'
+                    : (angle != null ? `${Math.round(angle)}°` : '--°');
             }
             if (taskCoordsValue) {
-                taskCoordsValue.textContent = lastLatLng
+                taskCoordsValue.textContent = tutorialLikeMode
+                    ? '教學模式'
+                    : (lastLatLng
                     ? `${lastLatLng.latitude.toFixed(5)}, ${lastLatLng.longitude.toFixed(5)}`
-                    : '--, --';
+                    : '--, --');
             }
             if (taskStatusLabel) {
-                if (!lastHeadingUpdateAt) {
+                if (tutorialLikeMode) {
+                    taskStatusLabel.textContent = '教學 / Demo 模式不限制 GPS';
+                } else if (!lastHeadingUpdateAt) {
                     taskStatusLabel.textContent = '點一下畫面啟用方向';
                 } else if (Number.isFinite(distanceMeters)) {
                     taskStatusLabel.textContent = `距離任務 ${Math.max(0, Math.round(distanceMeters))}m`;
@@ -2515,7 +2526,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateTaskNavigationUI(distanceMeters, bearing);
                 tryAutoPlayTaskBgm(distanceMeters);
                 if (locationBar) {
-                    locationBar.textContent = `目前位置：距離任務 ${Math.round(distanceMeters)}m`;
+                    locationBar.textContent = (isCurrentQuestTutorialMode() || isCurrentQuestDemoMode())
+                        ? '目前位置：教學 / Demo 模式不限 GPS'
+                        : `目前位置：距離任務 ${Math.round(distanceMeters)}m`;
                 }
                 taskReached = distanceMeters <= Math.max(6, currentTask?.radius || 30);
             }, (err) => {
@@ -2544,7 +2557,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const bearing = calculateBearing(latitude, longitude, targetLat, targetLng);
                     updateTaskNavigationUI(distanceMeters, bearing);
                     if (locationBar) {
-                        locationBar.textContent = `目前位置：距離任務 ${Math.round(distanceMeters)}m`;
+                        locationBar.textContent = (isCurrentQuestTutorialMode() || isCurrentQuestDemoMode())
+                            ? '目前位置：教學 / Demo 模式不限 GPS'
+                            : `目前位置：距離任務 ${Math.round(distanceMeters)}m`;
                     }
                 }, () => {}, { enableHighAccuracy: true, maximumAge: 1500, timeout: 6000 });
             }, 2500);
@@ -2875,6 +2890,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (typeof hideQueryTransit === 'function') hideQueryTransit();
                     const judgeSummary = normalizeUiText(aiData.reason, '') || normalizeUiText(aiData.message, 'AI 已完成判定。');
                     const retrySummary = normalizeUiText(aiData.retry_advice, '');
+                    answerMessage.textContent = judgeSummary ? `🤖 ${judgeSummary}` : '🤖 AI 已完成判定';
                     if (aiData.success && aiData.passed) {
                         currentUserTaskId = aiData.user_task_id || currentUserTaskId;
                         resetPhotoCaptureState();
@@ -2884,13 +2900,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         const successText = tutorialPassMode
                             ? `鯨語已經看完你上傳的畫面。\n\n${judgeSummary}\n\n教學模式先替你放行，讓你可以把整段流程順順走完。`
                             : `${judgeSummary}${retrySummary ? `\n\n補充：${retrySummary}` : ''}`;
-                        const storyJudgeAutoClose = currentEntryMode === 'board_game' ? 2800 : null;
+                        const storyJudgeAutoClose = tutorialPassMode ? null : (currentEntryMode === 'board_game' ? 2800 : null);
                         if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
                             await completeBoardTurn(true, {
                                 speakerKey: 'judge',
                                 mood: tutorialPassMode ? '教學判定' : 'AI 通關',
                                 text: successText,
-                                autoCloseMs: 2800
+                                autoCloseMs: tutorialPassMode ? null : 2800
                             });
                         } else {
                             if (tutorialGuestMode) {
@@ -2922,7 +2938,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 text: retrySummary
                                     ? `${judgeSummary || '這次還沒通過。'}\n\n海羽建議：${retrySummary}`
                                     : failText,
-                                autoCloseMs: 2800
+                                autoCloseMs: tutorialPassMode ? null : 2800
                             });
                         } else {
                             answerMessage.textContent = `❌ ${failText}`;
