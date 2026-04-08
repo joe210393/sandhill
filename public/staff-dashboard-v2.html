@@ -178,6 +178,13 @@
     .progress-bar-track { width: 100%; height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
     .progress-bar-fill { height: 100%; background: #3b82f6; transition: width 0.3s; width: 0%; }
 
+    .asset-tabs { display: flex; gap: 0; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px; }
+    .asset-tab { padding: 10px 20px; cursor: pointer; font-size: 0.9rem; font-weight: 500; color: #64748b; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
+    .asset-tab:hover { color: #334155; }
+    .asset-tab.active { color: #2563eb; border-bottom-color: #2563eb; font-weight: 600; }
+    .asset-section { display: none; }
+    .asset-section.active { display: block; }
+
     @media (max-width: 768px) {
       .v2-sidebar { display: none; }
       .v2-main { padding: 16px; }
@@ -196,7 +203,6 @@
     <h1>沙丘內容控制台</h1>
     <div style="display:flex; align-items:center; gap:16px;">
       <a href="/index.html">回遊戲首頁</a>
-      <a href="/staff-dashboard.html">舊版後台</a>
       <span id="loginUserInfo" style="font-size:0.85rem; opacity:0.8;"></span>
       <button id="logoutBtn" style="background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.25); color:white; padding:5px 12px; border-radius:6px; cursor:pointer; font-size:0.85rem; display:none;">登出</button>
     </div>
@@ -262,11 +268,48 @@
       <div id="view-assets" class="v2-view">
         <div class="view-header">
           <h2>共用素材庫</h2>
-          <button class="btn-md btn-primary-v2" onclick="openDrawer('上傳模型', 'form-asset')">+ 上傳模型</button>
+          <div id="assetActions" style="display:flex; gap:8px;">
+            <button class="btn-md btn-primary-v2" id="btnAssetAdd" onclick="openDrawer('上傳模型', 'form-asset')">+ 上傳模型</button>
+            <button class="btn-md btn-primary-v2" id="btnItemAdd" style="display:none;" onclick="openDrawer('新增道具', 'form-item')">+ 新增道具</button>
+          </div>
         </div>
-        <p class="view-subtitle">管理 3D 模型與道具，供各關卡引用。</p>
-        <div id="modelListContainer" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:12px;">
-          <div class="empty-state"><div class="empty-state-icon">🧊</div>載入中...</div>
+        <div class="asset-tabs">
+          <div class="asset-tab active" onclick="switchAssetTab('models', this)">🧊 3D 模型</div>
+          <div class="asset-tab" onclick="switchAssetTab('items', this)">🎒 道具素材</div>
+          <div class="asset-tab" onclick="switchAssetTab('npc', this)">🎭 NPC 角色</div>
+        </div>
+        <div id="assetSection-models" class="asset-section active">
+          <div id="modelListContainer" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:12px;">
+            <div class="empty-state"><div class="empty-state-icon">🧊</div>載入中...</div>
+          </div>
+        </div>
+        <div id="assetSection-items" class="asset-section">
+          <div id="itemListContainer" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:12px;">
+            <div class="empty-state"><div class="empty-state-icon">🎒</div>載入中...</div>
+          </div>
+        </div>
+        <div id="assetSection-npc" class="asset-section">
+          <p class="view-subtitle">NPC 角色目前為系統內建，管理員可在關卡中選擇哪個角色出場。</p>
+          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:12px;">
+            <div style="background:white; padding:16px; border-radius:10px; border:1px solid #e2e8f0; text-align:center;">
+              <div style="font-size:3rem; margin-bottom:8px;">🥚</div>
+              <div style="font-weight:600;">引路人・史蛋</div>
+              <div style="font-size:0.82rem; color:#64748b;">guide / host</div>
+              <div style="font-size:0.82rem; color:#94a3b8; margin-top:4px;">負責引導、事件主持</div>
+            </div>
+            <div style="background:white; padding:16px; border-radius:10px; border:1px solid #e2e8f0; text-align:center;">
+              <div style="font-size:3rem; margin-bottom:8px;">🦀</div>
+              <div style="font-weight:600;">潮汐關主・巴布</div>
+              <div style="font-size:0.82rem; color:#64748b;">gatekeeper / rescue</div>
+              <div style="font-size:0.82rem; color:#94a3b8; margin-top:4px;">負責挑戰、救援提示</div>
+            </div>
+            <div style="background:white; padding:16px; border-radius:10px; border:1px solid #e2e8f0; text-align:center;">
+              <div style="font-size:3rem; margin-bottom:8px;">🐋</div>
+              <div style="font-weight:600;">潮汐裁判・鯨老</div>
+              <div style="font-size:0.82rem; color:#64748b;">judge / lore</div>
+              <div style="font-size:0.82rem; color:#94a3b8; margin-top:4px;">負責判定、知識導覽</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -758,20 +801,29 @@
           </div>
 
           <hr class="section-divider">
-          <div class="section-title">位置設定</div>
-          <div class="grid-2">
-            <div class="form-group">
-              <label class="form-label">緯度</label>
-              <input class="form-input" type="number" name="latitude" step="any">
-            </div>
-            <div class="form-group">
-              <label class="form-label">經度</label>
-              <input class="form-input" type="number" name="longitude" step="any">
-            </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div class="section-title" style="margin-bottom:0;">位置設定</div>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.88rem; color:#64748b;">
+              <input type="checkbox" id="tileLocationToggle" style="width:16px; height:16px;">
+              啟用定位導引
+            </label>
           </div>
-          <div class="form-group">
-            <label class="form-label">觸發半徑 (m)</label>
-            <input class="form-input" type="number" name="radius_meters" min="0">
+          <div id="tileLocationFields" style="display:none;">
+            <div class="form-hint" style="margin-bottom:10px;">設定經緯度後，玩家在遊戲中會看到箭頭指向該格子的方位。不設定代表活動在小範圍內，不需要導航。</div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label">緯度</label>
+                <input class="form-input" type="number" name="latitude" step="any">
+              </div>
+              <div class="form-group">
+                <label class="form-label">經度</label>
+                <input class="form-input" type="number" name="longitude" step="any">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">觸發半徑 (m)</label>
+              <input class="form-input" type="number" name="radius_meters" min="0">
+            </div>
           </div>
 
           <hr class="section-divider">
@@ -820,6 +872,34 @@
           </div>
 
           <div id="tileFormMsg" style="color:#dc2626; font-size:0.88rem; min-height:20px; margin-top:8px;"></div>
+        </form>
+      </div>
+
+      <!-- Form: Item (道具) -->
+      <div id="form-item" class="drawer-form-section">
+        <form id="itemForm" class="v2-form">
+          <input type="hidden" name="id" id="item_id">
+          <div class="form-group">
+            <label class="form-label">道具名稱</label>
+            <input class="form-input" type="text" name="name" required placeholder="例如：古老鑰匙">
+          </div>
+          <div class="form-group">
+            <label class="form-label">道具描述</label>
+            <textarea class="form-textarea" name="description" placeholder="描述這個道具的用途..." style="height:70px;"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">道具圖片</label>
+            <input class="form-input" type="file" name="image" accept="image/*" id="itemImageInput" style="padding:5px;">
+            <input type="hidden" name="image_url" id="itemImageUrl">
+            <img id="itemImagePreview" src="" style="max-width:80px; max-height:80px; display:none; border-radius:8px; margin-top:8px;">
+          </div>
+          <div class="form-group">
+            <label class="form-label">連結 3D 模型 (AR 顯示用)</label>
+            <select name="model_url" class="form-select ar-model-url-select">
+              <option value="">-- 無 --</option>
+            </select>
+          </div>
+          <div id="itemFormMsg" style="color:#dc2626; font-size:0.88rem; min-height:20px; margin-top:8px;"></div>
         </form>
       </div>
 

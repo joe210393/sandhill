@@ -653,6 +653,8 @@ function renderTileItem(tile) {
   const effectTag = tile.effect_type
     ? `<span class="tag tag-amber">${escHtml(tile.effect_type)}${tile.effect_value != null ? `(${tile.effect_value})` : ''}</span>` : '';
   const activeTag = tile.is_active ? '' : '<span class="tag tag-red">未啟用</span>';
+  const hasLocation = !!(tile.latitude && tile.longitude);
+  const locationTag = hasLocation ? `<span class="tag tag-blue">📍 定位導引</span>` : '<span class="tag tag-gray">📍 無導航</span>';
   const eventPreview = tile.event_body
     ? `<div class="task-item-desc" style="margin-top:2px;">${escHtml(tile.event_body)}</div>` : '';
 
@@ -663,7 +665,7 @@ function renderTileItem(tile) {
         <div class="task-item-title">第 ${tile.tile_index} 格｜${escHtml(tile.tile_name)}</div>
         <div style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:2px;">
           <span class="tag tag-gray">${typeLabel}</span>
-          ${taskBinding} ${effectTag} ${activeTag}
+          ${taskBinding} ${effectTag} ${activeTag} ${locationTag}
         </div>
         ${eventPreview}
       </div>
@@ -699,6 +701,15 @@ if (tileTypeSelect) {
   });
 }
 
+// Tile location toggle
+const tileLocationToggle = document.getElementById('tileLocationToggle');
+const tileLocationFields = document.getElementById('tileLocationFields');
+if (tileLocationToggle) {
+  tileLocationToggle.addEventListener('change', () => {
+    tileLocationFields.style.display = tileLocationToggle.checked ? 'block' : 'none';
+  });
+}
+
 // ── Tile task select population ───────────────────────────────
 function populateTileTaskSelect() {
   const sel = document.getElementById('tileTaskSelect');
@@ -730,6 +741,11 @@ function openTileDrawerForCreate() {
   const maxIndex = currentBoardTiles.reduce((m, t) => Math.max(m, t.tile_index || 0), 0);
   form.elements.tile_index.value = maxIndex + 1;
 
+  // Reset location toggle
+  const locToggle = document.getElementById('tileLocationToggle');
+  const locFields = document.getElementById('tileLocationFields');
+  if (locToggle) locToggle.checked = false;
+  if (locFields) locFields.style.display = 'none';
   document.getElementById('tileFormMsg').textContent = '';
   // Reset type hint
   const hint = document.getElementById('tileTypeHint');
@@ -749,6 +765,12 @@ function editTile(tileId) {
   form.elements.tile_type.value = tile.tile_type || 'event';
   form.elements.tile_name.value = tile.tile_name || '';
   form.elements.task_id.value = tile.task_id || '';
+  // Set location toggle
+  const hasLocation = !!(tile.latitude && tile.longitude);
+  const locToggle = document.getElementById('tileLocationToggle');
+  const locFields = document.getElementById('tileLocationFields');
+  if (locToggle) locToggle.checked = hasLocation;
+  if (locFields) locFields.style.display = hasLocation ? 'block' : 'none';
   form.elements.latitude.value = tile.latitude || '';
   form.elements.longitude.value = tile.longitude || '';
   form.elements.radius_meters.value = tile.radius_meters || '';
@@ -1268,6 +1290,14 @@ function loadARModels() {
         sel.value = cur;
       });
 
+      // Update item form model URL selects
+      document.querySelectorAll('.ar-model-url-select').forEach(sel => {
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">-- 無 --</option>';
+        data.models.forEach(m => { sel.innerHTML += `<option value="${m.url}">${escHtml(m.name)}</option>`; });
+        sel.value = cur;
+      });
+
       // Render model list in assets view
       renderModelList(data.models);
     })
@@ -1335,6 +1365,55 @@ document.getElementById('assetForm').addEventListener('submit', function (e) {
     .catch(() => { msg.textContent = '上傳失敗'; });
 });
 
+// Item form submit
+document.getElementById('itemForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const form = this;
+  const id = form.elements.id.value;
+  const msgEl = document.getElementById('itemFormMsg');
+  msgEl.textContent = '';
+
+  const fd = new FormData();
+  fd.append('name', form.name.value.trim());
+  fd.append('description', form.description.value.trim());
+  fd.append('model_url', form.model_url?.value || '');
+
+  const imageFile = form.image?.files[0];
+  if (imageFile) {
+    fd.append('image', imageFile);
+  } else if (id) {
+    fd.append('image_url', document.getElementById('itemImageUrl').value);
+  }
+
+  const url = id ? `${API_BASE}/api/items/${id}` : `${API_BASE}/api/items`;
+  const method = id ? 'PUT' : 'POST';
+
+  fetch(url, { method, headers: { 'x-username': loginUser.username }, body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        showToast(id ? '道具更新成功' : '道具新增成功');
+        closeDrawer();
+        loadItems();
+      } else { msgEl.textContent = d.message || '操作失敗'; }
+    })
+    .catch(() => { msgEl.textContent = '伺服器連線失敗'; });
+});
+
+// Item image preview
+const itemImageInput = document.getElementById('itemImageInput');
+if (itemImageInput) {
+  itemImageInput.addEventListener('change', function() {
+    const file = this.files[0];
+    const preview = document.getElementById('itemImagePreview');
+    if (file) {
+      const r = new FileReader();
+      r.onload = e => { preview.src = e.target.result; preview.style.display = 'block'; };
+      r.readAsDataURL(file);
+    }
+  });
+}
+
 // ── Load Items ────────────────────────────────────────────────
 function loadItems() {
   return fetch(`${API_BASE}/api/items`)
@@ -1353,8 +1432,73 @@ function loadItems() {
         });
         sel.value = cur;
       });
+
+      // Render items in assets view
+      renderItemList(data.items);
     })
     .catch(() => {});
+}
+
+function renderItemList(items) {
+  const container = document.getElementById('itemListContainer');
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎒</div>尚無道具，點右上角新增</div>';
+    return;
+  }
+  container.innerHTML = items.map(item => `
+    <div style="background:white; padding:14px; border-radius:10px; border:1px solid #e2e8f0;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+        ${item.image_url ? `<img src="${escHtml(item.image_url)}" style="width:40px; height:40px; object-fit:contain; border-radius:6px;">` : '<span style="font-size:1.5rem;">🎒</span>'}
+        <div style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escHtml(item.name)}</div>
+      </div>
+      <div style="font-size:0.82rem; color:#64748b; margin-bottom:8px;">${escHtml(item.description || '無描述')}</div>
+      <div style="display:flex; gap:6px; justify-content:flex-end;">
+        <button class="btn-sm btn-secondary-v2" onclick="editItem('${item.id}')" style="font-size:0.8rem;">編輯</button>
+        <button class="btn-sm btn-danger-v2" onclick="deleteItem('${item.id}')" style="font-size:0.8rem;">刪除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function editItem(id) {
+  const item = globalItemsMap[id];
+  if (!item) return;
+  openDrawer('編輯道具', 'form-item');
+  const form = document.getElementById('itemForm');
+  form.elements.id.value = item.id;
+  form.elements.name.value = item.name;
+  form.elements.description.value = item.description || '';
+  document.getElementById('itemImageUrl').value = item.image_url || '';
+  const preview = document.getElementById('itemImagePreview');
+  if (item.image_url) { preview.src = item.image_url; preview.style.display = 'block'; }
+  else preview.style.display = 'none';
+  const modelSel = form.querySelector('.ar-model-url-select');
+  if (modelSel) modelSel.value = item.model_url || '';
+}
+
+function deleteItem(id) {
+  if (!confirm('確定要刪除這個道具嗎？')) return;
+  fetch(`${API_BASE}/api/items/${id}`, {
+    method: 'DELETE', headers: { 'x-username': loginUser.username }
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) { showToast('道具已刪除'); loadItems(); }
+      else showToast(d.message || '刪除失敗', 'error');
+    });
+}
+
+// ── Asset Tabs ────────────────────────────────────────────────
+function switchAssetTab(tab, el) {
+  document.querySelectorAll('.asset-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.asset-section').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('assetSection-' + tab).classList.add('active');
+
+  // Toggle action buttons
+  document.getElementById('btnAssetAdd').style.display = tab === 'models' ? 'inline-flex' : 'none';
+  document.getElementById('btnItemAdd').style.display = tab === 'items' ? 'inline-flex' : 'none';
 }
 
 // ── Init: Load everything ─────────────────────────────────────

@@ -1,372 +1,210 @@
-// 確保 loginUser 變數存在（從 HTML 文件中的 header 腳本獲取）
-if (typeof window.loginUser === 'undefined') {
-  window.loginUser = JSON.parse(localStorage.getItem('loginUser') || 'null');
-  if (!window.loginUser || (window.loginUser.role !== 'admin' && window.loginUser.role !== 'shop')) {
-    window.location.href = '/login.html';
-  }
+// ============================================================
+// staff-dashboard-v2.js — 沙丘內容控制台 V2
+// Sidebar + Drill-down + Right Drawer architecture
+// Backend API unchanged — only presentation layer refactored
+// ============================================================
+
+const loginUser = window.loginUser || JSON.parse(localStorage.getItem('loginUser') || 'null');
+if (!loginUser || (loginUser.role !== 'admin' && loginUser.role !== 'shop')) {
+  window.location.href = '/login.html';
 }
 
-// 設置 loginUser 變數的引用
-const loginUser = window.loginUser;
-
-// const API_BASE = 'http://localhost:3001'; // 本地開發環境 - 生產環境使用相對路徑
 const API_BASE = '';
 
-let globalQuestChainsMap = {}; // 用於快取劇情資訊
+// ── Global State ──────────────────────────────────────────────
+let globalQuestChainsMap = {};
 let globalTaskRecords = [];
 let globalBoardMaps = [];
-let globalBoardTiles = [];
+let globalModelsMap = {};
+let globalItemsMap = {};
 
-function populateBoardQuestChainSelects() {
-  const boardChains = Object.values(globalQuestChainsMap).filter((chain) => chain.mode_type === 'board_game');
-  const selects = [
-    document.getElementById('boardMapQuestChainSelect')
-  ];
-  selects.forEach((sel) => {
-    if (!sel) return;
-    const currentVal = sel.value;
-    sel.innerHTML = '<option value="">-- 請選擇大富翁玩法入口 --</option>';
-    boardChains.forEach((chain) => {
-      sel.innerHTML += `<option value="${chain.id}">${chain.title}</option>`;
-    });
-    if (currentVal) sel.value = currentVal;
+// Current drill-down context
+let currentQuestChainId = null;
+let currentQuestChainTitle = '';
+let currentQuestChainMode = '';
+
+// Drawer state
+let activeFormId = null;
+
+// ── Utilities ─────────────────────────────────────────────────
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast toast-${type} show`;
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function escHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
+}
+
+// ── View Switching ────────────────────────────────────────────
+function switchView(viewId) {
+  document.querySelectorAll('.v2-view').forEach(el => el.classList.remove('active'));
+  document.getElementById(viewId).classList.add('active');
+
+  // Update sidebar active state only for top-level views
+  const navMap = {
+    'view-quest-chains': 'view-quest-chains',
+    'view-quest-detail': 'view-quest-chains', // keep parent highlighted
+    'view-assets': 'view-assets',
+    'view-settings': 'view-settings'
+  };
+  const targetNav = navMap[viewId] || viewId;
+  document.querySelectorAll('.v2-nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.view === targetNav);
   });
 }
 
-// 載入劇情列表
-function loadQuestChains() {
-  return fetch(`${API_BASE}/api/quest-chains`, {
-    headers: { 'x-username': loginUser.username }
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (!data.success) return;
-    
-    // 更新快取
-    globalQuestChainsMap = {};
-    data.questChains.forEach(q => {
-      globalQuestChainsMap[q.id] = q;
-    });
+// Sidebar click handlers
+document.querySelectorAll('.v2-nav-item').forEach(item => {
+  item.addEventListener('click', () => switchView(item.dataset.view));
+});
 
-    // 更新任務表單的劇情下拉選單
-    const selects = [document.getElementById('questChainSelect'), document.getElementById('editQuestChainSelect')];
-    selects.forEach(sel => {
-      if (!sel) return;
-      sel.innerHTML = '<option value="">-- 請選擇 --</option>';
-      data.questChains.forEach(q => {
-        sel.innerHTML += `<option value="${q.id}">${q.title}</option>`;
-      });
-    });
-    populateBoardQuestChainSelects();
+// ── Drawer Logic ──────────────────────────────────────────────
+const drawer = document.getElementById('rightDrawer');
+const overlay = document.getElementById('drawerOverlay');
+const drawerTitle = document.getElementById('drawerTitle');
 
-    // 更新劇情管理列表
-    const list = document.getElementById('questChainList');
-    if (list) {
-      list.innerHTML = '';
-      if (data.questChains.length === 0) {
-        list.innerHTML = '<div style="color:#888;">目前沒有劇情主線或玩法入口</div>';
-      } else {
-        data.questChains.forEach(q => {
-          const div = document.createElement('div');
-          div.style.cssText = 'background:white; padding:15px; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.05); border-left:4px solid #007bff; position: relative;';
-          div.innerHTML = `
-            <div style="font-weight:bold; font-size:1.1rem; margin-bottom:5px; padding-right: 30px;">${q.title}</div>
-            <div style="font-size:0.9rem; color:#666; margin-bottom:8px;">${q.short_description || q.description || '無描述'}</div>
-            <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
-              <span style="font-size:0.8rem; background:#eff6ff; color:#1d4ed8; padding:4px 8px; border-radius:999px;">${q.mode_type === 'board_game' ? '大富翁模式' : '劇情主線'}</span>
-              <span style="font-size:0.8rem; background:${q.is_active ? '#ecfdf3' : '#fef2f2'}; color:${q.is_active ? '#047857' : '#b91c1c'}; padding:4px 8px; border-radius:999px;">${q.is_active ? '已開放' : '未開放'}</span>
-              ${q.entry_scene_label ? `<span style="font-size:0.8rem; background:#f8fafc; color:#475569; padding:4px 8px; border-radius:999px;">${q.entry_scene_label}</span>` : ''}
-            </div>
-            <div style="font-size:0.85rem; color:#28a745;">🏆 全破獎勵: ${q.chain_points} 分</div>
-            ${q.play_style ? `<div style="font-size:0.82rem; color:#0f766e; margin-top:4px;">🎲 玩法：${q.play_style}</div>` : ''}
-            ${q.badge_name ? `
-              <div style="font-size:0.85rem; color:#e0a800; display:flex; align-items:center; gap:5px; margin-top:5px;">
-                🎖 獎章: ${q.badge_name}
-                ${q.badge_image ? `<img src="${q.badge_image}" style="width:20px; height:20px; object-fit:contain;">` : ''}
-              </div>` : ''}
-            
-            <button class="btn-delete-quest" data-id="${q.id}" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: #dc3545; cursor: pointer; font-size: 1.2rem; padding: 0;" title="刪除玩法入口">&times;</button>
-          `;
-          list.appendChild(div);
-        });
+overlay.addEventListener('click', closeDrawer);
 
-        // 綁定刪除按鈕事件
-        document.querySelectorAll('.btn-delete-quest').forEach(btn => {
-          btn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            if (!confirm('確定要刪除這個玩法入口嗎？\n注意：如果底下還有關卡內容，將無法刪除。')) return;
-            
-            const id = this.dataset.id;
-            fetch(`${API_BASE}/api/quest-chains/${id}`, {
-              method: 'DELETE',
-              headers: { 'x-username': loginUser.username }
-            })
-            .then(res => res.json())
-            .then(resData => {
-              if (resData.success) {
-                alert('刪除成功');
-                loadQuestChains();
-              } else {
-                alert(resData.message || '刪除失敗');
-              }
-            })
-            .catch(err => {
-              console.error(err);
-              alert('發生錯誤');
-            });
-          });
-        });
-      }
-    }
-  });
+function openDrawer(title, formSectionId, data) {
+  drawerTitle.textContent = title;
+
+  document.querySelectorAll('.drawer-form-section').forEach(el => el.classList.remove('active'));
+  const section = document.getElementById(formSectionId);
+  section.classList.add('active');
+
+  const form = section.querySelector('form');
+  activeFormId = form ? form.id : null;
+
+  if (data && form) {
+    fillForm(form, data);
+  } else if (form) {
+    form.reset();
+    // Clear hidden id fields
+    const idField = form.querySelector('input[name="id"]');
+    if (idField) idField.value = '';
+    // Clear photo preview
+    const preview = form.querySelector('img[id$="Preview"]');
+    if (preview) preview.style.display = 'none';
+  }
+
+  drawer.classList.add('open');
+  overlay.classList.add('open');
 }
 
-// 綁定新增劇情按鈕與 Modal
-const btnCreateQuest = document.getElementById('btnCreateQuest');
-const questModal = document.getElementById('questModal');
-const closeQuestModal = document.getElementById('closeQuestModal');
+function closeDrawer() {
+  drawer.classList.remove('open');
+  overlay.classList.remove('open');
+  activeFormId = null;
+}
 
-// 圖片預覽邏輯
-const questBadgeInput = document.getElementById('questBadgeInput');
-const questBadgePreview = document.getElementById('questBadgePreview');
-if (questBadgeInput) {
-  questBadgeInput.addEventListener('change', function() {
-    const file = this.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        questBadgePreview.src = e.target.result;
-        questBadgePreview.style.display = 'block';
-      };
-      reader.readAsDataURL(file);
+function submitActiveForm() {
+  if (!activeFormId) return;
+  const form = document.getElementById(activeFormId);
+  if (form.reportValidity()) {
+    form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+  }
+}
+
+// ── Fill form helper ──────────────────────────────────────────
+function fillForm(form, data) {
+  Object.keys(data).forEach(key => {
+    const el = form.elements[key];
+    if (!el) return;
+    if (el.type === 'checkbox') {
+      el.checked = !!data[key];
     } else {
-      questBadgePreview.style.display = 'none';
+      el.value = data[key] ?? '';
     }
   });
 }
 
-if (btnCreateQuest && questModal) {
-  btnCreateQuest.onclick = () => questModal.classList.add('show');
-  closeQuestModal.onclick = () => questModal.classList.remove('show');
-}
-
-// 送出新增劇情表單
-const createQuestForm = document.getElementById('createQuestForm');
-if (createQuestForm) {
-  createQuestForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const form = this;
-    const title = form.title.value.trim();
-    const description = form.description.value.trim();
-    const short_description = form.short_description.value.trim();
-    const chain_points = form.chain_points.value;
-    const badge_name = form.badge_name.value.trim();
-    const badgeImageFile = form.badge_image.files[0];
-    const mode_type = form.mode_type.value;
-    const entry_order = form.entry_order.value;
-    const entry_button_text = form.entry_button_text.value.trim();
-    const entry_scene_label = form.entry_scene_label.value.trim();
-    const play_style = form.play_style.value;
-    const is_active = form.is_active.checked ? '1' : '0';
-
-    // 使用 FormData 上傳
-    const fd = new FormData();
-    fd.append('title', title);
-    fd.append('description', description);
-    fd.append('short_description', short_description);
-    fd.append('chain_points', chain_points);
-    fd.append('badge_name', badge_name);
-    fd.append('mode_type', mode_type);
-    fd.append('entry_order', entry_order);
-    fd.append('entry_button_text', entry_button_text);
-    fd.append('entry_scene_label', entry_scene_label);
-    fd.append('play_style', play_style);
-    fd.append('is_active', is_active);
-    if (badgeImageFile) {
-      fd.append('badge_image', badgeImageFile);
-    }
-
-    fetch(`${API_BASE}/api/quest-chains`, {
-      method: 'POST',
-      headers: { 'x-username': loginUser.username },
-      body: fd // 不用設定 Content-Type，fetch 會自動設定 multipart/form-data
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        alert('玩法入口建立成功！');
-        form.reset();
-        if (questBadgePreview) questBadgePreview.style.display = 'none';
-        questModal.classList.remove('show');
-        loadQuestChains();
-      } else {
-        alert(data.message || '建立失敗');
-      }
-    })
-    .catch(err => {
-      console.error(err);
-      alert('發生錯誤');
-    });
-  });
-}
-
-// 初始化任務分類切換邏輯
-function setupCategoryToggle(selectId, questDivId, timedDivId) {
-  const select = document.getElementById(selectId);
-  const questDiv = document.getElementById(questDivId);
-  const timedDiv = document.getElementById(timedDivId);
-  
-  if (select && questDiv && timedDiv) {
-    const update = () => {
-      const val = select.value;
-      questDiv.style.display = (val === 'quest') ? 'block' : 'none';
-      timedDiv.style.display = (val === 'timed') ? 'block' : 'none';
-    };
-    select.addEventListener('change', update);
-    update(); // 初始化狀態
-  }
-}
-
-setupCategoryToggle('taskCategorySelect', 'questFields', 'timedFields');
-setupCategoryToggle('editTaskCategorySelect', 'editQuestFields', 'editTimedFields');
-
-// 初始化任務類型切換邏輯
-function setupTaskTypeToggle(selectId, divId, standardAnswerDivId) {
-  const select = document.getElementById(selectId);
-  const div = document.getElementById(divId);
-  const standardAnswerDiv = document.getElementById(standardAnswerDivId);
-  
-  if (select) {
-    select.addEventListener('change', function() {
-      const val = this.value;
-      if (div) div.style.display = (val === 'multiple_choice') ? 'block' : 'none';
-      if (standardAnswerDiv) {
-        standardAnswerDiv.style.display = (val === 'number' || val === 'keyword') ? 'block' : 'none';
-      }
-    });
-  }
-}
-
-setupTaskTypeToggle('taskTypeSelect', 'multipleChoiceOptions', 'standardAnswerBlock');
-setupTaskTypeToggle('editTaskTypeSelect', 'editMultipleChoiceOptions', 'editStandardAnswerBlock');
-
-function setupValidationModeToggle(selectId, fieldsId) {
-  const select = document.getElementById(selectId);
-  const fields = document.getElementById(fieldsId);
-  if (!select || !fields) return;
-
-  const isEdit = selectId.startsWith('edit');
-  const helper = document.getElementById(isEdit ? 'editAiModeHelper' : 'aiModeHelper');
-  const targetLabelLabel = document.getElementById(isEdit ? 'editAiTargetLabelLabel' : 'aiTargetLabelLabel');
-  const targetLabelInput = document.getElementById(isEdit ? 'editAiTargetLabelInput' : 'aiTargetLabelInput');
-  const targetCountGroup = document.getElementById(isEdit ? 'editAiTargetCountGroup' : 'aiTargetCountGroup');
-  const minScoreGroup = document.getElementById(isEdit ? 'editAiMinScoreGroup' : 'aiMinScoreGroup');
-
-  const modeMeta = {
-    ai_count: {
-      helper: 'AI 會判斷照片中指定物件是否達到目標數量，例如 10 個寶特瓶。',
-      label: '目標物件標籤',
-      placeholder: '例如 plastic_bottle',
-      showCount: true,
-      showScore: false
-    },
-    ai_identify: {
-      helper: 'AI 會辨識照片是否為指定物件或植物，例如牽牛花。',
-      label: '指定辨識標籤',
-      placeholder: '例如 morning_glory',
-      showCount: false,
-      showScore: false
-    },
-    ai_score: {
-      helper: 'AI 會依任務主題為照片評分，例如團體照或風景照，達到門檻即可通關。',
-      label: '評分主題',
-      placeholder: '例如 group_photo',
-      showCount: false,
-      showScore: true
-    },
-    ai_rule_check: {
-      helper: 'AI 會檢查照片是否符合指定規則，可用提示詞描述必備元素。',
-      label: '規則主題',
-      placeholder: '例如 beach_cleanup',
-      showCount: false,
-      showScore: false
-    },
-    ai_reference_match: {
-      helper: '系統會把任務封面圖當成參考地點照片，AI 會比對玩家上傳的照片是否為同一地點或相近視角場景。',
-      label: '比對主題',
-      placeholder: '例如 treasure_spot / lookout_point',
-      showCount: false,
-      showScore: false
-    }
-  };
-
-  const update = () => {
-    const isAiMode = select.value.startsWith('ai_');
-    fields.style.display = isAiMode ? 'block' : 'none';
-    if (!isAiMode) return;
-
-    const meta = modeMeta[select.value] || modeMeta.ai_identify;
-    if (helper) helper.textContent = meta.helper;
-    if (targetLabelLabel) targetLabelLabel.textContent = meta.label;
-    if (targetLabelInput) targetLabelInput.placeholder = meta.placeholder;
-    if (targetCountGroup) targetCountGroup.style.display = meta.showCount ? 'block' : 'none';
-    if (minScoreGroup) minScoreGroup.style.display = meta.showScore ? 'block' : 'none';
-  };
-
-  select.addEventListener('change', update);
-  update();
-}
-
-setupValidationModeToggle('validationModeSelect', 'aiConfigFields');
-setupValidationModeToggle('editValidationModeSelect', 'editAiConfigFields');
-
+// ── Blueprint System ──────────────────────────────────────────
 const blueprintConfigs = {
+  // 劇情主線
   story_ai_identify: {
-    modeText: '劇情主線',
-    judgeText: 'AI 指定物辨識',
-    summary: '適合做植物、物件、地景觀察關。系統會幫你預設成主線關卡 + AI 辨識。',
-    defaults: { category: 'quest', taskType: 'photo', validationMode: 'ai_identify' },
-    showProgression: true,
-    showSubmission: true,
-    showAiJudge: true
+    modeText: '劇情主線', judgeText: 'AI 指定物辨識',
+    summary: '適合植物、物件觀察關。預設主線 + AI 辨識。',
+    defaults: { category: 'quest', taskType: 'photo', validationMode: 'ai_identify' }
   },
   story_reference_match: {
-    modeText: '劇情主線',
-    judgeText: 'AI 地點照片比對',
-    summary: '適合做景點定位、尋寶或指定視角重拍。封面圖會當成參考照片。',
-    defaults: { category: 'quest', taskType: 'photo', validationMode: 'ai_reference_match' },
-    showProgression: true,
-    showSubmission: true,
-    showAiJudge: true
+    modeText: '劇情主線', judgeText: 'AI 地點照片比對',
+    summary: '適合景點定位、尋寶關。封面圖當參考照。',
+    defaults: { category: 'quest', taskType: 'photo', validationMode: 'ai_reference_match' }
   },
   story_ai_score: {
-    modeText: '劇情主線',
-    judgeText: 'AI 圖像評分',
-    summary: '適合做團體照、構圖拍攝或成果展示關。建議填清楚評分主題與最低分數。',
-    defaults: { category: 'quest', taskType: 'photo', validationMode: 'ai_score' },
-    showProgression: true,
-    showSubmission: true,
-    showAiJudge: true
+    modeText: '劇情主線', judgeText: 'AI 圖像評分',
+    summary: '適合團體照、構圖拍攝。建議填評分主題與分數。',
+    defaults: { category: 'quest', taskType: 'photo', validationMode: 'ai_score' }
   },
+  story_keyword: {
+    modeText: '劇情主線', judgeText: '關鍵字自動驗證',
+    summary: '適合知識問答、密語解謎。玩家輸入正確關鍵字即通關。',
+    defaults: { category: 'quest', taskType: 'keyword', validationMode: 'keyword' }
+  },
+  story_choice: {
+    modeText: '劇情主線', judgeText: '選擇題自動驗證',
+    summary: '適合情境選擇、知識測驗。四選一自動判定。',
+    defaults: { category: 'quest', taskType: 'multiple_choice', validationMode: 'manual' }
+  },
+  // 大富翁
   board_ai_count: {
-    modeText: '大富翁模式',
-    judgeText: 'AI 數量判斷',
-    summary: '適合做棋盤上的挑戰格。會自動偏向單點關卡 + AI 計數判定。',
-    defaults: { category: 'single', taskType: 'photo', validationMode: 'ai_count' },
-    showProgression: false,
-    showSubmission: true,
-    showAiJudge: true
+    modeText: '大富翁模式', judgeText: 'AI 數量判斷',
+    summary: '挑戰格用，自動偏向單點 + AI 計數。',
+    defaults: { category: 'single', taskType: 'photo', validationMode: 'ai_count' }
+  },
+  board_ai_identify: {
+    modeText: '大富翁模式', judgeText: 'AI 指定物辨識',
+    summary: '挑戰格用，拍攝指定物件即通過。',
+    defaults: { category: 'single', taskType: 'photo', validationMode: 'ai_identify' }
   },
   board_event: {
-    modeText: '大富翁模式',
-    judgeText: '人工 / 劇情事件',
-    summary: '適合做事件格、補給格、劇情轉場。AI 裁判區會先收起，保留文字引導與素材內容。',
-    defaults: { category: 'single', taskType: 'qa', validationMode: 'manual' },
-    showProgression: false,
-    showSubmission: true,
-    showAiJudge: false
+    modeText: '大富翁模式', judgeText: '人工 / 劇情事件',
+    summary: '事件格或補給格，無 AI 裁判。',
+    defaults: { category: 'single', taskType: 'qa', validationMode: 'manual' }
+  },
+  // 教育課程
+  edu_observe: {
+    modeText: '教育課程', judgeText: 'AI 生物辨識',
+    summary: '自然觀察課程：學生拍攝指定生物或植物，AI 自動辨識驗證。適合生態踏查。',
+    defaults: { category: 'quest', taskType: 'photo', validationMode: 'ai_identify' }
+  },
+  edu_quiz: {
+    modeText: '教育課程', judgeText: '自動批改',
+    summary: '隨堂測驗：可設定選擇題或填答題，系統自動批改。適合導覽後的知識複習。',
+    defaults: { category: 'quest', taskType: 'multiple_choice', validationMode: 'manual' }
+  },
+  edu_fieldwork: {
+    modeText: '教育課程', judgeText: '地點打卡驗證',
+    summary: '實地考察：學生到達指定地點自動打卡完成。適合戶外教學路線。',
+    defaults: { category: 'quest', taskType: 'location', validationMode: 'manual' }
+  },
+  edu_creative: {
+    modeText: '教育課程', judgeText: 'AI 作品評分',
+    summary: '創意任務：學生拍攝作品由 AI 評分。適合美術、攝影、環境設計課程。',
+    defaults: { category: 'quest', taskType: 'photo', validationMode: 'ai_score' }
   }
 };
+
+function applyBlueprint(key, preserveValues) {
+  const c = blueprintConfigs[key] || blueprintConfigs.story_ai_identify;
+  document.getElementById('bpModeText').textContent = c.modeText;
+  document.getElementById('bpJudgeText').textContent = c.judgeText;
+  document.getElementById('bpSummaryText').textContent = c.summary;
+
+  if (!preserveValues) {
+    const catSel = document.getElementById('taskCategorySelect');
+    const typeSel = document.getElementById('taskTypeSelect');
+    const valSel = document.getElementById('validationModeSelect');
+    if (catSel) { catSel.value = c.defaults.category; catSel.dispatchEvent(new Event('change')); }
+    if (typeSel) { typeSel.value = c.defaults.taskType; typeSel.dispatchEvent(new Event('change')); }
+    if (valSel) { valSel.value = c.defaults.validationMode; valSel.dispatchEvent(new Event('change')); }
+  }
+}
 
 function inferBlueprintFromTask(task) {
   if (task?.validation_mode === 'ai_reference_match') return 'story_reference_match';
@@ -376,72 +214,91 @@ function inferBlueprintFromTask(task) {
   return 'story_ai_identify';
 }
 
-function applyBlueprint(mode, blueprintKey, options = {}) {
-  const config = blueprintConfigs[blueprintKey] || blueprintConfigs.story_ai_identify;
-  const isEdit = mode === 'edit';
-  const categorySelect = document.getElementById(isEdit ? 'editTaskCategorySelect' : 'taskCategorySelect');
-  const taskTypeSelect = document.getElementById(isEdit ? 'editTaskTypeSelect' : 'taskTypeSelect');
-  const validationModeSelect = document.getElementById(isEdit ? 'editValidationModeSelect' : 'validationModeSelect');
-  const modeText = document.getElementById(isEdit ? 'editBlueprintModeText' : 'blueprintModeText');
-  const judgeText = document.getElementById(isEdit ? 'editBlueprintJudgeText' : 'blueprintJudgeText');
-  const summaryText = document.getElementById(isEdit ? 'editBlueprintSummaryText' : 'blueprintSummaryText');
-  const progressionSection = document.getElementById('progressionSection');
-  const aiJudgeSection = document.getElementById('aiJudgeSection');
-  const submissionSection = document.getElementById('submissionSection');
+document.getElementById('taskBlueprintSelect').addEventListener('change', function () {
+  applyBlueprint(this.value, false);
+});
 
-  if (modeText) modeText.textContent = config.modeText;
-  if (judgeText) judgeText.textContent = config.judgeText;
-  if (summaryText) summaryText.textContent = config.summary;
-
-  if (!options.preserveValues) {
-    if (categorySelect && config.defaults.category) {
-      categorySelect.value = config.defaults.category;
-      categorySelect.dispatchEvent(new Event('change'));
-    }
-    if (taskTypeSelect && config.defaults.taskType) {
-      taskTypeSelect.value = config.defaults.taskType;
-      taskTypeSelect.dispatchEvent(new Event('change'));
-    }
-    if (validationModeSelect && config.defaults.validationMode) {
-      validationModeSelect.value = config.defaults.validationMode;
-      validationModeSelect.dispatchEvent(new Event('change'));
-    }
-  }
-
-  if (!isEdit) {
-    if (progressionSection) progressionSection.classList.toggle('hidden-by-template', !config.showProgression);
-    if (submissionSection) submissionSection.classList.toggle('hidden-by-template', !config.showSubmission);
-    if (aiJudgeSection) aiJudgeSection.classList.toggle('hidden-by-template', !config.showAiJudge);
-  }
+// ── Category / TaskType / Validation toggles ──────────────────
+function setupCategoryToggle() {
+  const sel = document.getElementById('taskCategorySelect');
+  const questDiv = document.getElementById('questFields');
+  const timedDiv = document.getElementById('timedFields');
+  if (!sel) return;
+  const update = () => {
+    questDiv.style.display = sel.value === 'quest' ? 'block' : 'none';
+    timedDiv.style.display = sel.value === 'timed' ? 'block' : 'none';
+  };
+  sel.addEventListener('change', update);
+  update();
 }
 
-function setupBlueprintSelector(selectId, mode) {
-  const select = document.getElementById(selectId);
-  if (!select) return;
-  select.addEventListener('change', () => applyBlueprint(mode, select.value));
-  applyBlueprint(mode, select.value);
+function setupTaskTypeToggle() {
+  const sel = document.getElementById('taskTypeSelect');
+  const mcDiv = document.getElementById('multipleChoiceOptions');
+  const saDiv = document.getElementById('standardAnswerBlock');
+  if (!sel) return;
+  sel.addEventListener('change', () => {
+    mcDiv.style.display = sel.value === 'multiple_choice' ? 'block' : 'none';
+    saDiv.style.display = (sel.value === 'number' || sel.value === 'keyword') ? 'block' : 'none';
+  });
 }
 
-setupBlueprintSelector('contentBlueprintSelect', 'create');
-setupBlueprintSelector('editContentBlueprintSelect', 'edit');
+const validationModeMeta = {
+  ai_count: { helper: 'AI 判斷指定物件是否達到目標數量。', label: '目標物件標籤', placeholder: 'plastic_bottle', showCount: true, showScore: false },
+  ai_identify: { helper: 'AI 辨識照片是否為指定物件或植物。', label: '指定辨識標籤', placeholder: 'morning_glory', showCount: false, showScore: false },
+  ai_score: { helper: 'AI 依主題為照片評分，達門檻即通關。', label: '評分主題', placeholder: 'group_photo', showCount: false, showScore: true },
+  ai_rule_check: { helper: 'AI 檢查照片是否符合指定規則。', label: '規則主題', placeholder: 'beach_cleanup', showCount: false, showScore: false },
+  ai_reference_match: { helper: '比對玩家照片與任務封面圖是否為同一地點。', label: '比對主題', placeholder: 'treasure_spot', showCount: false, showScore: false }
+};
 
+function setupValidationModeToggle() {
+  const sel = document.getElementById('validationModeSelect');
+  const fields = document.getElementById('aiConfigFields');
+  const helper = document.getElementById('aiModeHelper');
+  const labelEl = document.getElementById('aiTargetLabelLabel');
+  const labelInput = document.getElementById('aiTargetLabelInput');
+  const countGrp = document.getElementById('aiTargetCountGroup');
+  const scoreGrp = document.getElementById('aiMinScoreGroup');
+  if (!sel || !fields) return;
+
+  const update = () => {
+    const isAi = sel.value.startsWith('ai_');
+    fields.style.display = isAi ? 'block' : 'none';
+    if (!isAi) return;
+    const m = validationModeMeta[sel.value] || validationModeMeta.ai_identify;
+    if (helper) helper.textContent = m.helper;
+    if (labelEl) labelEl.textContent = m.label;
+    if (labelInput) labelInput.placeholder = m.placeholder;
+    if (countGrp) countGrp.style.display = m.showCount ? 'block' : 'none';
+    if (scoreGrp) scoreGrp.style.display = m.showScore ? 'block' : 'none';
+  };
+  sel.addEventListener('change', update);
+  update();
+}
+
+setupCategoryToggle();
+setupTaskTypeToggle();
+setupValidationModeToggle();
+
+// Apply initial blueprint
+applyBlueprint('story_ai_identify', false);
+
+// ── AI Payload Builder ────────────────────────────────────────
 function buildAiTaskPayload(form) {
   const validation_mode = form.validation_mode?.value || 'manual';
-  const isAiMode = validation_mode.startsWith('ai_');
+  const isAi = validation_mode.startsWith('ai_');
   const targetLabel = form.ai_target_label?.value.trim() || null;
   const targetCount = form.ai_target_count?.value ? Number(form.ai_target_count.value) : null;
   const minScore = form.ai_min_score?.value ? Number(form.ai_min_score.value) : null;
   const minConfidence = form.ai_min_confidence?.value ? Number(form.ai_min_confidence.value) : null;
-  const systemPrompt = form.ai_system_prompt?.value.trim() || '';
-  const userPrompt = form.ai_user_prompt?.value.trim() || '';
 
-  const ai_config = isAiMode ? {
-    system_prompt: systemPrompt || undefined,
-    user_prompt: userPrompt || undefined,
+  const ai_config = isAi ? {
+    system_prompt: form.ai_system_prompt?.value.trim() || undefined,
+    user_prompt: form.ai_user_prompt?.value.trim() || undefined,
     target_label: targetLabel || undefined
   } : null;
 
-  const pass_criteria = isAiMode ? {
+  const pass_criteria = isAi ? {
     ...(targetLabel ? { target_label: targetLabel } : {}),
     ...(Number.isFinite(targetCount) ? { target_count: targetCount } : {}),
     ...(Number.isFinite(minScore) ? { min_score: minScore } : {}),
@@ -450,7 +307,7 @@ function buildAiTaskPayload(form) {
   } : null;
 
   return {
-    submission_type: isAiMode ? 'image' : 'answer',
+    submission_type: isAi ? 'image' : 'answer',
     validation_mode,
     ai_config,
     pass_criteria,
@@ -461,1980 +318,1190 @@ function buildAiTaskPayload(form) {
   };
 }
 
-function validateAiTaskPayload(form, aiTaskPayload, messageElId) {
-  const messageEl = document.getElementById(messageElId);
-  const mode = aiTaskPayload.validation_mode;
+function validateAiPayload(form, payload, msgEl) {
+  const mode = payload.validation_mode;
   if (!mode.startsWith('ai_')) return true;
-
-  if (!aiTaskPayload.ai_config?.user_prompt) {
-    messageEl.textContent = 'AI 任務請填寫 AI 使用者提示詞';
-    return false;
-  }
-  if (mode === 'ai_count') {
-    if (!aiTaskPayload.ai_config?.target_label) {
-      messageEl.textContent = 'AI 數量判斷任務請填寫目標物件標籤';
-      return false;
-    }
-    if (!aiTaskPayload.pass_criteria?.target_count) {
-      messageEl.textContent = 'AI 數量判斷任務請填寫目標數量';
-      return false;
-    }
-  }
-  if (mode === 'ai_identify' && !aiTaskPayload.ai_config?.target_label) {
-    messageEl.textContent = 'AI 指定物辨識任務請填寫指定辨識標籤';
-    return false;
-  }
-  if (mode === 'ai_reference_match' && !form.photo?.files?.length && !form.photoUrl?.value) {
-    messageEl.textContent = 'AI 地點照片比對任務需要任務封面圖，系統會拿它當參考照片';
-    return false;
-  }
-  if (mode === 'ai_score' && (aiTaskPayload.pass_criteria?.min_score === null || aiTaskPayload.pass_criteria?.min_score === undefined)) {
-    messageEl.textContent = 'AI 圖像評分任務請填寫最低通過分數';
-    return false;
-  }
+  if (!payload.ai_config?.user_prompt) { msgEl.textContent = 'AI 任務請填寫使用者提示詞'; return false; }
+  if (mode === 'ai_count' && !payload.ai_config?.target_label) { msgEl.textContent = '數量判斷請填目標標籤'; return false; }
+  if (mode === 'ai_count' && !payload.pass_criteria?.target_count) { msgEl.textContent = '數量判斷請填目標數量'; return false; }
+  if (mode === 'ai_identify' && !payload.ai_config?.target_label) { msgEl.textContent = '辨識任務請填目標標籤'; return false; }
+  if (mode === 'ai_score' && (payload.pass_criteria?.min_score == null)) { msgEl.textContent = '評分任務請填最低分數'; return false; }
   return true;
 }
 
-// 確保先載入劇情、道具和模型，再載入任務
-Promise.all([loadQuestChains(), loadItems(), loadARModels()]).then(() => {
-  loadTasks();
-  loadBoardMaps();
+// ── Load Quest Chains ─────────────────────────────────────────
+function loadQuestChains() {
+  return fetch(`${API_BASE}/api/quest-chains`, {
+    headers: { 'x-username': loginUser.username }
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) return;
+      globalQuestChainsMap = {};
+      data.questChains.forEach(q => { globalQuestChainsMap[q.id] = q; });
+
+      // Update quest chain select in task form
+      const sel = document.getElementById('questChainSelect');
+      if (sel) {
+        sel.innerHTML = '<option value="">-- 請選擇 --</option>';
+        data.questChains.forEach(q => {
+          sel.innerHTML += `<option value="${q.id}">${escHtml(q.title)}</option>`;
+        });
+      }
+
+      renderQuestChainList(data.questChains);
+    });
+}
+
+function renderQuestChainList(chains) {
+  const container = document.getElementById('questChainListContainer');
+  if (!chains.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div>目前沒有玩法入口，點右上角新增</div>';
+    return;
+  }
+  container.innerHTML = chains.map(q => {
+    const modeTag = q.mode_type === 'board_game' ? '<span class="tag tag-green">大富翁</span>' : '<span class="tag tag-blue">劇情主線</span>';
+    const statusTag = q.is_active
+      ? '<span class="tag tag-green">已開放</span>'
+      : '<span class="tag tag-red">未開放</span>';
+    return `
+      <div class="quest-card">
+        <div style="min-width:0;">
+          <div class="quest-card-title">${escHtml(q.title)}</div>
+          <div class="quest-card-meta">
+            ${modeTag} ${statusTag}
+            ${q.entry_scene_label ? `<span class="tag tag-gray">${escHtml(q.entry_scene_label)}</span>` : ''}
+            <span class="tag tag-amber">🏆 ${q.chain_points || 0} 分</span>
+            ${q.play_style ? `<span class="tag tag-gray">🎲 ${escHtml(q.play_style)}</span>` : ''}
+          </div>
+          ${q.short_description ? `<div style="font-size:0.85rem; color:#64748b; margin-top:6px;">${escHtml(q.short_description)}</div>` : ''}
+        </div>
+        <div class="quest-card-actions">
+          <button class="btn-sm btn-secondary-v2" onclick="goToQuestDetail('${q.id}')">管理內容</button>
+          <button class="btn-sm btn-secondary-v2" onclick="editQuestChain('${q.id}')">編輯</button>
+          <button class="btn-sm btn-danger-v2" onclick="deleteQuestChain('${q.id}')">刪除</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function editQuestChain(id) {
+  const q = globalQuestChainsMap[id];
+  if (!q) return;
+  openDrawer('編輯玩法入口', 'form-quest-chain', {
+    id: q.id, mode_type: q.mode_type, title: q.title,
+    short_description: q.short_description || '', description: q.description || '',
+    entry_order: q.entry_order || 0, entry_button_text: q.entry_button_text || '',
+    entry_scene_label: q.entry_scene_label || '', play_style: q.play_style || '',
+    chain_points: q.chain_points || 100, badge_name: q.badge_name || '',
+    is_active: q.is_active
+  });
+}
+
+function deleteQuestChain(id) {
+  if (!confirm('確定要刪除此玩法入口嗎？\n如果底下還有關卡，將無法刪除。')) return;
+  fetch(`${API_BASE}/api/quest-chains/${id}`, {
+    method: 'DELETE', headers: { 'x-username': loginUser.username }
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) { showToast('已刪除'); loadQuestChains(); }
+      else showToast(d.message || '刪除失敗', 'error');
+    });
+}
+
+// ── Quest Chain Form Submit ───────────────────────────────────
+document.getElementById('questChainForm').addEventListener('submit', function (e) {
+  e.preventDefault();
+  const form = this;
+  const id = form.elements.id.value;
+
+  const fd = new FormData();
+  fd.append('title', form.title.value.trim());
+  fd.append('description', form.description.value.trim());
+  fd.append('short_description', form.short_description.value.trim());
+  fd.append('chain_points', form.chain_points.value);
+  fd.append('badge_name', form.badge_name.value.trim());
+  fd.append('mode_type', form.mode_type.value);
+  fd.append('entry_order', form.entry_order.value);
+  fd.append('entry_button_text', form.entry_button_text.value.trim());
+  fd.append('entry_scene_label', form.entry_scene_label.value.trim());
+  fd.append('play_style', form.play_style.value);
+  fd.append('is_active', form.is_active.checked ? '1' : '0');
+  const badgeFile = form.badge_image?.files[0];
+  if (badgeFile) fd.append('badge_image', badgeFile);
+
+  // NOTE: backend currently only supports POST for quest chains (no PUT endpoint for updating)
+  // If editing, we use the same POST approach but include the id
+  const url = id ? `${API_BASE}/api/quest-chains` : `${API_BASE}/api/quest-chains`;
+  fetch(url, {
+    method: 'POST',
+    headers: { 'x-username': loginUser.username },
+    body: fd
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        showToast(id ? '更新成功' : '建立成功');
+        closeDrawer();
+        loadQuestChains();
+      } else {
+        showToast(d.message || '操作失敗', 'error');
+      }
+    })
+    .catch(() => showToast('伺服器連線失敗', 'error'));
 });
 
-function populateBoardMapSelects() {
-  const selects = [
-    document.getElementById('boardMapPicker'),
-    document.getElementById('boardTileBoardMapSelect')
-  ];
-  selects.forEach((sel) => {
-    if (!sel) return;
-    const currentVal = sel.value;
-    const placeholder = sel.id === 'boardMapPicker' ? '-- 請選擇大富翁地圖 --' : '-- 先選擇大富翁地圖 --';
-    sel.innerHTML = `<option value="">${placeholder}</option>`;
-    globalBoardMaps.forEach((boardMap) => {
-      sel.innerHTML += `<option value="${boardMap.id}">${boardMap.name}</option>`;
-    });
-    if (currentVal) sel.value = currentVal;
-  });
-}
-
-function populateBoardTileTaskSelect() {
-  const sel = document.getElementById('boardTileTaskSelect');
-  if (!sel) return;
-  const currentVal = sel.value;
-  sel.innerHTML = '<option value="">-- 不綁定，作為純事件 / 效果格 --</option>';
-  globalTaskRecords.forEach((task) => {
-    const kind = task.type === 'quest' ? `主線第 ${task.quest_order || '?'} 關` : (task.validation_mode?.startsWith('ai_') ? 'AI 挑戰' : '一般內容');
-    sel.innerHTML += `<option value="${task.id}">${task.name}｜${kind}</option>`;
-  });
-  if (currentVal) sel.value = currentVal;
-}
-
-function resetBoardMapForm() {
-  const form = document.getElementById('boardMapForm');
-  if (!form) return;
-  form.reset();
-  form.id.value = '';
-  form.is_active.checked = true;
-  document.getElementById('boardMapMsg').textContent = '';
-}
-
-function resetBoardTileForm() {
-  const form = document.getElementById('boardTileForm');
-  if (!form) return;
-  const currentMapId = document.getElementById('boardMapPicker')?.value || '';
-  form.reset();
-  form.id.value = '';
-  form.is_active.checked = true;
-  if (currentMapId) form.board_map_id.value = currentMapId;
-  document.getElementById('boardTileMsg').textContent = '';
-}
-
-function createBoardMapCard(map) {
-  const statusText = map.is_active ? '已啟用' : '未啟用';
-  const questTitle = map.quest_chain_title || '未綁定玩法入口';
-  const challengeCount = Number(map.challenge_tile_count || 0);
-  const eventCount = Number(map.event_tile_count || 0);
-  const tileCount = Number(map.tile_count || 0);
-  return `
-    <div class="board-list-item">
-      <div class="board-list-item-title">${map.name}</div>
-      <div class="board-list-item-meta">
-        <span>🎯 ${questTitle}</span>
-        <span>🧭 ${map.play_style || 'fixed_track_race'}</span>
-        <span>🏁 ${map.start_tile} → ${map.finish_tile}</span>
-        <span>🧩 ${tileCount} 格</span>
-        <span>🎲 ${challengeCount} 挑戰</span>
-        <span>✨ ${eventCount} 事件</span>
-        <span>${statusText}</span>
-      </div>
-      <div style="font-size:0.9rem; color:#64748b; margin-bottom:10px;">${map.description || '尚未填寫地圖說明'}</div>
-      <div class="board-list-item-actions">
-        <button class="btn btn-primary board-map-edit-btn" data-id="${map.id}" style="padding:0.35rem 0.8rem; font-size:0.88rem;">編輯地圖</button>
-        <button class="btn btn-secondary board-map-open-btn" data-id="${map.id}" style="padding:0.35rem 0.8rem; font-size:0.88rem;">管理格子</button>
-        <button class="btn btn-secondary board-map-preview-btn" data-id="${map.id}" data-quest-chain-id="${map.quest_chain_id}" style="padding:0.35rem 0.8rem; font-size:0.88rem;">預覽遊玩</button>
-        <button class="btn btn-danger board-map-delete-btn" data-id="${map.id}" style="padding:0.35rem 0.8rem; font-size:0.88rem;">刪除</button>
-      </div>
-    </div>
-  `;
-}
-
-function createBoardTileCard(tile) {
-  return `
-    <div class="board-list-item">
-      <div class="board-list-item-title">第 ${tile.tile_index} 格｜${tile.tile_name}</div>
-      <div class="board-list-item-meta">
-        <span>類型：${tile.tile_type}</span>
-        <span>${tile.is_active ? '已啟用' : '未啟用'}</span>
-        ${tile.task_name ? `<span>綁定：${tile.task_name}</span>` : ''}
-        ${tile.effect_type ? `<span>效果：${tile.effect_type}${tile.effect_value != null && tile.effect_value !== '' ? `(${tile.effect_value})` : ''}</span>` : ''}
-      </div>
-      <div style="font-size:0.9rem; color:#64748b; margin-bottom:10px;">${tile.event_body || tile.guide_content || '尚未填寫事件或導覽內容'}</div>
-      <div class="board-list-item-actions">
-        <button class="btn btn-primary board-tile-edit-btn" data-id="${tile.id}" style="padding:0.35rem 0.8rem; font-size:0.88rem;">編輯格子</button>
-        <button class="btn btn-danger board-tile-delete-btn" data-id="${tile.id}" style="padding:0.35rem 0.8rem; font-size:0.88rem;">刪除</button>
-      </div>
-    </div>
-  `;
-}
-
-function loadBoardMaps() {
-  return fetch(`${API_BASE}/api/board-maps/admin`, {
-    headers: { 'x-username': loginUser.username }
-  })
-    .then(res => res.json())
-    .then(data => {
-      const list = document.getElementById('boardMapList');
-      if (!data.success) {
-        if (list) list.innerHTML = '<div style="color:#888;">載入大富翁地圖失敗</div>';
-        return;
-      }
-      globalBoardMaps = data.boardMaps || [];
-      populateBoardMapSelects();
-      if (list) {
-        list.innerHTML = globalBoardMaps.length
-          ? globalBoardMaps.map(createBoardMapCard).join('')
-          : '<div style="color:#888;">目前還沒有大富翁地圖</div>';
-      }
-    });
-}
-
-function loadBoardTiles(boardMapId) {
-  const list = document.getElementById('boardTileList');
-  if (!boardMapId) {
-    globalBoardTiles = [];
-    if (list) list.innerHTML = '<div style="color:#888;">請先選擇大富翁地圖</div>';
-    return Promise.resolve();
-  }
-  return fetch(`${API_BASE}/api/board-maps/${boardMapId}/tiles`, {
-    headers: { 'x-username': loginUser.username }
-  })
-    .then(res => res.json())
-    .then(data => {
-      if (!data.success) {
-        if (list) list.innerHTML = '<div style="color:#888;">載入格子失敗</div>';
-        return;
-      }
-      globalBoardTiles = data.tiles || [];
-      if (list) {
-        list.innerHTML = globalBoardTiles.length
-          ? globalBoardTiles.map(createBoardTileCard).join('')
-          : '<div style="color:#888;">這張地圖目前沒有格子，請先新增。</div>';
-      }
-    });
-}
-
-// === 3D 模型庫管理邏輯 ===
-let globalModelsMap = {};
-
-function loadARModels() {
-  // 注意：這裡假設後端會提供 /api/ar-models API
-  // 由於我們還沒寫後端 API，這一步先預留，稍後會補上 API
-  // 暫時用模擬數據或空的
-  return fetch(`${API_BASE}/api/ar-models`)
-    .then(res => res.json())
-    .then(data => {
-      if (!data.success) return;
-      globalModelsMap = {};
-      const list = document.getElementById('modelList');
-      // 選取所有 name="ar_model_id" 的 select (包含新增和編輯表單)
-      const selects = document.querySelectorAll('select[name="ar_model_id"]');
-      // 選取所有 class="ar-model-url-select" 的 select (用於道具表單)
-      const urlSelects = document.querySelectorAll('.ar-model-url-select');
-      
-      if (list) list.innerHTML = '';
-      
-      // 更新 Task 的下拉選單 (存 ID)
-      selects.forEach(sel => {
-        const currentVal = sel.value; 
-        sel.innerHTML = '<option value="">-- 請選擇模型 --</option>';
-        data.models.forEach(m => {
-          sel.innerHTML += `<option value="${m.id}">${m.name}</option>`;
-        });
-        sel.value = currentVal;
-      });
-
-      // 更新 Item 的下拉選單 (存 URL)
-      urlSelects.forEach(sel => {
-        const currentVal = sel.value;
-        sel.innerHTML = '<option value="">-- 無 --</option>';
-        data.models.forEach(m => {
-          sel.innerHTML += `<option value="${m.url}">${m.name}</option>`;
-        });
-        sel.value = currentVal;
-      });
-
-      if (data.models.length === 0) {
-        if (list) list.innerHTML = '<div style="color:#888;">目前沒有 3D 模型</div>';
-      } else {
-        data.models.forEach(m => {
-          globalModelsMap[m.id] = m;
-          if (list) {
-            const div = document.createElement('div');
-            div.style.cssText = 'background:white; padding:10px; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.05); border-left:4px solid #0d6efd; position: relative;';
-            div.innerHTML = `
-              <div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">
-                <span style="font-size:1.5rem;">🧊</span>
-                <div style="font-weight:bold; font-size:1rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${m.name}</div>
-              </div>
-              <div style="font-size:0.75rem; color:#666;">Scale: ${m.scale || 1.0}</div>
-              <div style="display:flex; gap:5px; justify-content:flex-end; margin-top:5px;">
-                  <a href="${m.url}" target="_blank" class="btn-preview-model" style="padding:2px 8px; font-size:0.8rem; border-radius:4px; background:#17a2b8; color:white; text-decoration:none;" title="下載查看">⬇️</a>
-                  <button class="btn-delete-model" data-id="${m.id}" style="padding:2px 8px; font-size:0.8rem; border-radius:4px; background:#dc3545; color:white; border:none; cursor:pointer;" title="刪除模型">🗑️</button>
-              </div>
-            `;
-            list.appendChild(div);
-          }
-        });
-
-        // 綁定刪除按鈕
-        document.querySelectorAll('.btn-delete-model').forEach(btn => {
-          btn.addEventListener('click', function(e) {
-            if (!confirm('確定要刪除這個模型嗎？\n注意：如果該模型被任務引用，可能會導致顯示錯誤。')) return;
-            fetch(`${API_BASE}/api/ar-models/${this.dataset.id}`, {
-              method: 'DELETE',
-              headers: { 'x-username': loginUser.username }
-            })
-            .then(res => res.json())
-            .then(resData => {
-              if (resData.success) {
-                alert('模型已刪除');
-                loadARModels();
-              } else {
-                alert(resData.message || '刪除失敗');
-              }
-            });
-          });
-        });
-      }
-    })
-    .catch(err => console.error('載入模型失敗', err)); // 暫時忽略錯誤，因為 API 可能還沒好
-}
-
-// 模型上傳 Modal
-const btnUploadModel = document.getElementById('btnUploadModel');
-const modelModal = document.getElementById('modelModal');
-const closeModelModal = document.getElementById('closeModelModal');
-const quickUploadModelBtn = document.getElementById('quickUploadModelBtn');
-
-if (btnUploadModel && modelModal) {
-  const openModelModal = () => modelModal.classList.add('show');
-  btnUploadModel.onclick = openModelModal;
-  if (quickUploadModelBtn) quickUploadModelBtn.onclick = (e) => { e.preventDefault(); openModelModal(); };
-  if (closeModelModal) closeModelModal.onclick = () => modelModal.classList.remove('show');
-}
-
-// 提交模型上傳
-const uploadModelForm = document.getElementById('uploadModelForm');
-if (uploadModelForm) {
-  uploadModelForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const form = this;
-    const msg = document.getElementById('uploadModelMsg');
-    msg.textContent = '上傳中... 請稍候 (大檔案可能需要幾分鐘)';
-    msg.style.color = 'blue';
-
-    const fd = new FormData();
-    fd.append('name', form.name.value.trim());
-    fd.append('scale', form.scale.value);
-    if (form.modelFile.files[0]) {
-      fd.append('model', form.modelFile.files[0]);
-    }
-
-    fetch(`${API_BASE}/api/ar-models`, {
-      method: 'POST',
-      headers: { 'x-username': loginUser.username },
-      body: fd
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        msg.textContent = '上傳成功！';
-        msg.style.color = 'green';
-        form.reset();
-        setTimeout(() => {
-          modelModal.classList.remove('show');
-          msg.textContent = '';
-          loadARModels();
-        }, 1500);
-      } else {
-        msg.textContent = data.message || '上傳失敗';
-        msg.style.color = 'red';
-      }
-    })
-    .catch(err => {
-      console.error(err);
-      msg.textContent = '發生錯誤';
-      msg.style.color = 'red';
-    });
-  });
-}
-
-// 初始化 AR 類型切換邏輯
-function setupArTypeToggle(radioName, containerIdPrefix) {
-  const radios = document.querySelectorAll(`input[name="${radioName}"]`);
-  const update = () => {
-    const selected = document.querySelector(`input[name="${radioName}"]:checked`)?.value || 'none';
-    // 隱藏所有
-    ['image', 'youtube', '3d'].forEach(type => {
-      const el = document.getElementById(`${containerIdPrefix}_${type}`);
-      if (el) el.style.display = 'none';
-    });
-    // 顯示選中的
-    const target = document.getElementById(`${containerIdPrefix}_${selected}`);
-    if (target) target.style.display = 'block';
-  };
-
-  radios.forEach(r => r.addEventListener('change', update));
-  // 延遲一點執行初始化，確保 DOM 載入
-  setTimeout(update, 100);
-}
-
-setupArTypeToggle('ar_type', 'arField');
-setupArTypeToggle('edit_ar_type', 'editArField');
-
-
-function loadItems() {
-  return fetch(`${API_BASE}/api/items`)
-    .then(res => res.json())
-    .then(data => {
-      if (!data.success) return;
-      globalItemsMap = {};
-      const list = document.getElementById('itemList');
-      const selects = document.querySelectorAll('.item-select'); // 任務表單中的下拉選單
-      
-      if (list) list.innerHTML = '';
-      
-      // 更新下拉選單
-      selects.forEach(sel => {
-        const currentVal = sel.value; // 保留目前選擇
-        sel.innerHTML = '<option value="">-- 無 --</option>';
-        data.items.forEach(item => {
-          sel.innerHTML += `<option value="${item.id}">${item.name}</option>`;
-        });
-        sel.value = currentVal;
-      });
-
-      if (data.items.length === 0) {
-        if (list) list.innerHTML = '<div style="color:#888;">目前沒有道具</div>';
-      } else {
-        data.items.forEach(item => {
-          globalItemsMap[item.id] = item;
-          if (list) {
-            const div = document.createElement('div');
-            div.style.cssText = 'background:white; padding:10px; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.05); border-left:4px solid #ffc107; position: relative;';
-            div.innerHTML = `
-              <div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">
-                ${item.image_url ? `<img src="${item.image_url}" style="width:30px; height:30px; object-fit:contain;">` : '<span style="font-size:1.5rem;">🎒</span>'}
-                <div style="font-weight:bold; font-size:1rem;">${item.name}</div>
-              </div>
-              <div style="font-size:0.85rem; color:#666; margin-bottom:8px;">${item.description || '無描述'}</div>
-              <div style="display:flex; gap:5px; justify-content:flex-end;">
-                  <button class="btn-grant-item" data-id="${item.id}" style="padding:2px 8px; font-size:0.8rem; border-radius:4px; background:#28a745; color:white; border:none; cursor:pointer;" title="發放給玩家">🎁 發放</button>
-                  <button class="btn-edit-item" data-id="${item.id}" style="padding:2px 8px; font-size:0.8rem; border-radius:4px; background:#007bff; color:white; border:none; cursor:pointer;" title="編輯道具">✏️</button>
-                  <button class="btn-delete-item" data-id="${item.id}" style="padding:2px 8px; font-size:0.8rem; border-radius:4px; background:#dc3545; color:white; border:none; cursor:pointer;" title="刪除道具">🗑️</button>
-              </div>
-            `;
-            list.appendChild(div);
-          }
-        });
-
-        // 綁定道具按鈕事件
-        setupItemButtons();
-      }
-    });
-}
-
-function setupItemButtons() {
-  // 刪除道具
-  document.querySelectorAll('.btn-delete-item').forEach(btn => {
-    btn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      if (!confirm('確定要刪除這個道具嗎？\n注意：如果該道具被任務引用，將無法刪除。')) return;
-      fetch(`${API_BASE}/api/items/${this.dataset.id}`, {
-        method: 'DELETE',
-        headers: { 'x-username': loginUser.username }
-      })
-      .then(res => res.json())
-      .then(resData => {
-        if (resData.success) {
-          alert('道具已刪除');
-          loadItems();
-        } else {
-          alert(resData.message || '刪除失敗');
-        }
-      });
-    });
-  });
-
-  // 編輯道具
-  const editItemModal = document.getElementById('editItemModal');
-  const editItemForm = document.getElementById('editItemForm');
-  const closeEditItemModal = document.getElementById('closeEditItemModal');
-  const editItemImageInput = document.getElementById('editItemImageInput');
-  const editItemImagePreview = document.getElementById('editItemImagePreview');
-
-  if (editItemModal) {
-    if (closeEditItemModal) closeEditItemModal.onclick = () => editItemModal.classList.remove('show');
-    
-    // 預覽圖片
-    if (editItemImageInput) {
-      editItemImageInput.onchange = function() {
-        const file = this.files[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = e => {
-            editItemImagePreview.src = e.target.result;
-            editItemImagePreview.style.display = 'block';
-          };
-          reader.readAsDataURL(file);
-        }
-      };
-    }
-
-    // 開啟編輯 Modal
-    document.querySelectorAll('.btn-edit-item').forEach(btn => {
-      btn.onclick = function() {
-        const id = this.dataset.id;
-        const item = globalItemsMap[id];
-        if (!item) return;
-
-        editItemForm.id.value = item.id;
-        editItemForm.name.value = item.name;
-        editItemForm.description.value = item.description || '';
-        editItemForm.image_url.value = item.image_url || '';
-        // 設定 model_url
-        const modelUrlSelect = editItemForm.querySelector('.ar-model-url-select');
-        if (modelUrlSelect) modelUrlSelect.value = item.model_url || '';
-        
-        editItemImageInput.value = ''; // 清空檔案選擇
-        
-        if (item.image_url) {
-          editItemImagePreview.src = item.image_url;
-          editItemImagePreview.style.display = 'block';
-        } else {
-          editItemImagePreview.style.display = 'none';
-        }
-
-        editItemModal.classList.add('show');
-      };
-    });
-
-    // 提交編輯
-    if (editItemForm) {
-      // 避免重複綁定 listener，先移除舊的 (雖然這裡是動態綁定按鈕，但 form 是靜態的，所以還好)
-      // 但為了安全，我們可以檢查是否已綁定，或者簡單地讓它覆蓋
-      editItemForm.onsubmit = function(e) {
-        e.preventDefault();
-        const id = this.id.value;
-        const fd = new FormData();
-        fd.append('name', this.name.value.trim());
-        fd.append('description', this.description.value.trim());
-        fd.append('model_url', this.model_url.value); // 新增 model_url
-        
-        // 優先使用上傳的圖片
-        if (this.new_image.files[0]) {
-          fd.append('image', this.new_image.files[0]);
-        } else {
-          fd.append('image_url', this.image_url.value.trim());
-        }
-
-        fetch(`${API_BASE}/api/items/${id}`, {
-          method: 'PUT',
-          headers: { 'x-username': loginUser.username },
-          body: fd
-        })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            alert('道具更新成功');
-            editItemModal.classList.remove('show');
-            loadItems();
-          } else {
-            alert(data.message || '更新失敗');
-          }
-        });
-      };
-    }
-  }
-
-  // 發放道具
-  const grantItemModal = document.getElementById('grantItemModal');
-  const grantItemForm = document.getElementById('grantItemForm');
-  const closeGrantItemModal = document.getElementById('closeGrantItemModal');
-  const grantItemName = document.getElementById('grantItemName');
-
-  if (grantItemModal) {
-    if (closeGrantItemModal) closeGrantItemModal.onclick = () => grantItemModal.classList.remove('show');
-
-    // 開啟發放 Modal
-    document.querySelectorAll('.btn-grant-item').forEach(btn => {
-      btn.onclick = function() {
-        const id = this.dataset.id;
-        const item = globalItemsMap[id];
-        if (!item) return;
-
-        grantItemForm.reset();
-        grantItemForm.item_id.value = item.id;
-        grantItemForm.quantity.value = 1;
-        grantItemName.textContent = item.name;
-        
-        grantItemModal.classList.add('show');
-      };
-    });
-
-    // 提交發放
-    if (grantItemForm) {
-      grantItemForm.onsubmit = function(e) {
-        e.preventDefault();
-        const itemId = this.item_id.value;
-        const username = this.username.value.trim();
-        const quantity = this.quantity.value;
-
-        if (!username) return alert('請輸入玩家帳號');
-
-        fetch(`${API_BASE}/api/admin/grant-item`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'x-username': loginUser.username 
-          },
-          body: JSON.stringify({ username, item_id: itemId, quantity })
-        })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            alert(data.message);
-            grantItemModal.classList.remove('show');
-          } else {
-            alert(data.message || '發放失敗');
-          }
-        });
-      };
-    }
-  }
-}
-
-// 道具 Modal 邏輯 (新增)
-const btnCreateItem = document.getElementById('btnCreateItem');
-const itemModal = document.getElementById('itemModal');
-const closeItemModal = document.getElementById('closeItemModal');
-const itemImageInput = document.getElementById('itemImageInput');
-const itemImagePreview = document.getElementById('itemImagePreview');
-
-if (btnCreateItem && itemModal) {
-  btnCreateItem.onclick = () => itemModal.classList.add('show');
-  closeItemModal.onclick = () => itemModal.classList.remove('show');
-}
-
-if (itemImageInput) {
-  itemImageInput.addEventListener('change', function() {
+// Badge preview
+const qcBadgeInput = document.getElementById('qcBadgeInput');
+const qcBadgePreview = document.getElementById('qcBadgePreview');
+if (qcBadgeInput) {
+  qcBadgeInput.addEventListener('change', function () {
     const file = this.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = e => {
-        itemImagePreview.src = e.target.result;
-        itemImagePreview.style.display = 'block';
-      };
-      reader.readAsDataURL(file);
-    } else {
-      itemImagePreview.style.display = 'none';
-    }
+      const r = new FileReader();
+      r.onload = e => { qcBadgePreview.src = e.target.result; qcBadgePreview.style.display = 'block'; };
+      r.readAsDataURL(file);
+    } else { qcBadgePreview.style.display = 'none'; }
   });
 }
 
-const createItemForm = document.getElementById('createItemForm');
-if (createItemForm) {
-  createItemForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const form = this;
-    const fd = new FormData();
-    fd.append('name', form.name.value.trim());
-    fd.append('description', form.description.value.trim());
-    fd.append('model_url', form.model_url.value); // 新增 model_url
-    if (form.image.files[0]) {
-      fd.append('image', form.image.files[0]);
-    }
+// ── Drill-down: Load quest detail ─────────────────────────────
+let currentBoardMapId = null;
+let currentBoardMapName = '';
+let currentBoardTiles = [];
 
-    fetch(`${API_BASE}/api/items`, {
-      method: 'POST',
-      headers: { 'x-username': loginUser.username },
-      body: fd
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        alert('道具新增成功');
-        form.reset();
-        itemImagePreview.style.display = 'none';
-        itemModal.classList.remove('show');
-        loadItems();
-      } else {
-        alert(data.message || '新增失敗');
-      }
-    });
-  });
+function goToQuestDetail(questChainId) {
+  const q = globalQuestChainsMap[questChainId];
+  if (!q) return;
+
+  currentQuestChainId = questChainId;
+  currentQuestChainTitle = q.title;
+  currentQuestChainMode = q.mode_type;
+
+  document.getElementById('detailQuestTitle').textContent = `管理：${q.title}`;
+  document.getElementById('task_locked_quest_name').textContent = q.title;
+  document.getElementById('task_quest_chain_id').value = questChainId;
+
+  // Toggle buttons based on mode
+  const btnAddTask = document.getElementById('btnAddTask');
+  const btnAddTile = document.getElementById('btnAddTile');
+  const boardInfoBar = document.getElementById('boardMapInfoBar');
+
+  if (q.mode_type === 'board_game') {
+    btnAddTask.style.display = 'none';
+    btnAddTile.style.display = 'inline-flex';
+    boardInfoBar.style.display = 'block';
+  } else {
+    btnAddTask.style.display = 'inline-flex';
+    btnAddTile.style.display = 'none';
+    boardInfoBar.style.display = 'none';
+  }
+
+  switchView('view-quest-detail');
+
+  if (q.mode_type === 'board_game') {
+    loadBoardContent(questChainId);
+  } else {
+    loadTasksForQuest(questChainId);
+  }
 }
 
-// 讀取關卡列表
-function loadTasks() {
+// ── Story mode: load tasks ────────────────────────────────────
+function loadTasksForQuest(questChainId) {
+  const container = document.getElementById('questDetailContentContainer');
+  container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div>載入中...</div>';
+
   fetch(`${API_BASE}/api/tasks/admin`, {
     headers: { 'x-username': loginUser.username }
   })
-    .then(res => res.json())
+    .then(r => r.json())
     .then(data => {
-      if (!data.success) return;
-      const container = document.getElementById('allTasks');
-      container.innerHTML = '';
+      if (!data.success) { container.innerHTML = '<div class="empty-state">載入失敗</div>'; return; }
+
       globalTaskRecords = data.tasks || [];
-      populateBoardTileTaskSelect();
+      const tasks = globalTaskRecords.filter(t => String(t.quest_chain_id) === String(questChainId));
+      tasks.sort((a, b) => (a.quest_order || 0) - (b.quest_order || 0));
 
-      const userRole = data.userRole || loginUser.role;
-      
-      if (data.tasks.length === 0) {
-        container.innerHTML = `<div style="grid-column: 1/-1; text-align:center;color:#666;padding:20px;">目前沒有關卡內容${userRole === 'staff' ? '（您只能看到自己建立的內容）' : ''}</div>`;
+      if (!tasks.length) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📦</div>此入口尚無關卡，點右上角新增</div>';
         return;
       }
 
-      // 輔助函式：生成關卡卡片 HTML
-      const createCardHtml = (task) => {
-        // 創建者信息（只有管理員能看到）
-        const creatorInfo = (userRole === 'admin' && task.created_by)
-          ? `<div style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.5rem;">👤 ${task.created_by}</div>`
-          : '';
-        
-        // 關卡提交類型與標籤顯示
-        let typeText = '問答題';
-        if (task.validation_mode && task.validation_mode.startsWith('ai_')) { typeText = `AI 關卡 (${task.validation_mode})`; }
-        else if (task.task_type === 'multiple_choice') { typeText = '選擇題'; }
-        else if (task.task_type === 'photo') { typeText = '拍照挑戰'; }
-        else if (task.task_type === 'number') { typeText = '數字解謎'; }
-        else if (task.task_type === 'keyword') { typeText = '關鍵字解碼'; }
-        else if (task.task_type === 'location') { typeText = '地點打卡'; }
-
-        // 關卡分類標籤 (單題/限時/劇情)
-        let categoryTag = '';
-        if (task.type === 'quest') {
-          categoryTag = `<span style="font-size:0.75rem; background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; margin-right:4px;">📚 主線第 ${task.quest_order} 關</span>`;
-        } else if (task.type === 'timed') {
-          categoryTag = `<span style="font-size:0.75rem; background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:4px; margin-right:4px;">⏱ 限時關卡</span>`;
-        } else {
-          categoryTag = `<span style="font-size:0.75rem; background:#f3f4f6; color:#374151; padding:2px 6px; border-radius:4px; margin-right:4px;">📝 單關內容</span>`;
-        }
-
-        // 道具標籤
-        let itemTag = '';
-        if (task.required_item_id) itemTag += `<span style="font-size:0.75rem; background:#ffebee; color:#dc3545; padding:2px 6px; border-radius:4px;">🔒 需道具</span> `;
-        if (task.reward_item_id) itemTag += `<span style="font-size:0.75rem; background:#e8f5e9; color:#28a745; padding:2px 6px; border-radius:4px;">🎁 獎勵道具</span>`;
-
-        return `
-          <img src="${task.photoUrl}" class="card-img" alt="關卡封面" style="height:160px;" onerror="this.src='/images/mascot.png'">
-          <div class="card-body">
-            ${creatorInfo}
-            <div class="card-title" style="display:flex; flex-direction:column; gap:4px; margin-bottom:8px;">
-              <div style="font-size:1.1rem; font-weight:bold;">${task.name}</div>
-              <div style="display:flex; flex-wrap:wrap; gap:4px;">
-                ${categoryTag}
-                <span style="font-size:0.75rem; background:#f3f4f6; padding:2px 6px; border-radius:4px;">${typeText}</span>
-                ${itemTag}
-              </div>
-            </div>
-            <div class="card-text">
-              <div style="font-size:0.9rem; margin-bottom:4px;">📍 (${task.lat}, ${task.lng})</div>
-              <div style="font-size:0.9rem; margin-bottom:4px;">🎯 半徑: ${task.radius}m</div>
-              <div style="font-size:0.9rem; font-weight:600; color:var(--primary-color);">💰 積分: ${task.points || 0}</div>
-              <div style="font-size:0.9rem; margin-top:8px; color:var(--text-secondary); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">
-                ${task.description}
-              </div>
-            </div>
-            <div class="card-footer">
-              <button class="btn btn-primary editBtn" data-id="${task.id}" style="padding:0.4rem 1rem; font-size:0.9rem;">編輯</button>
-              <button class="btn btn-danger delBtn" data-id="${task.id}" style="padding:0.4rem 1rem; font-size:0.9rem; margin-left:auto;">刪除</button>
-            </div>
-          </div>
-        `;
-      };
-
-      const buckets = {
-        story: {
-          title: '劇情主線',
-          icon: '📚',
-          accent: '#0369a1',
-          bg: '#f0f9ff',
-          border: '#bae6fd',
-          note: '依照劇情順序推進的主線關卡',
-          groups: new Map()
-        },
-        boardChallenge: {
-          title: '大富翁挑戰格',
-          icon: '🎲',
-          accent: '#047857',
-          bg: '#ecfdf5',
-          border: '#a7f3d0',
-          note: '會交給 AI 裁判、可影響前進與得分的挑戰內容',
-          groups: new Map([['__ungrouped__', { title: '挑戰格內容', subtitle: 'AI 挑戰 / 拍照判定', tasks: [] }]])
-        },
-        boardEvent: {
-          title: '事件格',
-          icon: '✨',
-          accent: '#92400e',
-          bg: '#fffbeb',
-          border: '#fde68a',
-          note: '用來觸發劇情、補給、懲罰或特殊事件的內容',
-          groups: new Map([['__ungrouped__', { title: '事件與補給內容', subtitle: '文字引導 / 事件型內容', tasks: [] }]])
-        }
-      };
-
-      const getBucketKey = (task) => {
-        const chainInfo = task.quest_chain_id ? globalQuestChainsMap[task.quest_chain_id] : null;
-        if (task.type === 'quest' || chainInfo?.mode_type === 'story_campaign') {
-          return 'story';
-        }
-        if ((task.validation_mode && task.validation_mode.startsWith('ai_')) || task.task_type === 'photo') {
-          return 'boardChallenge';
-        }
-        return 'boardEvent';
-      };
-
-      data.tasks.forEach(task => {
-        const bucketKey = getBucketKey(task);
-        const bucket = buckets[bucketKey];
-        if (bucketKey === 'story') {
-          const chainId = String(task.quest_chain_id || 'story-free');
-          const chainInfo = globalQuestChainsMap[task.quest_chain_id] || { title: '未綁定主線', chain_points: 0 };
-          if (!bucket.groups.has(chainId)) {
-            bucket.groups.set(chainId, {
-              title: chainInfo.title,
-              subtitle: `共 ${0} 個關卡 • 完成獎勵 ${chainInfo.chain_points || 0} 分`,
-              tasks: []
-            });
-          }
-          bucket.groups.get(chainId).tasks.push(task);
-        } else {
-          bucket.groups.get('__ungrouped__').tasks.push(task);
-        }
-      });
-
-      const renderBucket = (bucket) => {
-        if (!bucket.groups.size) return;
-        bucket.groups.forEach(group => {
-          if (!group.tasks.length) return;
-          if (bucket.title === '劇情主線') {
-            group.tasks.sort((a, b) => (a.quest_order || 0) - (b.quest_order || 0));
-            group.subtitle = `共 ${group.tasks.length} 個關卡 • ${bucket.note}`;
-          } else {
-            group.tasks.sort((a, b) => Number(b.id) - Number(a.id));
-            group.subtitle = `${group.tasks.length} 筆內容 • ${bucket.note}`;
-          }
-
-          const groupContainer = document.createElement('div');
-          groupContainer.style.gridColumn = '1 / -1';
-          groupContainer.style.marginTop = '10px';
-          groupContainer.style.marginBottom = '10px';
-
-          const details = document.createElement('details');
-          details.open = true;
-          details.innerHTML = `
-            <summary style="padding:12px 15px; background:${bucket.bg}; border:1px solid ${bucket.border}; border-radius:8px; cursor:pointer; font-weight:bold; display:flex; justify-content:space-between; align-items:center; outline:none;">
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span style="font-size:1.2rem;">${bucket.icon}</span>
-                <div>
-                  <div style="color:${bucket.accent};">${bucket.title}${bucket.title === '劇情主線' ? `｜${group.title}` : ''}</div>
-                  <div style="font-size:0.85rem; color:#64748b; font-weight:normal;">${group.subtitle}</div>
-                </div>
-              </div>
-              <span style="font-size:0.85rem; color:${bucket.accent};">▼ 展開/收合</span>
-            </summary>
-            <div class="quest-tasks-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap:20px; padding:20px; background:#f8fafc; border:1px solid #e2e8f0; border-top:none; border-radius:0 0 8px 8px;"></div>
-          `;
-
-          const grid = details.querySelector('.quest-tasks-grid');
-          group.tasks.forEach(task => {
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.style.background = 'white';
-            card.style.borderColor = '#e2e8f0';
-            card.innerHTML = createCardHtml(task);
-            grid.appendChild(card);
-          });
-
-          groupContainer.appendChild(details);
-          container.appendChild(groupContainer);
-        });
-      };
-
-      renderBucket(buckets.story);
-      renderBucket(buckets.boardChallenge);
-      renderBucket(buckets.boardEvent);
-
-      // 綁定編輯按鈕事件 (使用事件委派，因為按鈕現在分布在不同層級)
-      container.addEventListener('click', function(e) {
-        const editBtn = e.target.closest('.editBtn');
-        const delBtn = e.target.closest('.delBtn');
-        
-        if (editBtn) {
-          const id = editBtn.dataset.id;
-          fetch(`${API_BASE}/api/tasks/${id}`)
-            .then(res => res.json())
-            .then(data => {
-              if (!data.success) return;
-              const t = data.task;
-              const form = document.getElementById('editTaskForm');
-              form.id.value = t.id;
-              form.name.value = t.name;
-              form.lat.value = t.lat;
-              form.lng.value = t.lng;
-              form.radius.value = t.radius;
-              form.points.value = t.points || 0;
-              form.description.value = t.description;
-              form.photoUrl.value = t.photoUrl;
-              
-              // 填入 AR 內容和順序
-              const editArModelSelect = document.querySelector('#editTaskForm select[name="ar_model_id"]');
-              if(editArModelSelect) editArModelSelect.value = t.ar_model_id || '';
-              
-              form.ar_order_model.value = t.ar_order_model || '';
-              form.ar_order_image.value = t.ar_order_image || '';
-              form.ar_order_youtube.value = t.ar_order_youtube || '';
-              
-              form.youtubeUrl.value = t.youtubeUrl || '';
-              
-              form.ar_image_url.value = t.ar_image_url || '';
-              const arPreview = document.getElementById('editArImagePreview');
-              if (t.ar_image_url && arPreview) {
-                arPreview.src = t.ar_image_url;
-                arPreview.style.display = '';
-              } else if (arPreview) {
-                arPreview.style.display = 'none';
-              }
-              document.getElementById('editArImageInput').value = '';
-
-              // 填入背景音樂
-              const editBgmUrlInput = document.getElementById('editBgmUrlInput');
-              const editBgmPreview = document.getElementById('editBgmPreview');
-              const editBgmPreviewAudio = document.getElementById('editBgmPreviewAudio');
-              if (editBgmUrlInput) {
-                editBgmUrlInput.value = t.bgm_url || '';
-                if (t.bgm_url) {
-                  editBgmPreview.style.display = 'block';
-                  editBgmPreviewAudio.src = t.bgm_url;
-                } else {
-                  editBgmPreview.style.display = 'none';
-                }
-              }
-              document.getElementById('editBgmFileInput').value = '';
-
-              // 設置關卡分類 (Single/Timed/Quest)
-              const typeSelect = document.getElementById('editTaskCategorySelect');
-              typeSelect.value = t.type || 'single';
-              // 觸發 change 事件以更新欄位顯示
-              typeSelect.dispatchEvent(new Event('change'));
-
-              // 填入劇情關卡欄位
-              if (t.type === 'quest') {
-                const qSelect = document.getElementById('editQuestChainSelect');
-                qSelect.value = t.quest_chain_id || '';
-                document.querySelector('#editTaskForm input[name="quest_order"]').value = t.quest_order || 1;
-                // 設置結局關卡 checkbox
-                const isFinalCheckbox = document.getElementById('editIsFinalStep');
-                if (isFinalCheckbox) {
-                  isFinalCheckbox.checked = t.is_final_step === true || t.is_final_step === 1;
-                }
-              }
-
-              // 填入限時關卡欄位
-              if (t.type === 'timed') {
-                // 轉換 ISO 時間字串為 datetime-local 格式 (YYYY-MM-DDTHH:mm)
-                const formatTime = (isoStr) => isoStr ? new Date(isoStr).toISOString().slice(0, 16) : '';
-                document.querySelector('#editTaskForm input[name="time_limit_start"]').value = formatTime(t.time_limit_start);
-                document.querySelector('#editTaskForm input[name="time_limit_end"]').value = formatTime(t.time_limit_end);
-                document.querySelector('#editTaskForm input[name="max_participants"]').value = t.max_participants || 0;
-              }
-              
-              // 填入道具欄位
-              document.getElementById('editRequiredItemSelect').value = t.required_item_id || '';
-              document.getElementById('editRewardItemSelect').value = t.reward_item_id || '';
-              
-              // 設置提交類型與選項
-              form.task_type.value = t.task_type || 'qa';
-              form.validation_mode.value = t.validation_mode || 'manual';
-              const editOptionsDiv = document.getElementById('editMultipleChoiceOptions');
-              const editStandardAnswerDiv = document.getElementById('editStandardAnswerBlock');
-              const editAiConfigFields = document.getElementById('editAiConfigFields');
-              
-              editOptionsDiv.style.display = (t.task_type === 'multiple_choice') ? 'block' : 'none';
-              editStandardAnswerDiv.style.display = (t.task_type === 'number' || t.task_type === 'keyword') ? 'block' : 'none';
-              editAiConfigFields.style.display = (t.validation_mode || 'manual').startsWith('ai_') ? 'block' : 'none';
-              
-              if (t.task_type === 'multiple_choice' && t.options) {
-                const opts = typeof t.options === 'string' ? JSON.parse(t.options) : t.options;
-                if (Array.isArray(opts) && opts.length >= 4) {
-                  form.optionA.value = opts[0];
-                  form.optionB.value = opts[1];
-                  form.optionC.value = opts[2];
-                  form.optionD.value = opts[3];
-                  
-                  // 設置正確答案選中狀態
-                  if (t.correct_answer === opts[0]) form.correct_answer_select.value = 'A';
-                  else if (t.correct_answer === opts[1]) form.correct_answer_select.value = 'B';
-                  else if (t.correct_answer === opts[2]) form.correct_answer_select.value = 'C';
-                  else if (t.correct_answer === opts[3]) form.correct_answer_select.value = 'D';
-                }
-              } else if (t.task_type === 'number' || t.task_type === 'keyword') {
-                form.correct_answer_text.value = t.correct_answer || '';
-                // 清空選項
-                form.optionA.value = '';
-                form.optionB.value = '';
-                form.optionC.value = '';
-                form.optionD.value = '';
-              } else {
-                // 清空選項和標準答案
-                form.optionA.value = '';
-                form.optionB.value = '';
-                form.optionC.value = '';
-                form.optionD.value = '';
-                form.correct_answer_select.value = 'A';
-                form.correct_answer_text.value = '';
-              }
-
-              const aiConfig = t.ai_config || {};
-              const passCriteria = t.pass_criteria || {};
-              form.ai_target_label.value = aiConfig.target_label || passCriteria.target_label || '';
-              form.ai_target_count.value = passCriteria.target_count || '';
-              form.ai_min_score.value = passCriteria.min_score || '';
-              form.ai_min_confidence.value = passCriteria.min_confidence || '';
-              form.ai_system_prompt.value = aiConfig.system_prompt || '';
-              form.ai_user_prompt.value = aiConfig.user_prompt || '';
-              form.failure_message.value = t.failure_message || '';
-              form.success_message.value = t.success_message || '';
-              form.max_attempts.value = t.max_attempts || '';
-              if (form.location_required) {
-                form.location_required.checked = !!t.location_required;
-              }
-
-              const editBlueprintSelect = document.getElementById('editContentBlueprintSelect');
-              if (editBlueprintSelect) {
-                editBlueprintSelect.value = inferBlueprintFromTask(t);
-                applyBlueprint('edit', editBlueprintSelect.value, { preserveValues: true });
-              }
-
-              document.getElementById('editTaskMsg').textContent = '';
-              // 預覽現有圖片
-              const preview = document.getElementById('editPhotoPreview');
-              if (t.photoUrl) {
-                preview.src = t.photoUrl;
-                preview.style.display = '';
-              } else {
-                preview.style.display = 'none';
-              }
-              document.getElementById('editPhotoInput').value = '';
-              
-              // 開啟 Modal
-              document.getElementById('editModal').classList.add('show');
-            });
-        }
-        
-        if (delBtn) {
-          if (!confirm('確定要刪除這個關卡嗎？')) return;
-          const id = delBtn.dataset.id;
-          fetch(`${API_BASE}/api/tasks/${id}`, { 
-            method: 'DELETE',
-            headers: { 'x-username': loginUser.username }
-          })
-            .then(res => res.json())
-            .then(data => {
-              if (data.success) loadTasks();
-              else alert(data.message || '刪除失敗');
-            });
-        }
-      });
-
+      container.innerHTML = tasks.map(t => renderTaskItem(t)).join('');
     });
 }
 
-loadTasks();
+function renderTaskItem(t) {
+  let typeLabel = '問答';
+  if (t.validation_mode?.startsWith('ai_')) typeLabel = `AI (${t.validation_mode.replace('ai_', '')})`;
+  else if (t.task_type === 'multiple_choice') typeLabel = '選擇題';
+  else if (t.task_type === 'photo') typeLabel = '拍照';
+  else if (t.task_type === 'number') typeLabel = '數字';
+  else if (t.task_type === 'keyword') typeLabel = '關鍵字';
+  else if (t.task_type === 'location') typeLabel = '打卡';
 
-const boardMapListEl = document.getElementById('boardMapList');
-if (boardMapListEl) {
-  boardMapListEl.addEventListener('click', async (e) => {
-    const editBtn = e.target.closest('.board-map-edit-btn');
-    const openBtn = e.target.closest('.board-map-open-btn');
-    const previewBtn = e.target.closest('.board-map-preview-btn');
-    const deleteBtn = e.target.closest('.board-map-delete-btn');
+  const orderTag = t.quest_order ? `<span class="tag tag-blue">第 ${t.quest_order} 關</span>` : '';
+  const finalTag = t.is_final_step ? '<span class="tag tag-amber">🏆 結局</span>' : '';
 
-    if (editBtn) {
-      const map = globalBoardMaps.find((item) => String(item.id) === String(editBtn.dataset.id));
-      if (!map) return;
-      const form = document.getElementById('boardMapForm');
-      form.id.value = map.id;
-      form.quest_chain_id.value = map.quest_chain_id || '';
-      form.name.value = map.name || '';
-      form.description.value = map.description || '';
-      form.play_style.value = map.play_style || 'fixed_track_race';
-      form.cover_image.value = map.cover_image || '';
-      form.center_lat.value = map.center_lat || '';
-      form.center_lng.value = map.center_lng || '';
-      form.max_rounds.value = map.max_rounds || '';
-      form.start_tile.value = map.start_tile || 1;
-      form.finish_tile.value = map.finish_tile || 10;
-      form.dice_min.value = map.dice_min || 1;
-      form.dice_max.value = map.dice_max || 6;
-      form.failure_move.value = map.failure_move ?? -1;
-      form.reward_points.value = map.reward_points || 0;
-      form.is_active.checked = !!map.is_active;
-      document.getElementById('boardMapMsg').textContent = `正在編輯地圖：${map.name}`;
-      window.scrollTo({ top: boardMapListEl.offsetTop - 100, behavior: 'smooth' });
-      return;
-    }
+  return `
+    <div class="task-item">
+      <img src="${escHtml(t.photoUrl || '/images/mascot.png')}" class="task-item-img" onerror="this.src='/images/mascot.png'">
+      <div class="task-item-body">
+        <div class="task-item-title">${escHtml(t.name)}</div>
+        <div style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:4px;">
+          ${orderTag} ${finalTag}
+          <span class="tag tag-gray">${typeLabel}</span>
+          <span class="tag tag-gray">💰 ${t.points || 0}</span>
+          <span class="tag tag-gray">📍 ${Number(t.lat).toFixed(4)}, ${Number(t.lng).toFixed(4)}</span>
+        </div>
+        <div class="task-item-desc">${escHtml(t.description || '')}</div>
+      </div>
+      <div class="task-item-actions">
+        <button class="btn-sm btn-secondary-v2" onclick="editTask('${t.id}')">編輯</button>
+        <button class="btn-sm btn-danger-v2" onclick="deleteTask('${t.id}')">刪除</button>
+      </div>
+    </div>
+  `;
+}
 
-    if (openBtn) {
-      const id = openBtn.dataset.id;
-      document.getElementById('boardMapPicker').value = id;
-      document.getElementById('boardTileBoardMapSelect').value = id;
-      await loadBoardTiles(id);
-      document.getElementById('boardTileMsg').textContent = '已切換到這張地圖，現在可以建立或編輯格子。';
-      return;
-    }
+// ── Board game mode: load board map + tiles ───────────────────
+function loadBoardContent(questChainId) {
+  const container = document.getElementById('questDetailContentContainer');
+  container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div>載入大富翁地圖...</div>';
 
-    if (previewBtn) {
-      const id = previewBtn.dataset.id;
-      const questChainId = previewBtn.dataset.questChainId;
-      window.open(`/ai-lab.html?questChainId=${encodeURIComponent(questChainId)}&mode=board_game&boardMapId=${encodeURIComponent(id)}&preview=1`, '_blank');
-      return;
-    }
-
-    if (deleteBtn) {
-      if (!confirm('確定要刪除這張大富翁地圖嗎？底下的格子也會一起移除。')) return;
-      const id = deleteBtn.dataset.id;
-      const res = await fetch(`${API_BASE}/api/board-maps/${id}`, {
-        method: 'DELETE',
-        headers: { 'x-username': loginUser.username }
-      });
-      const data = await res.json();
-      if (!data.success) {
-        alert(data.message || '刪除失敗');
-        return;
-      }
-      resetBoardMapForm();
-      resetBoardTileForm();
-      await loadBoardMaps();
-      const picker = document.getElementById('boardMapPicker');
-      if (picker && picker.value === String(id)) {
-        picker.value = '';
-        loadBoardTiles('');
-      }
-    }
+  // First load all tasks for tile binding
+  const tasksPromise = fetch(`${API_BASE}/api/tasks/admin`, {
+    headers: { 'x-username': loginUser.username }
+  }).then(r => r.json()).then(d => {
+    globalTaskRecords = d.success ? (d.tasks || []) : [];
+    populateTileTaskSelect();
   });
-}
 
-const boardMapPickerEl = document.getElementById('boardMapPicker');
-if (boardMapPickerEl) {
-  boardMapPickerEl.addEventListener('change', () => {
-    const mapId = boardMapPickerEl.value;
-    const tileMapSelect = document.getElementById('boardTileBoardMapSelect');
-    if (tileMapSelect && mapId) tileMapSelect.value = mapId;
-    loadBoardTiles(mapId);
-  });
-}
-
-const boardTileBoardMapSelectEl = document.getElementById('boardTileBoardMapSelect');
-if (boardTileBoardMapSelectEl) {
-  boardTileBoardMapSelectEl.addEventListener('change', () => {
-    const mapId = boardTileBoardMapSelectEl.value;
-    const picker = document.getElementById('boardMapPicker');
-    if (picker) picker.value = mapId;
-    loadBoardTiles(mapId);
-  });
-}
-
-const resetBoardMapFormBtn = document.getElementById('resetBoardMapForm');
-if (resetBoardMapFormBtn) {
-  resetBoardMapFormBtn.addEventListener('click', () => resetBoardMapForm());
-}
-
-const boardMapForm = document.getElementById('boardMapForm');
-if (boardMapForm) {
-  boardMapForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const payload = {
-      quest_chain_id: form.quest_chain_id.value,
-      name: form.name.value.trim(),
-      description: form.description.value.trim(),
-      play_style: form.play_style.value,
-      cover_image: form.cover_image.value.trim(),
-      center_lat: form.center_lat.value,
-      center_lng: form.center_lng.value,
-      max_rounds: form.max_rounds.value,
-      start_tile: form.start_tile.value,
-      finish_tile: form.finish_tile.value,
-      dice_min: form.dice_min.value,
-      dice_max: form.dice_max.value,
-      failure_move: form.failure_move.value,
-      reward_points: form.reward_points.value,
-      is_active: form.is_active.checked
-    };
-    const msg = document.getElementById('boardMapMsg');
-    if (!payload.quest_chain_id || !payload.name) {
-      msg.textContent = '請選擇玩法入口並填寫地圖名稱';
-      return;
-    }
-    msg.textContent = form.id.value ? '更新地圖中...' : '建立地圖中...';
-    const res = await fetch(`${API_BASE}/api/board-maps${form.id.value ? `/${form.id.value}` : ''}`, {
-      method: form.id.value ? 'PUT' : 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-username': loginUser.username
-      },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (!data.success) {
-      msg.textContent = data.message || '地圖儲存失敗';
-      return;
-    }
-    msg.textContent = data.message || '地圖儲存成功';
-    await loadBoardMaps();
-    resetBoardMapForm();
-  });
-}
-
-const boardTileListEl = document.getElementById('boardTileList');
-if (boardTileListEl) {
-  boardTileListEl.addEventListener('click', async (e) => {
-    const editBtn = e.target.closest('.board-tile-edit-btn');
-    const deleteBtn = e.target.closest('.board-tile-delete-btn');
-    if (editBtn) {
-      const tile = globalBoardTiles.find((item) => String(item.id) === String(editBtn.dataset.id));
-      if (!tile) return;
-      const form = document.getElementById('boardTileForm');
-      form.id.value = tile.id;
-      form.board_map_id.value = tile.board_map_id || '';
-      form.tile_index.value = tile.tile_index || '';
-      form.tile_name.value = tile.tile_name || '';
-      form.tile_type.value = tile.tile_type || 'challenge';
-      form.task_id.value = tile.task_id || '';
-      form.latitude.value = tile.latitude || '';
-      form.longitude.value = tile.longitude || '';
-      form.radius_meters.value = tile.radius_meters || '';
-      form.effect_type.value = tile.effect_type || '';
-      form.effect_value.value = tile.effect_value || '';
-      form.event_title.value = tile.event_title || '';
-      form.event_body.value = tile.event_body || '';
-      form.guide_content.value = tile.guide_content || '';
-      form.is_active.checked = !!tile.is_active;
-      document.getElementById('boardTileMsg').textContent = `正在編輯第 ${tile.tile_index} 格`;
-      return;
-    }
-    if (deleteBtn) {
-      if (!confirm('確定要刪除這個格子嗎？')) return;
-      const id = deleteBtn.dataset.id;
-      const res = await fetch(`${API_BASE}/api/board-tiles/${id}`, {
-        method: 'DELETE',
-        headers: { 'x-username': loginUser.username }
-      });
-      const data = await res.json();
-      if (!data.success) {
-        alert(data.message || '刪除失敗');
-        return;
-      }
-      resetBoardTileForm();
-      await loadBoardTiles(document.getElementById('boardMapPicker').value);
-    }
-  });
-}
-
-const resetBoardTileFormBtn = document.getElementById('resetBoardTileForm');
-if (resetBoardTileFormBtn) {
-  resetBoardTileFormBtn.addEventListener('click', () => resetBoardTileForm());
-}
-
-const boardTileForm = document.getElementById('boardTileForm');
-if (boardTileForm) {
-  boardTileForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const boardMapId = form.board_map_id.value || document.getElementById('boardMapPicker').value;
-    const payload = {
-      board_map_id: boardMapId,
-      tile_index: form.tile_index.value,
-      tile_name: form.tile_name.value.trim(),
-      tile_type: form.tile_type.value,
-      task_id: form.task_id.value || null,
-      latitude: form.latitude.value,
-      longitude: form.longitude.value,
-      radius_meters: form.radius_meters.value,
-      effect_type: form.effect_type.value || null,
-      effect_value: form.effect_value.value || null,
-      event_title: form.event_title.value.trim(),
-      event_body: form.event_body.value.trim(),
-      guide_content: form.guide_content.value.trim(),
-      is_active: form.is_active.checked
-    };
-    const msg = document.getElementById('boardTileMsg');
-    if (!payload.board_map_id || !payload.tile_index || !payload.tile_name) {
-      msg.textContent = '請先選擇地圖，並填寫格子編號與名稱';
-      return;
-    }
-    msg.textContent = form.id.value ? '更新格子中...' : '建立格子中...';
-    const endpoint = form.id.value
-      ? `${API_BASE}/api/board-tiles/${form.id.value}`
-      : `${API_BASE}/api/board-maps/${payload.board_map_id}/tiles`;
-    const res = await fetch(endpoint, {
-      method: form.id.value ? 'PUT' : 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-username': loginUser.username
-      },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (!data.success) {
-      msg.textContent = data.message || '格子儲存失敗';
-      return;
-    }
-    msg.textContent = data.message || '格子儲存成功';
-    document.getElementById('boardMapPicker').value = payload.board_map_id;
-    document.getElementById('boardTileBoardMapSelect').value = payload.board_map_id;
-    await loadBoardTiles(payload.board_map_id);
-    resetBoardTileForm();
-    document.getElementById('boardTileBoardMapSelect').value = payload.board_map_id;
-  });
-}
-
-document.getElementById('addTaskForm').addEventListener('submit', async function(e) {
-  e.preventDefault();
-  const form = this;
-  const name = form.name.value.trim();
-  const lat = form.lat.value;
-  const lng = form.lng.value;
-  const radius = form.radius.value;
-  const points = form.points.value;
-  const description = form.description.value.trim();
-  const photoFile = form.photo.files[0];
-  const youtubeUrl = form.youtubeUrl.value.trim();
-  const arImageFile = form.arImage?.files[0]; // 選填
-  
-  // 處理關卡分類與額外欄位
-  const type = form.type.value;
-  const quest_chain_id = form.quest_chain_id?.value || null;
-  const quest_order = form.quest_order?.value || null;
-  const time_limit_start = form.time_limit_start?.value || null;
-  const time_limit_end = form.time_limit_end?.value || null;
-  const max_participants = form.max_participants?.value || null;
-  // 劇情結局關卡
-  const is_final_step = form.is_final_step?.checked || false;
-  // 道具欄位
-  const required_item_id = form.required_item_id?.value || null;
-  const reward_item_id = form.reward_item_id?.value || null;
-  
-  // AR 內容設定 (多步驟)
-  const ar_type = document.querySelector('input[name="ar_type"]:checked')?.value || 'none';
-  const finalYoutubeUrl = form.youtubeUrl.value.trim() || null;
-  const finalArModelId = form.ar_model_id.value || null;
-  const ar_order_model = form.ar_order_model.value || null;
-  const ar_order_image = form.ar_order_image.value || null;
-  const ar_order_youtube = form.ar_order_youtube.value || null;
-  
-  // 處理提交類型與選項
-  const aiTaskPayload = buildAiTaskPayload(form);
-  const task_type = aiTaskPayload.validation_mode.startsWith('ai_') ? 'photo' : form.task_type.value;
-  console.log('建立關卡表單 - task_type:', task_type);
-  let options = null;
-  let correct_answer = null;
-  
-  if (task_type === 'multiple_choice') {
-    const optA = form.optionA.value.trim();
-    const optB = form.optionB.value.trim();
-    const optC = form.optionC.value.trim();
-    const optD = form.optionD.value.trim();
-    
-    if (!optA || !optB || !optC || !optD) {
-      document.getElementById('addTaskMsg').textContent = '請填寫所有選擇題選項';
-      return;
-    }
-    options = [optA, optB, optC, optD];
-    
-    const sel = form.correct_answer_select.value;
-    if (sel === 'A') correct_answer = optA;
-    else if (sel === 'B') correct_answer = optB;
-    else if (sel === 'C') correct_answer = optC;
-    else if (sel === 'D') correct_answer = optD;
-  } else if (task_type === 'number' || task_type === 'keyword') {
-    correct_answer = form.correct_answer_text.value.trim();
-    if (!correct_answer) {
-      document.getElementById('addTaskMsg').textContent = '請輸入標準答案';
-      return;
-    }
-  }
-
-  document.getElementById('addTaskMsg').textContent = '';
-  if (!validateAiTaskPayload(form, aiTaskPayload, 'addTaskMsg')) {
-    return;
-  }
-  if (!photoFile) {
-    document.getElementById('addTaskMsg').textContent = '請選擇關卡封面圖';
-    return;
-  }
-  
-  // 客戶端檢查檔案大小
-  if (photoFile.size > 5 * 1024 * 1024) {
-    document.getElementById('addTaskMsg').textContent = '檔案大小超過 5MB 限制';
-    return;
-  }
-
-  // 客戶端檢查檔案類型
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-  if (!allowedTypes.includes(photoFile.type)) {
-    document.getElementById('addTaskMsg').textContent = '不支援的檔案類型。只允許 JPG、PNG、GIF、WebP';
-    return;
-  }
-
-  try {
-    // 1. 上傳圖片
-    const fd = new FormData();
-    fd.append('photo', photoFile);
-    
-    document.getElementById('addTaskMsg').textContent = '圖片上傳中...';
-    
-    const uploadRes = await fetch(`${API_BASE}/api/upload`, {
-      method: 'POST',
-      headers: { 'x-username': loginUser.username },
-      body: fd,
-      credentials: 'include' // 確保發送 cookies (JWT)
-    });
-    
-    const uploadData = await uploadRes.json();
-    if (!uploadData.success) {
-      console.error('圖片上傳失敗:', uploadData);
-      document.getElementById('addTaskMsg').textContent = uploadData.message || '圖片上傳失敗';
-      return;
-    }
-    
-    // 2. 上傳 AR 圖片（如果有，且模式為圖片）
-    let arImageUrl = null;
-    if (ar_type === 'image' && arImageFile) {
-      document.getElementById('addTaskMsg').textContent = 'AR 圖片上傳中...';
-      const arFd = new FormData();
-      arFd.append('photo', arImageFile);
-      const arUploadRes = await fetch(`${API_BASE}/api/upload`, {
-        method: 'POST',
-        headers: { 'x-username': loginUser.username },
-        body: arFd,
-        credentials: 'include'
-      });
-      const arUploadData = await arUploadRes.json();
-      if (arUploadData.success) {
-        arImageUrl = arUploadData.url;
-      } else {
-        document.getElementById('addTaskMsg').textContent = 'AR 圖片上傳失敗: ' + (arUploadData.message || '未知錯誤');
-        return;
-      }
-    }
-    
-    // 2.5. 上傳背景音樂（如果有）- 使用 XMLHttpRequest 追蹤進度
-    let bgmUrl = form.bgm_url?.value.trim() || null;
-    const bgmFile = form.bgmFile?.files[0];
-    if (bgmFile) {
-      document.getElementById('addTaskMsg').textContent = '背景音樂上傳中...';
-      
-      // 顯示進度條（如果存在）
-      const bgmUploadProgress = document.getElementById('bgmUploadProgress');
-      const bgmUploadProgressBar = document.getElementById('bgmUploadProgressBar');
-      const bgmUploadPercent = document.getElementById('bgmUploadPercent');
-      if (bgmUploadProgress) {
-        bgmUploadProgress.style.display = 'block';
-        bgmUploadProgressBar.style.width = '0%';
-        bgmUploadPercent.textContent = '0%';
-      }
-      
-      const bgmFd = new FormData();
-      bgmFd.append('audio', bgmFile);
-      
-      await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        
-        // 追蹤上傳進度
-        xhr.upload.addEventListener('progress', (e) => {
-          if (e.lengthComputable && bgmUploadProgress) {
-            const percentComplete = Math.round((e.loaded / e.total) * 100);
-            bgmUploadProgressBar.style.width = percentComplete + '%';
-            bgmUploadPercent.textContent = percentComplete + '%';
-          }
-        });
-        
-        // 上傳完成
-        xhr.addEventListener('load', () => {
-          if (xhr.status === 200) {
-            try {
-              const bgmUploadData = JSON.parse(xhr.responseText);
-              if (bgmUploadData.success) {
-                bgmUrl = bgmUploadData.url;
-                if (bgmUploadProgress) bgmUploadProgress.style.display = 'none';
-                resolve();
-              } else {
-                if (bgmUploadProgress) bgmUploadProgress.style.display = 'none';
-                document.getElementById('addTaskMsg').textContent = '背景音樂上傳失敗: ' + (bgmUploadData.message || '未知錯誤');
-                reject(new Error(bgmUploadData.message || '上傳失敗'));
-              }
-            } catch (err) {
-              if (bgmUploadProgress) bgmUploadProgress.style.display = 'none';
-              document.getElementById('addTaskMsg').textContent = '背景音樂上傳失敗: 解析回應錯誤';
-              reject(err);
-            }
-          } else {
-            if (bgmUploadProgress) bgmUploadProgress.style.display = 'none';
-            document.getElementById('addTaskMsg').textContent = '背景音樂上傳失敗: HTTP ' + xhr.status;
-            reject(new Error('HTTP ' + xhr.status));
-          }
-        });
-        
-        // 上傳錯誤
-        xhr.addEventListener('error', () => {
-          if (bgmUploadProgress) bgmUploadProgress.style.display = 'none';
-          document.getElementById('addTaskMsg').textContent = '背景音樂上傳失敗: 網路連線失敗';
-          reject(new Error('網路連線失敗'));
-        });
-        
-        // 發送請求
-        xhr.open('POST', `${API_BASE}/api/upload-audio`);
-        xhr.setRequestHeader('x-username', loginUser.username);
-        xhr.withCredentials = true;
-        xhr.send(bgmFd);
-      });
-    }
-    
-    // 3. 建立關卡
-    document.getElementById('addTaskMsg').textContent = '關卡建立中...';
-    const photoUrl = uploadData.url;
-    const res = await fetch(`${API_BASE}/api/tasks`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'x-username': loginUser.username
-      },
-      body: JSON.stringify({ 
-        name, lat, lng, radius, points, description, photoUrl, 
-        youtubeUrl: finalYoutubeUrl, 
-        ar_image_url: arImageUrl, 
-        ar_model_id: finalArModelId,
-        ar_order_model, ar_order_image, ar_order_youtube,
-        task_type, options, correct_answer,
-        ...aiTaskPayload,
-        type, quest_chain_id, quest_order, time_limit_start, time_limit_end, max_participants,
-        is_final_step, required_item_id, reward_item_id,
-        bgm_url: bgmUrl
-      })
-    });
-    const data = await res.json();
-    if (data.success) {
-      document.getElementById('addTaskMsg').textContent = '關卡建立成功！';
-      form.reset();
-      // 重置選項顯示
-      document.getElementById('multipleChoiceOptions').style.display = 'none';
-      loadTasks();
-    } else {
-      document.getElementById('addTaskMsg').textContent = data.message || '關卡建立失敗';
-    }
-  } catch (err) {
-    console.error(err);
-    document.getElementById('addTaskMsg').textContent = '伺服器連線失敗';
-  }
-});
-
-// 編輯彈窗關閉
-function closeModal() {
-  document.getElementById('editModal').classList.remove('show');
-}
-
-const closeEditModalBtn = document.getElementById('closeEditModal');
-if(closeEditModalBtn) closeEditModalBtn.onclick = closeModal;
-
-const cancelEditModalBtn = document.getElementById('cancelEditModal');
-if(cancelEditModalBtn) cancelEditModalBtn.onclick = closeModal;
-
-
-// 編輯表單送出
-document.getElementById('editTaskForm').addEventListener('submit', async function(e) {
-  e.preventDefault();
-  const form = this;
-  const id = form.id.value;
-  const name = form.name.value.trim();
-  const lat = form.lat.value;
-  const lng = form.lng.value;
-  const radius = form.radius.value;
-  const points = form.points.value;
-  const description = form.description.value.trim();
-  const photoUrl = form.photoUrl.value.trim();
-  
-  // AR 內容設定處理 (多步驟)
-  const youtubeUrl = form.youtubeUrl.value.trim() || null;
-  const rawArImageUrl = form.ar_image_url.value.trim();
-  const arModelId = form.ar_model_id.value || null;
-  const editArImageFile = form.editArImage?.files[0]; // 選填
-  const ar_order_model = form.ar_order_model.value || null;
-  const ar_order_image = form.ar_order_image.value || null;
-  const ar_order_youtube = form.ar_order_youtube.value || null;
-  
-  let arImageUrl = rawArImageUrl || null; // 如果沒上傳新圖，就用原本的網址
-  
-  // 處理關卡分類與額外欄位
-  const type = document.getElementById('editTaskCategorySelect').value;
-  const quest_chain_id = document.getElementById('editQuestChainSelect').value || null;
-  const quest_order = form.quest_order?.value || null;
-  const time_limit_start = form.time_limit_start?.value || null;
-  const time_limit_end = form.time_limit_end?.value || null;
-  const max_participants = form.max_participants?.value || null;
-  // 劇情結局關卡
-  const is_final_step = document.getElementById('editIsFinalStep')?.checked || false;
-  // 道具欄位
-  const required_item_id = document.getElementById('editRequiredItemSelect').value || null;
-  const reward_item_id = document.getElementById('editRewardItemSelect').value || null;
-  
-  // 處理提交類型與選項
-  const aiTaskPayload = buildAiTaskPayload(form);
-  const task_type = aiTaskPayload.validation_mode.startsWith('ai_') ? 'photo' : form.task_type.value;
-  console.log('正在提交編輯表單，提交類型:', task_type); // Debug Log
-  let options = null;
-  let correct_answer = null;
-  
-  if (task_type === 'multiple_choice') {
-    const optA = form.optionA.value.trim();
-    const optB = form.optionB.value.trim();
-    const optC = form.optionC.value.trim();
-    const optD = form.optionD.value.trim();
-    
-    if (!optA || !optB || !optC || !optD) {
-      document.getElementById('editTaskMsg').textContent = '請填寫所有選擇題選項';
-      return;
-    }
-    options = [optA, optB, optC, optD];
-    
-    const sel = form.correct_answer_select.value;
-    if (sel === 'A') correct_answer = optA;
-    else if (sel === 'B') correct_answer = optB;
-    else if (sel === 'C') correct_answer = optC;
-    else if (sel === 'D') correct_answer = optD;
-  } else if (task_type === 'number' || task_type === 'keyword') {
-    correct_answer = form.correct_answer_text.value.trim();
-    if (!correct_answer) {
-      document.getElementById('editTaskMsg').textContent = '請輸入標準答案';
-      return;
-    }
-    options = null; // 確保 options 為 null
-  } else {
-    // 如果不是選擇題或自動驗證題，確保 options 和 correct_answer 為 null
-    options = null;
-    correct_answer = null;
-  }
-
-  document.getElementById('editTaskMsg').textContent = '更新中...';
-  if (!validateAiTaskPayload(form, aiTaskPayload, 'editTaskMsg')) {
-    return;
-  }
-  
-  // 背景音樂處理
-  let bgmUrl = form.bgm_url?.value.trim() || null;
-  const editBgmFile = form.editBgmFile?.files[0];
-  
-  // 如果有上傳新的 AR 圖片，先上傳
-  (async () => {
-    if (editArImageFile) {
-      try {
-        const arFd = new FormData();
-        arFd.append('photo', editArImageFile);
-        const arUploadRes = await fetch(`${API_BASE}/api/upload`, {
-          method: 'POST',
-          headers: { 'x-username': loginUser.username },
-          body: arFd,
-          credentials: 'include'
-        });
-        const arUploadData = await arUploadRes.json();
-        if (arUploadData.success) {
-          arImageUrl = arUploadData.url;
-        } else {
-          document.getElementById('editTaskMsg').textContent = 'AR 圖片上傳失敗: ' + (arUploadData.message || '未知錯誤');
-          return;
-        }
-      } catch (err) {
-        document.getElementById('editTaskMsg').textContent = 'AR 圖片上傳錯誤';
-        return;
-      }
-    }
-    
-    // 如果有上傳新的背景音樂，先上傳 - 使用 XMLHttpRequest 追蹤進度
-    if (editBgmFile) {
-      try {
-        document.getElementById('editTaskMsg').textContent = '背景音樂上傳中...';
-        
-        // 顯示進度條（如果存在）
-        const editBgmUploadProgress = document.getElementById('editBgmUploadProgress');
-        const editBgmUploadProgressBar = document.getElementById('editBgmUploadProgressBar');
-        const editBgmUploadPercent = document.getElementById('editBgmUploadPercent');
-        if (editBgmUploadProgress) {
-          editBgmUploadProgress.style.display = 'block';
-          editBgmUploadProgressBar.style.width = '0%';
-          editBgmUploadPercent.textContent = '0%';
-        }
-        
-        const bgmFd = new FormData();
-        bgmFd.append('audio', editBgmFile);
-        
-        await new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          
-          // 追蹤上傳進度
-          xhr.upload.addEventListener('progress', (e) => {
-            if (e.lengthComputable && editBgmUploadProgress) {
-              const percentComplete = Math.round((e.loaded / e.total) * 100);
-              editBgmUploadProgressBar.style.width = percentComplete + '%';
-              editBgmUploadPercent.textContent = percentComplete + '%';
-            }
-          });
-          
-          // 上傳完成
-          xhr.addEventListener('load', () => {
-            if (xhr.status === 200) {
-              try {
-                const bgmUploadData = JSON.parse(xhr.responseText);
-                if (bgmUploadData.success) {
-                  bgmUrl = bgmUploadData.url;
-                  if (editBgmUploadProgress) editBgmUploadProgress.style.display = 'none';
-                  resolve();
-                } else {
-                  if (editBgmUploadProgress) editBgmUploadProgress.style.display = 'none';
-                  document.getElementById('editTaskMsg').textContent = '背景音樂上傳失敗: ' + (bgmUploadData.message || '未知錯誤');
-                  reject(new Error(bgmUploadData.message || '上傳失敗'));
-                }
-              } catch (err) {
-                if (editBgmUploadProgress) editBgmUploadProgress.style.display = 'none';
-                document.getElementById('editTaskMsg').textContent = '背景音樂上傳失敗: 解析回應錯誤';
-                reject(err);
-              }
-            } else {
-              if (editBgmUploadProgress) editBgmUploadProgress.style.display = 'none';
-              document.getElementById('editTaskMsg').textContent = '背景音樂上傳失敗: HTTP ' + xhr.status;
-              reject(new Error('HTTP ' + xhr.status));
-            }
-          });
-          
-          // 上傳錯誤
-          xhr.addEventListener('error', () => {
-            if (editBgmUploadProgress) editBgmUploadProgress.style.display = 'none';
-            document.getElementById('editTaskMsg').textContent = '背景音樂上傳失敗: 網路連線失敗';
-            reject(new Error('網路連線失敗'));
-          });
-          
-          // 發送請求
-          xhr.open('POST', `${API_BASE}/api/upload-audio`);
-          xhr.setRequestHeader('x-username', loginUser.username);
-          xhr.withCredentials = true;
-          xhr.send(bgmFd);
-        });
-      } catch (err) {
-        document.getElementById('editTaskMsg').textContent = '背景音樂上傳錯誤: ' + err.message;
-        return;
-      }
-    }
-    
-    // 更新任務
-  fetch(`${API_BASE}/api/tasks/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
-      body: JSON.stringify({ 
-        name, lat, lng, radius, points, description, photoUrl, 
-        youtubeUrl: youtubeUrl, 
-        ar_image_url: arImageUrl, 
-        ar_model_id: arModelId,
-        ar_order_model, ar_order_image, ar_order_youtube,
-        task_type, options, correct_answer,
-        ...aiTaskPayload,
-        type, quest_chain_id, quest_order, time_limit_start, time_limit_end, max_participants,
-        is_final_step, required_item_id, reward_item_id,
-        bgm_url: bgmUrl
-      })
+  // Then load board content
+  fetch(`${API_BASE}/api/board-maps/by-quest-chain/${questChainId}`, {
+    headers: { 'x-username': loginUser.username }
   })
-  .then(res => res.json())
-  .then(data => {
-    if (data.success) {
-      document.getElementById('editTaskMsg').textContent = '更新成功！';
-      setTimeout(() => {
-        closeModal();
-        loadTasks();
-      }, 800);
-    } else {
-      document.getElementById('editTaskMsg').textContent = data.message || '更新失敗';
-    }
+    .then(r => r.json())
+    .then(async data => {
+      await tasksPromise;
+
+      if (!data.success || !data.boardMap) {
+        document.getElementById('boardMapInfoBar').innerHTML = '<span style="color:#94a3b8;">尚未建立地圖，請先在舊版後台建立大富翁地圖。</span>';
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🗺️</div>此入口尚未綁定大富翁地圖</div>';
+        return;
+      }
+
+      const bm = data.boardMap;
+      currentBoardMapId = bm.id;
+      currentBoardMapName = bm.name;
+
+      // Update info bar
+      document.getElementById('boardMapName').textContent = `🗺️ ${bm.name}`;
+      document.getElementById('boardMapStyle').textContent = `🎲 ${bm.play_style || 'fixed_track_race'}`;
+      document.getElementById('boardMapTileCount').textContent = `🧩 ${bm.tile_count || 0} 格`;
+      document.getElementById('boardMapDice').textContent = `🎯 骰子 ${bm.dice_min || 1}-${bm.dice_max || 6}`;
+      document.getElementById('boardMapRange').textContent = `🏁 ${bm.start_tile || 1} → ${bm.finish_tile || 8}`;
+
+      // Update tile form context
+      document.getElementById('tile_board_map_id').value = bm.id;
+      document.getElementById('tile_locked_map_name').textContent = bm.name;
+
+      // Load tiles
+      return fetch(`${API_BASE}/api/board-maps/${bm.id}/tiles`, {
+        headers: { 'x-username': loginUser.username }
+      });
+    })
+    .then(r => r ? r.json() : null)
+    .then(data => {
+      if (!data) return;
+      if (!data.success) { container.innerHTML = '<div class="empty-state">載入格子失敗</div>'; return; }
+
+      currentBoardTiles = data.tiles || [];
+      currentBoardTiles.sort((a, b) => (a.tile_index || 0) - (b.tile_index || 0));
+
+      if (!currentBoardTiles.length) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🧩</div>尚無格子，點右上角「+ 新增格子」</div>';
+        return;
+      }
+
+      container.innerHTML = currentBoardTiles.map(tile => renderTileItem(tile)).join('');
     })
     .catch(err => {
       console.error(err);
-      document.getElementById('editTaskMsg').textContent = '更新失敗';
+      container.innerHTML = '<div class="empty-state">載入失敗</div>';
+    });
+}
+
+const tileTypeIcons = {
+  challenge: '🎯', event: '✨', supply: '💊', reward: '🎁', penalty: '💀',
+  story: '📖', teleport: '🌀', finish: '🏁', fortune: '🔮', chance: '🎲',
+  quiz: '📝', rest: '☕'
+};
+
+const tileTypeLabels = {
+  challenge: '挑戰格', event: '事件格', supply: '補給格', reward: '獎勵格',
+  penalty: '懲罰格', story: '劇情格', teleport: '傳送格', finish: '終點格',
+  fortune: '命運格', chance: '機會格', quiz: '小考格', rest: '休息格'
+};
+
+function renderTileItem(tile) {
+  const icon = tileTypeIcons[tile.tile_type] || '⬜';
+  const typeLabel = tileTypeLabels[tile.tile_type] || tile.tile_type;
+  const taskBinding = tile.task_name ? `<span class="tag tag-blue">綁定：${escHtml(tile.task_name)}</span>` : '';
+  const effectTag = tile.effect_type
+    ? `<span class="tag tag-amber">${escHtml(tile.effect_type)}${tile.effect_value != null ? `(${tile.effect_value})` : ''}</span>` : '';
+  const activeTag = tile.is_active ? '' : '<span class="tag tag-red">未啟用</span>';
+  const hasLocation = !!(tile.latitude && tile.longitude);
+  const locationTag = hasLocation ? `<span class="tag tag-blue">📍 定位導引</span>` : '<span class="tag tag-gray">📍 無導航</span>';
+  const eventPreview = tile.event_body
+    ? `<div class="task-item-desc" style="margin-top:2px;">${escHtml(tile.event_body)}</div>` : '';
+
+  return `
+    <div class="task-item">
+      <div style="width:50px; height:50px; border-radius:10px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; font-size:1.5rem; flex-shrink:0;">${icon}</div>
+      <div class="task-item-body">
+        <div class="task-item-title">第 ${tile.tile_index} 格｜${escHtml(tile.tile_name)}</div>
+        <div style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:2px;">
+          <span class="tag tag-gray">${typeLabel}</span>
+          ${taskBinding} ${effectTag} ${activeTag} ${locationTag}
+        </div>
+        ${eventPreview}
+      </div>
+      <div class="task-item-actions">
+        <button class="btn-sm btn-secondary-v2" onclick="editTile('${tile.id}')">編輯</button>
+        <button class="btn-sm btn-danger-v2" onclick="deleteTile('${tile.id}')">刪除</button>
+      </div>
+    </div>
+  `;
+}
+
+// ── Tile type hints ───────────────────────────────────────────
+const tileTypeHints = {
+  challenge: '🎯 挑戰格：玩家需完成綁定的關卡（拍照、AI 驗證等）才能通過。',
+  event: '✨ 事件格：觸發一段劇情或事件文案，不需要挑戰。',
+  supply: '💊 補給格：自動給予玩家加分或道具，可設定效果。',
+  fortune: '🔮 命運格：隨機抽取一個效果（好或壞），在事件文案裡用分號分隔多個選項。',
+  chance: '🎲 機會格：類似命運格但偏向正面效果，適合獎勵型隨機事件。',
+  reward: '🎁 獎勵格：給予玩家額外獎勵積分或道具。',
+  penalty: '💀 懲罰格：扣分或退後，增加遊戲緊張感。',
+  story: '📖 劇情格：展示教育內容或故事文案，適合嵌入課程知識點。',
+  teleport: '🌀 傳送格：將玩家傳送到指定格子（在效果數值填入目標格編號）。',
+  quiz: '📝 小考格：到達此格時出一道隨堂問答，答對加分答錯扣分。把題目寫在事件文案。',
+  rest: '☕ 休息格：什麼都不發生，讓玩家喘口氣。',
+  finish: '🏁 終點格：到達即完成遊戲，觸發結算。'
+};
+
+const tileTypeSelect = document.getElementById('tileTypeSelect');
+if (tileTypeSelect) {
+  tileTypeSelect.addEventListener('change', () => {
+    const hint = document.getElementById('tileTypeHint');
+    if (hint) hint.textContent = tileTypeHints[tileTypeSelect.value] || '';
   });
-  })();
+}
+
+// Tile location toggle
+const tileLocationToggle = document.getElementById('tileLocationToggle');
+const tileLocationFields = document.getElementById('tileLocationFields');
+if (tileLocationToggle) {
+  tileLocationToggle.addEventListener('change', () => {
+    tileLocationFields.style.display = tileLocationToggle.checked ? 'block' : 'none';
+  });
+}
+
+// ── Tile task select population ───────────────────────────────
+function populateTileTaskSelect() {
+  const sel = document.getElementById('tileTaskSelect');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">-- 不綁定（純事件/效果格）--</option>';
+  globalTaskRecords.forEach(t => {
+    const kind = t.validation_mode?.startsWith('ai_') ? 'AI 挑戰' : (t.task_type || '一般');
+    sel.innerHTML += `<option value="${t.id}">${escHtml(t.name)}｜${kind}</option>`;
+  });
+  sel.value = cur;
+}
+
+// ── Tile Drawer: Open for create ──────────────────────────────
+function openTileDrawerForCreate() {
+  openDrawer('新增格子', 'form-tile');
+  const form = document.getElementById('tileForm');
+  form.reset();
+  form.elements.id.value = '';
+  form.elements.is_active.checked = true;
+
+  // Auto-lock board map
+  if (currentBoardMapId) {
+    document.getElementById('tile_board_map_id').value = currentBoardMapId;
+    document.getElementById('tile_locked_map_name').textContent = currentBoardMapName;
+  }
+
+  // Auto-set next tile index
+  const maxIndex = currentBoardTiles.reduce((m, t) => Math.max(m, t.tile_index || 0), 0);
+  form.elements.tile_index.value = maxIndex + 1;
+
+  // Reset location toggle
+  const locToggle = document.getElementById('tileLocationToggle');
+  const locFields = document.getElementById('tileLocationFields');
+  if (locToggle) locToggle.checked = false;
+  if (locFields) locFields.style.display = 'none';
+  document.getElementById('tileFormMsg').textContent = '';
+  // Reset type hint
+  const hint = document.getElementById('tileTypeHint');
+  if (hint) hint.textContent = tileTypeHints.challenge || '';
+}
+
+// ── Tile Drawer: Open for edit ────────────────────────────────
+function editTile(tileId) {
+  const tile = currentBoardTiles.find(t => String(t.id) === String(tileId));
+  if (!tile) return;
+
+  openDrawer('編輯格子', 'form-tile');
+  const form = document.getElementById('tileForm');
+
+  form.elements.id.value = tile.id;
+  form.elements.tile_index.value = tile.tile_index;
+  form.elements.tile_type.value = tile.tile_type || 'event';
+  form.elements.tile_name.value = tile.tile_name || '';
+  form.elements.task_id.value = tile.task_id || '';
+  // Set location toggle
+  const hasLocation = !!(tile.latitude && tile.longitude);
+  const locToggle = document.getElementById('tileLocationToggle');
+  const locFields = document.getElementById('tileLocationFields');
+  if (locToggle) locToggle.checked = hasLocation;
+  if (locFields) locFields.style.display = hasLocation ? 'block' : 'none';
+  form.elements.latitude.value = tile.latitude || '';
+  form.elements.longitude.value = tile.longitude || '';
+  form.elements.radius_meters.value = tile.radius_meters || '';
+  form.elements.effect_type.value = tile.effect_type || '';
+  form.elements.effect_value.value = tile.effect_value ?? '';
+  form.elements.event_title.value = tile.event_title || '';
+  form.elements.event_body.value = tile.event_body || '';
+  form.elements.guide_content.value = tile.guide_content || '';
+  form.elements.is_active.checked = tile.is_active !== false && tile.is_active !== 0;
+
+  document.getElementById('tile_board_map_id').value = tile.board_map_id || currentBoardMapId;
+  document.getElementById('tile_locked_map_name').textContent = currentBoardMapName;
+
+  // Update hint
+  const hint = document.getElementById('tileTypeHint');
+  if (hint) hint.textContent = tileTypeHints[tile.tile_type] || '';
+
+  document.getElementById('tileFormMsg').textContent = '';
+}
+
+// ── Tile Form Submit ──────────────────────────────────────────
+document.getElementById('tileForm').addEventListener('submit', function (e) {
+  e.preventDefault();
+  const form = this;
+  const id = form.elements.id.value;
+  const boardMapId = form.elements.board_map_id.value;
+  const msgEl = document.getElementById('tileFormMsg');
+  msgEl.textContent = '';
+
+  if (!boardMapId) { msgEl.textContent = '缺少地圖 ID'; return; }
+
+  const payload = {
+    tile_index: Number(form.elements.tile_index.value),
+    tile_name: form.elements.tile_name.value.trim(),
+    tile_type: form.elements.tile_type.value,
+    task_id: form.elements.task_id.value || null,
+    latitude: form.elements.latitude.value || null,
+    longitude: form.elements.longitude.value || null,
+    radius_meters: form.elements.radius_meters.value || null,
+    effect_type: form.elements.effect_type.value || null,
+    effect_value: form.elements.effect_value.value || null,
+    event_title: form.elements.event_title.value.trim() || null,
+    event_body: form.elements.event_body.value.trim() || null,
+    guide_content: form.elements.guide_content.value.trim() || null,
+    is_active: form.elements.is_active.checked ? 1 : 0
+  };
+
+  msgEl.textContent = id ? '更新中...' : '建立中...';
+  const url = id ? `${API_BASE}/api/board-tiles/${id}` : `${API_BASE}/api/board-maps/${boardMapId}/tiles`;
+  const method = id ? 'PUT' : 'POST';
+
+  fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+    body: JSON.stringify(payload)
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        showToast(id ? '格子更新成功' : '格子建立成功');
+        closeDrawer();
+        if (currentQuestChainId) loadBoardContent(currentQuestChainId);
+      } else { msgEl.textContent = d.message || '操作失敗'; }
+    })
+    .catch(() => { msgEl.textContent = '伺服器連線失敗'; });
 });
 
-// 編輯照片即時上傳與預覽
-const editPhotoInput = document.getElementById('editPhotoInput');
-const editPhotoPreview = document.getElementById('editPhotoPreview');
-const editPhotoUrlInput = document.querySelector('#editTaskForm input[name="photoUrl"]');
-if (editPhotoInput) {
-  editPhotoInput.addEventListener('change', async function() {
-    const file = this.files[0];
-    if (!file) return;
-    // 預覽
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      editPhotoPreview.src = e.target.result;
-      editPhotoPreview.style.display = '';
+// ── Delete Tile ───────────────────────────────────────────────
+function deleteTile(tileId) {
+  if (!confirm('確定要刪除這個格子嗎？')) return;
+  fetch(`${API_BASE}/api/board-tiles/${tileId}`, {
+    method: 'DELETE', headers: { 'x-username': loginUser.username }
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        showToast('格子已刪除');
+        if (currentQuestChainId) loadBoardContent(currentQuestChainId);
+      } else showToast(d.message || '刪除失敗', 'error');
+    });
+}
+
+// ── Task Drawer: Open for create ──────────────────────────────
+function openTaskDrawerForCreate() {
+  openDrawer('新增關卡', 'form-task');
+  const form = document.getElementById('taskForm');
+
+  // Auto-lock quest chain context
+  if (currentQuestChainId) {
+    document.getElementById('task_quest_chain_id').value = currentQuestChainId;
+    document.getElementById('task_locked_quest_name').textContent = currentQuestChainTitle;
+    document.getElementById('taskLockedContext').style.display = 'block';
+
+    // Auto-set category to quest if story mode
+    if (currentQuestChainMode === 'story_campaign') {
+      const catSel = document.getElementById('taskCategorySelect');
+      catSel.value = 'quest';
+      catSel.dispatchEvent(new Event('change'));
+
+      // Lock quest chain select to current
+      const qcSel = document.getElementById('questChainSelect');
+      if (qcSel) qcSel.value = currentQuestChainId;
+    }
+  }
+
+  // Reset photo state
+  document.getElementById('taskPhotoUrl').value = '';
+  document.getElementById('taskPhotoPreview').style.display = 'none';
+  document.getElementById('taskFormMsg').textContent = '';
+
+  // Apply default blueprint
+  const bpSel = document.getElementById('taskBlueprintSelect');
+  bpSel.value = 'story_ai_identify';
+  applyBlueprint('story_ai_identify', false);
+}
+
+// ── Task Drawer: Open for edit ────────────────────────────────
+function editTask(taskId) {
+  fetch(`${API_BASE}/api/tasks/${taskId}`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) return;
+      const t = data.task;
+
+      openDrawer('編輯關卡', 'form-task');
+      const form = document.getElementById('taskForm');
+
+      // Fill basic fields
+      form.elements.id.value = t.id;
+      form.elements.name.value = t.name;
+      form.elements.lat.value = t.lat;
+      form.elements.lng.value = t.lng;
+      form.elements.radius.value = t.radius;
+      form.elements.points.value = t.points || 0;
+      form.elements.description.value = t.description || '';
+
+      // Photo
+      document.getElementById('taskPhotoUrl').value = t.photoUrl || '';
+      const preview = document.getElementById('taskPhotoPreview');
+      if (t.photoUrl) { preview.src = t.photoUrl; preview.style.display = 'block'; }
+      else preview.style.display = 'none';
+
+      // AR media
+      const modelSel = document.getElementById('taskArModelSelect');
+      if (modelSel) modelSel.value = t.ar_model_id || '';
+      form.elements.ar_order_model.value = t.ar_order_model || '';
+      form.elements.ar_order_image.value = t.ar_order_image || '';
+      form.elements.ar_order_youtube.value = t.ar_order_youtube || '';
+      form.elements.youtubeUrl.value = t.youtubeUrl || '';
+      document.getElementById('taskArImageUrl').value = t.ar_image_url || '';
+
+      // BGM
+      const bgmInput = document.getElementById('bgmUrlInput');
+      if (bgmInput) bgmInput.value = t.bgm_url || '';
+      const bgmPreview = document.getElementById('bgmPreview');
+      const bgmAudio = document.getElementById('bgmPreviewAudio');
+      if (t.bgm_url && bgmPreview && bgmAudio) {
+        bgmPreview.style.display = 'block';
+        bgmAudio.src = t.bgm_url;
+      } else if (bgmPreview) {
+        bgmPreview.style.display = 'none';
+      }
+
+      // Category
+      const catSel = document.getElementById('taskCategorySelect');
+      catSel.value = t.type || 'single';
+      catSel.dispatchEvent(new Event('change'));
+
+      // Quest fields
+      if (t.type === 'quest') {
+        const qcSel = document.getElementById('questChainSelect');
+        if (qcSel) qcSel.value = t.quest_chain_id || '';
+        form.elements.quest_order.value = t.quest_order || 1;
+        if (form.elements.is_final_step) form.elements.is_final_step.checked = !!t.is_final_step;
+      }
+
+      // Timed fields
+      if (t.type === 'timed') {
+        const fmt = iso => iso ? new Date(iso).toISOString().slice(0, 16) : '';
+        form.elements.time_limit_start.value = fmt(t.time_limit_start);
+        form.elements.time_limit_end.value = fmt(t.time_limit_end);
+        form.elements.max_participants.value = t.max_participants || 0;
+      }
+
+      // Task type
+      const typeSel = document.getElementById('taskTypeSelect');
+      typeSel.value = t.task_type || 'qa';
+      typeSel.dispatchEvent(new Event('change'));
+
+      // Multiple choice
+      if (t.task_type === 'multiple_choice' && t.options) {
+        const opts = typeof t.options === 'string' ? JSON.parse(t.options) : t.options;
+        if (Array.isArray(opts) && opts.length >= 4) {
+          form.elements.optionA.value = opts[0];
+          form.elements.optionB.value = opts[1];
+          form.elements.optionC.value = opts[2];
+          form.elements.optionD.value = opts[3];
+          if (t.correct_answer === opts[0]) form.elements.correct_answer_select.value = 'A';
+          else if (t.correct_answer === opts[1]) form.elements.correct_answer_select.value = 'B';
+          else if (t.correct_answer === opts[2]) form.elements.correct_answer_select.value = 'C';
+          else if (t.correct_answer === opts[3]) form.elements.correct_answer_select.value = 'D';
+        }
+      } else if (t.task_type === 'number' || t.task_type === 'keyword') {
+        form.elements.correct_answer_text.value = t.correct_answer || '';
+      }
+
+      // Validation mode
+      const valSel = document.getElementById('validationModeSelect');
+      valSel.value = t.validation_mode || 'manual';
+      valSel.dispatchEvent(new Event('change'));
+
+      // AI fields
+      const aiConfig = t.ai_config || {};
+      const passCriteria = t.pass_criteria || {};
+      form.elements.ai_target_label.value = aiConfig.target_label || passCriteria.target_label || '';
+      form.elements.ai_target_count.value = passCriteria.target_count || '';
+      form.elements.ai_min_score.value = passCriteria.min_score || '';
+      form.elements.ai_min_confidence.value = passCriteria.min_confidence || '';
+      form.elements.ai_system_prompt.value = aiConfig.system_prompt || '';
+      form.elements.ai_user_prompt.value = aiConfig.user_prompt || '';
+      form.elements.failure_message.value = t.failure_message || '';
+      form.elements.success_message.value = t.success_message || '';
+      form.elements.max_attempts.value = t.max_attempts || '';
+      if (form.elements.location_required) form.elements.location_required.checked = !!t.location_required;
+
+      // Items
+      const reqItemSel = form.querySelector('select[name="required_item_id"]');
+      const rewItemSel = form.querySelector('select[name="reward_item_id"]');
+      if (reqItemSel) reqItemSel.value = t.required_item_id || '';
+      if (rewItemSel) rewItemSel.value = t.reward_item_id || '';
+
+      // Lock context
+      const chainId = t.quest_chain_id || currentQuestChainId;
+      if (chainId) {
+        document.getElementById('task_quest_chain_id').value = chainId;
+        const chain = globalQuestChainsMap[chainId];
+        document.getElementById('task_locked_quest_name').textContent = chain ? chain.title : `ID: ${chainId}`;
+        document.getElementById('taskLockedContext').style.display = 'block';
+      }
+
+      // Blueprint
+      const bp = inferBlueprintFromTask(t);
+      document.getElementById('taskBlueprintSelect').value = bp;
+      applyBlueprint(bp, true);
+
+      document.getElementById('taskFormMsg').textContent = '';
+    });
+}
+
+// ── Task Form Submit (Create or Update) ───────────────────────
+document.getElementById('taskForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  const form = this;
+  const id = form.elements.id.value;
+  const msgEl = document.getElementById('taskFormMsg');
+  msgEl.textContent = '';
+
+  const aiPayload = buildAiTaskPayload(form);
+  const task_type = aiPayload.validation_mode.startsWith('ai_') ? 'photo' : form.elements.task_type.value;
+
+  // Validate
+  if (!validateAiPayload(form, aiPayload, msgEl)) return;
+
+  // Multiple choice / standard answer
+  let options = null;
+  let correct_answer = null;
+  if (task_type === 'multiple_choice') {
+    const optA = form.optionA.value.trim();
+    const optB = form.optionB.value.trim();
+    const optC = form.optionC.value.trim();
+    const optD = form.optionD.value.trim();
+    if (!optA || !optB || !optC || !optD) { msgEl.textContent = '請填寫所有選項'; return; }
+    options = [optA, optB, optC, optD];
+    const sel = form.correct_answer_select.value;
+    correct_answer = sel === 'A' ? optA : sel === 'B' ? optB : sel === 'C' ? optC : optD;
+  } else if (task_type === 'number' || task_type === 'keyword') {
+    correct_answer = form.correct_answer_text.value.trim();
+    if (!correct_answer) { msgEl.textContent = '請輸入標準答案'; return; }
+  }
+
+  // Quest chain id: prefer locked context, then form select
+  const quest_chain_id = form.elements.quest_chain_id?.value
+    || document.getElementById('questChainSelect')?.value || null;
+
+  try {
+    // Upload photo if new file
+    let photoUrl = document.getElementById('taskPhotoUrl').value;
+    const photoFile = form.photo?.files[0];
+
+    if (!id && !photoFile) { msgEl.textContent = '請選擇封面圖'; return; }
+
+    if (photoFile) {
+      if (photoFile.size > 5 * 1024 * 1024) { msgEl.textContent = '圖片超過 5MB'; return; }
+      msgEl.textContent = '封面圖上傳中...';
+      const fd = new FormData();
+      fd.append('photo', photoFile);
+      const uploadRes = await fetch(`${API_BASE}/api/upload`, {
+        method: 'POST', headers: { 'x-username': loginUser.username }, body: fd
+      });
+      const uploadData = await uploadRes.json();
+      if (!uploadData.success) { msgEl.textContent = uploadData.message || '圖片上傳失敗'; return; }
+      photoUrl = uploadData.url;
+    }
+
+    // Upload AR image if provided
+    let arImageUrl = document.getElementById('taskArImageUrl').value || null;
+    const arImageFile = form.arImage?.files[0];
+    if (arImageFile) {
+      msgEl.textContent = '場景圖上傳中...';
+      const arFd = new FormData();
+      arFd.append('photo', arImageFile);
+      const arRes = await fetch(`${API_BASE}/api/upload`, {
+        method: 'POST', headers: { 'x-username': loginUser.username }, body: arFd
+      });
+      const arData = await arRes.json();
+      if (arData.success) arImageUrl = arData.url;
+    }
+
+    // Upload BGM if provided
+    let bgmUrl = form.bgm_url?.value.trim() || null;
+    const bgmFile = form.bgmFile?.files[0];
+    if (bgmFile) {
+      msgEl.textContent = '音樂上傳中...';
+      bgmUrl = await uploadBgmWithProgress(bgmFile);
+    }
+
+    // Build payload
+    const payload = {
+      name: form.name.value.trim(),
+      lat: form.lat.value,
+      lng: form.lng.value,
+      radius: form.radius.value,
+      points: form.points.value,
+      description: form.description.value.trim(),
+      photoUrl,
+      youtubeUrl: form.youtubeUrl.value.trim() || null,
+      ar_image_url: arImageUrl,
+      ar_model_id: form.ar_model_id?.value || null,
+      ar_order_model: form.ar_order_model.value || null,
+      ar_order_image: form.ar_order_image.value || null,
+      ar_order_youtube: form.ar_order_youtube.value || null,
+      task_type,
+      options,
+      correct_answer,
+      ...aiPayload,
+      type: form.type.value,
+      quest_chain_id,
+      quest_order: form.quest_order?.value || null,
+      time_limit_start: form.time_limit_start?.value || null,
+      time_limit_end: form.time_limit_end?.value || null,
+      max_participants: form.max_participants?.value || null,
+      is_final_step: form.is_final_step?.checked || false,
+      required_item_id: form.required_item_id?.value || null,
+      reward_item_id: form.reward_item_id?.value || null,
+      bgm_url: bgmUrl
     };
-    reader.readAsDataURL(file);
-    // 上傳
+
+    msgEl.textContent = id ? '更新中...' : '建立中...';
+    const url = id ? `${API_BASE}/api/tasks/${id}` : `${API_BASE}/api/tasks`;
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+      body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+
+    if (result.success) {
+      showToast(id ? '關卡更新成功' : '關卡建立成功');
+      closeDrawer();
+      if (currentQuestChainId) {
+        if (currentQuestChainMode === 'board_game') loadBoardContent(currentQuestChainId);
+        else loadTasksForQuest(currentQuestChainId);
+      }
+    } else {
+      msgEl.textContent = result.message || '操作失敗';
+    }
+  } catch (err) {
+    console.error(err);
+    msgEl.textContent = '伺服器連線失敗';
+  }
+});
+
+// ── BGM Upload with progress ──────────────────────────────────
+function uploadBgmWithProgress(file) {
+  return new Promise((resolve, reject) => {
+    const progressContainer = document.getElementById('bgmUploadProgress');
+    const progressBar = document.getElementById('bgmUploadProgressBar');
+    const percentText = document.getElementById('bgmUploadPercent');
+
+    if (progressContainer) {
+      progressContainer.style.display = 'block';
+      progressBar.style.width = '0%';
+      percentText.textContent = '0%';
+    }
+
     const fd = new FormData();
-    fd.append('photo', file);
-    editPhotoUrlInput.disabled = true;
-    editPhotoUrlInput.value = '上傳中...';
+    fd.append('audio', file);
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.addEventListener('progress', e => {
+      if (e.lengthComputable && progressContainer) {
+        const pct = Math.round((e.loaded / e.total) * 100);
+        progressBar.style.width = pct + '%';
+        percentText.textContent = pct + '%';
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      if (progressContainer) progressContainer.style.display = 'none';
+      if (xhr.status === 200) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          if (data.success) resolve(data.url);
+          else reject(new Error(data.message || '上傳失敗'));
+        } catch { reject(new Error('解析回應失敗')); }
+      } else { reject(new Error('HTTP ' + xhr.status)); }
+    });
+
+    xhr.addEventListener('error', () => {
+      if (progressContainer) progressContainer.style.display = 'none';
+      reject(new Error('網路失敗'));
+    });
+
+    xhr.open('POST', `${API_BASE}/api/upload-audio`);
+    xhr.setRequestHeader('x-username', loginUser.username);
+    xhr.withCredentials = true;
+    xhr.send(fd);
+  });
+}
+
+// ── Photo preview ─────────────────────────────────────────────
+const taskPhotoInput = document.getElementById('taskPhotoInput');
+if (taskPhotoInput) {
+  taskPhotoInput.addEventListener('change', function () {
+    const file = this.files[0];
+    const preview = document.getElementById('taskPhotoPreview');
+    if (file) {
+      const r = new FileReader();
+      r.onload = e => { preview.src = e.target.result; preview.style.display = 'block'; };
+      r.readAsDataURL(file);
+    }
+  });
+}
+
+// BGM manual preview
+const bgmUrlInputEl = document.getElementById('bgmUrlInput');
+if (bgmUrlInputEl) {
+  bgmUrlInputEl.addEventListener('input', () => {
+    const preview = document.getElementById('bgmPreview');
+    const audio = document.getElementById('bgmPreviewAudio');
+    if (bgmUrlInputEl.value.trim()) {
+      preview.style.display = 'block';
+      audio.src = bgmUrlInputEl.value.trim();
+    } else {
+      preview.style.display = 'none';
+    }
+  });
+}
+
+// BGM upload button
+const uploadBgmBtnEl = document.getElementById('uploadBgmBtn');
+if (uploadBgmBtnEl) {
+  uploadBgmBtnEl.addEventListener('click', async () => {
+    const fileInput = document.getElementById('bgmFileInput');
+    if (!fileInput.files[0]) { alert('請先選擇音樂檔'); return; }
+    uploadBgmBtnEl.disabled = true;
+    uploadBgmBtnEl.textContent = '上傳中...';
     try {
-      const res = await fetch(`${API_BASE}/api/upload`, { method: 'POST', headers: { 'x-username': loginUser.username }, body: fd });
-      const data = await res.json();
-      if (data.success) {
-        editPhotoUrlInput.value = data.url;
-      } else {
-        editPhotoUrlInput.value = '';
-        alert(data.message || '圖片上傳失敗');
-      }
-    } catch {
-      editPhotoUrlInput.value = '';
-      alert('圖片上傳失敗');
+      const url = await uploadBgmWithProgress(fileInput.files[0]);
+      document.getElementById('bgmUrlInput').value = url;
+      const preview = document.getElementById('bgmPreview');
+      const audio = document.getElementById('bgmPreviewAudio');
+      preview.style.display = 'block';
+      audio.src = url;
+      showToast('音樂上傳成功');
+    } catch (err) {
+      showToast('音樂上傳失敗: ' + err.message, 'error');
     }
-    editPhotoUrlInput.disabled = false;
+    uploadBgmBtnEl.disabled = false;
+    uploadBgmBtnEl.textContent = '上傳';
   });
 }
 
-// 背景音樂上傳按鈕事件處理（使用 XMLHttpRequest 追蹤進度）
-const uploadBgmBtn = document.getElementById('uploadBgmBtn');
-if (uploadBgmBtn) {
-  uploadBgmBtn.addEventListener('click', () => {
-    const bgmFileInput = document.getElementById('bgmFileInput');
-    const bgmUrlInput = document.getElementById('bgmUrlInput');
-    const bgmPreview = document.getElementById('bgmPreview');
-    const bgmPreviewAudio = document.getElementById('bgmPreviewAudio');
-    const bgmUploadProgress = document.getElementById('bgmUploadProgress');
-    const bgmUploadProgressBar = document.getElementById('bgmUploadProgressBar');
-    const bgmUploadPercent = document.getElementById('bgmUploadPercent');
-    
-    if (!bgmFileInput.files[0]) {
-      alert('請先選擇音樂文件');
-      return;
-    }
-    
-    const file = bgmFileInput.files[0];
-    const fd = new FormData();
-    fd.append('audio', file);
-    
-    const xhr = new XMLHttpRequest();
-    
-    // 顯示進度條
-    bgmUploadProgress.style.display = 'block';
-    bgmUploadProgressBar.style.width = '0%';
-    bgmUploadPercent.textContent = '0%';
-    uploadBgmBtn.disabled = true;
-    uploadBgmBtn.textContent = '上傳中...';
-    
-    // 追蹤上傳進度
-    xhr.upload.addEventListener('progress', (e) => {
-      if (e.lengthComputable) {
-        const percentComplete = Math.round((e.loaded / e.total) * 100);
-        bgmUploadProgressBar.style.width = percentComplete + '%';
-        bgmUploadPercent.textContent = percentComplete + '%';
-      }
-    });
-    
-    // 上傳完成
-    xhr.addEventListener('load', () => {
-      if (xhr.status === 200) {
-        try {
-          const data = JSON.parse(xhr.responseText);
-          if (data.success) {
-            bgmUrlInput.value = data.url;
-            bgmPreview.style.display = 'block';
-            bgmPreviewAudio.src = data.url;
-            bgmUploadProgress.style.display = 'none';
-            alert('音樂上傳成功！');
-          } else {
-            bgmUploadProgress.style.display = 'none';
-            alert('上傳失敗: ' + (data.message || '未知錯誤'));
-          }
-        } catch (err) {
-          console.error(err);
-          bgmUploadProgress.style.display = 'none';
-          alert('解析回應失敗');
+// ── Delete Task ───────────────────────────────────────────────
+function deleteTask(taskId) {
+  if (!confirm('確定要刪除這個關卡嗎？')) return;
+  fetch(`${API_BASE}/api/tasks/${taskId}`, {
+    method: 'DELETE', headers: { 'x-username': loginUser.username }
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        showToast('已刪除');
+        if (currentQuestChainId) {
+          if (currentQuestChainMode === 'board_game') loadBoardContent(currentQuestChainId);
+          else loadTasksForQuest(currentQuestChainId);
         }
-      } else {
-        bgmUploadProgress.style.display = 'none';
-        alert('上傳失敗: HTTP ' + xhr.status);
-      }
-      uploadBgmBtn.disabled = false;
-      uploadBgmBtn.textContent = '上傳';
+      } else showToast(d.message || '刪除失敗', 'error');
     });
-    
-    // 上傳錯誤
-    xhr.addEventListener('error', () => {
-      bgmUploadProgress.style.display = 'none';
-      alert('上傳錯誤：網路連線失敗');
-      uploadBgmBtn.disabled = false;
-      uploadBgmBtn.textContent = '上傳';
-    });
-    
-    // 上傳中止
-    xhr.addEventListener('abort', () => {
-      bgmUploadProgress.style.display = 'none';
-      uploadBgmBtn.disabled = false;
-      uploadBgmBtn.textContent = '上傳';
-    });
-    
-    // 發送請求
-    xhr.open('POST', `${API_BASE}/api/upload-audio`);
-    xhr.setRequestHeader('x-username', loginUser.username);
-    xhr.withCredentials = true; // 發送 cookies
-    xhr.send(fd);
-  });
 }
 
-// 編輯表單背景音樂上傳按鈕事件處理（使用 XMLHttpRequest 追蹤進度）
-const editUploadBgmBtn = document.getElementById('editUploadBgmBtn');
-if (editUploadBgmBtn) {
-  editUploadBgmBtn.addEventListener('click', () => {
-    const editBgmFileInput = document.getElementById('editBgmFileInput');
-    const editBgmUrlInput = document.getElementById('editBgmUrlInput');
-    const editBgmPreview = document.getElementById('editBgmPreview');
-    const editBgmPreviewAudio = document.getElementById('editBgmPreviewAudio');
-    const editBgmUploadProgress = document.getElementById('editBgmUploadProgress');
-    const editBgmUploadProgressBar = document.getElementById('editBgmUploadProgressBar');
-    const editBgmUploadPercent = document.getElementById('editBgmUploadPercent');
-    
-    if (!editBgmFileInput.files[0]) {
-      alert('請先選擇音樂文件');
-      return;
-    }
-    
-    const file = editBgmFileInput.files[0];
-    const fd = new FormData();
-    fd.append('audio', file);
-    
-    const xhr = new XMLHttpRequest();
-    
-    // 顯示進度條
-    editBgmUploadProgress.style.display = 'block';
-    editBgmUploadProgressBar.style.width = '0%';
-    editBgmUploadPercent.textContent = '0%';
-    editUploadBgmBtn.disabled = true;
-    editUploadBgmBtn.textContent = '上傳中...';
-    
-    // 追蹤上傳進度
-    xhr.upload.addEventListener('progress', (e) => {
-      if (e.lengthComputable) {
-        const percentComplete = Math.round((e.loaded / e.total) * 100);
-        editBgmUploadProgressBar.style.width = percentComplete + '%';
-        editBgmUploadPercent.textContent = percentComplete + '%';
-      }
-    });
-    
-    // 上傳完成
-    xhr.addEventListener('load', () => {
-      if (xhr.status === 200) {
-        try {
-          const data = JSON.parse(xhr.responseText);
-          if (data.success) {
-            editBgmUrlInput.value = data.url;
-            editBgmPreview.style.display = 'block';
-            editBgmPreviewAudio.src = data.url;
-            editBgmUploadProgress.style.display = 'none';
-            alert('音樂上傳成功！');
-          } else {
-            editBgmUploadProgress.style.display = 'none';
-            alert('上傳失敗: ' + (data.message || '未知錯誤'));
-          }
-        } catch (err) {
-          console.error(err);
-          editBgmUploadProgress.style.display = 'none';
-          alert('解析回應失敗');
-        }
-      } else {
-        editBgmUploadProgress.style.display = 'none';
-        alert('上傳失敗: HTTP ' + xhr.status);
-      }
-      editUploadBgmBtn.disabled = false;
-      editUploadBgmBtn.textContent = '上傳';
-    });
-    
-    // 上傳錯誤
-    xhr.addEventListener('error', () => {
-      editBgmUploadProgress.style.display = 'none';
-      alert('上傳錯誤：網路連線失敗');
-      editUploadBgmBtn.disabled = false;
-      editUploadBgmBtn.textContent = '上傳';
-    });
-    
-    // 上傳中止
-    xhr.addEventListener('abort', () => {
-      editBgmUploadProgress.style.display = 'none';
-      editUploadBgmBtn.disabled = false;
-      editUploadBgmBtn.textContent = '上傳';
-    });
-    
-    // 發送請求
-    xhr.open('POST', `${API_BASE}/api/upload-audio`);
-    xhr.setRequestHeader('x-username', loginUser.username);
-    xhr.withCredentials = true; // 發送 cookies
-    xhr.send(fd);
-  });
+// ── Load AR Models ────────────────────────────────────────────
+function loadARModels() {
+  return fetch(`${API_BASE}/api/ar-models`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) return;
+      globalModelsMap = {};
+      data.models.forEach(m => { globalModelsMap[m.id] = m; });
+
+      // Update task form model selects
+      document.querySelectorAll('select[name="ar_model_id"]').forEach(sel => {
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">-- 選填 --</option>';
+        data.models.forEach(m => { sel.innerHTML += `<option value="${m.id}">${escHtml(m.name)}</option>`; });
+        sel.value = cur;
+      });
+
+      // Update item form model URL selects
+      document.querySelectorAll('.ar-model-url-select').forEach(sel => {
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">-- 無 --</option>';
+        data.models.forEach(m => { sel.innerHTML += `<option value="${m.url}">${escHtml(m.name)}</option>`; });
+        sel.value = cur;
+      });
+
+      // Render model list in assets view
+      renderModelList(data.models);
+    })
+    .catch(() => {});
 }
 
-// 音樂 URL 輸入框變化時更新預覽
-const bgmUrlInput = document.getElementById('bgmUrlInput');
-if (bgmUrlInput) {
-  bgmUrlInput.addEventListener('input', () => {
-    const bgmPreview = document.getElementById('bgmPreview');
-    const bgmPreviewAudio = document.getElementById('bgmPreviewAudio');
-    if (bgmUrlInput.value.trim()) {
-      bgmPreview.style.display = 'block';
-      bgmPreviewAudio.src = bgmUrlInput.value.trim();
-    } else {
-      bgmPreview.style.display = 'none';
-    }
-  });
+function renderModelList(models) {
+  const container = document.getElementById('modelListContainer');
+  if (!container) return;
+  if (!models.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🧊</div>尚無模型</div>';
+    return;
+  }
+  container.innerHTML = models.map(m => `
+    <div style="background:white; padding:14px; border-radius:10px; border:1px solid #e2e8f0;">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+        <span style="font-size:1.3rem;">🧊</span>
+        <div style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escHtml(m.name)}</div>
+      </div>
+      <div style="font-size:0.8rem; color:#64748b;">Scale: ${m.scale || 1.0}</div>
+      <div style="display:flex; gap:6px; justify-content:flex-end; margin-top:8px;">
+        <a href="${escHtml(m.url)}" target="_blank" class="btn-sm btn-secondary-v2" style="text-decoration:none; font-size:0.8rem;">下載</a>
+        <button class="btn-sm btn-danger-v2" onclick="deleteModel('${m.id}')" style="font-size:0.8rem;">刪除</button>
+      </div>
+    </div>
+  `).join('');
 }
 
-const editBgmUrlInput = document.getElementById('editBgmUrlInput');
-if (editBgmUrlInput) {
-  editBgmUrlInput.addEventListener('input', () => {
-    const editBgmPreview = document.getElementById('editBgmPreview');
-    const editBgmPreviewAudio = document.getElementById('editBgmPreviewAudio');
-    if (editBgmUrlInput.value.trim()) {
-      editBgmPreview.style.display = 'block';
-      editBgmPreviewAudio.src = editBgmUrlInput.value.trim();
-    } else {
-      editBgmPreview.style.display = 'none';
+function deleteModel(id) {
+  if (!confirm('確定要刪除這個模型嗎？')) return;
+  fetch(`${API_BASE}/api/ar-models/${id}`, {
+    method: 'DELETE', headers: { 'x-username': loginUser.username }
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) { showToast('模型已刪除'); loadARModels(); }
+      else showToast(d.message || '刪除失敗', 'error');
+    });
+}
+
+// Asset upload form
+document.getElementById('assetForm').addEventListener('submit', function (e) {
+  e.preventDefault();
+  const form = this;
+  const msg = document.getElementById('assetFormMsg');
+  msg.textContent = '上傳中...';
+
+  const fd = new FormData();
+  fd.append('name', form.name.value.trim());
+  fd.append('scale', form.scale.value);
+  if (form.modelFile.files[0]) fd.append('model', form.modelFile.files[0]);
+
+  fetch(`${API_BASE}/api/ar-models`, {
+    method: 'POST', headers: { 'x-username': loginUser.username }, body: fd
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        showToast('上傳成功');
+        closeDrawer();
+        msg.textContent = '';
+        loadARModels();
+      } else { msg.textContent = d.message || '上傳失敗'; }
+    })
+    .catch(() => { msg.textContent = '上傳失敗'; });
+});
+
+// Item form submit
+document.getElementById('itemForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const form = this;
+  const id = form.elements.id.value;
+  const msgEl = document.getElementById('itemFormMsg');
+  msgEl.textContent = '';
+
+  const fd = new FormData();
+  fd.append('name', form.name.value.trim());
+  fd.append('description', form.description.value.trim());
+  fd.append('model_url', form.model_url?.value || '');
+
+  const imageFile = form.image?.files[0];
+  if (imageFile) {
+    fd.append('image', imageFile);
+  } else if (id) {
+    fd.append('image_url', document.getElementById('itemImageUrl').value);
+  }
+
+  const url = id ? `${API_BASE}/api/items/${id}` : `${API_BASE}/api/items`;
+  const method = id ? 'PUT' : 'POST';
+
+  fetch(url, { method, headers: { 'x-username': loginUser.username }, body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        showToast(id ? '道具更新成功' : '道具新增成功');
+        closeDrawer();
+        loadItems();
+      } else { msgEl.textContent = d.message || '操作失敗'; }
+    })
+    .catch(() => { msgEl.textContent = '伺服器連線失敗'; });
+});
+
+// Item image preview
+const itemImageInput = document.getElementById('itemImageInput');
+if (itemImageInput) {
+  itemImageInput.addEventListener('change', function() {
+    const file = this.files[0];
+    const preview = document.getElementById('itemImagePreview');
+    if (file) {
+      const r = new FileReader();
+      r.onload = e => { preview.src = e.target.result; preview.style.display = 'block'; };
+      r.readAsDataURL(file);
     }
   });
 }
+
+// ── Load Items ────────────────────────────────────────────────
+function loadItems() {
+  return fetch(`${API_BASE}/api/items`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) return;
+      globalItemsMap = {};
+      data.items.forEach(item => { globalItemsMap[item.id] = item; });
+
+      // Update item selects in task form
+      document.querySelectorAll('.item-select').forEach(sel => {
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">-- 無 --</option>';
+        data.items.forEach(item => {
+          sel.innerHTML += `<option value="${item.id}">${escHtml(item.name)}</option>`;
+        });
+        sel.value = cur;
+      });
+
+      // Render items in assets view
+      renderItemList(data.items);
+    })
+    .catch(() => {});
+}
+
+function renderItemList(items) {
+  const container = document.getElementById('itemListContainer');
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎒</div>尚無道具，點右上角新增</div>';
+    return;
+  }
+  container.innerHTML = items.map(item => `
+    <div style="background:white; padding:14px; border-radius:10px; border:1px solid #e2e8f0;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+        ${item.image_url ? `<img src="${escHtml(item.image_url)}" style="width:40px; height:40px; object-fit:contain; border-radius:6px;">` : '<span style="font-size:1.5rem;">🎒</span>'}
+        <div style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escHtml(item.name)}</div>
+      </div>
+      <div style="font-size:0.82rem; color:#64748b; margin-bottom:8px;">${escHtml(item.description || '無描述')}</div>
+      <div style="display:flex; gap:6px; justify-content:flex-end;">
+        <button class="btn-sm btn-secondary-v2" onclick="editItem('${item.id}')" style="font-size:0.8rem;">編輯</button>
+        <button class="btn-sm btn-danger-v2" onclick="deleteItem('${item.id}')" style="font-size:0.8rem;">刪除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function editItem(id) {
+  const item = globalItemsMap[id];
+  if (!item) return;
+  openDrawer('編輯道具', 'form-item');
+  const form = document.getElementById('itemForm');
+  form.elements.id.value = item.id;
+  form.elements.name.value = item.name;
+  form.elements.description.value = item.description || '';
+  document.getElementById('itemImageUrl').value = item.image_url || '';
+  const preview = document.getElementById('itemImagePreview');
+  if (item.image_url) { preview.src = item.image_url; preview.style.display = 'block'; }
+  else preview.style.display = 'none';
+  const modelSel = form.querySelector('.ar-model-url-select');
+  if (modelSel) modelSel.value = item.model_url || '';
+}
+
+function deleteItem(id) {
+  if (!confirm('確定要刪除這個道具嗎？')) return;
+  fetch(`${API_BASE}/api/items/${id}`, {
+    method: 'DELETE', headers: { 'x-username': loginUser.username }
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) { showToast('道具已刪除'); loadItems(); }
+      else showToast(d.message || '刪除失敗', 'error');
+    });
+}
+
+// ── Asset Tabs ────────────────────────────────────────────────
+function switchAssetTab(tab, el) {
+  document.querySelectorAll('.asset-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.asset-section').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('assetSection-' + tab).classList.add('active');
+
+  // Toggle action buttons
+  document.getElementById('btnAssetAdd').style.display = tab === 'models' ? 'inline-flex' : 'none';
+  document.getElementById('btnItemAdd').style.display = tab === 'items' ? 'inline-flex' : 'none';
+}
+
+// ── Init: Load everything ─────────────────────────────────────
+Promise.all([loadQuestChains(), loadItems(), loadARModels()]).then(() => {
+  // Ready
+});
