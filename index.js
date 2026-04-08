@@ -3180,6 +3180,72 @@ app.post('/api/tasks/:id/duplicate', staffOrAdminAuth, async (req, res) => {
   }
 });
 
+app.get('/api/tasks/:id/delete-impact', staffOrAdminAuth, async (req, res) => {
+  const taskId = Number(req.params.id);
+  if (!Number.isFinite(taskId)) {
+    return res.status(400).json({ success: false, message: '無效的關卡 ID' });
+  }
+
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const username = req.user?.username || null;
+    const role = req.user?.role || null;
+    const [taskRows] = await conn.execute(
+      `SELECT t.id, t.name, t.quest_chain_id, t.created_by, t.task_type, t.validation_mode,
+              qc.title AS quest_chain_title
+       FROM tasks t
+       LEFT JOIN quest_chains qc ON qc.id = t.quest_chain_id
+       WHERE t.id = ?
+       LIMIT 1`,
+      [taskId]
+    );
+    if (!taskRows.length) {
+      return res.status(404).json({ success: false, message: '找不到此關卡' });
+    }
+    const task = sanitizeTaskRow(taskRows[0]);
+    if (role !== 'admin' && task.created_by !== username) {
+      return res.status(403).json({ success: false, message: '無權限查看此關卡' });
+    }
+
+    const [boardTileRows] = await conn.execute(
+      `SELECT bt.id, bt.tile_index, bt.tile_name, bt.tile_type, bm.id AS board_map_id, bm.name AS board_map_name
+       FROM board_tiles bt
+       INNER JOIN board_maps bm ON bm.id = bt.board_map_id
+       WHERE bt.task_id = ?
+       ORDER BY bm.id ASC, bt.tile_index ASC`,
+      [taskId]
+    );
+    const [userTaskRows] = await conn.execute(
+      'SELECT COUNT(*) AS total FROM user_tasks WHERE task_id = ?',
+      [taskId]
+    );
+    const [attemptRows] = await conn.execute(
+      `SELECT COUNT(*) AS total
+       FROM task_attempts ta
+       INNER JOIN user_tasks ut ON ut.id = ta.user_task_id
+       WHERE ut.task_id = ?`,
+      [taskId]
+    );
+
+    res.json({
+      success: true,
+      task,
+      impact: {
+        boardTileCount: boardTileRows.length,
+        boardTiles: boardTileRows,
+        userTaskCount: Number(userTaskRows[0]?.total || 0),
+        taskAttemptCount: Number(attemptRows[0]?.total || 0)
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '載入關卡刪除影響範圍失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
 // 刪除任務
 app.delete('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
   const { id } = req.params;
@@ -3215,11 +3281,21 @@ app.delete('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
       return res.status(403).json({ success: false, message: '無權限刪除此任務' });
     }
 
-    // 先刪除相關的使用者任務記錄
-    await conn.execute('DELETE FROM user_tasks WHERE task_id = ?', [id]);
-    // 再刪除任務本身
-    await conn.execute('DELETE FROM tasks WHERE id = ?', [id]);
-    res.json({ success: true, message: '已刪除' });
+    await conn.beginTransaction();
+    try {
+      await conn.execute('UPDATE board_tiles SET task_id = NULL WHERE task_id = ?', [id]);
+      await conn.execute('DELETE FROM user_tasks WHERE task_id = ?', [id]);
+      await conn.execute(
+        'UPDATE point_transactions SET reference_id = NULL, description = CONCAT(description, " (關卡已刪除)") WHERE reference_type = "task_completion" AND reference_id = ?',
+        [id]
+      );
+      await conn.execute('DELETE FROM tasks WHERE id = ?', [id]);
+      await conn.commit();
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    }
+    res.json({ success: true, message: '關卡已刪除，關聯棋盤格與玩家進度已同步清理' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: '伺服器錯誤' });

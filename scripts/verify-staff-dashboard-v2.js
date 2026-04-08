@@ -35,6 +35,15 @@ async function setValue(page, selector, value) {
   );
 }
 
+async function clickVisibleButtonByText(page, text) {
+  await page.evaluate((textArg) => {
+    const target = [...document.querySelectorAll('button')]
+      .find((el) => !el.disabled && el.offsetParent !== null && (el.textContent || '').trim().includes(textArg));
+    if (!target) throw new Error(`Cannot find visible button: ${textArg}`);
+    target.click();
+  }, text);
+}
+
 async function loginAsAdmin(page) {
   await page.goto(`${BASE_URL}/login.html?force=1`, { waitUntil: 'networkidle2' });
   const result = await page.evaluate(
@@ -161,21 +170,26 @@ async function run() {
     await clickByText(page, 'button', '新增關卡');
     await wait(350);
     await setValue(page, '#taskBlueprintSelect', 'story_keyword');
-    await wait(300);
+    await clickVisibleButtonByText(page, '下一步');
+    await page.waitForFunction(() => document.querySelector('[data-task-step="2"]')?.classList.contains('active'));
     await setValue(page, '#taskForm input[name="name"]', taskTitle);
     await setValue(page, '#taskForm input[name="lat"]', '24.6782946');
     await setValue(page, '#taskForm input[name="lng"]', '121.7602662');
     await setValue(page, '#taskForm input[name="radius"]', '25');
     await setValue(page, '#taskForm input[name="points"]', '15');
-    await setValue(page, '#taskForm textarea[name="description"]', '請玩家輸入海洋密語作答');
+    await clickVisibleButtonByText(page, '下一步');
+    await page.waitForFunction(() => document.querySelector('[data-task-step="3"]')?.classList.contains('active'));
+    await wait(150);
+    await setValue(page, '#taskForm select[name="task_type"]', 'keyword');
+    await setValue(page, '#taskForm select[name="validation_mode"]', 'keyword');
     await setValue(page, '#taskForm input[name="correct_answer_text"]', '沙丘');
+    await clickVisibleButtonByText(page, '下一步');
+    await page.waitForFunction(() => document.querySelector('[data-task-step="4"]')?.classList.contains('active'));
+    await wait(150);
+    await setValue(page, '#taskForm textarea[name="description"]', '請玩家輸入海洋密語作答');
     const photoInput = await page.$('#taskPhotoInput');
     await photoInput.uploadFile(COVER_PATH);
-    await page.evaluate(() => {
-      document
-        .getElementById('taskForm')
-        .dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-    });
+    await clickVisibleButtonByText(page, '儲存');
     await page.waitForFunction(
       (title) => [...document.querySelectorAll('.task-item-title')].some((el) => el.textContent.includes(title)),
       { timeout: 15000 },
@@ -188,12 +202,15 @@ async function run() {
       item.querySelector('.btn-secondary-v2').click();
     }, taskTitle);
     await wait(250);
+    await clickVisibleButtonByText(page, '下一步');
+    await page.waitForFunction(() => document.querySelector('[data-task-step="2"]')?.classList.contains('active'));
     await setValue(page, '#taskForm input[name="name"]', editedTaskTitle);
-    await page.evaluate(() => {
-      document
-        .getElementById('taskForm')
-        .dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-    });
+    await clickVisibleButtonByText(page, '下一步');
+    await page.waitForFunction(() => document.querySelector('[data-task-step="3"]')?.classList.contains('active'));
+    await clickVisibleButtonByText(page, '下一步');
+    await page.waitForFunction(() => document.querySelector('[data-task-step="4"]')?.classList.contains('active'));
+    await setValue(page, '#taskForm textarea[name="description"]', '請玩家輸入海洋密語作答（已編輯）');
+    await clickVisibleButtonByText(page, '儲存');
     await page.waitForFunction(
       (title) => [...document.querySelectorAll('.task-item-title')].some((el) => el.textContent.includes(title)),
       { timeout: 15000 },

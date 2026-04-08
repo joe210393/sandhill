@@ -29,6 +29,8 @@ let lastMutatedTileId = null;
 
 // Drawer state
 let activeFormId = null;
+let taskWizardStep = 1;
+const TASK_WIZARD_TOTAL_STEPS = 4;
 
 // ── Utilities ─────────────────────────────────────────────────
 function showToast(msg, type = 'success') {
@@ -157,6 +159,7 @@ function openDrawer(title, formSectionId, data) {
   }
 
   section.querySelectorAll('.inline-form-msg').forEach((el) => setInlineMessage(el, ''));
+  syncDrawerFooter();
 
   drawer.classList.add('open');
   overlay.classList.add('open');
@@ -166,14 +169,90 @@ function closeDrawer() {
   drawer.classList.remove('open');
   overlay.classList.remove('open');
   activeFormId = null;
+  taskWizardStep = 1;
+  syncDrawerFooter();
 }
 
 function submitActiveForm() {
   if (!activeFormId) return;
   const form = document.getElementById(activeFormId);
+  if (!form) {
+    showToast('目前沒有可儲存的表單', 'error');
+    return;
+  }
+  if (activeFormId === 'taskForm') {
+    if (taskWizardStep < TASK_WIZARD_TOTAL_STEPS) {
+      goTaskWizardStep(1);
+      return;
+    }
+  }
   if (form.reportValidity()) {
     form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+  } else {
+    scrollToFirstInvalid(activeFormId === 'taskForm' ? getTaskWizardStepElement(taskWizardStep) : form);
   }
+}
+
+function syncDrawerFooter() {
+  const note = document.getElementById('drawerFooterNote');
+  const backBtn = document.getElementById('drawerBackBtn');
+  const nextBtn = document.getElementById('drawerNextBtn');
+  const submitBtn = document.getElementById('drawerSubmitBtn');
+  const isTaskWizard = activeFormId === 'taskForm';
+  backBtn?.classList.toggle('hidden', !isTaskWizard || taskWizardStep === 1);
+  nextBtn?.classList.toggle('hidden', !isTaskWizard || taskWizardStep === TASK_WIZARD_TOTAL_STEPS);
+  submitBtn?.classList.toggle('hidden', isTaskWizard && taskWizardStep !== TASK_WIZARD_TOTAL_STEPS);
+  if (!note) return;
+  if (isTaskWizard) {
+    note.textContent = `新增關卡流程：第 ${taskWizardStep} / ${TASK_WIZARD_TOTAL_STEPS} 步`;
+  } else if (activeFormId === 'tileForm') {
+    note.textContent = '大富翁格子會直接綁到目前這張棋盤。';
+  } else if (activeFormId === 'questChainForm') {
+    note.textContent = '玩法入口建立後，底下的關卡與棋盤都會獨立歸屬在這個入口。';
+  } else {
+    note.textContent = '';
+  }
+}
+
+function getTaskWizardStepElement(step) {
+  return document.querySelector(`[data-task-step="${step}"]`);
+}
+
+function syncTaskWizardUI() {
+  document.querySelectorAll('[data-task-step]').forEach((el) => {
+    el.classList.toggle('active', Number(el.dataset.taskStep) === taskWizardStep);
+  });
+  document.querySelectorAll('[data-step-chip]').forEach((chip) => {
+    const step = Number(chip.dataset.stepChip);
+    chip.classList.toggle('active', step === taskWizardStep);
+    chip.classList.toggle('done', step < taskWizardStep);
+  });
+  syncDrawerFooter();
+}
+
+function validateTaskWizardStep(step) {
+  const stepEl = getTaskWizardStepElement(step);
+  if (!stepEl) return true;
+  const inputs = Array.from(stepEl.querySelectorAll('input, select, textarea'))
+    .filter((el) => {
+      if (el.disabled) return false;
+      if (el.closest('[style*="display:none"]')) return false;
+      return true;
+    });
+  for (const input of inputs) {
+    if (typeof input.reportValidity === 'function' && !input.reportValidity()) {
+      scrollToFirstInvalid(stepEl);
+      return false;
+    }
+  }
+  return true;
+}
+
+function goTaskWizardStep(direction) {
+  if (activeFormId !== 'taskForm') return;
+  if (direction > 0 && !validateTaskWizardStep(taskWizardStep)) return;
+  taskWizardStep = Math.min(TASK_WIZARD_TOTAL_STEPS, Math.max(1, taskWizardStep + direction));
+  syncTaskWizardUI();
 }
 
 // ── Fill form helper ──────────────────────────────────────────
@@ -776,22 +855,60 @@ function renderStructureMap() {
     currentStructureSelection = nodes[0];
   }
 
-  canvas.innerHTML = `<div class="structure-lane">${
-    nodes.map((node, index) => `
-      <div class="structure-node ${currentStructureSelection.id === node.id ? 'active highlight' : ''}" data-structure-node="${node.id}">
-        <div class="structure-node-kind">${node.order ? `#${node.order}｜` : ''}${escHtml(node.subtitle)}</div>
-        <div class="structure-node-title">${escHtml(node.title)}</div>
-        <div class="structure-node-meta">
-          <span class="structure-badge">${escHtml(node.primaryLabel)}</span>
-          <span class="structure-badge">${escHtml(node.npcLabel)}</span>
-          ${node.requiredItem ? `<span class="structure-badge">🔐 ${escHtml(node.requiredItem)}</span>` : ''}
-          ${node.rewardItem ? `<span class="structure-badge">🎁 ${escHtml(node.rewardItem)}</span>` : ''}
+  const rootSubtitle = modeType === 'board_game' ? '大富翁玩法入口' : '劇情主線入口';
+  const mapCluster = boardMaps.length
+    ? `<div class="structure-cluster">
+         <div class="structure-cluster-label">棋盤結構</div>
+         ${boardMaps.map((map) => `
+           <div class="structure-node ${currentStructureSelection?.id === `board-map-${map.id}` ? 'active highlight' : ''}" data-structure-board="${map.id}">
+             <div class="structure-node-kind">${escHtml(map.play_style || 'board_game')}</div>
+             <div class="structure-node-title">${escHtml(map.name)}</div>
+             <div class="structure-node-meta">
+               <span class="structure-badge">🧩 ${map.tile_count || 0} 格</span>
+               <span class="structure-badge">🎯 ${map.challenge_tile_count || 0} 挑戰格</span>
+               <span class="structure-badge">✨ ${map.event_tile_count || 0} 事件格</span>
+             </div>
+             <div class="structure-node-desc">起點 ${map.start_tile || 1} → 終點 ${map.finish_tile || 0}</div>
+           </div>
+         `).join('')}
+       </div>`
+    : '';
+
+  canvas.innerHTML = `
+    <div class="structure-lane-wrap">
+      <div class="structure-root-node">
+        <div class="structure-node-kind">${escHtml(rootSubtitle)}</div>
+        <div class="structure-node-title">${escHtml(questChain.title)}</div>
+        <div class="structure-node-meta" style="margin-top:10px;">
+          <span class="structure-badge">${modeType === 'board_game' ? '🎲 棋盤玩法' : '📖 劇情玩法'}</span>
+          ${questChain.entry_scene_label ? `<span class="structure-badge">${escHtml(questChain.entry_scene_label)}</span>` : ''}
+          ${questChain.play_style ? `<span class="structure-badge">${escHtml(questChain.play_style)}</span>` : ''}
         </div>
-        <div class="structure-node-desc">${escHtml(node.description || '尚未填寫說明')}</div>
+        <div class="structure-node-desc" style="margin-top:10px;">${escHtml(questChain.short_description || questChain.description || '尚未填寫玩法說明')}</div>
       </div>
-      ${index < nodes.length - 1 ? '<div class="structure-link">→</div>' : ''}
-    `).join('')
-  }</div>`;
+      <div class="structure-node-link"></div>
+      ${mapCluster || ''}
+      ${mapCluster ? '<div class="structure-node-link"></div>' : ''}
+      <div class="structure-cluster">
+        <div class="structure-cluster-label">${modeType === 'board_game' ? '格子 / 關卡節點' : '關卡節點'}</div>
+        <div class="structure-lane">${
+          nodes.map((node, index) => `
+            <div class="structure-node ${currentStructureSelection.id === node.id ? 'active highlight' : ''}" data-structure-node="${node.id}">
+              <div class="structure-node-kind">${node.order ? `#${node.order}｜` : ''}${escHtml(node.subtitle)}</div>
+              <div class="structure-node-title">${escHtml(node.title)}</div>
+              <div class="structure-node-meta">
+                <span class="structure-badge">${escHtml(node.primaryLabel)}</span>
+                <span class="structure-badge">${escHtml(node.npcLabel)}</span>
+                ${node.requiredItem ? `<span class="structure-badge">🔐 ${escHtml(node.requiredItem)}</span>` : ''}
+                ${node.rewardItem ? `<span class="structure-badge">🎁 ${escHtml(node.rewardItem)}</span>` : ''}
+              </div>
+              <div class="structure-node-desc">${escHtml(node.description || '尚未填寫說明')}</div>
+            </div>
+            ${index < nodes.length - 1 ? '<div class="structure-link">→</div>' : ''}
+          `).join('')
+        }</div>
+      </div>
+    </div>`;
 
   canvas.querySelectorAll('[data-structure-node]').forEach(el => {
     el.addEventListener('click', () => {
@@ -799,6 +916,32 @@ function renderStructureMap() {
       if (!selected) return;
       currentStructureSelection = selected;
       renderStructureMap();
+    });
+  });
+  canvas.querySelectorAll('[data-structure-board]').forEach(el => {
+    el.addEventListener('click', () => {
+      const selectedBoard = boardMaps.find(map => String(map.id) === String(el.dataset.structureBoard));
+      if (!selectedBoard) return;
+      inspectorTitle.textContent = selectedBoard.name;
+      inspectorLead.textContent = `這張棋盤屬於 ${questChain.title}，共有 ${selectedBoard.tile_count || 0} 格，採用 ${selectedBoard.play_style || 'fixed_track_race'} 規則。`;
+      inspectorBody.innerHTML = `
+        <div class="inspector-item">
+          <div class="inspector-label">玩法樣式</div>
+          <div class="inspector-value">${escHtml(selectedBoard.play_style || 'fixed_track_race')}</div>
+        </div>
+        <div class="inspector-item">
+          <div class="inspector-label">關卡分布</div>
+          <div class="inspector-value">${selectedBoard.challenge_tile_count || 0} 個挑戰格｜${selectedBoard.event_tile_count || 0} 個事件格</div>
+        </div>
+        <div class="inspector-item">
+          <div class="inspector-label">路線</div>
+          <div class="inspector-value">起點 ${selectedBoard.start_tile || 1} → 終點 ${selectedBoard.finish_tile || 0}</div>
+        </div>
+      `;
+      canvas.querySelectorAll('.structure-node[data-structure-board]').forEach(nodeEl => {
+        nodeEl.classList.toggle('active', nodeEl.dataset.structureBoard === String(selectedBoard.id));
+      });
+      canvas.querySelectorAll('.structure-node[data-structure-node]').forEach(nodeEl => nodeEl.classList.remove('active'));
     });
   });
 
@@ -825,6 +968,10 @@ function renderStructureMap() {
     <div class="inspector-item">
       <div class="inspector-label">音效 / BGM</div>
       <div class="inspector-value">${escHtml(selected.audioLabel)}</div>
+    </div>
+    <div class="inspector-item">
+      <div class="inspector-label">場景敘事 / 提示</div>
+      <div class="inspector-value">${escHtml(selected.raw.stage_intro || selected.raw.story_context || selected.raw.guide_content || selected.raw.hint_text || '尚未設定提示與劇情文字')}</div>
     </div>
     <div class="inspector-item">
       <div class="inspector-label">驗證 / 節點資訊</div>
@@ -1302,6 +1449,15 @@ function deleteTile(tileId) {
 function openTaskDrawerForCreate() {
   openDrawer('新增關卡', 'form-task');
   const form = document.getElementById('taskForm');
+  activeFormId = 'taskForm';
+  taskWizardStep = 1;
+  syncTaskWizardUI();
+  document.getElementById('drawerBackBtn')?.classList.add('hidden');
+  document.getElementById('drawerNextBtn')?.classList.remove('hidden');
+  document.getElementById('drawerSubmitBtn')?.classList.add('hidden');
+  document.getElementById('drawerFooterNote').textContent = `新增關卡流程：第 1 / ${TASK_WIZARD_TOTAL_STEPS} 步`;
+  form.reset();
+  form.elements.id.value = '';
 
   // Auto-lock quest chain context
   if (currentQuestChainId) {
@@ -1340,6 +1496,13 @@ function editTask(taskId) {
 
       openDrawer('編輯關卡', 'form-task');
       const form = document.getElementById('taskForm');
+      activeFormId = 'taskForm';
+      taskWizardStep = 1;
+      syncTaskWizardUI();
+      document.getElementById('drawerBackBtn')?.classList.add('hidden');
+      document.getElementById('drawerNextBtn')?.classList.remove('hidden');
+      document.getElementById('drawerSubmitBtn')?.classList.add('hidden');
+      document.getElementById('drawerFooterNote').textContent = `新增關卡流程：第 1 / ${TASK_WIZARD_TOTAL_STEPS} 步`;
 
       // Fill basic fields
       form.elements.id.value = t.id;
@@ -1695,22 +1858,46 @@ if (uploadBgmBtnEl) {
 
 // ── Delete Task ───────────────────────────────────────────────
 function deleteTask(taskId) {
-  showConfirm('確定要刪除這個關卡嗎？若它已綁到棋盤格或已有玩家進度，刪除可能會影響既有內容。', async () => {
-    try {
-      await apiJson(`${API_BASE}/api/tasks/${taskId}`, {
-        method: 'DELETE',
-        headers: withActorHeaders()
-      });
-      showToast('關卡已刪除');
-      lastMutatedTaskId = null;
-      if (currentQuestChainId) {
-        if (currentQuestChainMode === 'board_game') loadBoardContent(currentQuestChainId);
-        else loadTasksForQuest(currentQuestChainId);
-        loadStructureMap(currentQuestChainId);
-      }
-    } catch (err) {
-      showToast(err.message || '刪除失敗', 'error');
+  apiJson(`${API_BASE}/api/tasks/${taskId}/delete-impact`, {
+    headers: withActorHeaders()
+  }).then(({ task, impact }) => {
+    const lines = [
+      `確定要刪除「${task.name}」嗎？`,
+      '',
+      '這次會影響：',
+      `- 所屬玩法：${task.quest_chain_title || '未綁定'}`,
+      `- 玩家關卡進度：${impact.userTaskCount || 0} 筆`,
+      `- 拍照 / 嘗試紀錄：${impact.taskAttemptCount || 0} 筆`,
+      `- 棋盤格綁定：${impact.boardTileCount || 0} 個`
+    ];
+    if ((impact.boardTiles || []).length) {
+      lines.push('', '關聯棋盤格：', ...impact.boardTiles.slice(0, 5).map((tile) => `- ${tile.board_map_name}｜第 ${tile.tile_index} 格｜${tile.tile_name}`));
     }
+    if ((impact.userTaskCount || 0) > 0) {
+      lines.push('', '系統會一併清理玩家在這關的進度資料。');
+    }
+    if ((impact.boardTileCount || 0) > 0) {
+      lines.push('系統會保留棋盤格，但會自動解除該格與本關卡的綁定。');
+    }
+    showConfirm(lines.join('\n'), async () => {
+      try {
+        await apiJson(`${API_BASE}/api/tasks/${taskId}`, {
+          method: 'DELETE',
+          headers: withActorHeaders()
+        });
+        showToast('關卡已刪除');
+        lastMutatedTaskId = null;
+        if (currentQuestChainId) {
+          if (currentQuestChainMode === 'board_game') loadBoardContent(currentQuestChainId);
+          else loadTasksForQuest(currentQuestChainId);
+          loadStructureMap(currentQuestChainId);
+        }
+      } catch (err) {
+        showToast(err.message || '刪除失敗', 'error');
+      }
+    });
+  }).catch((err) => {
+    showToast(err.message || '無法載入關卡影響範圍', 'error');
   });
 }
 

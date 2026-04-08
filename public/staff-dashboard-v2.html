@@ -136,6 +136,55 @@
 
     .drawer-form-section { display: none; }
     .drawer-form-section.active { display: block; }
+    .wizard-shell { margin-bottom: 16px; }
+    .wizard-steps {
+      display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;
+    }
+    .wizard-step-chip {
+      min-width: 0;
+      flex: 1 1 0;
+      background:#f8fafc;
+      border:1px solid #dbeafe;
+      border-radius: 12px;
+      padding:10px 12px;
+      color:#64748b;
+    }
+    .wizard-step-chip.active {
+      background: linear-gradient(135deg,#eff6ff,#ecfeff);
+      border-color:#0f766e;
+      color:#0f172a;
+      box-shadow: 0 8px 18px rgba(15,118,110,0.12);
+    }
+    .wizard-step-chip.done {
+      background:#f0fdf4;
+      border-color:#86efac;
+      color:#166534;
+    }
+    .wizard-step-no { font-size:0.72rem; font-weight:700; letter-spacing:.04em; }
+    .wizard-step-title { font-size:0.88rem; font-weight:700; margin-top:4px; }
+    .wizard-step-subtitle { font-size:0.76rem; margin-top:2px; }
+    .task-wizard-step { display:none; }
+    .task-wizard-step.active { display:block; }
+    .wizard-footer-note { font-size:0.8rem; color:#64748b; margin-right:auto; }
+    .drawer-footer .hidden { display:none !important; }
+    .task-delete-impact {
+      background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px; margin-top:10px;
+    }
+    .task-delete-impact h4 { margin:0 0 8px; font-size:0.9rem; color:#0f172a; }
+    .task-delete-impact ul { margin:0; padding-left:18px; color:#475569; font-size:0.84rem; }
+    .structure-root-node {
+      min-width:220px; border-radius:20px; background:linear-gradient(135deg,#0f766e,#164e63); color:white;
+      padding:18px; box-shadow:0 12px 28px rgba(8,47,73,0.24);
+    }
+    .structure-root-node .structure-node-kind,
+    .structure-root-node .structure-node-desc { color:rgba(255,255,255,0.82); }
+    .structure-lane-wrap { display:flex; gap:16px; align-items:center; min-width:max-content; }
+    .structure-cluster { display:flex; flex-direction:column; gap:12px; }
+    .structure-cluster-label { font-size:.8rem; font-weight:700; color:#0f172a; }
+    .structure-node-link {
+      width:38px; min-width:38px; height:2px; background:linear-gradient(90deg,#94a3b8,#cbd5e1);
+      border-radius:999px;
+    }
 
     /* Form overrides for V2 */
     .v2-form .form-group { margin-bottom: 16px; }
@@ -640,6 +689,32 @@
           <input type="hidden" name="id" id="task_id">
           <input type="hidden" name="quest_chain_id" id="task_quest_chain_id">
 
+          <div class="wizard-shell">
+            <div class="wizard-steps" id="taskWizardSteps">
+              <div class="wizard-step-chip active" data-step-chip="1">
+                <div class="wizard-step-no">STEP 1</div>
+                <div class="wizard-step-title">選內容類型</div>
+                <div class="wizard-step-subtitle">先定義這一關是什麼玩法</div>
+              </div>
+              <div class="wizard-step-chip" data-step-chip="2">
+                <div class="wizard-step-no">STEP 2</div>
+                <div class="wizard-step-title">基本資料</div>
+                <div class="wizard-step-subtitle">所屬主結構、位置、積分</div>
+              </div>
+              <div class="wizard-step-chip" data-step-chip="3">
+                <div class="wizard-step-no">STEP 3</div>
+                <div class="wizard-step-title">互動與驗證</div>
+                <div class="wizard-step-subtitle">玩家怎麼玩，AI 怎麼判</div>
+              </div>
+              <div class="wizard-step-chip" data-step-chip="4">
+                <div class="wizard-step-no">STEP 4</div>
+                <div class="wizard-step-title">玩家體驗與素材</div>
+                <div class="wizard-step-subtitle">文案、提示、封面與音效</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="task-wizard-step active" data-task-step="1">
           <!-- Locked context -->
           <div class="locked-field" id="taskLockedContext">
             <div class="locked-field-label">目前所屬玩法</div>
@@ -686,7 +761,9 @@
               </div>
             </div>
           </div>
+          </div>
 
+          <div class="task-wizard-step" data-task-step="2">
           <!-- Category -->
           <div class="section-title">遊戲定位</div>
           <div class="form-group">
@@ -767,7 +844,9 @@
               <input class="form-input" type="number" name="points" min="0" value="0" required>
             </div>
           </div>
+          </div>
 
+          <div class="task-wizard-step" data-task-step="3">
           <hr class="section-divider">
           <div class="section-title">互動方式</div>
 
@@ -880,7 +959,9 @@
               </div>
             </div>
           </div>
+          </div>
 
+          <div class="task-wizard-step" data-task-step="4">
           <hr class="section-divider">
           <div class="section-title">玩家感受到的內容</div>
 
@@ -961,6 +1042,7 @@
           </div>
 
           <div id="taskFormMsg" class="inline-form-msg"></div>
+          </div>
         </form>
       </div>
 
@@ -1231,8 +1313,11 @@
 
     </div>
     <div class="drawer-footer">
+      <div id="drawerFooterNote" class="wizard-footer-note"></div>
       <button class="btn-md btn-secondary-v2" onclick="closeDrawer()">取消</button>
-      <button class="btn-md btn-primary-v2" onclick="submitActiveForm()">儲存</button>
+      <button class="btn-md btn-secondary-v2 hidden" id="drawerBackBtn" type="button" onclick="goTaskWizardStep(-1)">上一步</button>
+      <button class="btn-md btn-primary-v2 hidden" id="drawerNextBtn" type="button" onclick="goTaskWizardStep(1)">下一步</button>
+      <button class="btn-md btn-primary-v2" id="drawerSubmitBtn" onclick="submitActiveForm()">儲存</button>
     </div>
   </div>
 
@@ -1250,6 +1335,6 @@
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 
-  <script src="/js/staff-dashboard-v2.js"></script>
+  <script src="/js/staff-dashboard-v2.js?v=20260408c"></script>
 </body>
 </html>
