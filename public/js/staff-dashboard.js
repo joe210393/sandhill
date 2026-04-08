@@ -277,6 +277,17 @@ function getTaskWizardStepElement(step) {
   return document.querySelector(`.task-wizard-step[data-task-step="${step}"]`);
 }
 
+function resolveActiveForm() {
+  const activeSection = drawer?.dataset.activeSection
+    ? document.getElementById(drawer.dataset.activeSection)
+    : document.querySelector('.drawer-form-section.active');
+  if (!activeSection) return null;
+  const fallbackFormId = activeSection.dataset.formId || DRAWER_FORM_ID_MAP[activeSection.id] || '';
+  const form = fallbackFormId ? document.getElementById(fallbackFormId) : activeSection.querySelector('form');
+  if (form?.id) activeFormId = form.id;
+  return form || null;
+}
+
 function scrollToFirstInvalid(scope) {
   if (!scope) return;
   const firstInvalid = scope.querySelector(':invalid');
@@ -291,7 +302,7 @@ function syncDrawerFooter() {
   const backBtn = document.getElementById('drawerBackBtn');
   const nextBtn = document.getElementById('drawerNextBtn');
   const submitBtn = document.getElementById('drawerSubmitBtn');
-  const form = activeFormId ? document.getElementById(activeFormId) : null;
+  const form = activeFormId ? document.getElementById(activeFormId) : resolveActiveForm();
   const isTaskWizard = activeFormId === 'taskForm';
   const hasActiveForm = !!form;
 
@@ -407,7 +418,7 @@ function openDrawer(title, formSectionId, data, opts = {}) {
   drawer.dataset.activeSection = formSectionId;
 
   const form = section.querySelector('form');
-  activeFormId = form ? form.id : null;
+  activeFormId = section.dataset.formId || (form ? form.id : null);
   taskWizardStep = 1;
 
   if (data && form) {
@@ -438,16 +449,7 @@ function closeDrawer() {
 
 function submitActiveForm() {
   let form = activeFormId ? document.getElementById(activeFormId) : null;
-  if (!form) {
-    const activeSection = drawer.dataset.activeSection
-      ? document.getElementById(drawer.dataset.activeSection)
-      : document.querySelector('.drawer-form-section.active');
-    if (activeSection) {
-      const fallbackFormId = activeSection.dataset.formId || DRAWER_FORM_ID_MAP[activeSection.id] || '';
-      form = fallbackFormId ? document.getElementById(fallbackFormId) : activeSection.querySelector('form');
-      activeFormId = form ? form.id : null;
-    }
-  }
+  if (!form) form = resolveActiveForm();
   if (!form) {
     showToast('目前沒有可儲存的表單', 'error');
     syncDrawerFooter();
