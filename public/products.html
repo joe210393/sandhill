@@ -6,8 +6,37 @@
   <title>獎勵兌換 | 沙丘</title>
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="icon" type="image/png" href="/images/mascot.png" />
+  <script>
+    try {
+      if (new URLSearchParams(location.search).get('embed') === '1') document.documentElement.classList.add('embed-mode');
+    } catch (e) {}
+  </script>
+  <style>
+    .embed-topbar {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      padding: 0.55rem 1rem;
+      background: #1e293b;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+    }
+    .embed-topbar a {
+      color: #93c5fd;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .embed-topbar a:hover { text-decoration: underline; }
+    html.embed-mode #mainHeader,
+    html.embed-mode footer { display: none !important; }
+    html.embed-mode .embed-topbar { display: flex !important; }
+    html.embed-mode main { padding-top: 0.5rem; }
+  </style>
 </head>
 <body>
+  <div class="embed-topbar" id="embedTopbarProducts"><span>獎勵兌換預覽</span><a href="/staff-dashboard.html#reward-shop">回管理控制台</a></div>
   <header id="mainHeader">
     <div class="header-content" id="headerContent">
       <h1 id="pageTitle">獎勵兌換</h1>
@@ -29,7 +58,7 @@
 
   <main>
     <!-- 用戶積分卡片 -->
-    <div style="background: var(--gradient-primary); color: white; border-radius: 1rem; padding: 2rem; margin: 0 auto 2rem auto; max-width: 400px; text-align: center; box-shadow: var(--shadow-lg);">
+    <div id="productsPointsHero" style="background: var(--gradient-primary); color: white; border-radius: 1rem; padding: 2rem; margin: 0 auto 2rem auto; max-width: 400px; text-align: center; box-shadow: var(--shadow-lg);">
       <h2 style="margin: 0 0 0.5rem 0; font-size: 1.2rem; opacity: 0.9;">我的積分</h2>
       <div id="userPoints" style="font-size: 3rem; font-weight: 700; margin: 0.5rem 0; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">0</div>
       <div style="font-size: 0.9rem; opacity: 0.8;">累計積分</div>
@@ -44,7 +73,7 @@
     </section>
 
     <!-- 兌換記錄 -->
-    <section style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #eee;">
+    <section id="productsRedemptionSection" style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #eee;">
       <h2 class="text-center mb-4">📋 兌換記錄</h2>
       <div id="redemptionHistory">
         <div class="loading-spinner"></div>
@@ -59,6 +88,10 @@
   <script>
     // Header功能
     const loginUser = JSON.parse(localStorage.getItem('loginUser') || 'null');
+
+    const __productsParams = new URLSearchParams(location.search);
+    const productsEmbedMode = __productsParams.get('embed') === '1';
+    const productsOpsPreview = productsEmbedMode && loginUser && ['admin', 'shop', 'staff'].includes(loginUser.role);
 
     // 權限檢查
     if (!loginUser) {
@@ -178,6 +211,8 @@
           redeemButtonHtml = `<button class="btn btn-secondary w-100" disabled>已售完</button>`;
         } else if (isStaff && isOwnProduct) {
           redeemButtonHtml = `<div class="text-center text-danger" style="font-size:0.9rem; padding:0.6rem;">⚠️ 無法兌換自己的商品</div>`;
+        } else if (productsOpsPreview) {
+          redeemButtonHtml = `<div class="text-center text-secondary" style="font-size:0.9rem; padding:0.65rem;">預覽：請用玩家帳號於前台兌換</div>`;
         } else {
           redeemButtonHtml = `<button class="btn btn-primary w-100" onclick="redeemProduct(${product.id}, ${product.points_required}, ${product.stock})">立即兌換</button>`;
         }
@@ -415,9 +450,17 @@
     };
 
     // 初始化
-    loadUserPoints();
-    loadProducts();
-    loadRedemptionHistory();
+    if (productsOpsPreview) {
+      const h = document.getElementById('productsPointsHero');
+      const r = document.getElementById('productsRedemptionSection');
+      if (h) h.style.display = 'none';
+      if (r) r.style.display = 'none';
+      loadProducts();
+    } else {
+      loadUserPoints();
+      loadProducts();
+      loadRedemptionHistory();
+    }
   </script>
   <script src="/js/nav-access.js"></script>
 </body>

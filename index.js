@@ -5498,6 +5498,153 @@ function couponIsExpired(row) {
   return Date.now() > end.getTime();
 }
 
+function generateCouponCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i = 0; i < 10; i += 1) {
+    s += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return s;
+}
+
+// 發放優惠券／兌換卷（綁定玩家）
+app.post('/api/coupons/issue', shopOrAdminAuth, async (req, res) => {
+  const body = req.body || {};
+  const username = typeof body.username === 'string' ? body.username.trim() : '';
+  const title = typeof body.title === 'string' ? body.title.trim() : '';
+  const amtRaw = body.discount_amount;
+  const pctRaw = body.discount_percent;
+  const amt = amtRaw != null && amtRaw !== '' ? Number(amtRaw) : null;
+  const pct = pctRaw != null && pctRaw !== '' ? parseInt(pctRaw, 10) : null;
+  const hasAmt = Number.isFinite(amt) && amt > 0;
+  const hasPct = Number.isFinite(pct) && pct > 0 && pct <= 100;
+  let expiryDate = null;
+  if (body.expiry_date != null && String(body.expiry_date).trim() !== '') {
+    const d = String(body.expiry_date).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      return res.status(400).json({ success: false, message: '到期日格式須為 YYYY-MM-DD' });
+    }
+    expiryDate = d;
+  }
+  let couponCode = typeof body.coupon_code === 'string' ? body.coupon_code.trim() : '';
+  if (!username) {
+    return res.status(400).json({ success: false, message: '請填寫玩家手機（帳號）' });
+  }
+  if (!title || title.length > 255) {
+    return res.status(400).json({ success: false, message: '請填寫券名稱（最多 255 字）' });
+  }
+  if ((hasAmt && hasPct) || (!hasAmt && !hasPct)) {
+    return res.status(400).json({ success: false, message: '請擇一填寫「折扣金額」或「折扣百分比」（1–100）' });
+  }
+  if (couponCode) {
+    if (!/^[A-Za-z0-9_-]{4,32}$/.test(couponCode)) {
+      return res.status(400).json({ success: false, message: '自訂代碼須為 4–32 碼英數、底線或連字號' });
+    }
+  }
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [users] = await conn.execute(
+      'SELECT id, username, role FROM users WHERE username = ? LIMIT 1',
+      [username]
+    );
+    if (users.length === 0) {
+      return res.status(404).json({ success: false, message: '找不到此帳號' });
+    }
+    const u = users[0];
+    if (u.role !== 'user') {
+      return res.status(400).json({ success: false, message: '僅能發放給一般玩家帳號' });
+    }
+    const discountAmount = hasAmt ? amt : null;
+    const discountPercent = hasPct ? pct : null;
+    let insertId;
+    if (couponCode) {
+      const [ins] = await conn.execute(
+        `INSERT INTO user_coupons (coupon_code, user_id, title, discount_amount, discount_percent, expiry_date, is_used, status)
+         VALUES (?, ?, ?, ?, ?, ?, 0, 'active')`,
+        [couponCode, u.id, title, discountAmount, discountPercent, expiryDate]
+      );
+      insertId = ins.insertId;
+    } else {
+      let attempts = 0;
+      while (attempts < 8) {
+        attempts += 1;
+        const code = generateCouponCode();
+        try {
+          const [ins] = await conn.execute(
+            `INSERT INTO user_coupons (coupon_code, user_id, title, discount_amount, discount_percent, expiry_date, is_used, status)
+             VALUES (?, ?, ?, ?, ?, ?, 0, 'active')`,
+            [code, u.id, title, discountAmount, discountPercent, expiryDate]
+          );
+          insertId = ins.insertId;
+          couponCode = code;
+          break;
+        } catch (e) {
+          if (e && e.code === 'ER_DUP_ENTRY') continue;
+          throw e;
+        }
+      }
+      if (!couponCode) {
+        return res.status(500).json({ success: false, message: '產生代碼重試失敗，請稍後再試' });
+      }
+    }
+    res.json({
+      success: true,
+      message: '已發放兌換卷',
+      coupon: { id: insertId, coupon_code: couponCode, username: u.username, title }
+    });
+  } catch (err) {
+    if (err && err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ success: false, message: '此優惠券代碼已被使用，請換一組' });
+    }
+    console.error('coupon issue', err);
+    res.status(500).json({ success: false, message: '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// 最近發放的兌換卷列表（後台）
+app.get('/api/coupons/issued', shopOrAdminAuth, async (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize, 10) || 30));
+  const offset = (page - 1) * pageSize;
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [rows] = await conn.execute(
+      `SELECT uc.id, uc.coupon_code, uc.title, uc.discount_amount, uc.discount_percent, uc.expiry_date,
+              uc.is_used, uc.used_at, uc.created_at, u.username AS owner_username
+       FROM user_coupons uc
+       LEFT JOIN users u ON uc.user_id = u.id
+       ORDER BY uc.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [pageSize, offset]
+    );
+    const [[{ total }]] = await conn.execute('SELECT COUNT(*) AS total FROM user_coupons');
+    const coupons = rows.map((r) => ({
+      id: r.id,
+      coupon_code: r.coupon_code,
+      title: r.title,
+      discount_amount: r.discount_amount,
+      discount_percent: r.discount_percent,
+      discount: formatCouponDiscount(r),
+      expiry_date: r.expiry_date,
+      is_used: !!r.is_used,
+      used_at: r.used_at,
+      created_at: r.created_at,
+      username: r.owner_username || null,
+      status: r.is_used ? 'used' : (couponIsExpired(r) ? 'expired' : 'active')
+    }));
+    res.json({ success: true, coupons, page, pageSize, total: Number(total) || 0 });
+  } catch (err) {
+    console.error('coupon issued list', err);
+    res.status(500).json({ success: false, message: '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
 // 查詢優惠券（依代碼）
 app.get('/api/coupons/lookup/:code', shopOrAdminAuth, async (req, res) => {
   const raw = req.params.code || '';

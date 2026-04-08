@@ -94,7 +94,9 @@ const STAFF_DASH_HASH_BY_VIEW = {
   'view-assets': 'assets',
   'view-review': 'review',
   'view-products': 'products',
+  'view-reward-shop': 'reward-shop',
   'view-redemptions': 'redemptions',
+  'view-coupon-issue': 'coupon-issue',
   'view-pos': 'pos',
   'view-users': 'users',
   'view-roles': 'roles'
@@ -145,7 +147,9 @@ function switchView(viewId, opts = {}) {
     'view-assets': 'view-assets',
     'view-review': 'view-review',
     'view-products': 'view-products',
+    'view-reward-shop': 'view-reward-shop',
     'view-redemptions': 'view-redemptions',
+    'view-coupon-issue': 'view-coupon-issue',
     'view-pos': 'view-pos',
     'view-users': 'view-users',
     'view-roles': 'view-roles'
@@ -159,8 +163,10 @@ function switchView(viewId, opts = {}) {
 
   // Lazy-load data for new views
   if (viewId === 'view-review') ensureReviewIframe();
+  if (viewId === 'view-reward-shop') ensureRewardShopIframe();
   if (viewId === 'view-products') loadProducts();
   if (viewId === 'view-redemptions') loadRedemptions();
+  if (viewId === 'view-coupon-issue') loadIssuedCoupons();
   if (viewId === 'view-pos') loadPosHistory();
   if (viewId === 'view-users') loadUsers(1);
 }
@@ -170,6 +176,14 @@ function ensureReviewIframe() {
   if (!iframe) return;
   if (!iframe.getAttribute('src') || iframe.getAttribute('src') === 'about:blank') {
     iframe.src = '/user-tasks.html?embed=1';
+  }
+}
+
+function ensureRewardShopIframe() {
+  const iframe = document.getElementById('rewardShopIframe');
+  if (!iframe) return;
+  if (!iframe.getAttribute('src') || iframe.getAttribute('src') === 'about:blank') {
+    iframe.src = '/products.html?embed=1';
   }
 }
 
@@ -2422,6 +2436,83 @@ function cancelRedemption(id) {
       credentials: 'include',
       body: JSON.stringify({ status: 'cancelled' })
     }).then(r => r.json()).then(d => { if (d.success) { showToast('兌換已取消'); loadRedemptions(); } else showToast(d.message || '失敗', 'error'); });
+  });
+}
+
+// ── 發放兌換卷 ────────────────────────────────────────────────
+function loadIssuedCoupons() {
+  const c = document.getElementById('issuedCouponsContainer');
+  if (!c) return;
+  fetch(`${API_BASE}/api/coupons/issued?page=1&pageSize=40`, {
+    headers: { 'x-username': loginUser.username },
+    credentials: 'include'
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) {
+        c.innerHTML = '<div style="color:#94a3b8;">載入失敗</div>';
+        return;
+      }
+      if (!data.coupons?.length) {
+        c.innerHTML = '<div style="color:#94a3b8; font-size:0.9rem;">尚無發放紀錄</div>';
+        return;
+      }
+      c.innerHTML = data.coupons.map(cp => `
+        <div style="background:#f8fafc; padding:12px 14px; border-radius:8px; border:1px solid #e2e8f0;">
+          <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <div style="font-weight:600;">${escHtml(cp.title)}</div>
+              <div style="font-size:0.85rem; color:#64748b; margin-top:4px;">代碼 <code style="background:#e2e8f0;padding:2px 6px;border-radius:4px;">${escHtml(cp.coupon_code)}</code> · ${escHtml(cp.username || '—')}</div>
+            </div>
+            <span class="tag ${cp.is_used ? 'tag-gray' : (cp.status === 'expired' ? 'tag-amber' : 'tag-green')}">${cp.is_used ? '已核銷' : (cp.status === 'expired' ? '已過期' : '未使用')}</span>
+          </div>
+          <div style="font-size:0.82rem; color:#64748b; margin-top:8px;">${cp.discount ? `折扣 ${escHtml(String(cp.discount))}` : ''}${cp.expiry_date ? ` · 到期 ${escHtml(String(cp.expiry_date))}` : ''}${cp.created_at ? ` · ${escHtml(new Date(cp.created_at).toLocaleString('zh-TW'))}` : ''}</div>
+        </div>
+      `).join('');
+    })
+    .catch(() => {
+      c.innerHTML = '<div style="color:#94a3b8;">載入失敗</div>';
+    });
+}
+
+const couponIssueFormEl = document.getElementById('couponIssueForm');
+if (couponIssueFormEl) {
+  couponIssueFormEl.addEventListener('submit', e => {
+    e.preventDefault();
+    const msgEl = document.getElementById('couponIssueFormMsg');
+    if (msgEl) msgEl.textContent = '';
+    const fd = new FormData(couponIssueFormEl);
+    const body = {
+      username: (fd.get('username') || '').toString().trim(),
+      title: (fd.get('title') || '').toString().trim(),
+      discount_amount: fd.get('discount_amount') || '',
+      discount_percent: fd.get('discount_percent') || '',
+      expiry_date: fd.get('expiry_date') || '',
+      coupon_code: (fd.get('coupon_code') || '').toString().trim()
+    };
+    fetch(`${API_BASE}/api/coupons/issue`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+      credentials: 'include',
+      body: JSON.stringify(body)
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          const code = d.coupon?.coupon_code || '';
+          showToast(code ? `已發放，代碼：${code}` : (d.message || '已發放'));
+          couponIssueFormEl.reset();
+          loadIssuedCoupons();
+        } else if (msgEl) {
+          msgEl.textContent = d.message || '發放失敗';
+        } else {
+          showToast(d.message || '發放失敗', 'error');
+        }
+      })
+      .catch(() => {
+        if (msgEl) msgEl.textContent = '連線失敗';
+        else showToast('連線失敗', 'error');
+      });
   });
 }
 

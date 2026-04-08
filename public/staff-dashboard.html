@@ -233,8 +233,14 @@
       <div class="v2-nav-item" data-view="view-products" data-roles="admin,shop">
         <span>📦</span> 兌換商品管理
       </div>
+      <div class="v2-nav-item" data-view="view-reward-shop" data-roles="admin,shop">
+        <span>🎁</span> 獎勵兌換預覽
+      </div>
       <div class="v2-nav-item" data-view="view-redemptions" data-roles="admin,shop">
         <span>🧾</span> 兌換紀錄
+      </div>
+      <div class="v2-nav-item" data-view="view-coupon-issue" data-roles="admin,shop">
+        <span>🎟️</span> 發放兌換卷
       </div>
       <div class="v2-nav-item" data-view="view-pos" data-roles="admin,shop">
         <span>💳</span> 現場核銷
@@ -353,12 +359,25 @@
         </div>
         <p class="view-subtitle">後台維護可兌換品項、庫存與上下架。玩家實際兌換請至前台商城操作。</p>
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; align-items:center;">
-          <a href="/products.html" target="_blank" rel="noopener" class="btn-sm btn-secondary-v2" style="text-decoration:none;">開啟玩家兌換商城（新分頁）</a>
+          <button type="button" class="btn-sm btn-secondary-v2" onclick="switchView('view-reward-shop')">獎勵兌換預覽（玩家畫面）</button>
+          <a href="/products.html" target="_blank" rel="noopener" class="btn-sm btn-secondary-v2" style="text-decoration:none;">另開前台商城</a>
           <button type="button" class="btn-sm btn-secondary-v2" onclick="switchView('view-redemptions')">前往兌換紀錄</button>
-          <button type="button" class="btn-sm btn-secondary-v2" onclick="switchView('view-pos')">前往優惠券核銷</button>
+          <button type="button" class="btn-sm btn-secondary-v2" onclick="switchView('view-coupon-issue')">發放兌換卷</button>
+          <button type="button" class="btn-sm btn-secondary-v2" onclick="switchView('view-pos')">現場核銷</button>
         </div>
         <div id="productListContainer" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:14px;">
           <div class="empty-state"><div class="empty-state-icon">📦</div>載入中...</div>
+        </div>
+      </div>
+
+      <!-- View: 獎勵兌換預覽（內嵌前台商城） -->
+      <div id="view-reward-shop" class="v2-view">
+        <div class="view-header">
+          <h2>獎勵兌換預覽</h2>
+        </div>
+        <p class="view-subtitle">與玩家在前台看到的可兌換列表相同；營運帳號在此為<strong>預覽</strong>，不會在此扣點兌換。實際兌換請玩家登入「獎勵兌換」頁操作。</p>
+        <div class="review-iframe-wrap" style="border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; background:#fff;">
+          <iframe id="rewardShopIframe" title="獎勵兌換預覽" src="about:blank" style="width:100%; min-height:min(85vh, 900px); border:0; display:block;"></iframe>
         </div>
       </div>
 
@@ -379,6 +398,50 @@
         </div>
         <div id="redemptionListContainer" style="display:grid; gap:10px;">
           <div class="empty-state"><div class="empty-state-icon">🧾</div>載入中...</div>
+        </div>
+      </div>
+
+      <!-- View: 發放兌換卷 -->
+      <div id="view-coupon-issue" class="v2-view">
+        <div class="view-header">
+          <h2>發放兌換卷</h2>
+        </div>
+        <p class="view-subtitle">建立綁定<strong>玩家手機帳號</strong>的優惠券／兌換卷；玩家可持代碼至「現場核銷」使用。請擇一設定<strong>折扣金額</strong>或<strong>折扣百分比</strong>。</p>
+        <div style="max-width:520px; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:20px; margin-bottom:20px;">
+          <form id="couponIssueForm" class="v2-form">
+            <div class="form-group">
+              <label class="form-label">玩家手機（登入帳號）</label>
+              <input class="form-input" type="text" name="username" required maxlength="32" placeholder="10 碼手機" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label class="form-label">券名稱</label>
+              <input class="form-input" type="text" name="title" required maxlength="255" placeholder="例如：沙丘開幕禮">
+            </div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label">折扣金額（元）</label>
+                <input class="form-input" type="number" name="discount_amount" min="0" step="0.01" placeholder="與百分比擇一">
+              </div>
+              <div class="form-group">
+                <label class="form-label">折扣百分比（1–100）</label>
+                <input class="form-input" type="number" name="discount_percent" min="1" max="100" step="1" placeholder="與金額擇一">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">到期日（選填）</label>
+              <input class="form-input" type="date" name="expiry_date">
+            </div>
+            <div class="form-group">
+              <label class="form-label">自訂代碼（選填，4–32 碼英數）</label>
+              <input class="form-input" type="text" name="coupon_code" maxlength="32" placeholder="留空則自動產生" autocomplete="off">
+            </div>
+            <button type="submit" class="btn-md btn-primary-v2">發放</button>
+            <div id="couponIssueFormMsg" style="color:#dc2626; font-size:0.88rem; margin-top:10px; min-height:20px;"></div>
+          </form>
+        </div>
+        <h3 style="font-size:1rem; color:#64748b; margin-bottom:10px;">最近發放</h3>
+        <div id="issuedCouponsContainer" style="display:grid; gap:8px;">
+          <div class="empty-state" style="padding:1rem;"><div class="empty-state-icon">🎟️</div>載入中...</div>
         </div>
       </div>
 
