@@ -43,19 +43,28 @@ function escHtml(str) {
 // ── View Switching ────────────────────────────────────────────
 function switchView(viewId) {
   document.querySelectorAll('.v2-view').forEach(el => el.classList.remove('active'));
-  document.getElementById(viewId).classList.add('active');
+  document.getElementById(viewId)?.classList.add('active');
 
-  // Update sidebar active state only for top-level views
   const navMap = {
     'view-quest-chains': 'view-quest-chains',
-    'view-quest-detail': 'view-quest-chains', // keep parent highlighted
+    'view-quest-detail': 'view-quest-chains',
     'view-assets': 'view-assets',
-    'view-settings': 'view-settings'
+    'view-products': 'view-products',
+    'view-redemptions': 'view-redemptions',
+    'view-pos': 'view-pos',
+    'view-users': 'view-users',
+    'view-roles': 'view-roles'
   };
   const targetNav = navMap[viewId] || viewId;
   document.querySelectorAll('.v2-nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.view === targetNav);
   });
+
+  // Lazy-load data for new views
+  if (viewId === 'view-products') loadProducts();
+  if (viewId === 'view-redemptions') loadRedemptions();
+  if (viewId === 'view-pos') loadPosHistory();
+  if (viewId === 'view-users') loadUsers(1);
 }
 
 // Sidebar click handlers
@@ -1598,7 +1607,395 @@ function switchAssetTab(tab, el) {
   document.getElementById('btnItemAdd').style.display = tab === 'items' ? 'inline-flex' : 'none';
 }
 
+// ── RBAC Sidebar Control ──────────────────────────────────────
+function applySidebarRBAC() {
+  const role = loginUser?.role || '';
+  document.querySelectorAll('.v2-nav-item[data-roles]').forEach(item => {
+    const allowed = item.dataset.roles.split(',');
+    item.style.display = allowed.includes(role) ? 'flex' : 'none';
+  });
+  // Hide section labels if all items below are hidden
+  document.querySelectorAll('.v2-sidebar-label').forEach(label => {
+    let next = label.nextElementSibling;
+    let hasVisible = false;
+    while (next && !next.classList.contains('v2-sidebar-label')) {
+      if (next.style.display !== 'none') hasVisible = true;
+      next = next.nextElementSibling;
+    }
+    label.style.display = hasVisible ? 'block' : 'none';
+  });
+  // Auto-select first visible nav item
+  const firstVisible = document.querySelector('.v2-nav-item[style*="flex"], .v2-nav-item:not([style*="none"])');
+  if (firstVisible) {
+    document.querySelectorAll('.v2-nav-item').forEach(n => n.classList.remove('active'));
+    firstVisible.classList.add('active');
+    switchView(firstVisible.dataset.view);
+  }
+  // Hide create account section for shop role
+  const createSection = document.getElementById('roleSection_createAccount');
+  if (createSection) createSection.style.display = role === 'admin' ? 'block' : 'none';
+}
+
+// ── Mobile Sidebar Toggle ─────────────────────────────────────
+const sidebarToggle = document.getElementById('sidebarToggle');
+const mainSidebar = document.getElementById('mainSidebar');
+const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+if (sidebarToggle && mainSidebar) {
+  sidebarToggle.addEventListener('click', () => {
+    mainSidebar.classList.toggle('mobile-open');
+    sidebarBackdrop.classList.toggle('open');
+  });
+  if (sidebarBackdrop) {
+    sidebarBackdrop.addEventListener('click', () => {
+      mainSidebar.classList.remove('mobile-open');
+      sidebarBackdrop.classList.remove('open');
+    });
+  }
+  // Close sidebar on nav click (mobile)
+  document.querySelectorAll('.v2-nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      mainSidebar.classList.remove('mobile-open');
+      sidebarBackdrop.classList.remove('open');
+    });
+  });
+}
+
+// ── Confirm Dialog ────────────────────────────────────────────
+let confirmCallback = null;
+function showConfirm(msg, onOk) {
+  document.getElementById('confirmMsg').textContent = msg;
+  document.getElementById('confirmDialog').style.display = 'block';
+  confirmCallback = onOk;
+}
+function closeConfirm() {
+  document.getElementById('confirmDialog').style.display = 'none';
+  confirmCallback = null;
+}
+document.getElementById('confirmOkBtn').addEventListener('click', () => {
+  if (confirmCallback) confirmCallback();
+  closeConfirm();
+});
+
+// ── Products ──────────────────────────────────────────────────
+let globalProducts = [];
+function loadProducts() {
+  return fetch(`${API_BASE}/api/products/admin`, { headers: { 'x-username': loginUser.username } })
+    .then(r => r.json()).then(data => {
+      if (!data.success) return;
+      globalProducts = data.products || [];
+      renderProducts();
+    }).catch(() => {});
+}
+
+function renderProducts() {
+  const c = document.getElementById('productListContainer');
+  if (!c) return;
+  if (!globalProducts.length) { c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📦</div>尚無商品</div>'; return; }
+  c.innerHTML = globalProducts.map(p => `
+    <div style="background:white; padding:16px; border-radius:12px; border:1px solid #e2e8f0;">
+      ${p.image_url ? `<img src="${escHtml(p.image_url)}" style="width:100%; height:120px; object-fit:cover; border-radius:8px; margin-bottom:10px;" onerror="this.style.display='none'">` : ''}
+      <div style="font-weight:600; margin-bottom:4px;">${escHtml(p.name)}</div>
+      <div style="font-size:0.82rem; color:#64748b; margin-bottom:8px;">${escHtml(p.description || '')}</div>
+      <div style="display:flex; gap:8px; margin-bottom:10px;">
+        <span class="tag tag-amber">💰 ${p.points_required} 分</span>
+        <span class="tag tag-gray">庫存 ${p.stock ?? '∞'}</span>
+        <span class="tag ${p.is_active ? 'tag-green' : 'tag-red'}">${p.is_active ? '上架中' : '已下架'}</span>
+      </div>
+      <div style="display:flex; gap:6px; justify-content:flex-end;">
+        <button class="btn-sm btn-secondary-v2" onclick="editProduct('${p.id}')">編輯</button>
+        <button class="btn-sm btn-danger-v2" onclick="deleteProduct('${p.id}')">刪除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function editProduct(id) {
+  const p = globalProducts.find(x => String(x.id) === String(id));
+  if (!p) return;
+  openDrawer('編輯商品', 'form-product');
+  const form = document.getElementById('productForm');
+  form.elements.id.value = p.id;
+  form.elements.name.value = p.name;
+  form.elements.description.value = p.description || '';
+  form.elements.points_required.value = p.points_required;
+  form.elements.stock.value = p.stock ?? 0;
+  document.getElementById('productImageUrl').value = p.image_url || '';
+  const preview = document.getElementById('productImagePreview');
+  if (p.image_url) { preview.src = p.image_url; preview.style.display = 'block'; } else preview.style.display = 'none';
+}
+
+function deleteProduct(id) {
+  showConfirm('確定要刪除這個商品嗎？', () => {
+    fetch(`${API_BASE}/api/products/${id}`, { method: 'DELETE', headers: { 'x-username': loginUser.username } })
+      .then(r => r.json()).then(d => {
+        if (d.success) { showToast('商品已刪除'); loadProducts(); } else showToast(d.message || '刪除失敗', 'error');
+      });
+  });
+}
+
+// Product form submit
+document.getElementById('productForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const form = this; const id = form.elements.id.value;
+  const msgEl = document.getElementById('productFormMsg'); msgEl.textContent = '';
+  const fd = new FormData();
+  fd.append('name', form.name.value.trim());
+  fd.append('description', form.description.value.trim());
+  fd.append('points_required', form.points_required.value);
+  fd.append('stock', form.stock.value);
+  const imgFile = form.image?.files[0];
+  if (imgFile) fd.append('image', imgFile);
+  else if (id) fd.append('image_url', document.getElementById('productImageUrl').value);
+  const url = id ? `${API_BASE}/api/products/${id}` : `${API_BASE}/api/products`;
+  const method = id ? 'PUT' : 'POST';
+  fetch(url, { method, headers: { 'x-username': loginUser.username }, body: fd })
+    .then(r => r.json()).then(d => {
+      if (d.success) { showToast(id ? '商品已更新' : '商品已建立'); closeDrawer(); loadProducts(); }
+      else msgEl.textContent = d.message || '操作失敗';
+    }).catch(() => { msgEl.textContent = '連線失敗'; });
+});
+
+const productImageInput = document.getElementById('productImageInput');
+if (productImageInput) {
+  productImageInput.addEventListener('change', function() {
+    const file = this.files[0]; const preview = document.getElementById('productImagePreview');
+    if (file) { const r = new FileReader(); r.onload = e => { preview.src = e.target.result; preview.style.display = 'block'; }; r.readAsDataURL(file); }
+  });
+}
+
+// ── Redemptions ───────────────────────────────────────────────
+function loadRedemptions() {
+  const status = document.getElementById('redemptionStatusFilter')?.value || '';
+  const search = document.getElementById('redemptionSearch')?.value.trim() || '';
+  fetch(`${API_BASE}/api/product-redemptions/admin`, { headers: { 'x-username': loginUser.username } })
+    .then(r => r.json()).then(data => {
+      if (!data.success) return;
+      let records = data.redemptions || [];
+      if (status) records = records.filter(r => r.status === status);
+      if (search) records = records.filter(r => (r.username || '').includes(search) || (r.product_name || '').includes(search));
+      const c = document.getElementById('redemptionListContainer');
+      if (!records.length) { c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🧾</div>沒有符合的紀錄</div>'; return; }
+      c.innerHTML = records.map(r => {
+        const statusColors = { pending: 'tag-amber', completed: 'tag-green', cancelled: 'tag-red' };
+        const statusLabels = { pending: '待處理', completed: '已完成', cancelled: '已取消' };
+        const actions = r.status === 'pending' ? `
+          <button class="btn-sm btn-primary-v2" onclick="completeRedemption('${r.id}')">完成兌換</button>
+          <button class="btn-sm btn-danger-v2" onclick="cancelRedemption('${r.id}')">取消</button>
+        ` : '';
+        return `<div class="task-item">
+          <div class="task-item-body">
+            <div class="task-item-title">${escHtml(r.product_name || '商品')}</div>
+            <div style="display:flex; gap:4px; flex-wrap:wrap;">
+              <span class="tag tag-gray">👤 ${escHtml(r.username || '')}</span>
+              <span class="tag ${statusColors[r.status] || 'tag-gray'}">${statusLabels[r.status] || r.status}</span>
+              <span class="tag tag-gray">${r.created_at ? new Date(r.created_at).toLocaleString('zh-TW') : ''}</span>
+            </div>
+          </div>
+          <div class="task-item-actions">${actions}</div>
+        </div>`;
+      }).join('');
+    });
+}
+
+function completeRedemption(id) {
+  showConfirm('確定完成此兌換？', () => {
+    fetch(`${API_BASE}/api/product-redemptions/${id}/status`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+      body: JSON.stringify({ status: 'completed' })
+    }).then(r => r.json()).then(d => { if (d.success) { showToast('兌換已完成'); loadRedemptions(); } else showToast(d.message || '失敗', 'error'); });
+  });
+}
+
+function cancelRedemption(id) {
+  showConfirm('確定取消此兌換？', () => {
+    fetch(`${API_BASE}/api/product-redemptions/${id}/status`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+      body: JSON.stringify({ status: 'cancelled' })
+    }).then(r => r.json()).then(d => { if (d.success) { showToast('兌換已取消'); loadRedemptions(); } else showToast(d.message || '失敗', 'error'); });
+  });
+}
+
+// ── POS Coupon ────────────────────────────────────────────────
+function lookupCoupon() {
+  const code = document.getElementById('couponCodeInput').value.trim();
+  if (!code) { showToast('請輸入代碼', 'error'); return; }
+  const result = document.getElementById('couponResult');
+  result.style.display = 'none';
+  fetch(`${API_BASE}/api/coupons/lookup/${encodeURIComponent(code)}`, { headers: { 'x-username': loginUser.username } })
+    .then(r => r.json()).then(data => {
+      if (!data.success) { showToast(data.message || '查無此券', 'error'); return; }
+      const c = data.coupon;
+      const canRedeem = c.status === 'active' && !c.is_used;
+      result.innerHTML = `
+        <div style="margin-bottom:12px;">
+          <div style="font-weight:700; font-size:1.1rem; margin-bottom:4px;">${escHtml(c.title || '優惠券')}</div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <span class="tag ${canRedeem ? 'tag-green' : 'tag-red'}">${canRedeem ? '可核銷' : (c.is_used ? '已使用' : c.status)}</span>
+            <span class="tag tag-gray">👤 ${escHtml(c.username || '')}</span>
+            ${c.discount ? `<span class="tag tag-amber">折扣 ${c.discount}</span>` : ''}
+          </div>
+        </div>
+        ${canRedeem ? `<button class="btn-md btn-primary-v2" onclick="redeemCoupon('${c.id}')" style="width:100%;">確認核銷</button>` : '<div style="color:#dc2626; text-align:center;">此券無法核銷</div>'}
+      `;
+      result.style.display = 'block';
+    }).catch(() => showToast('查詢失敗', 'error'));
+}
+
+function redeemCoupon(id) {
+  fetch(`${API_BASE}/api/coupons/${id}/redeem`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username }
+  }).then(r => r.json()).then(d => {
+    if (d.success) { showToast('核銷成功！'); document.getElementById('couponResult').style.display = 'none'; document.getElementById('couponCodeInput').value = ''; loadPosHistory(); }
+    else showToast(d.message || '核銷失敗', 'error');
+  });
+}
+
+function loadPosHistory() {
+  fetch(`${API_BASE}/api/coupons/redeem-history`, { headers: { 'x-username': loginUser.username } })
+    .then(r => r.json()).then(data => {
+      const c = document.getElementById('posHistoryContainer');
+      if (!data.success || !data.history?.length) { c.innerHTML = '<div style="color:#94a3b8; font-size:0.85rem;">今日尚無核銷紀錄</div>'; return; }
+      c.innerHTML = data.history.map(h => `
+        <div style="background:#f8fafc; padding:10px 14px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+          <div><span style="font-weight:500;">${escHtml(h.title || h.coupon_code)}</span> <span style="color:#64748b; font-size:0.82rem;">— ${escHtml(h.username || '')}</span></div>
+          <span style="font-size:0.8rem; color:#94a3b8;">${h.redeemed_at ? new Date(h.redeemed_at).toLocaleTimeString('zh-TW') : ''}</span>
+        </div>
+      `).join('');
+    }).catch(() => {});
+}
+
+// ── Users ─────────────────────────────────────────────────────
+let currentUserPage = 1;
+function loadUsers(page) {
+  currentUserPage = page || 1;
+  fetch(`${API_BASE}/api/admin/users?page=${currentUserPage}&limit=50`, { headers: { 'x-username': loginUser.username } })
+    .then(r => r.json()).then(data => {
+      if (!data.success) return;
+      document.getElementById('totalUserCount').textContent = data.total || data.users?.length || 0;
+      const c = document.getElementById('userListContainer');
+      if (!data.users?.length) { c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div>尚無會員</div>'; return; }
+      c.innerHTML = data.users.map(u => `
+        <div class="task-item">
+          <div class="task-item-body">
+            <div class="task-item-title">👤 ${escHtml(u.username)}</div>
+            <div style="display:flex; gap:4px; flex-wrap:wrap;">
+              <span class="tag tag-gray">${escHtml(u.role || 'user')}</span>
+              <span class="tag tag-amber">💰 ${u.total_points || 0} 分</span>
+              <span class="tag tag-green">✅ ${u.completed_tasks || 0} 完成</span>
+              <span class="tag tag-blue">🔄 ${u.in_progress_tasks || 0} 進行中</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+      // Pagination
+      const totalPages = Math.ceil((data.total || data.users.length) / 50);
+      const pag = document.getElementById('userPagination');
+      if (totalPages <= 1) { pag.innerHTML = ''; return; }
+      pag.innerHTML = Array.from({length: totalPages}, (_, i) =>
+        `<button class="btn-sm ${i+1 === currentUserPage ? 'btn-primary-v2' : 'btn-secondary-v2'}" onclick="loadUsers(${i+1})">${i+1}</button>`
+      ).join('');
+    });
+}
+
+function exportUsers() {
+  window.open(`${API_BASE}/api/admin/users/export`, '_blank');
+}
+
+// Import users form
+document.getElementById('importUsersForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const form = this; const msgEl = document.getElementById('importFormMsg');
+  const fd = new FormData();
+  if (form.file.files[0]) fd.append('file', form.file.files[0]);
+  if (form.simulateActivity.checked) {
+    fd.append('simulateActivity', 'true');
+    fd.append('startDate', form.startDate.value);
+    fd.append('endDate', form.endDate.value);
+  }
+  msgEl.textContent = '匯入中...';
+  fetch(`${API_BASE}/api/admin/import-users`, { method: 'POST', headers: { 'x-username': loginUser.username }, body: fd })
+    .then(r => r.json()).then(d => {
+      if (d.success) { showToast(d.message || '匯入成功'); closeDrawer(); loadUsers(1); }
+      else msgEl.textContent = d.message || '匯入失敗';
+    }).catch(() => { msgEl.textContent = '連線失敗'; });
+});
+
+// Simulate activity toggle
+const simCheck = document.querySelector('#importUsersForm input[name="simulateActivity"]');
+if (simCheck) {
+  simCheck.addEventListener('change', () => {
+    document.getElementById('importSimFields').style.display = simCheck.checked ? 'block' : 'none';
+  });
+}
+
+// ── Roles ─────────────────────────────────────────────────────
+function createAccount() {
+  const role = document.getElementById('newAccountRole').value;
+  const username = document.getElementById('newAccountUsername').value.trim();
+  const password = document.getElementById('newAccountPassword').value;
+  if (!username || !password) { showToast('請填寫帳號和密碼', 'error'); return; }
+  if (password.length < 6) { showToast('密碼至少 6 位', 'error'); return; }
+  fetch(`${API_BASE}/api/admin/accounts`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+    body: JSON.stringify({ role, username, password })
+  }).then(r => r.json()).then(d => {
+    if (d.success) { showToast('帳號建立成功'); document.getElementById('newAccountUsername').value = ''; document.getElementById('newAccountPassword').value = ''; }
+    else showToast(d.message || '建立失敗', 'error');
+  });
+}
+
+function assignStaff() {
+  const phone = document.getElementById('staffPhoneInput').value.trim();
+  if (!phone) { showToast('請輸入手機號碼', 'error'); return; }
+  fetch(`${API_BASE}/api/staff/assign`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+    body: JSON.stringify({ phone })
+  }).then(r => r.json()).then(d => {
+    if (d.success) { showToast('已指派為工作人員'); document.getElementById('staffPhoneInput').value = ''; }
+    else showToast(d.message || '指派失敗', 'error');
+  });
+}
+
+function revokeStaff() {
+  const phone = document.getElementById('staffPhoneInput').value.trim();
+  if (!phone) { showToast('請輸入手機號碼', 'error'); return; }
+  showConfirm(`確定要撤銷 ${phone} 的工作人員權限嗎？`, () => {
+    fetch(`${API_BASE}/api/staff/revoke`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+      body: JSON.stringify({ phone })
+    }).then(r => r.json()).then(d => {
+      if (d.success) { showToast('已撤銷'); document.getElementById('staffPhoneInput').value = ''; }
+      else showToast(d.message || '撤銷失敗', 'error');
+    });
+  });
+}
+
+function changePassword() {
+  const oldPw = document.getElementById('oldPasswordInput').value;
+  const newPw = document.getElementById('newPasswordInput').value;
+  if (!oldPw || !newPw) { showToast('請填寫密碼', 'error'); return; }
+  if (newPw.length < 6) { showToast('新密碼至少 6 位', 'error'); return; }
+  fetch(`${API_BASE}/api/change-password`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+    body: JSON.stringify({ oldPassword: oldPw, newPassword: newPw })
+  }).then(r => r.json()).then(d => {
+    if (d.success) { showToast('密碼已更新'); document.getElementById('oldPasswordInput').value = ''; document.getElementById('newPasswordInput').value = ''; }
+    else showToast(d.message || '更新失敗', 'error');
+  });
+}
+
 // ── Init: Load everything ─────────────────────────────────────
-Promise.all([loadQuestChains(), loadItems(), loadARModels()]).then(() => {
+// Apply RBAC first
+applySidebarRBAC();
+
+// Load data based on role
+const role = loginUser?.role || '';
+const initLoads = [];
+if (role === 'admin') {
+  initLoads.push(loadQuestChains(), loadItems(), loadARModels(), loadProducts());
+} else if (role === 'shop') {
+  initLoads.push(loadProducts());
+}
+Promise.all(initLoads).then(() => {
   // Ready
 });

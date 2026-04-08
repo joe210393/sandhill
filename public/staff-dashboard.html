@@ -185,7 +185,12 @@
     .asset-section { display: none; }
     .asset-section.active { display: block; }
 
+    .v2-sidebar.mobile-open { display: flex !important; position: fixed; top: 56px; left: 0; bottom: 0; z-index: 100; box-shadow: 4px 0 20px rgba(0,0,0,0.2); }
+    .sidebar-backdrop { display: none; position: fixed; inset: 0; top: 56px; background: rgba(0,0,0,0.3); z-index: 99; }
+    .sidebar-backdrop.open { display: block; }
+
     @media (max-width: 768px) {
+      #sidebarToggle { display: block !important; }
       .v2-sidebar { display: none; }
       .v2-main { padding: 16px; }
       .drawer { width: 100vw; max-width: 100vw; }
@@ -200,7 +205,10 @@
 
   <!-- Header -->
   <header class="v2-header">
-    <h1>沙丘內容控制台</h1>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <button id="sidebarToggle" style="display:none; background:none; border:none; color:white; font-size:1.3rem; cursor:pointer; padding:4px;">&#9776;</button>
+      <h1>沙丘內容控制台</h1>
+    </div>
     <div style="display:flex; align-items:center; gap:16px;">
       <a href="/index.html">回遊戲首頁</a>
       <span id="loginUserInfo" style="font-size:0.85rem; opacity:0.8;"></span>
@@ -210,19 +218,33 @@
 
   <div class="v2-layout">
     <!-- Sidebar -->
-    <aside class="v2-sidebar">
-      <div class="v2-sidebar-label">主功能</div>
-      <div class="v2-nav-item active" data-view="view-quest-chains">
+    <aside class="v2-sidebar" id="mainSidebar">
+      <div class="v2-sidebar-label">遊戲內容</div>
+      <div class="v2-nav-item active" data-view="view-quest-chains" data-roles="admin">
         <span>🎯</span> 玩法入口管理
       </div>
-      <div class="v2-nav-item" data-view="view-assets">
+      <div class="v2-nav-item" data-view="view-assets" data-roles="admin">
         <span>🧊</span> 共用素材庫
       </div>
-      <div class="v2-sidebar-label" style="margin-top:12px;">系統</div>
-      <div class="v2-nav-item" data-view="view-settings">
-        <span>⚙️</span> 系統設定
+      <div class="v2-sidebar-label" style="margin-top:12px;">兌換營運</div>
+      <div class="v2-nav-item" data-view="view-products" data-roles="admin,shop">
+        <span>📦</span> 兌換商品管理
+      </div>
+      <div class="v2-nav-item" data-view="view-redemptions" data-roles="admin,shop">
+        <span>🧾</span> 兌換紀錄
+      </div>
+      <div class="v2-nav-item" data-view="view-pos" data-roles="admin,shop">
+        <span>💳</span> 現場核銷
+      </div>
+      <div class="v2-sidebar-label" style="margin-top:12px;">管理</div>
+      <div class="v2-nav-item" data-view="view-users" data-roles="admin">
+        <span>👥</span> 會員管理
+      </div>
+      <div class="v2-nav-item" data-view="view-roles" data-roles="admin,shop">
+        <span>🔐</span> 權限管理
       </div>
     </aside>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
     <!-- Main Content -->
     <main class="v2-main">
@@ -313,13 +335,104 @@
         </div>
       </div>
 
-      <!-- View 4: Settings -->
-      <div id="view-settings" class="v2-view">
-        <div class="view-header"><h2>系統設定</h2></div>
-        <p class="view-subtitle">權限管理與其他系統設定。</p>
-        <div style="display:flex; gap:12px; flex-wrap:wrap;">
-          <a href="/role-management.html" class="btn-md btn-secondary-v2" style="text-decoration:none;">權限管理</a>
-          <a href="/admin-users.html" class="btn-md btn-secondary-v2" style="text-decoration:none;">會員管理</a>
+      <!-- View 4: Products -->
+      <div id="view-products" class="v2-view">
+        <div class="view-header">
+          <h2>兌換商品管理</h2>
+          <button class="btn-md btn-primary-v2" onclick="openDrawer('新增商品', 'form-product')">+ 新增商品</button>
+        </div>
+        <p class="view-subtitle">管理玩家可用積分兌換的商品。</p>
+        <div id="productListContainer" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:14px;">
+          <div class="empty-state"><div class="empty-state-icon">📦</div>載入中...</div>
+        </div>
+      </div>
+
+      <!-- View 5: Redemptions -->
+      <div id="view-redemptions" class="v2-view">
+        <div class="view-header">
+          <h2>兌換紀錄</h2>
+        </div>
+        <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+          <select id="redemptionStatusFilter" class="form-select" style="width:auto; min-width:140px;" onchange="loadRedemptions()">
+            <option value="">全部狀態</option>
+            <option value="pending">待處理</option>
+            <option value="completed">已完成</option>
+            <option value="cancelled">已取消</option>
+          </select>
+          <input type="text" id="redemptionSearch" class="form-input" placeholder="搜尋使用者或商品..." style="width:auto; flex:1; max-width:300px;" oninput="loadRedemptions()">
+        </div>
+        <div id="redemptionListContainer" style="display:grid; gap:10px;">
+          <div class="empty-state"><div class="empty-state-icon">🧾</div>載入中...</div>
+        </div>
+      </div>
+
+      <!-- View 6: POS -->
+      <div id="view-pos" class="v2-view">
+        <div class="view-header"><h2>現場核銷台</h2></div>
+        <div style="max-width:500px; margin:0 auto;">
+          <div style="background:white; padding:24px; border-radius:14px; border:1px solid #e2e8f0; margin-bottom:16px;">
+            <label class="form-label" style="font-size:1.1rem; font-weight:700;">輸入優惠券代碼</label>
+            <div style="display:flex; gap:10px; margin-top:10px;">
+              <input type="text" id="couponCodeInput" class="form-input" placeholder="請輸入或掃描代碼" style="font-size:1.1rem; flex:1;">
+              <button class="btn-md btn-primary-v2" onclick="lookupCoupon()" style="white-space:nowrap;">查詢</button>
+            </div>
+          </div>
+          <div id="couponResult" style="display:none; background:white; padding:20px; border-radius:14px; border:1px solid #e2e8f0;">
+          </div>
+          <div style="margin-top:20px;">
+            <h3 style="margin-bottom:10px; color:#64748b; font-size:0.9rem;">今日核銷紀錄</h3>
+            <div id="posHistoryContainer" style="display:grid; gap:8px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- View 7: Users -->
+      <div id="view-users" class="v2-view">
+        <div class="view-header">
+          <h2>會員管理</h2>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-md btn-secondary-v2" onclick="exportUsers()">匯出 Excel</button>
+            <button class="btn-md btn-primary-v2" onclick="openDrawer('匯入會員', 'form-import-users')">匯入</button>
+          </div>
+        </div>
+        <div id="userStatsBar" style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:12px 18px; margin-bottom:16px;">
+          <span style="color:#1d4ed8; font-weight:600;">會員總數：<span id="totalUserCount">-</span></span>
+        </div>
+        <div id="userListContainer" style="display:grid; gap:10px;">
+          <div class="empty-state"><div class="empty-state-icon">👥</div>載入中...</div>
+        </div>
+        <div id="userPagination" style="display:flex; justify-content:center; gap:8px; margin-top:16px;"></div>
+      </div>
+
+      <!-- View 8: Roles -->
+      <div id="view-roles" class="v2-view">
+        <div class="view-header"><h2>權限管理</h2></div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
+          <div style="background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0;" id="roleSection_createAccount">
+            <h3 style="margin:0 0 12px; font-size:1rem;">建立管理帳號</h3>
+            <p style="color:#64748b; font-size:0.85rem; margin-bottom:14px;">建立新的 shop 或 admin 帳號</p>
+            <div class="form-group">
+              <select id="newAccountRole" class="form-select"><option value="shop">商店帳號</option><option value="admin">管理員</option></select>
+            </div>
+            <div class="form-group"><input id="newAccountUsername" class="form-input" placeholder="帳號名稱"></div>
+            <div class="form-group"><input id="newAccountPassword" class="form-input" type="password" placeholder="密碼（6 位以上）"></div>
+            <button class="btn-md btn-primary-v2" onclick="createAccount()" style="width:100%;">建立帳號</button>
+          </div>
+          <div style="background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0;">
+            <h3 style="margin:0 0 12px; font-size:1rem;">指派 / 撤銷工作人員</h3>
+            <p style="color:#64748b; font-size:0.85rem; margin-bottom:14px;">輸入手機號碼指派或撤銷 staff 權限</p>
+            <div class="form-group"><input id="staffPhoneInput" class="form-input" placeholder="09xxxxxxxx"></div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn-md btn-primary-v2" onclick="assignStaff()" style="flex:1;">指派</button>
+              <button class="btn-md btn-danger-v2" onclick="revokeStaff()" style="flex:1;">撤銷</button>
+            </div>
+          </div>
+          <div style="background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0;">
+            <h3 style="margin:0 0 12px; font-size:1rem;">修改密碼</h3>
+            <div class="form-group"><input id="oldPasswordInput" class="form-input" type="password" placeholder="舊密碼"></div>
+            <div class="form-group"><input id="newPasswordInput" class="form-input" type="password" placeholder="新密碼（6 位以上）"></div>
+            <button class="btn-md btn-primary-v2" onclick="changePassword()" style="width:100%;">更新密碼</button>
+          </div>
         </div>
       </div>
 
@@ -941,10 +1054,82 @@
         </form>
       </div>
 
+      <!-- Form: Product -->
+      <div id="form-product" class="drawer-form-section">
+        <form id="productForm" class="v2-form">
+          <input type="hidden" name="id" id="product_id">
+          <div class="form-group">
+            <label class="form-label">商品名稱</label>
+            <input class="form-input" type="text" name="name" required placeholder="例如：沙丘紀念杯">
+          </div>
+          <div class="form-group">
+            <label class="form-label">商品描述</label>
+            <textarea class="form-textarea" name="description" placeholder="商品介紹..." style="height:70px;"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">商品圖片</label>
+            <input class="form-input" type="file" name="image" accept="image/*" id="productImageInput" style="padding:5px;">
+            <input type="hidden" name="image_url" id="productImageUrl">
+            <img id="productImagePreview" src="" style="max-width:100px; max-height:100px; display:none; border-radius:8px; margin-top:8px;">
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">所需積分</label>
+              <input class="form-input" type="number" name="points_required" min="0" required placeholder="100">
+            </div>
+            <div class="form-group">
+              <label class="form-label">庫存數量</label>
+              <input class="form-input" type="number" name="stock" min="0" required placeholder="50">
+            </div>
+          </div>
+          <div id="productFormMsg" style="color:#dc2626; font-size:0.88rem; min-height:20px; margin-top:8px;"></div>
+        </form>
+      </div>
+
+      <!-- Form: Import Users -->
+      <div id="form-import-users" class="drawer-form-section">
+        <form id="importUsersForm" class="v2-form">
+          <div class="form-group">
+            <label class="form-label">選擇 Excel 檔案</label>
+            <input class="form-input" type="file" name="file" accept=".xlsx,.xls" required style="padding:5px;">
+          </div>
+          <div class="form-group">
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+              <input type="checkbox" name="simulateActivity" style="width:16px; height:16px;">
+              <span style="font-size:0.9rem;">自動產生隨機遊玩紀錄</span>
+            </label>
+          </div>
+          <div id="importSimFields" style="display:none;">
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label">起始日期</label>
+                <input class="form-input" type="date" name="startDate">
+              </div>
+              <div class="form-group">
+                <label class="form-label">結束日期</label>
+                <input class="form-input" type="date" name="endDate">
+              </div>
+            </div>
+          </div>
+          <div id="importFormMsg" style="color:#dc2626; font-size:0.88rem; min-height:20px; margin-top:8px;"></div>
+        </form>
+      </div>
+
     </div>
     <div class="drawer-footer">
       <button class="btn-md btn-secondary-v2" onclick="closeDrawer()">取消</button>
       <button class="btn-md btn-primary-v2" onclick="submitActiveForm()">儲存</button>
+    </div>
+  </div>
+
+  <!-- Confirm Dialog -->
+  <div id="confirmDialog" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.4); z-index:9998; backdrop-filter:blur(2px);">
+    <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:white; padding:24px; border-radius:14px; max-width:360px; width:90%; box-shadow:0 20px 40px rgba(0,0,0,0.15);">
+      <div id="confirmMsg" style="font-size:1rem; color:#0f172a; margin-bottom:20px; line-height:1.6;"></div>
+      <div style="display:flex; gap:10px; justify-content:flex-end;">
+        <button class="btn-md btn-secondary-v2" onclick="closeConfirm()">取消</button>
+        <button class="btn-md btn-danger-v2" id="confirmOkBtn" style="background:#dc2626; color:white; border:none;">確定</button>
+      </div>
     </div>
   </div>
 
