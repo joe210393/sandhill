@@ -311,12 +311,14 @@
           <div id="assetActions" style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn-md btn-primary-v2" id="btnAssetAdd" onclick="openDrawer('上傳模型', 'form-asset')">+ 上傳模型</button>
             <button class="btn-md btn-primary-v2" id="btnItemAdd" style="display:none;" onclick="openDrawer('新增道具', 'form-item')">+ 新增道具</button>
+            <button class="btn-md btn-primary-v2" id="btnBgmAdd" style="display:none;" onclick="openDrawer('上傳背景音樂', 'form-bgm-asset')">+ 上傳背景音樂</button>
             <button class="btn-md btn-primary-v2" id="btnNpcAdd" style="display:none;" onclick="openNpcDrawer(false)">+ 新增 NPC</button>
           </div>
         </div>
         <div class="asset-tabs">
           <div class="asset-tab active" onclick="switchAssetTab('models', this)">🧊 3D 模型</div>
           <div class="asset-tab" onclick="switchAssetTab('items', this)">🎒 道具素材</div>
+          <div class="asset-tab" onclick="switchAssetTab('bgm', this)">🎵 背景音樂</div>
           <div class="asset-tab" onclick="switchAssetTab('npc', this)">🎭 NPC 角色</div>
         </div>
         <div id="assetSection-models" class="asset-section active">
@@ -327,6 +329,12 @@
         <div id="assetSection-items" class="asset-section">
           <div id="itemListContainer" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:12px;">
             <div class="empty-state"><div class="empty-state-icon">🎒</div>載入中...</div>
+          </div>
+        </div>
+        <div id="assetSection-bgm" class="asset-section">
+          <p class="view-subtitle">上傳的曲目會儲存在伺服器，可在編輯關卡時從「從共用素材庫選擇」套用。支援 MP3、WAV、OGG、M4A 等格式。</p>
+          <div id="bgmListContainer" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:12px;">
+            <div class="empty-state"><div class="empty-state-icon">🎵</div>載入中...</div>
           </div>
         </div>
         <div id="assetSection-npc" class="asset-section">
@@ -1005,6 +1013,9 @@
               </div>
               <div class="progress-bar-track"><div id="bgmUploadProgressBar" class="progress-bar-fill"></div></div>
             </div>
+            <select class="form-select" id="taskBgmLibrarySelect" style="margin-top:8px;">
+              <option value="">— 從共用素材庫選擇背景音樂 —</option>
+            </select>
             <input class="form-input" type="text" name="bgm_url" id="bgmUrlInput" placeholder="或直接輸入 URL" style="margin-top:6px;">
             <div id="bgmPreview" style="margin-top:6px; display:none;">
               <audio id="bgmPreviewAudio" controls style="width:100%;"></audio>
@@ -1204,6 +1215,22 @@
             </select>
           </div>
           <div id="itemFormMsg" style="color:#dc2626; font-size:0.88rem; min-height:20px; margin-top:8px;"></div>
+        </form>
+      </div>
+
+      <!-- Form: BGM library upload -->
+      <div id="form-bgm-asset" class="drawer-form-section">
+        <form id="bgmAssetForm" class="v2-form">
+          <div class="form-group">
+            <label class="form-label">音樂名稱</label>
+            <input class="form-input" type="text" name="name" required maxlength="255" placeholder="例如：主題曲、關卡氛圍樂">
+          </div>
+          <div class="form-group">
+            <label class="form-label">音檔</label>
+            <input class="form-input" type="file" name="audioFile" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.webm" required style="padding:5px;">
+            <div class="form-hint">單檔 100MB 以內；MP3、WAV、OGG、M4A 等</div>
+          </div>
+          <div id="bgmAssetFormMsg" style="color:#dc2626; font-size:0.88rem; min-height:20px; margin-top:8px;"></div>
         </form>
       </div>
 

@@ -1982,6 +1982,81 @@ app.post('/api/ar-models', staffOrAdminAuth, uploadModel.single('model'), async 
   }
 });
 
+// ===== 共用素材庫：背景音樂（僅 admin）=====
+app.get('/api/bgm-assets', adminAuth, async (req, res) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [rows] = await conn.execute(
+      'SELECT id, name, url, created_by, created_at FROM bgm_library ORDER BY id DESC'
+    );
+    res.json({ success: true, assets: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.post('/api/bgm-assets', adminAuth, uploadAudio.single('audio'), async (req, res) => {
+  const name = (req.body.name || '').trim();
+  if (!name) {
+    return res.status(400).json({ success: false, message: '請填寫音樂名稱' });
+  }
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: '請選擇音檔' });
+  }
+  const url = '/images/' + req.file.filename;
+  const createdBy = req.user?.username || null;
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [result] = await conn.execute(
+      'INSERT INTO bgm_library (name, url, created_by) VALUES (?, ?, ?)',
+      [name, url, createdBy]
+    );
+    res.json({
+      success: true,
+      message: '背景音樂已加入素材庫',
+      id: result.insertId,
+      url
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.delete('/api/bgm-assets/:id', adminAuth, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ success: false, message: '無效的 ID' });
+  }
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [rows] = await conn.execute('SELECT url FROM bgm_library WHERE id = ?', [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: '找不到此素材' });
+    }
+    const url = rows[0].url;
+    const [tasks] = await conn.execute('SELECT id FROM tasks WHERE bgm_url = ? LIMIT 1', [url]);
+    if (tasks.length > 0) {
+      return res.status(400).json({ success: false, message: '有關卡正在使用此音樂，請先改關卡背景音樂再刪除' });
+    }
+    await conn.execute('DELETE FROM bgm_library WHERE id = ?', [id]);
+    res.json({ success: true, message: '已刪除' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
 // 刪除模型
 app.delete('/api/ar-models/:id', staffOrAdminAuth, async (req, res) => {
   const { id } = req.params;
@@ -5994,6 +6069,18 @@ if (!SKIP_DB) {
             await conn.execute("ALTER TABLE tasks ADD COLUMN bgm_url VARCHAR(512) DEFAULT NULL");
             console.log('✅ 資料庫遷移: tasks 表已新增 bgm_url');
         }
+
+        // 共用素材庫：背景音樂
+        await conn.execute(`
+          CREATE TABLE IF NOT EXISTS bgm_library (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            url VARCHAR(512) NOT NULL,
+            created_by VARCHAR(255),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+        console.log('✅ 資料庫遷移: bgm_library 表已建立');
 
         // 5b. 優惠券（現場核銷 / POS）
         await conn.execute(`

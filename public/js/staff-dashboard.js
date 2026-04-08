@@ -17,6 +17,7 @@ let globalTaskRecords = [];
 let globalBoardMaps = [];
 let globalModelsMap = {};
 let globalItemsMap = {};
+let globalBgmLibraryMap = {};
 
 // Current drill-down context
 let currentQuestChainId = null;
@@ -1789,6 +1790,20 @@ if (bgmUrlInputEl) {
 
 // BGM upload button
 const uploadBgmBtnEl = document.getElementById('uploadBgmBtn');
+const taskBgmLibrarySelectEl = document.getElementById('taskBgmLibrarySelect');
+if (taskBgmLibrarySelectEl) {
+  taskBgmLibrarySelectEl.addEventListener('change', () => {
+    const v = taskBgmLibrarySelectEl.value.trim();
+    if (!v) return;
+    const inp = document.getElementById('bgmUrlInput');
+    if (inp) {
+      inp.value = v;
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    taskBgmLibrarySelectEl.value = '';
+  });
+}
+
 if (uploadBgmBtnEl) {
   uploadBgmBtnEl.addEventListener('click', async () => {
     const fileInput = document.getElementById('bgmFileInput');
@@ -1893,6 +1908,110 @@ function deleteModel(id) {
       else showToast(d.message || '刪除失敗', 'error');
     });
 }
+
+function copyBgmAssetUrl(url) {
+  if (!url) return;
+  navigator.clipboard.writeText(url).then(() => showToast('已複製音樂 URL')).catch(() => showToast('複製失敗', 'error'));
+}
+
+function populateTaskBgmLibrarySelect() {
+  const sel = document.getElementById('taskBgmLibrarySelect');
+  if (!sel) return;
+  const assets = Object.values(globalBgmLibraryMap).sort((a, b) => b.id - a.id);
+  sel.innerHTML = '<option value="">— 從共用素材庫選擇背景音樂 —</option>';
+  assets.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b.url;
+    opt.textContent = b.name;
+    sel.appendChild(opt);
+  });
+}
+
+function renderBgmList(assets) {
+  const container = document.getElementById('bgmListContainer');
+  if (!container) return;
+  if (!assets.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎵</div>尚無背景音樂，點右上角上傳</div>';
+    return;
+  }
+  container.innerHTML = assets.map(b => `
+    <div style="background:white; padding:14px; border-radius:10px; border:1px solid #e2e8f0;">
+      <div style="font-weight:600; margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escHtml(b.name)}</div>
+      <audio controls preload="none" src="${escHtml(b.url)}" style="width:100%; margin:8px 0;"></audio>
+      <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-end;">
+        <button type="button" class="btn-sm btn-secondary-v2" onclick="copyBgmAssetUrl(${JSON.stringify(b.url)})" style="font-size:0.8rem;">複製 URL</button>
+        <button type="button" class="btn-sm btn-danger-v2" onclick="deleteBgmAsset(${b.id})" style="font-size:0.8rem;">刪除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function deleteBgmAsset(id) {
+  if (!confirm('確定從素材庫移除此音樂？（若關卡仍使用此 URL，請先改關卡設定）')) return;
+  fetch(`${API_BASE}/api/bgm-assets/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-username': loginUser.username },
+    credentials: 'include'
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) { showToast('已刪除'); loadBgmAssets(); }
+      else showToast(d.message || '刪除失敗', 'error');
+    });
+}
+
+function loadBgmAssets() {
+  if (loginUser.role !== 'admin') return Promise.resolve();
+  return fetch(`${API_BASE}/api/bgm-assets`, {
+    headers: { 'x-username': loginUser.username },
+    credentials: 'include'
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) return;
+      globalBgmLibraryMap = {};
+      (data.assets || []).forEach(b => { globalBgmLibraryMap[b.id] = b; });
+      renderBgmList(data.assets || []);
+      populateTaskBgmLibrarySelect();
+    })
+    .catch(() => {});
+}
+
+// BGM 素材庫上傳
+document.getElementById('bgmAssetForm').addEventListener('submit', function (e) {
+  e.preventDefault();
+  const form = this;
+  const msg = document.getElementById('bgmAssetFormMsg');
+  const fileInput = form.querySelector('input[type="file"][name="audioFile"]');
+  const file = fileInput?.files?.[0];
+  if (!file) {
+    msg.textContent = '請選擇音檔';
+    return;
+  }
+  msg.textContent = '上傳中...';
+  const fd = new FormData();
+  fd.append('name', form.name.value.trim());
+  fd.append('audio', file);
+  fetch(`${API_BASE}/api/bgm-assets`, {
+    method: 'POST',
+    headers: { 'x-username': loginUser.username },
+    credentials: 'include',
+    body: fd
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        showToast('背景音樂已加入素材庫');
+        closeDrawer();
+        msg.textContent = '';
+        form.reset();
+        loadBgmAssets();
+      } else {
+        msg.textContent = d.message || '上傳失敗';
+      }
+    })
+    .catch(() => { msg.textContent = '連線失敗'; });
+});
 
 // Asset upload form
 document.getElementById('assetForm').addEventListener('submit', function (e) {
@@ -2055,11 +2174,16 @@ function switchAssetTab(tab, el) {
   // Toggle action buttons
   document.getElementById('btnAssetAdd').style.display = tab === 'models' ? 'inline-flex' : 'none';
   document.getElementById('btnItemAdd').style.display = tab === 'items' ? 'inline-flex' : 'none';
+  const btnBgm = document.getElementById('btnBgmAdd');
+  if (btnBgm) {
+    btnBgm.style.display = tab === 'bgm' && loginUser.role === 'admin' ? 'inline-flex' : 'none';
+  }
   const btnNpc = document.getElementById('btnNpcAdd');
   if (btnNpc) {
     btnNpc.style.display = tab === 'npc' && loginUser.role === 'admin' ? 'inline-flex' : 'none';
   }
   if (tab === 'npc') loadNpcs();
+  if (tab === 'bgm') loadBgmAssets();
 }
 
 let globalNpcs = [];
@@ -2751,7 +2875,7 @@ selectInitialStaffView();
 const role = loginUser?.role || '';
 const initLoads = [];
 if (role === 'admin') {
-  initLoads.push(loadQuestChains(), loadItems(), loadARModels(), loadProducts());
+  initLoads.push(loadQuestChains(), loadItems(), loadARModels(), loadBgmAssets(), loadProducts());
 } else if (role === 'shop') {
   initLoads.push(loadProducts());
 } else if (role === 'staff') {
