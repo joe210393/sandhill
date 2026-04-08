@@ -838,6 +838,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return isCurrentQuestTutorialMode() && !getLoginUser();
         }
 
+        function getTutorialMockDistance(task = currentTask) {
+            const questOrder = Number(task?.quest_order) || 1;
+            const radius = Number(task?.radius) || 24;
+            return Math.max(8, Math.round(radius + questOrder * 7));
+        }
+
+        function getTutorialMockBearing(task = currentTask) {
+            const questOrder = Number(task?.quest_order) || 1;
+            return (questOrder * 37) % 360;
+        }
+
         function isGuidedReticleLockMode() {
             return Boolean(
                 selectionMode === 'reticle'
@@ -2353,12 +2364,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (taskBearingValue) {
                 taskBearingValue.textContent = tutorialLikeMode
-                    ? 'Demo'
+                    ? `${Math.round(Number.isFinite(bearing) ? bearing : getTutorialMockBearing())}°`
                     : (Number.isFinite(bearing) ? `${Math.round(bearing)}°` : '--°');
             }
             if (taskDistanceValue) {
                 taskDistanceValue.textContent = tutorialLikeMode
-                    ? '不限'
+                    ? `${Math.round(Number.isFinite(distanceMeters) ? distanceMeters : getTutorialMockDistance())}m`
                     : (Number.isFinite(distanceMeters) ? `${Math.max(0, Math.round(distanceMeters))}m` : '--m');
             }
             if (taskAngleValue) {
@@ -2375,7 +2386,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (taskStatusLabel) {
                 if (tutorialLikeMode) {
-                    taskStatusLabel.textContent = '教學 / Demo 模式不限制 GPS';
+                    taskStatusLabel.textContent = `模擬距離 ${Math.round(Number.isFinite(distanceMeters) ? distanceMeters : getTutorialMockDistance())}m｜不啟用 GPS`;
                 } else if (!lastHeadingUpdateAt) {
                     taskStatusLabel.textContent = '點一下畫面啟用方向';
                 } else if (Number.isFinite(distanceMeters)) {
@@ -2500,7 +2511,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function startTaskNavigation() {
-            if (!navigator.geolocation || targetLat == null || targetLng == null) return;
+            if (targetLat == null || targetLng == null) return;
+            const tutorialLikeMode = isCurrentQuestTutorialMode() || isCurrentQuestDemoMode();
             if (navigationWatchId !== null) {
                 navigator.geolocation.clearWatch(navigationWatchId);
             }
@@ -2508,6 +2520,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 clearInterval(navigationPollTimer);
                 navigationPollTimer = null;
             }
+            if (tutorialLikeMode) {
+                lastGpsUpdateAt = Date.now();
+                lastLatLng = null;
+                taskReached = true;
+                const mockDistance = getTutorialMockDistance();
+                const mockBearing = getTutorialMockBearing();
+                updateTaskNavigationUI(mockDistance, mockBearing);
+                if (locationBar) {
+                    locationBar.textContent = `目前位置：模擬距離任務 ${mockDistance}m（GPS 已關閉）`;
+                }
+                if (taskCoordsValue) {
+                    taskCoordsValue.textContent = '教學 / Demo 模式';
+                }
+                return;
+            }
+            if (!navigator.geolocation) return;
             navigationWatchId = navigator.geolocation.watchPosition((pos) => {
                 const { latitude, longitude } = pos.coords;
                 lastLatLng = { latitude, longitude };
