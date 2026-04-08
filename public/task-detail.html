@@ -472,6 +472,12 @@
           const navRd = document.getElementById('navReviewDesk');
           if (navRd) navRd.style.display = 'none';
         }
+
+        if (loginUser.role === 'admin') {
+          document.querySelectorAll('.main-nav a[href="/map.html"], .main-nav a[href="/products.html"]').forEach(el => {
+            el.style.display = 'none';
+          });
+        }
       }
 
       document.getElementById('hamburgerBtn').onclick = function() {

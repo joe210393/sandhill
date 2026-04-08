@@ -84,4 +84,9 @@ document.addEventListener('DOMContentLoaded', () => {
     showLinks(navEntryLinks, false);
     showLinks(navShellLinks, false);
   }
+
+  // 管理員不在全站 header 提供「探索地圖」「獎勵兌換」入口（營運改由管理控制台）
+  if (loginUser && loginUser.role === 'admin') {
+    document.querySelectorAll('a[href="/map.html"], a[href="/products.html"]').forEach(hide);
+  }
 });
