@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
     hide(navTasksList);
     hide(navUserTasks);
     if (navStaff) {
-      navStaff.href = '/staff-dashboard.html#review';
+      navStaff.href = '/staff-dashboard-v2.html#quests';
       navStaff.textContent = '管理控制台';
       show(navStaff);
     }
@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
     hide(navTasksList);
     hide(navUserTasks);
     if (navStaff) {
-      navStaff.href = '/staff-dashboard.html';
+      navStaff.href = '/staff-dashboard-v2.html#quests';
       navStaff.textContent = '管理控制台';
       show(navStaff);
     }

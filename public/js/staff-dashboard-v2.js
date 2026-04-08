@@ -127,11 +127,45 @@ function switchView(viewId) {
     el.classList.toggle('active', el.dataset.view === targetNav);
   });
 
+  const hashMap = {
+    'view-quest-chains': 'quests',
+    'view-quest-detail': 'quests',
+    'view-assets': 'assets',
+    'view-products': 'products',
+    'view-redemptions': 'redemptions',
+    'view-pos': 'pos',
+    'view-users': 'users',
+    'view-roles': 'roles'
+  };
+  const nextHash = hashMap[viewId];
+  if (nextHash && window.location.hash !== `#${nextHash}`) {
+    history.replaceState(null, '', `#${nextHash}`);
+  }
+
   // Lazy-load data for new views
   if (viewId === 'view-products') loadProducts();
   if (viewId === 'view-redemptions') loadRedemptions();
   if (viewId === 'view-pos') loadPosHistory();
   if (viewId === 'view-users') loadUsers(1);
+}
+
+function switchViewFromHash(hash = window.location.hash) {
+  const key = (hash || '').replace(/^#/, '');
+  const viewMap = {
+    quests: 'view-quest-chains',
+    quest: 'view-quest-chains',
+    review: 'view-quest-chains',
+    assets: 'view-assets',
+    products: 'view-products',
+    redemptions: 'view-redemptions',
+    pos: 'view-pos',
+    users: 'view-users',
+    roles: 'view-roles'
+  };
+  const targetView = viewMap[key];
+  if (targetView) {
+    switchView(targetView);
+  }
 }
 
 // Sidebar click handlers
@@ -2740,6 +2774,7 @@ async function bootstrapSession() {
       initLoads.push(loadProducts());
     }
     await Promise.all(initLoads);
+    switchViewFromHash();
   } catch (err) {
     alert('請先以管理員或工作人員登入內容控制台');
     localStorage.removeItem('loginUser');
@@ -2748,3 +2783,4 @@ async function bootstrapSession() {
 }
 
 bootstrapSession();
+window.addEventListener('hashchange', () => switchViewFromHash());
