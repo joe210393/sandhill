@@ -1,0 +1,201 @@
+{
+  "baseUrl": "https://sandhill.zeabur.app",
+  "userCount": 1,
+  "startedAt": "2026-04-08T21:22:47.511Z",
+  "entries": [
+    {
+      "id": 40,
+      "title": "沙丘 Demo｜潮聲巡航線",
+      "mode_type": "story_campaign",
+      "play_style": "demo_story_coast"
+    },
+    {
+      "id": 41,
+      "title": "沙丘 Demo｜燈塔搜查線",
+      "mode_type": "story_campaign",
+      "play_style": "demo_story_lighthouse"
+    },
+    {
+      "id": 42,
+      "title": "沙丘 Demo｜濱海命運棋盤",
+      "mode_type": "board_game",
+      "play_style": "demo_board_fortune"
+    },
+    {
+      "id": 43,
+      "title": "沙丘 Demo｜燈塔競速棋盤",
+      "mode_type": "board_game",
+      "play_style": "demo_board_sprint"
+    }
+  ],
+  "users": [
+    {
+      "username": "0903100001",
+      "playedAt": "2026-04-08T21:22:47.591Z",
+      "steps": [
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 1 關｜碼頭報到",
+          "mode": "location",
+          "passed": true,
+          "reason": "任務已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 2 關｜找回海岸視角",
+          "mode": "ai_reference_match",
+          "passed": true,
+          "reason": "教學模式開啟中，沙丘已先讓你通過「第 2 關｜找回海岸視角」，繼續往下一段劇情前進。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 3 關｜選擇巡航策略",
+          "mode": "multiple_choice",
+          "passed": true,
+          "reason": "任務已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 4 關｜說出你想找的東西",
+          "mode": "keyword",
+          "passed": true,
+          "reason": "任務已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜潮聲巡航線",
+          "task": "第 5 關｜留下海岸合照",
+          "mode": "ai_score",
+          "passed": true,
+          "reason": "教學模式開啟中，沙丘已先讓你通過「第 5 關｜留下海岸合照」，繼續往下一段劇情前進。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 1 關｜燈塔開機",
+          "mode": "location",
+          "passed": true,
+          "reason": "任務已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 2 關｜辨識海邊物件",
+          "mode": "ai_identify",
+          "passed": true,
+          "reason": "教學模式開啟中，沙丘已先讓你通過「第 2 關｜辨識海邊物件」，繼續往下一段劇情前進。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 3 關｜數一數眼前線索",
+          "mode": "ai_count",
+          "passed": true,
+          "reason": "教學模式開啟中，沙丘已先讓你通過「第 3 關｜數一數眼前線索」，繼續往下一段劇情前進。"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 4 關｜輸入燈塔密碼",
+          "mode": "number",
+          "passed": true,
+          "reason": "任務已完成"
+        },
+        {
+          "kind": "story-task",
+          "entry": "沙丘 Demo｜燈塔搜查線",
+          "task": "第 5 關｜檢查場景條件",
+          "mode": "ai_rule_check",
+          "passed": true,
+          "reason": "教學模式開啟中，沙丘已先讓你通過「第 5 關｜檢查場景條件」，繼續往下一段劇情前進。"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "機會｜海風補給",
+          "mode": "chance",
+          "lmReason": "機會關卡"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "問題｜路線判斷",
+          "task": "棋盤挑戰｜回答海岸問題",
+          "mode": "manual",
+          "lmReason": "任務已完成"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "挑戰｜輸入口令",
+          "task": "棋盤挑戰｜輸入口令",
+          "mode": "manual",
+          "lmReason": "任務已完成"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "機會｜捷徑",
+          "mode": "chance",
+          "lmReason": "機會關卡"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "事件｜潮水回退",
+          "mode": "event",
+          "lmReason": "事件關卡"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜濱海命運棋盤",
+          "tile": "終點｜命運靠岸",
+          "mode": "story",
+          "lmReason": "終點"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "挑戰｜第一張觀測照",
+          "task": "燈塔挑戰｜第一張觀測照",
+          "mode": "ai_score",
+          "lmReason": "教學模式開啟中，沙丘已先讓你通過「燈塔挑戰｜第一張觀測照」，繼續往下一段劇情前進。"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "事件｜補給",
+          "mode": "event",
+          "lmReason": "事件關卡"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "機會｜再前進",
+          "mode": "chance",
+          "lmReason": "機會關卡"
+        },
+        {
+          "kind": "board-challenge",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "問題｜終點前確認",
+          "task": "燈塔挑戰｜快速作答",
+          "mode": "manual",
+          "lmReason": "任務已完成"
+        },
+        {
+          "kind": "board-tile",
+          "entry": "沙丘 Demo｜燈塔競速棋盤",
+          "tile": "終點｜燈塔衝線",
+          "mode": "story",
+          "lmReason": "終點"
+        }
+      ]
+    }
+  ],
+  "completedAt": "2026-04-08T21:23:07.325Z"
+}
