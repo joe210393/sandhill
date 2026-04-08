@@ -4,10 +4,7 @@
 // Backend API unchanged — only presentation layer refactored
 // ============================================================
 
-const loginUser = window.loginUser || JSON.parse(localStorage.getItem('loginUser') || 'null');
-if (!loginUser || (loginUser.role !== 'admin' && loginUser.role !== 'shop')) {
-  window.location.href = '/login.html';
-}
+let loginUser = null;
 
 const API_BASE = '';
 
@@ -17,11 +14,18 @@ let globalTaskRecords = [];
 let globalBoardMaps = [];
 let globalModelsMap = {};
 let globalItemsMap = {};
+let globalNpcMap = {};
 
 // Current drill-down context
 let currentQuestChainId = null;
 let currentQuestChainTitle = '';
 let currentQuestChainMode = '';
+let currentDetailViewMode = 'list';
+let currentStructureMap = null;
+let currentStructureSelection = null;
+let lastMutatedQuestChainId = null;
+let lastMutatedTaskId = null;
+let lastMutatedTileId = null;
 
 // Drawer state
 let activeFormId = null;
@@ -38,6 +42,57 @@ function escHtml(str) {
   const d = document.createElement('div');
   d.textContent = str || '';
   return d.innerHTML;
+}
+
+function setInlineMessage(elOrId, message = '', type = 'error') {
+  const el = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
+  if (!el) return;
+  el.textContent = message;
+  el.className = `inline-form-msg${message ? ` ${type}` : ''}`;
+}
+
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url, {
+    credentials: 'same-origin',
+    ...options,
+    headers: {
+      ...(options.headers || {})
+    }
+  });
+  return res;
+}
+
+async function apiJson(url, options = {}) {
+  const res = await apiFetch(url, options);
+  let data = null;
+  try {
+    data = await res.json();
+  } catch (err) {
+    throw new Error('伺服器回應格式異常');
+  }
+  if (res.status === 401) {
+    localStorage.removeItem('loginUser');
+    window.location.href = '/login.html';
+    throw new Error(data?.message || '登入已失效，請重新登入');
+  }
+  if (!res.ok || data?.success === false) {
+    throw new Error(data?.message || '操作失敗');
+  }
+  return data;
+}
+
+function withActorHeaders(extra = {}) {
+  return loginUser?.username
+    ? { ...extra, 'x-username': loginUser.username }
+    : extra;
+}
+
+function scrollToFirstInvalid(root) {
+  const invalid = root?.querySelector(':invalid');
+  if (invalid?.scrollIntoView) {
+    invalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    invalid.focus?.();
+  }
 }
 
 // ── View Switching ────────────────────────────────────────────
@@ -100,6 +155,8 @@ function openDrawer(title, formSectionId, data) {
     const preview = form.querySelector('img[id$="Preview"]');
     if (preview) preview.style.display = 'none';
   }
+
+  section.querySelectorAll('.inline-form-msg').forEach((el) => setInlineMessage(el, ''));
 
   drawer.classList.add('open');
   overlay.classList.add('open');
@@ -340,26 +397,25 @@ function validateAiPayload(form, payload, msgEl) {
 
 // ── Load Quest Chains ─────────────────────────────────────────
 function loadQuestChains() {
-  return fetch(`${API_BASE}/api/quest-chains`, {
-    headers: { 'x-username': loginUser.username }
-  })
-    .then(r => r.json())
-    .then(data => {
-      if (!data.success) return;
-      globalQuestChainsMap = {};
-      data.questChains.forEach(q => { globalQuestChainsMap[q.id] = q; });
+  return apiJson(`${API_BASE}/api/quest-chains`, {
+    headers: withActorHeaders()
+  }).then(data => {
+    globalQuestChainsMap = {};
+    data.questChains.forEach(q => { globalQuestChainsMap[q.id] = q; });
 
-      // Update quest chain select in task form
-      const sel = document.getElementById('questChainSelect');
-      if (sel) {
-        sel.innerHTML = '<option value="">-- 請選擇 --</option>';
-        data.questChains.forEach(q => {
-          sel.innerHTML += `<option value="${q.id}">${escHtml(q.title)}</option>`;
-        });
-      }
+    const sel = document.getElementById('questChainSelect');
+    if (sel) {
+      sel.innerHTML = '<option value="">-- 請選擇 --</option>';
+      data.questChains.forEach(q => {
+        sel.innerHTML += `<option value="${q.id}">${escHtml(q.title)}</option>`;
+      });
+    }
 
-      renderQuestChainList(data.questChains);
-    });
+    renderQuestChainList(data.questChains);
+  }).catch(err => {
+    document.getElementById('questChainListContainer').innerHTML =
+      `<div class="empty-state"><div class="empty-state-icon">⚠️</div>${escHtml(err.message || '載入失敗')}</div>`;
+  });
 }
 
 function renderQuestChainList(chains) {
@@ -374,7 +430,7 @@ function renderQuestChainList(chains) {
       ? '<span class="tag tag-green">已開放</span>'
       : '<span class="tag tag-red">未開放</span>';
     return `
-      <div class="quest-card">
+      <div class="quest-card ${String(lastMutatedQuestChainId) === String(q.id) ? 'highlight' : ''}" data-quest-id="${q.id}">
         <div style="min-width:0;">
           <div class="quest-card-title">${escHtml(q.title)}</div>
           <div class="quest-card-meta">
@@ -386,14 +442,34 @@ function renderQuestChainList(chains) {
           ${q.short_description ? `<div style="font-size:0.85rem; color:#64748b; margin-top:6px;">${escHtml(q.short_description)}</div>` : ''}
         </div>
         <div class="quest-card-actions">
-          <button class="btn-sm btn-secondary-v2" onclick="goToQuestDetail('${q.id}')">管理內容</button>
-          <button class="btn-sm btn-secondary-v2" onclick="editQuestChain('${q.id}')">編輯</button>
-          <button class="btn-sm btn-danger-v2" onclick="deleteQuestChain('${q.id}')">刪除</button>
+          <button class="btn-sm btn-primary-v2" onclick="goToQuestDetail('${q.id}')">管理內容</button>
+          <div class="card-menu-wrap">
+            <button class="card-menu-btn" onclick="toggleCardMenu(event, 'quest-menu-${q.id}')">⋯</button>
+            <div class="card-menu" id="quest-menu-${q.id}">
+              <button onclick="editQuestChain('${q.id}'); closeAllCardMenus();">編輯入口</button>
+              <button onclick="goToQuestDetail('${q.id}'); setDetailContentMode('map'); closeAllCardMenus();">查看結構地圖</button>
+              <button class="danger" onclick="deleteQuestChain('${q.id}'); closeAllCardMenus();">刪除入口</button>
+            </div>
+          </div>
         </div>
       </div>
     `;
   }).join('');
 }
+
+function toggleCardMenu(event, id) {
+  event.stopPropagation();
+  const menu = document.getElementById(id);
+  const willOpen = !menu.classList.contains('open');
+  closeAllCardMenus();
+  if (willOpen) menu.classList.add('open');
+}
+
+function closeAllCardMenus() {
+  document.querySelectorAll('.card-menu.open').forEach(el => el.classList.remove('open'));
+}
+
+document.addEventListener('click', closeAllCardMenus);
 
 function editQuestChain(id) {
   const q = globalQuestChainsMap[id];
@@ -409,15 +485,21 @@ function editQuestChain(id) {
 }
 
 function deleteQuestChain(id) {
-  if (!confirm('確定要刪除此玩法入口嗎？\n如果底下還有關卡，將無法刪除。')) return;
-  fetch(`${API_BASE}/api/quest-chains/${id}`, {
-    method: 'DELETE', headers: { 'x-username': loginUser.username }
-  })
-    .then(r => r.json())
-    .then(d => {
-      if (d.success) { showToast('已刪除'); loadQuestChains(); }
-      else showToast(d.message || '刪除失敗', 'error');
-    });
+  const q = globalQuestChainsMap[id];
+  const hint = q ? `「${q.title}」` : '這個玩法入口';
+  showConfirm(`確定要刪除 ${hint} 嗎？若底下仍有關卡或棋盤資料，系統會阻止刪除。`, async () => {
+    try {
+      await apiJson(`${API_BASE}/api/quest-chains/${id}`, {
+        method: 'DELETE',
+        headers: withActorHeaders()
+      });
+      showToast('玩法入口已刪除');
+      lastMutatedQuestChainId = null;
+      await loadQuestChains();
+    } catch (err) {
+      showToast(err.message || '刪除失敗', 'error');
+    }
+  });
 }
 
 // ── Quest Chain Form Submit ───────────────────────────────────
@@ -425,6 +507,13 @@ document.getElementById('questChainForm').addEventListener('submit', function (e
   e.preventDefault();
   const form = this;
   const id = form.elements.id.value;
+  const msgEl = document.getElementById('questChainFormMsg');
+  setInlineMessage(msgEl, '');
+  if (!form.reportValidity()) {
+    scrollToFirstInvalid(form);
+    setInlineMessage(msgEl, '請先完成必填欄位');
+    return;
+  }
 
   const fd = new FormData();
   fd.append('title', form.title.value.trim());
@@ -441,25 +530,28 @@ document.getElementById('questChainForm').addEventListener('submit', function (e
   const badgeFile = form.badge_image?.files[0];
   if (badgeFile) fd.append('badge_image', badgeFile);
 
-  // NOTE: backend currently only supports POST for quest chains (no PUT endpoint for updating)
-  // If editing, we use the same POST approach but include the id
-  const url = id ? `${API_BASE}/api/quest-chains` : `${API_BASE}/api/quest-chains`;
-  fetch(url, {
-    method: 'POST',
-    headers: { 'x-username': loginUser.username },
+  const url = id ? `${API_BASE}/api/quest-chains/${id}` : `${API_BASE}/api/quest-chains`;
+  const method = id ? 'PUT' : 'POST';
+  setInlineMessage(msgEl, id ? '入口更新中...' : '入口建立中...', 'info');
+  apiJson(url, {
+    method,
+    headers: withActorHeaders(),
     body: fd
   })
-    .then(r => r.json())
-    .then(d => {
-      if (d.success) {
-        showToast(id ? '更新成功' : '建立成功');
-        closeDrawer();
-        loadQuestChains();
-      } else {
-        showToast(d.message || '操作失敗', 'error');
+    .then(async (result) => {
+      lastMutatedQuestChainId = id || result.id || null;
+      setInlineMessage(msgEl, id ? '入口已更新' : '入口已建立', 'success');
+      showToast(id ? '玩法入口更新成功' : '玩法入口建立成功');
+      closeDrawer();
+      await loadQuestChains();
+      if (id && currentQuestChainId && String(currentQuestChainId) === String(id)) {
+        goToQuestDetail(String(id));
       }
     })
-    .catch(() => showToast('伺服器連線失敗', 'error'));
+    .catch((err) => {
+      setInlineMessage(msgEl, err.message || '操作失敗');
+      showToast(err.message || '操作失敗', 'error');
+    });
 });
 
 // Badge preview
@@ -509,12 +601,213 @@ function goToQuestDetail(questChainId) {
   }
 
   switchView('view-quest-detail');
+  setDetailContentMode(currentDetailViewMode || 'list');
 
   if (q.mode_type === 'board_game') {
     loadBoardContent(questChainId);
   } else {
     loadTasksForQuest(questChainId);
   }
+  loadStructureMap(questChainId);
+}
+
+function setDetailContentMode(mode) {
+  currentDetailViewMode = mode;
+  document.getElementById('questDetailListMode')?.classList.toggle('active', mode === 'list');
+  document.getElementById('questDetailMapMode')?.classList.toggle('active', mode === 'map');
+  document.getElementById('detailModeListBtn')?.classList.toggle('active', mode === 'list');
+  document.getElementById('detailModeMapBtn')?.classList.toggle('active', mode === 'map');
+}
+
+function inferNpcLabel(node) {
+  const type = node.tile_type || node.type || '';
+  const validation = node.validation_mode || '';
+  const stage = node.stage_template || '';
+  if (type === 'fortune') return '主持人・史蛋';
+  if (type === 'chance') return '主持人・史蛋';
+  if (type === 'story') return '導覽員・潮聲';
+  if (type === 'event') return '引路人・史蛋';
+  if (type === 'quiz') return '潮汐關主・巴布';
+  if (type === 'finish') return '潮汐裁判・鯨老';
+  if (validation.startsWith('ai_')) return '潮汐裁判・鯨老';
+  if (stage.includes('intro') || stage.includes('story')) return '引路人・史蛋';
+  return '潮汐關主・巴布';
+}
+
+function inferNodeKindLabel(node, modeType) {
+  if (modeType === 'board_game') {
+    return tileTypeLabels[node.tile_type] || '棋盤節點';
+  }
+  if (node.type === 'quest') return '劇情主線關卡';
+  if (node.type === 'timed') return '限時關卡';
+  return '一般關卡';
+}
+
+function getTaskHumanType(task) {
+  if (task.validation_mode?.startsWith('ai_')) {
+    const map = {
+      ai_count: 'AI 數量判斷',
+      ai_identify: 'AI 指定物辨識',
+      ai_score: 'AI 圖像評分',
+      ai_rule_check: 'AI 規則檢查',
+      ai_reference_match: 'AI 地點照片比對'
+    };
+    return map[task.validation_mode] || 'AI 任務';
+  }
+  const map = {
+    multiple_choice: '選擇題',
+    photo: '拍照任務',
+    number: '數字解謎',
+    keyword: '關鍵字',
+    location: '地點打卡',
+    qa: '問答題'
+  };
+  return map[task.task_type] || '關卡';
+}
+
+function describeAudioLabel(node) {
+  if (node.bgm_url || node.linked_bgm_url) return '有背景音樂';
+  return '無音效設定';
+}
+
+function buildStructureNode(type, source, modeType) {
+  const isBoard = modeType === 'board_game';
+  return {
+    id: `${type}-${source.id}`,
+    nodeType: type,
+    sourceId: source.id,
+    order: isBoard ? Number(source.tile_index || 0) : Number(source.quest_order || 0),
+    title: isBoard ? (source.tile_name || `第 ${source.tile_index} 格`) : source.name,
+    subtitle: inferNodeKindLabel(source, modeType),
+    description: isBoard
+      ? (source.event_body || source.guide_content || source.task_description || '尚未填寫格子說明')
+      : (source.description || source.guide_content || '尚未填寫關卡說明'),
+    npcLabel: inferNpcLabel(source),
+    primaryLabel: isBoard
+      ? (tileTypeLabels[source.tile_type] || source.tile_type || '格子')
+      : getTaskHumanType(source),
+    requiredItem: source.required_item_name || null,
+    rewardItem: source.reward_item_name || null,
+    audioLabel: describeAudioLabel(source),
+    raw: source
+  };
+}
+
+function renderStructureMap() {
+  const summary = document.getElementById('structureMapSummary');
+  const canvas = document.getElementById('structureMapCanvas');
+  const inspectorTitle = document.getElementById('structureInspectorTitle');
+  const inspectorLead = document.getElementById('structureInspectorLead');
+  const inspectorBody = document.getElementById('structureInspectorBody');
+  if (!summary || !canvas || !inspectorTitle || !inspectorLead || !inspectorBody) return;
+
+  if (!currentStructureMap) {
+    summary.innerHTML = '<span class="structure-summary-pill">尚未選擇玩法入口</span>';
+    canvas.innerHTML = '<div class="empty-state" style="width:100%;"><div class="empty-state-icon">🗺️</div>尚無結構資料</div>';
+    inspectorTitle.textContent = '關卡詳情';
+    inspectorLead.textContent = '點擊左側節點，可查看這一關 / 這一格的 NPC、道具、音效與驗證方式。';
+    inspectorBody.innerHTML = '';
+    return;
+  }
+
+  const { questChain, tasks = [], boardMaps = [], boardTiles = [] } = currentStructureMap;
+  const modeType = questChain.mode_type || 'story_campaign';
+  const nodes = modeType === 'board_game'
+    ? boardTiles.map(tile => buildStructureNode('tile', tile, modeType)).sort((a, b) => a.order - b.order)
+    : tasks.map(task => buildStructureNode('task', task, modeType)).sort((a, b) => a.order - b.order);
+
+  summary.innerHTML = `
+    <span class="structure-summary-pill">${escHtml(questChain.title)}</span>
+    <span class="structure-summary-pill">${modeType === 'board_game' ? '大富翁模式' : '劇情主線'}</span>
+    <span class="structure-summary-pill">關卡 / 格子：${nodes.length}</span>
+    <span class="structure-summary-pill">NPC 角色：${new Set(nodes.map(node => node.npcLabel)).size}</span>
+    <span class="structure-summary-pill">背景音樂節點：${nodes.filter(node => node.audioLabel === '有背景音樂').length}</span>
+    ${boardMaps.length ? `<span class="structure-summary-pill">棋盤：${boardMaps.length} 張</span>` : ''}
+  `;
+
+  if (!nodes.length) {
+    canvas.innerHTML = '<div class="empty-state" style="width:100%;"><div class="empty-state-icon">🧩</div>此主結構還沒有任何節點</div>';
+    inspectorTitle.textContent = '主結構詳情';
+    inspectorLead.textContent = questChain.short_description || questChain.description || '這個主結構尚未建立內容。';
+    inspectorBody.innerHTML = '';
+    return;
+  }
+
+  if (!currentStructureSelection || !nodes.some(node => node.id === currentStructureSelection.id)) {
+    currentStructureSelection = nodes[0];
+  }
+
+  canvas.innerHTML = `<div class="structure-lane">${
+    nodes.map((node, index) => `
+      <div class="structure-node ${currentStructureSelection.id === node.id ? 'active highlight' : ''}" data-structure-node="${node.id}">
+        <div class="structure-node-kind">${node.order ? `#${node.order}｜` : ''}${escHtml(node.subtitle)}</div>
+        <div class="structure-node-title">${escHtml(node.title)}</div>
+        <div class="structure-node-meta">
+          <span class="structure-badge">${escHtml(node.primaryLabel)}</span>
+          <span class="structure-badge">${escHtml(node.npcLabel)}</span>
+          ${node.requiredItem ? `<span class="structure-badge">🔐 ${escHtml(node.requiredItem)}</span>` : ''}
+          ${node.rewardItem ? `<span class="structure-badge">🎁 ${escHtml(node.rewardItem)}</span>` : ''}
+        </div>
+        <div class="structure-node-desc">${escHtml(node.description || '尚未填寫說明')}</div>
+      </div>
+      ${index < nodes.length - 1 ? '<div class="structure-link">→</div>' : ''}
+    `).join('')
+  }</div>`;
+
+  canvas.querySelectorAll('[data-structure-node]').forEach(el => {
+    el.addEventListener('click', () => {
+      const selected = nodes.find(node => node.id === el.dataset.structureNode);
+      if (!selected) return;
+      currentStructureSelection = selected;
+      renderStructureMap();
+    });
+  });
+
+  const selected = currentStructureSelection;
+  inspectorTitle.textContent = selected.title;
+  inspectorLead.textContent = selected.description || '這個節點尚未填寫補充說明。';
+  inspectorBody.innerHTML = `
+    <div class="inspector-item">
+      <div class="inspector-label">節點類型</div>
+      <div class="inspector-value">${escHtml(selected.subtitle)}</div>
+    </div>
+    <div class="inspector-item">
+      <div class="inspector-label">主要玩法</div>
+      <div class="inspector-value">${escHtml(selected.primaryLabel)}</div>
+    </div>
+    <div class="inspector-item">
+      <div class="inspector-label">預設 NPC</div>
+      <div class="inspector-value">${escHtml(selected.npcLabel)}</div>
+    </div>
+    <div class="inspector-item">
+      <div class="inspector-label">道具關聯</div>
+      <div class="inspector-value">${selected.requiredItem ? `需 ${escHtml(selected.requiredItem)}` : '無前置需求'}${selected.rewardItem ? `｜完成得 ${escHtml(selected.rewardItem)}` : ''}</div>
+    </div>
+    <div class="inspector-item">
+      <div class="inspector-label">音效 / BGM</div>
+      <div class="inspector-value">${escHtml(selected.audioLabel)}</div>
+    </div>
+    <div class="inspector-item">
+      <div class="inspector-label">驗證 / 節點資訊</div>
+      <div class="inspector-value">${escHtml(selected.raw.validation_mode || selected.raw.tile_type || selected.raw.task_type || '未設定')}</div>
+    </div>
+  `;
+}
+
+function loadStructureMap(questChainId) {
+  currentStructureSelection = null;
+  return apiJson(`${API_BASE}/api/quest-chains/${questChainId}/structure-map`, {
+    headers: withActorHeaders()
+  }).then(data => {
+    currentStructureMap = data;
+    renderStructureMap();
+  }).catch(err => {
+    currentStructureMap = null;
+    const canvas = document.getElementById('structureMapCanvas');
+    if (canvas) {
+      canvas.innerHTML = `<div class="empty-state" style="width:100%;"><div class="empty-state-icon">⚠️</div>${escHtml(err.message || '結構地圖載入失敗')}</div>`;
+    }
+  });
 }
 
 // ── Story mode: load tasks ────────────────────────────────────
@@ -522,13 +815,10 @@ function loadTasksForQuest(questChainId) {
   const container = document.getElementById('questDetailContentContainer');
   container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div>載入中...</div>';
 
-  fetch(`${API_BASE}/api/tasks/admin`, {
-    headers: { 'x-username': loginUser.username }
+  apiJson(`${API_BASE}/api/tasks/admin`, {
+    headers: withActorHeaders()
   })
-    .then(r => r.json())
     .then(data => {
-      if (!data.success) { container.innerHTML = '<div class="empty-state">載入失敗</div>'; return; }
-
       globalTaskRecords = data.tasks || [];
       const tasks = globalTaskRecords.filter(t => String(t.quest_chain_id) === String(questChainId));
       tasks.sort((a, b) => (a.quest_order || 0) - (b.quest_order || 0));
@@ -539,6 +829,9 @@ function loadTasksForQuest(questChainId) {
       }
 
       container.innerHTML = tasks.map(t => renderTaskItem(t)).join('');
+    })
+    .catch(err => {
+      container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div>${escHtml(err.message || '載入失敗')}</div>`;
     });
 }
 
@@ -555,7 +848,7 @@ function renderTaskItem(t) {
   const finalTag = t.is_final_step ? '<span class="tag tag-amber">🏆 結局</span>' : '';
 
   return `
-    <div class="task-item">
+    <div class="task-item ${String(lastMutatedTaskId) === String(t.id) ? 'highlight' : ''}" data-task-id="${t.id}">
       <img src="${escHtml(t.photoUrl || '/images/mascot.png')}" class="task-item-img" onerror="this.src='/images/mascot.png'">
       <div class="task-item-body">
         <div class="task-item-title">${escHtml(t.name)}</div>
@@ -569,6 +862,7 @@ function renderTaskItem(t) {
       </div>
       <div class="task-item-actions">
         <button class="btn-sm btn-secondary-v2" onclick="editTask('${t.id}')">編輯</button>
+        <button class="btn-sm btn-secondary-v2" onclick="duplicateTask('${t.id}')">複製</button>
         <button class="btn-sm btn-danger-v2" onclick="deleteTask('${t.id}')">刪除</button>
       </div>
     </div>
@@ -581,22 +875,23 @@ function loadBoardContent(questChainId) {
   container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div>載入大富翁地圖...</div>';
 
   // First load all tasks for tile binding
-  const tasksPromise = fetch(`${API_BASE}/api/tasks/admin`, {
-    headers: { 'x-username': loginUser.username }
-  }).then(r => r.json()).then(d => {
-    globalTaskRecords = d.success ? (d.tasks || []) : [];
+  const tasksPromise = apiJson(`${API_BASE}/api/tasks/admin`, {
+    headers: withActorHeaders()
+  }).then(d => {
+    globalTaskRecords = d.tasks || [];
     populateTileTaskSelect();
+  }).catch(() => {
+    globalTaskRecords = [];
   });
 
   // Then load board content
-  fetch(`${API_BASE}/api/board-maps/by-quest-chain/${questChainId}`, {
-    headers: { 'x-username': loginUser.username }
+  apiJson(`${API_BASE}/api/board-maps/by-quest-chain/${questChainId}`, {
+    headers: withActorHeaders()
   })
-    .then(r => r.json())
     .then(async data => {
       await tasksPromise;
 
-      if (!data.success || !data.boardMap) {
+      if (!data.boardMap) {
         document.getElementById('boardMapInfoBar').innerHTML = '<span style="color:#94a3b8;">尚未建立地圖，請先在舊版後台建立大富翁地圖。</span>';
         container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🗺️</div>此入口尚未綁定大富翁地圖</div>';
         return;
@@ -618,14 +913,12 @@ function loadBoardContent(questChainId) {
       document.getElementById('tile_locked_map_name').textContent = bm.name;
 
       // Load tiles
-      return fetch(`${API_BASE}/api/board-maps/${bm.id}/tiles`, {
-        headers: { 'x-username': loginUser.username }
+      return apiJson(`${API_BASE}/api/board-maps/${bm.id}/tiles`, {
+        headers: withActorHeaders()
       });
     })
-    .then(r => r ? r.json() : null)
     .then(data => {
       if (!data) return;
-      if (!data.success) { container.innerHTML = '<div class="empty-state">載入格子失敗</div>'; return; }
 
       currentBoardTiles = data.tiles || [];
       currentBoardTiles.sort((a, b) => (a.tile_index || 0) - (b.tile_index || 0));
@@ -639,7 +932,7 @@ function loadBoardContent(questChainId) {
     })
     .catch(err => {
       console.error(err);
-      container.innerHTML = '<div class="empty-state">載入失敗</div>';
+      container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div>${escHtml(err.message || '載入失敗')}</div>`;
     });
 }
 
@@ -668,7 +961,7 @@ function renderTileItem(tile) {
     ? `<div class="task-item-desc" style="margin-top:2px;">${escHtml(tile.event_body)}</div>` : '';
 
   return `
-    <div class="task-item">
+    <div class="task-item ${String(lastMutatedTileId) === String(tile.id) ? 'highlight' : ''}" data-tile-id="${tile.id}">
       <div style="width:50px; height:50px; border-radius:10px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; font-size:1.5rem; flex-shrink:0;">${icon}</div>
       <div class="task-item-body">
         <div class="task-item-title">第 ${tile.tile_index} 格｜${escHtml(tile.tile_name)}</div>
@@ -928,35 +1221,42 @@ document.getElementById('tileForm').addEventListener('submit', function (e) {
   const url = id ? `${API_BASE}/api/board-tiles/${id}` : `${API_BASE}/api/board-maps/${boardMapId}/tiles`;
   const method = id ? 'PUT' : 'POST';
 
-  fetch(url, {
+  apiJson(url, {
     method,
-    headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+    headers: withActorHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(payload)
   })
-    .then(r => r.json())
     .then(d => {
-      if (d.success) {
-        showToast(id ? '格子更新成功' : '格子建立成功');
-        closeDrawer();
-        if (currentQuestChainId) loadBoardContent(currentQuestChainId);
-      } else { msgEl.textContent = d.message || '操作失敗'; }
+      lastMutatedTileId = id || d.id || null;
+      setInlineMessage(msgEl, id ? '格子已更新' : '格子已建立', 'success');
+      showToast(id ? '格子更新成功' : '格子建立成功');
+      closeDrawer();
+      if (currentQuestChainId) {
+        loadBoardContent(currentQuestChainId);
+        loadStructureMap(currentQuestChainId);
+      }
     })
-    .catch(() => { msgEl.textContent = '伺服器連線失敗'; });
+    .catch((err) => { setInlineMessage(msgEl, err.message || '操作失敗'); });
 });
 
 // ── Delete Tile ───────────────────────────────────────────────
 function deleteTile(tileId) {
-  if (!confirm('確定要刪除這個格子嗎？')) return;
-  fetch(`${API_BASE}/api/board-tiles/${tileId}`, {
-    method: 'DELETE', headers: { 'x-username': loginUser.username }
-  })
-    .then(r => r.json())
-    .then(d => {
-      if (d.success) {
-        showToast('格子已刪除');
-        if (currentQuestChainId) loadBoardContent(currentQuestChainId);
-      } else showToast(d.message || '刪除失敗', 'error');
-    });
+  showConfirm('確定要刪除這個格子嗎？若它綁定了挑戰關卡，之後需要重新安排格子順序。', async () => {
+    try {
+      await apiJson(`${API_BASE}/api/board-tiles/${tileId}`, {
+        method: 'DELETE',
+        headers: withActorHeaders()
+      });
+      showToast('格子已刪除');
+      lastMutatedTileId = null;
+      if (currentQuestChainId) {
+        loadBoardContent(currentQuestChainId);
+        loadStructureMap(currentQuestChainId);
+      }
+    } catch (err) {
+      showToast(err.message || '刪除失敗', 'error');
+    }
+  });
 }
 
 // ── Task Drawer: Open for create ──────────────────────────────
@@ -995,10 +1295,8 @@ function openTaskDrawerForCreate() {
 
 // ── Task Drawer: Open for edit ────────────────────────────────
 function editTask(taskId) {
-  fetch(`${API_BASE}/api/tasks/${taskId}`)
-    .then(r => r.json())
+  apiJson(`${API_BASE}/api/tasks/${taskId}`)
     .then(data => {
-      if (!data.success) return;
       const t = data.task;
 
       openDrawer('編輯關卡', 'form-task');
@@ -1123,7 +1421,8 @@ function editTask(taskId) {
       applyBlueprint(bp, true);
 
       document.getElementById('taskFormMsg').textContent = '';
-    });
+    })
+    .catch((err) => showToast(err.message || '載入關卡失敗', 'error'));
 }
 
 // ── Task Form Submit (Create or Update) ───────────────────────
@@ -1173,11 +1472,9 @@ document.getElementById('taskForm').addEventListener('submit', async function (e
       msgEl.textContent = '封面圖上傳中...';
       const fd = new FormData();
       fd.append('photo', photoFile);
-      const uploadRes = await fetch(`${API_BASE}/api/upload`, {
-        method: 'POST', headers: { 'x-username': loginUser.username }, body: fd
+      const uploadData = await apiJson(`${API_BASE}/api/upload`, {
+        method: 'POST', headers: withActorHeaders(), body: fd
       });
-      const uploadData = await uploadRes.json();
-      if (!uploadData.success) { msgEl.textContent = uploadData.message || '圖片上傳失敗'; return; }
       photoUrl = uploadData.url;
     }
 
@@ -1188,11 +1485,10 @@ document.getElementById('taskForm').addEventListener('submit', async function (e
       msgEl.textContent = '場景圖上傳中...';
       const arFd = new FormData();
       arFd.append('photo', arImageFile);
-      const arRes = await fetch(`${API_BASE}/api/upload`, {
-        method: 'POST', headers: { 'x-username': loginUser.username }, body: arFd
+      const arData = await apiJson(`${API_BASE}/api/upload`, {
+        method: 'POST', headers: withActorHeaders(), body: arFd
       });
-      const arData = await arRes.json();
-      if (arData.success) arImageUrl = arData.url;
+      arImageUrl = arData.url;
     }
 
     // Upload BGM if provided
@@ -1237,26 +1533,23 @@ document.getElementById('taskForm').addEventListener('submit', async function (e
     msgEl.textContent = id ? '更新中...' : '建立中...';
     const url = id ? `${API_BASE}/api/tasks/${id}` : `${API_BASE}/api/tasks`;
     const method = id ? 'PUT' : 'POST';
-    const res = await fetch(url, {
+    const result = await apiJson(url, {
       method,
-      headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
+      headers: withActorHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
     });
-    const result = await res.json();
-
-    if (result.success) {
-      showToast(id ? '關卡更新成功' : '關卡建立成功');
-      closeDrawer();
-      if (currentQuestChainId) {
-        if (currentQuestChainMode === 'board_game') loadBoardContent(currentQuestChainId);
-        else loadTasksForQuest(currentQuestChainId);
-      }
-    } else {
-      msgEl.textContent = result.message || '操作失敗';
+    lastMutatedTaskId = id || result.id || null;
+    setInlineMessage(msgEl, id ? '關卡已更新' : '關卡已建立', 'success');
+    showToast(id ? '關卡更新成功' : '關卡建立成功');
+    closeDrawer();
+    if (currentQuestChainId) {
+      if (currentQuestChainMode === 'board_game') loadBoardContent(currentQuestChainId);
+      else loadTasksForQuest(currentQuestChainId);
+      loadStructureMap(currentQuestChainId);
     }
   } catch (err) {
     console.error(err);
-    msgEl.textContent = '伺服器連線失敗';
+    setInlineMessage(msgEl, err.message || '伺服器連線失敗');
   }
 });
 
@@ -1363,20 +1656,44 @@ if (uploadBgmBtnEl) {
 
 // ── Delete Task ───────────────────────────────────────────────
 function deleteTask(taskId) {
-  if (!confirm('確定要刪除這個關卡嗎？')) return;
-  fetch(`${API_BASE}/api/tasks/${taskId}`, {
-    method: 'DELETE', headers: { 'x-username': loginUser.username }
-  })
-    .then(r => r.json())
-    .then(d => {
-      if (d.success) {
-        showToast('已刪除');
-        if (currentQuestChainId) {
-          if (currentQuestChainMode === 'board_game') loadBoardContent(currentQuestChainId);
-          else loadTasksForQuest(currentQuestChainId);
-        }
-      } else showToast(d.message || '刪除失敗', 'error');
-    });
+  showConfirm('確定要刪除這個關卡嗎？若它已綁到棋盤格或已有玩家進度，刪除可能會影響既有內容。', async () => {
+    try {
+      await apiJson(`${API_BASE}/api/tasks/${taskId}`, {
+        method: 'DELETE',
+        headers: withActorHeaders()
+      });
+      showToast('關卡已刪除');
+      lastMutatedTaskId = null;
+      if (currentQuestChainId) {
+        if (currentQuestChainMode === 'board_game') loadBoardContent(currentQuestChainId);
+        else loadTasksForQuest(currentQuestChainId);
+        loadStructureMap(currentQuestChainId);
+      }
+    } catch (err) {
+      showToast(err.message || '刪除失敗', 'error');
+    }
+  });
+}
+
+function duplicateTask(taskId) {
+  showConfirm('確定要複製這個關卡嗎？系統會建立一顆新的關卡，不會影響原本那一顆。', async () => {
+    try {
+      const result = await apiJson(`${API_BASE}/api/tasks/${taskId}/duplicate`, {
+        method: 'POST',
+        headers: withActorHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ quest_chain_id: currentQuestChainId || null })
+      });
+      lastMutatedTaskId = result.id || null;
+      showToast('關卡已複製');
+      if (currentQuestChainId) {
+        if (currentQuestChainMode === 'board_game') loadBoardContent(currentQuestChainId);
+        else loadTasksForQuest(currentQuestChainId);
+        loadStructureMap(currentQuestChainId);
+      }
+    } catch (err) {
+      showToast(err.message || '複製失敗', 'error');
+    }
+  });
 }
 
 // ── Load AR Models ────────────────────────────────────────────
@@ -1984,18 +2301,49 @@ function changePassword() {
   });
 }
 
-// ── Init: Load everything ─────────────────────────────────────
-// Apply RBAC first
-applySidebarRBAC();
-
-// Load data based on role
-const role = loginUser?.role || '';
-const initLoads = [];
-if (role === 'admin') {
-  initLoads.push(loadQuestChains(), loadItems(), loadARModels(), loadProducts());
-} else if (role === 'shop') {
-  initLoads.push(loadProducts());
+function hydrateLoginHeader() {
+  const info = document.getElementById('loginUserInfo');
+  const roles = { admin: '管理員', shop: '工作人員', user: '玩家' };
+  if (info && loginUser) {
+    info.textContent = `${roles[loginUser.role] || ''}：${loginUser.username}`;
+  }
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+    logoutBtn.style.display = loginUser ? 'inline-block' : 'none';
+    logoutBtn.onclick = async () => {
+      try {
+        await apiJson(`${API_BASE}/api/logout`, { method: 'POST' });
+      } catch (err) {
+        // ignore logout API failure; still clear local state
+      }
+      localStorage.removeItem('loginUser');
+      window.location.href = '/login.html';
+    };
+  }
 }
-Promise.all(initLoads).then(() => {
-  // Ready
-});
+
+async function bootstrapSession() {
+  try {
+    const data = await apiJson(`${API_BASE}/api/me`);
+    loginUser = data.user;
+    window.loginUser = data.user;
+    localStorage.setItem('loginUser', JSON.stringify(data.user));
+    hydrateLoginHeader();
+    applySidebarRBAC();
+
+    const role = loginUser?.role || '';
+    const initLoads = [];
+    if (role === 'admin') {
+      initLoads.push(loadQuestChains(), loadItems(), loadARModels(), loadProducts());
+    } else if (role === 'shop') {
+      initLoads.push(loadProducts());
+    }
+    await Promise.all(initLoads);
+  } catch (err) {
+    alert('請先以管理員或工作人員登入內容控制台');
+    localStorage.removeItem('loginUser');
+    window.location.href = '/login.html';
+  }
+}
+
+bootstrapSession();

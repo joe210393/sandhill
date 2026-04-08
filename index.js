@@ -1116,8 +1116,73 @@ app.post('/api/quest-chains', staffOrAdminAuth, uploadImage.single('badge_image'
     const filteredRecord = Object.fromEntries(
       Object.entries(questChainRecord).filter(([column]) => questChainColumns.has(column))
     );
-    await insertDynamicRecord(conn, 'quest_chains', filteredRecord);
-    res.json({ success: true, message: '劇情建立成功' });
+    const [insertHeader] = await insertDynamicRecord(conn, 'quest_chains', filteredRecord);
+    res.json({ success: true, message: '劇情建立成功', id: insertHeader.insertId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// 更新劇情入口
+app.put('/api/quest-chains/:id', staffOrAdminAuth, uploadImage.single('badge_image'), async (req, res) => {
+  const { id } = req.params;
+  const {
+    title, description, chain_points, badge_name,
+    mode_type, is_active, cover_image_url, short_description,
+    entry_order, entry_button_text, entry_scene_label, play_style,
+    game_rules, content_blueprint
+  } = req.body;
+  if (!title) return res.status(400).json({ success: false, message: '缺少標題' });
+
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const username = req.user?.username || null;
+    const role = req.user?.role || null;
+    const [rows] = await conn.execute('SELECT * FROM quest_chains WHERE id = ? LIMIT 1', [id]);
+    if (!rows.length) {
+      return res.status(404).json({ success: false, message: '找不到此玩法入口' });
+    }
+
+    const chain = rows[0];
+    if (role !== 'admin' && chain.created_by !== username) {
+      return res.status(403).json({ success: false, message: '無權限編輯此玩法入口' });
+    }
+
+    let badge_image = chain.badge_image || chain.cover_image || null;
+    if (req.file) {
+      badge_image = '/images/' + req.file.filename;
+    } else if (cover_image_url || req.body.badge_image_url) {
+      badge_image = cover_image_url || req.body.badge_image_url;
+    }
+
+    const questChainColumns = await getTableColumnSet(conn, 'quest_chains');
+    const questChainRecord = {
+      title,
+      name: title,
+      description: description || '',
+      chain_points: chain_points || 0,
+      badge_name: badge_name || null,
+      badge_image: badge_image || null,
+      mode_type: normalizeNullableString(mode_type) || 'story_campaign',
+      is_active: normalizeBoolean(is_active),
+      cover_image: badge_image || null,
+      short_description: normalizeNullableString(short_description),
+      entry_order: entry_order ? Number(entry_order) : 0,
+      entry_button_text: normalizeNullableString(entry_button_text),
+      entry_scene_label: normalizeNullableString(entry_scene_label),
+      play_style: normalizeNullableString(play_style),
+      game_rules: stringifyJsonField(parseJsonField(game_rules, null)),
+      content_blueprint: stringifyJsonField(parseJsonField(content_blueprint, null))
+    };
+    const filteredRecord = Object.fromEntries(
+      Object.entries(questChainRecord).filter(([column]) => questChainColumns.has(column))
+    );
+    await updateDynamicRecord(conn, 'quest_chains', id, filteredRecord);
+    res.json({ success: true, message: '玩法入口更新成功' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: '伺服器錯誤' });
@@ -1176,6 +1241,89 @@ app.get('/api/quest-chains/:id/public-content', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// 後台：主結構可視化地圖資料
+app.get('/api/quest-chains/:id/structure-map', staffOrAdminAuth, async (req, res) => {
+  const { id } = req.params;
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [questRows] = await conn.execute(
+      `SELECT id, title, name, short_description, description, mode_type, play_style,
+              badge_name, badge_image, cover_image, chain_points, is_active,
+              game_rules, content_blueprint, created_by
+       FROM quest_chains
+       WHERE id = ?
+       LIMIT 1`,
+      [id]
+    );
+    if (!questRows.length) {
+      return res.status(404).json({ success: false, message: '找不到此玩法入口' });
+    }
+
+    const questChain = sanitizeQuestChainRow(questRows[0]);
+    const [taskRows] = await conn.execute(
+      `SELECT t.*,
+              req_item.name AS required_item_name,
+              rew_item.name AS reward_item_name
+       FROM tasks t
+       LEFT JOIN items req_item ON req_item.id = t.required_item_id
+       LEFT JOIN items rew_item ON rew_item.id = t.reward_item_id
+       WHERE t.quest_chain_id = ?
+       ORDER BY COALESCE(t.quest_order, 9999) ASC, t.id ASC`,
+      [id]
+    );
+    const [boardMapRows] = await conn.execute(
+      `SELECT bm.*,
+              COUNT(bt.id) AS tile_count,
+              SUM(CASE WHEN bt.tile_type = 'challenge' THEN 1 ELSE 0 END) AS challenge_tile_count,
+              SUM(CASE WHEN bt.tile_type IN ('event','story','fortune','chance','quiz') THEN 1 ELSE 0 END) AS event_tile_count
+       FROM board_maps bm
+       LEFT JOIN board_tiles bt ON bt.board_map_id = bm.id
+       WHERE bm.quest_chain_id = ?
+       GROUP BY bm.id
+       ORDER BY bm.id ASC`,
+      [id]
+    );
+    const boardMaps = boardMapRows.map((row) => sanitizeBoardMapRow(row));
+    const boardMapIds = boardMaps.map((map) => map.id);
+    let boardTiles = [];
+    if (boardMapIds.length > 0) {
+      const placeholders = boardMapIds.map(() => '?').join(',');
+      const [tileRows] = await conn.execute(
+        `SELECT bt.*,
+                t.name AS task_name,
+                t.validation_mode,
+                t.stage_template,
+                t.task_type AS linked_task_type,
+                t.bgm_url AS linked_bgm_url,
+                req_item.name AS required_item_name,
+                rew_item.name AS reward_item_name
+         FROM board_tiles bt
+         LEFT JOIN tasks t ON t.id = bt.task_id
+         LEFT JOIN items req_item ON req_item.id = t.required_item_id
+         LEFT JOIN items rew_item ON rew_item.id = t.reward_item_id
+         WHERE bt.board_map_id IN (${placeholders})
+         ORDER BY bt.board_map_id ASC, bt.tile_index ASC`,
+        boardMapIds
+      );
+      boardTiles = tileRows.map((row) => sanitizeBoardTileRow(row));
+    }
+
+    res.json({
+      success: true,
+      questChain,
+      tasks: taskRows.map((row) => sanitizeTaskRow(row)),
+      boardMaps,
+      boardTiles
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '載入結構地圖失敗' });
   } finally {
     if (conn) conn.release();
   }
@@ -2719,10 +2867,6 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
     bgm_url
   } = req.body;
 
-  if (!name || !lat || !lng || !radius || !description || !photoUrl) {
-    return res.status(400).json({ success: false, message: '缺少參數' });
-  }
-
   let conn;
   try {
     conn = await pool.getConnection();
@@ -2755,6 +2899,22 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
       return res.status(403).json({ success: false, message: '無權限編輯此任務' });
     }
 
+    const [existingTaskRows] = await conn.execute('SELECT id, quest_chain_id, type, created_by FROM tasks WHERE id = ? LIMIT 1', [id]);
+    const existingTask = existingTaskRows[0] || null;
+
+    const qId = quest_chain_id ? Number(quest_chain_id) : null;
+
+    if (existingTask && Number(existingTask.quest_chain_id || 0) !== Number(qId || 0) && Number(existingTask.quest_chain_id || 0) > 0) {
+      return res.status(400).json({
+        success: false,
+        message: '關卡不可直接跨劇情移動，請使用「複製關卡」建立新版本。'
+      });
+    }
+
+    if (!name || !lat || !lng || !radius || !description || !photoUrl) {
+      return res.status(400).json({ success: false, message: '缺少參數' });
+    }
+
     const pts = Number(points) || 0;
     const opts = options ? JSON.stringify(options) : null;
     const validationSettings = prepareTaskValidationSettings({
@@ -2776,7 +2936,6 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
     const tStart = time_limit_start || null;
     const tEnd = time_limit_end || null;
     const maxP = max_participants ? Number(max_participants) : null;
-    const qId = quest_chain_id ? Number(quest_chain_id) : null;
     const qOrder = quest_order ? Number(quest_order) : null;
     
     const reqItemId = required_item_id ? Number(required_item_id) : null;
@@ -2834,6 +2993,80 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(err.message?.includes('AI ') || err.message?.includes('max_attempts') || err.message?.includes('信心值') ? 400 : 500).json({ success: false, message: err.message || '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// 複製關卡：避免直接跨劇情共用同一顆 task
+app.post('/api/tasks/:id/duplicate', staffOrAdminAuth, async (req, res) => {
+  const sourceId = Number(req.params.id);
+  const targetQuestChainId = req.body?.quest_chain_id ? Number(req.body.quest_chain_id) : null;
+  if (!Number.isFinite(sourceId)) {
+    return res.status(400).json({ success: false, message: '無效的關卡 ID' });
+  }
+
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const username = req.user?.username || null;
+    const role = req.user?.role || null;
+    const [rows] = await conn.execute('SELECT * FROM tasks WHERE id = ? LIMIT 1', [sourceId]);
+    if (!rows.length) {
+      return res.status(404).json({ success: false, message: '找不到來源關卡' });
+    }
+    const sourceTask = sanitizeTaskRow(rows[0]);
+    if (role !== 'admin' && sourceTask.created_by !== username) {
+      return res.status(403).json({ success: false, message: '無權限複製此關卡' });
+    }
+
+    const destinationQuestChainId = Number.isFinite(targetQuestChainId) && targetQuestChainId > 0
+      ? targetQuestChainId
+      : (sourceTask.quest_chain_id ? Number(sourceTask.quest_chain_id) : null);
+
+    if (role === 'shop' && destinationQuestChainId) {
+      const [chains] = await conn.execute(
+        'SELECT id FROM quest_chains WHERE id = ? AND created_by = ? LIMIT 1',
+        [destinationQuestChainId, username]
+      );
+      if (!chains.length) {
+        return res.status(403).json({ success: false, message: '無權將關卡複製到其他人建立的玩法入口' });
+      }
+    }
+
+    const taskColumns = await getTableColumnSet(conn, 'tasks');
+    const cloneRecord = {
+      ...sourceTask,
+      name: `${sourceTask.name}（複製）`,
+      quest_chain_id: destinationQuestChainId,
+      created_by: username,
+      photoUrl: sourceTask.photoUrl || null,
+      options: sourceTask.options ? JSON.stringify(sourceTask.options) : null,
+      ai_config: stringifyJsonField(sourceTask.ai_config),
+      pass_criteria: stringifyJsonField(sourceTask.pass_criteria)
+    };
+    delete cloneRecord.id;
+    delete cloneRecord.required_item_name;
+    delete cloneRecord.reward_item_name;
+    delete cloneRecord.required_item_image;
+    delete cloneRecord.required_item_model;
+    delete cloneRecord.reward_item_image;
+    delete cloneRecord.reward_item_model;
+    delete cloneRecord.ar_model_url;
+    delete cloneRecord.ar_model_scale;
+
+    const filteredRecord = Object.fromEntries(
+      Object.entries(cloneRecord).filter(([column]) => taskColumns.has(column))
+    );
+    const [insertHeader] = await insertDynamicRecord(conn, 'tasks', filteredRecord);
+    res.json({
+      success: true,
+      message: '關卡已複製',
+      id: insertHeader.insertId
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '複製關卡失敗' });
   } finally {
     if (conn) conn.release();
   }

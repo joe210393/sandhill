@@ -55,10 +55,35 @@
       display: flex; justify-content: space-between; align-items: center;
       transition: box-shadow 0.2s, transform 0.15s; cursor: default;
     }
+    .quest-card.highlight, .task-item.highlight, .structure-node.highlight {
+      animation: pulseHighlight 1.8s ease;
+    }
+    @keyframes pulseHighlight {
+      0% { box-shadow: 0 0 0 0 rgba(20,184,166,0.35); border-color: rgba(20,184,166,0.7); }
+      100% { box-shadow: 0 0 0 16px rgba(20,184,166,0); border-color: #e2e8f0; }
+    }
     .quest-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); transform: translateY(-1px); }
     .quest-card-title { font-weight: 700; font-size: 1.05rem; margin-bottom: 6px; color: #0f172a; }
     .quest-card-meta { display: flex; flex-wrap: wrap; gap: 6px; }
-    .quest-card-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .quest-card-actions { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+    .card-menu-wrap { position: relative; }
+    .card-menu-btn {
+      width: 36px; height: 36px; border-radius: 10px; border: 1px solid #d1d5db; background: white;
+      cursor: pointer; color: #334155; font-size: 1rem; line-height: 1;
+    }
+    .card-menu-btn:hover { background: #f8fafc; }
+    .card-menu {
+      position: absolute; right: 0; top: calc(100% + 6px); width: 176px;
+      background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 12px 28px rgba(15,23,42,0.18);
+      padding: 6px; display: none; z-index: 10;
+    }
+    .card-menu.open { display: block; }
+    .card-menu button {
+      width: 100%; text-align: left; background: transparent; border: none; cursor: pointer;
+      padding: 10px 12px; border-radius: 10px; color: #0f172a; font-size: 0.9rem;
+    }
+    .card-menu button:hover { background: #f8fafc; }
+    .card-menu button.danger { color: #dc2626; }
 
     .tag { font-size: 0.75rem; padding: 3px 8px; border-radius: 999px; font-weight: 500; }
     .tag-blue { background: #eff6ff; color: #1d4ed8; }
@@ -148,6 +173,68 @@
     .empty-state { text-align: center; padding: 40px; color: #94a3b8; }
     .empty-state-icon { font-size: 2.5rem; margin-bottom: 12px; }
 
+    .inline-form-msg {
+      min-height: 20px;
+      margin-top: 8px;
+      font-size: 0.88rem;
+      color: #dc2626;
+    }
+    .inline-form-msg.success { color: #047857; }
+    .inline-form-msg.info { color: #1d4ed8; }
+
+    .detail-switch {
+      display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;
+    }
+    .detail-switch-btn {
+      border:1px solid #cbd5e1; background:white; color:#334155; border-radius:999px; padding:8px 14px; cursor:pointer; font-weight:600;
+    }
+    .detail-switch-btn.active { background:#0f766e; color:white; border-color:#0f766e; }
+    .detail-mode { display:none; }
+    .detail-mode.active { display:block; }
+    .structure-layout {
+      display:grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.9fr); gap:16px;
+    }
+    .structure-map-shell, .structure-inspector {
+      background:white; border:1px solid #e2e8f0; border-radius:16px; padding:18px;
+      box-shadow: 0 6px 20px rgba(15,23,42,0.05);
+    }
+    .structure-map-canvas {
+      display:flex; gap:16px; overflow-x:auto; padding-bottom:8px; align-items:stretch;
+    }
+    .structure-lane {
+      display:flex; gap:14px; align-items:center; min-width:max-content;
+    }
+    .structure-link {
+      color:#94a3b8; font-weight:700; font-size:1.15rem;
+    }
+    .structure-node {
+      width: 188px; min-height: 148px; border-radius: 18px; border: 1px solid #dbeafe; background: linear-gradient(180deg,#ffffff,#f8fafc);
+      padding: 14px; cursor: pointer; transition: transform .15s, box-shadow .15s, border-color .15s, opacity .15s;
+      opacity: .78; position: relative;
+    }
+    .structure-node:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(15,23,42,0.08); opacity: 1; }
+    .structure-node.active { opacity: 1; border-color: #0f766e; box-shadow: 0 10px 24px rgba(15,118,110,0.16); }
+    .structure-node-kind { font-size: 0.76rem; color:#64748b; margin-bottom:6px; font-weight:700; letter-spacing:.03em; }
+    .structure-node-title { font-size: 0.98rem; font-weight: 700; color:#0f172a; margin-bottom:8px; }
+    .structure-node-meta { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+    .structure-node-desc { font-size:0.82rem; color:#64748b; line-height:1.45; }
+    .structure-badge {
+      display:inline-flex; align-items:center; gap:4px; background:#eff6ff; color:#1d4ed8; border-radius:999px; font-size:.72rem; padding:3px 8px; font-weight:600;
+    }
+    .structure-inspector h3 { margin:0 0 8px; font-size:1.05rem; color:#0f172a; }
+    .structure-inspector p { margin:0 0 12px; color:#475569; font-size:.9rem; line-height:1.6; }
+    .inspector-grid { display:grid; gap:10px; }
+    .inspector-item { background:#f8fafc; border-radius:12px; padding:12px; }
+    .inspector-label { font-size:.76rem; color:#64748b; margin-bottom:4px; }
+    .inspector-value { font-size:.9rem; color:#0f172a; font-weight:600; }
+    .structure-summary-bar {
+      background: linear-gradient(135deg, #f0fdfa, #eff6ff); border:1px solid #ccfbf1; border-radius: 14px; padding: 14px 16px; margin-bottom: 14px;
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+    }
+    .structure-summary-pill {
+      background:white; border:1px solid #dbeafe; border-radius:999px; padding:6px 10px; font-size:.8rem; color:#0f172a; font-weight:600;
+    }
+
     /* Template chips */
     .blueprint-info { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 14px; margin-bottom: 16px; }
     .blueprint-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
@@ -198,6 +285,8 @@
       .quest-card-actions { width: 100%; }
       .task-item { flex-direction: column; }
       .grid-2 { grid-template-columns: 1fr; }
+      .structure-layout { grid-template-columns: 1fr; }
+      .structure-node { width: 170px; }
     }
   </style>
 </head>
@@ -267,9 +356,14 @@
         <div class="view-header">
           <h2 id="detailQuestTitle">載入中...</h2>
           <div id="detailActions" style="display:flex; gap:8px;">
+            <button id="btnShowStructureMap" class="btn-md btn-secondary-v2" onclick="setDetailContentMode('map')">🗺️ 結構地圖</button>
             <button id="btnAddTask" class="btn-md btn-primary-v2" onclick="openTaskDrawerForCreate()">+ 新增關卡</button>
             <button id="btnAddTile" class="btn-md btn-primary-v2" style="display:none;" onclick="openTileDrawerForCreate()">+ 新增格子</button>
           </div>
+        </div>
+        <div class="detail-switch">
+          <button id="detailModeListBtn" class="detail-switch-btn active" onclick="setDetailContentMode('list')">清單檢視</button>
+          <button id="detailModeMapBtn" class="detail-switch-btn" onclick="setDetailContentMode('map')">主結構地圖</button>
         </div>
         <!-- Board map info bar (for board_game mode) -->
         <div id="boardMapInfoBar" style="display:none; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:14px 18px; margin-bottom:16px;">
@@ -281,8 +375,27 @@
             <span class="tag tag-gray" id="boardMapRange"></span>
           </div>
         </div>
-        <div id="questDetailContentContainer" style="display:grid; gap:10px;">
-          <div class="empty-state"><div class="empty-state-icon">📦</div>載入中...</div>
+        <div id="questDetailListMode" class="detail-mode active">
+          <div id="questDetailContentContainer" style="display:grid; gap:10px;">
+            <div class="empty-state"><div class="empty-state-icon">📦</div>載入中...</div>
+          </div>
+        </div>
+        <div id="questDetailMapMode" class="detail-mode">
+          <div id="structureMapSummary" class="structure-summary-bar">
+            <span class="structure-summary-pill">載入結構地圖中...</span>
+          </div>
+          <div class="structure-layout">
+            <div class="structure-map-shell">
+              <div id="structureMapCanvas" class="structure-map-canvas">
+                <div class="empty-state" style="width:100%;"><div class="empty-state-icon">🗺️</div>請先選擇一個玩法入口</div>
+              </div>
+            </div>
+            <aside class="structure-inspector">
+              <h3 id="structureInspectorTitle">關卡詳情</h3>
+              <p id="structureInspectorLead">點擊左側節點，可查看這一關 / 這一格的 NPC、道具、音效與驗證方式。</p>
+              <div id="structureInspectorBody" class="inspector-grid"></div>
+            </aside>
+          </div>
         </div>
       </div>
 
@@ -517,6 +630,7 @@
               <span style="font-size:0.9rem;">建立後立即開放</span>
             </label>
           </div>
+          <div id="questChainFormMsg" class="inline-form-msg"></div>
         </form>
       </div>
 
@@ -846,7 +960,7 @@
             </div>
           </div>
 
-          <div id="taskFormMsg" style="color:#dc2626; font-size:0.88rem; min-height:20px; margin-top:8px;"></div>
+          <div id="taskFormMsg" class="inline-form-msg"></div>
         </form>
       </div>
 
@@ -1137,21 +1251,5 @@
   <div class="toast" id="toast"></div>
 
   <script src="/js/staff-dashboard-v2.js"></script>
-  <script>
-    // Auth
-    window.loginUser = JSON.parse(localStorage.getItem('loginUser') || 'null');
-    if (!window.loginUser || (window.loginUser.role !== 'admin' && window.loginUser.role !== 'shop')) {
-      alert('僅限管理員或工作人員使用');
-      window.location.href = '/index.html';
-    }
-    if (window.loginUser) {
-      const info = document.getElementById('loginUserInfo');
-      const roles = { admin: '管理員', shop: '工作人員', user: '玩家' };
-      info.textContent = `${roles[window.loginUser.role] || ''}：${window.loginUser.username}`;
-      const logoutBtn = document.getElementById('logoutBtn');
-      logoutBtn.style.display = 'inline-block';
-      logoutBtn.onclick = () => { localStorage.removeItem('loginUser'); window.location.href = '/login.html'; };
-    }
-  </script>
 </body>
 </html>
