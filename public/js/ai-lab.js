@@ -4495,6 +4495,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         async function requestLocation() {
+            const hasQuestChainInUrl = Boolean(new URLSearchParams(window.location.search).get('questChainId'));
+            if (hasQuestChainInUrl) {
+                updateLocationText('劇本載入中...');
+                return;
+            }
+            if (isCurrentQuestTutorialMode() || isCurrentQuestDemoMode()) {
+                lastLatLng = null;
+                updateLocationText(`模擬距離 ${getTutorialMockDistance()}m（GPS 已關閉）`);
+                return;
+            }
             if (!navigator.geolocation) {
                 updateLocationText('裝置不支援定位');
                 return;
