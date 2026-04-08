@@ -21,7 +21,7 @@ if (formUser) {
       localStorage.setItem('loginUser', JSON.stringify(data.user));
       // staff 也走一般登入，但登入後導向審核頁
       if (data.user && data.user.role === 'staff') {
-        window.location.href = '/staff-dashboard-v2.html#quests';
+        window.location.href = '/staff-dashboard.html#review';
       } else {
         window.location.href = '/index.html';
       }
@@ -40,11 +40,11 @@ if (formUser) {
     if (!loginUser || !loginUser.role) return;
 
     if (loginUser.role === 'admin' || loginUser.role === 'shop') {
-      window.location.replace('/staff-dashboard-v2.html#quests');
+      window.location.replace('/staff-dashboard.html');
       return;
     }
     if (loginUser.role === 'staff') {
-      window.location.replace('/staff-dashboard-v2.html#quests');
+      window.location.replace('/staff-dashboard.html#review');
       return;
     }
     // user
@@ -73,7 +73,7 @@ if (formStaff) {
     if (data.success) {
       localStorage.setItem('loginUser', JSON.stringify(data.user));
       // admin/shop 登入後導向後台
-      window.location.href = '/staff-dashboard-v2.html#quests';
+      window.location.href = '/staff-dashboard.html';
     } else {
       document.getElementById('loginMsgStaff').textContent = data.message || '進入控制台失敗';
     }
