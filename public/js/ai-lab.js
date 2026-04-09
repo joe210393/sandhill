@@ -977,6 +977,16 @@ document.addEventListener('DOMContentLoaded', () => {
             capturedPhotos.length = 0;
             needMorePhotosSession = null;
             currentAnswerPhotoDataUrl = null;
+            pendingPhotoDataUrl = null;
+            const preview = document.getElementById('answerPhotoPreview');
+            if (preview) {
+                preview.removeAttribute('src');
+                preview.style.display = 'none';
+            }
+            const input = document.getElementById('answerPhotoInput');
+            if (input) {
+                input.value = '';
+            }
             if (!keepActive) {
                 photoCaptureModeActive = false;
                 tutorialBoardPhotoCaptureArmed = false;
@@ -2830,7 +2840,9 @@ document.addEventListener('DOMContentLoaded', () => {
             answerInputContainer.innerHTML = '';
             answerMessage.textContent = '';
             btnAnswerSubmit.disabled = true;
+            capturedPhotos.length = 0;
             currentAnswerPhotoDataUrl = null;
+            pendingPhotoDataUrl = null;
 
             if (task.task_type === 'multiple_choice') {
                 const choicesDiv = document.createElement('div');

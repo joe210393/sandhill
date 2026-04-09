@@ -316,7 +316,7 @@ function buildTutorialForcedAiReason(task, aiReason = '', aiPassed = null) {
   if (aiPassed === false) {
     return `我看見了：${normalized}\n\n不過這次不是這一關要找的內容喔。因為現在是教學模式，所以我還是先讓你通過，方便你繼續往下體驗。正式關卡時，還是需要拍到任務指定的物品或場景才會過關。`;
   }
-  return `我看見了：${normalized}\n\n但因為現在是教學模式，所以這一關先讓你通過，方便你繼續往下體驗。正式關卡時，仍然需要拍到任務要求的內容才會通過。`;
+  return `我看見了：${normalized}\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。`;
 }
 
 function buildAiNoContentResult(task) {
