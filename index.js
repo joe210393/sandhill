@@ -309,10 +309,13 @@ function buildDemoAiResult(task, submissionUrl = null) {
   };
 }
 
-function buildTutorialForcedAiReason(task, aiReason = '') {
+function buildTutorialForcedAiReason(task, aiReason = '', aiPassed = null) {
   const fallback = `我看見了你上傳的畫面，但因為現在是教學模式，所以「${task?.name || '這一關'}」先讓你通過，方便你把整段流程走完。`;
   const normalized = normalizeNullableString(aiReason);
   if (!normalized) return fallback;
+  if (aiPassed === false) {
+    return `我看見了：${normalized}\n\n不過這次不是這一關要找的內容喔。因為現在是教學模式，所以我還是先讓你通過，方便你繼續往下體驗。正式關卡時，還是需要拍到任務指定的物品或場景才會過關。`;
+  }
   return `我看見了：${normalized}\n\n但因為現在是教學模式，所以這一關先讓你通過，方便你繼續往下體驗。正式關卡時，仍然需要拍到任務要求的內容才會通過。`;
 }
 
@@ -3990,7 +3993,7 @@ app.post('/api/tutorial/ai-tasks/:taskId/submit', uploadAiTaskImage.single('imag
       passed: true,
       tutorial_guest: !optionalUser,
       message: '教學模式已完成這一步',
-      reason: buildTutorialForcedAiReason(task, lmResult?.reason),
+      reason: buildTutorialForcedAiReason(task, lmResult?.reason, lmResult?.passed),
       retry_advice: '',
       user_task_id: userTaskId,
       earnedItemName: earnedItemName,
@@ -4141,7 +4144,7 @@ app.post('/api/ai-tasks/:taskId/submit', authenticateToken, uploadAiTaskImage.si
           retry_advice: '',
           source: lmResult ? 'sandhill_demo_autopass_with_lm' : fallbackResult.source,
           submission_url: submissionUrl,
-          reason: buildTutorialForcedAiReason(task, lmResult?.reason)
+          reason: buildTutorialForcedAiReason(task, lmResult?.reason, lmResult?.passed)
         }
       };
     } else {

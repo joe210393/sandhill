@@ -1690,6 +1690,7 @@ document.addEventListener('DOMContentLoaded', () => {
         async function completeBoardTurn(success, options = {}) {
             if (currentEntryMode !== 'board_game' || !currentBoardRun?.pendingTargetTile) return;
             const pendingTile = getBoardTileByIndex(currentBoardRun.pendingTargetTile);
+            const tutorialLikeMode = isCurrentQuestTutorialMode() || isCurrentQuestDemoMode();
             const {
                 speakerKey = success ? 'judge' : 'rescue',
                 mood = success ? '通關判定' : '補救判定',
@@ -1697,7 +1698,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 autoCloseMs = 2200,
                 skipDialog = false,
                 bonusPoints = 0,
-                advanceExtra = 0
+                advanceExtra = 0,
+                buttonLabel = null,
+                blocking = null
             } = options;
             if (useRemoteBoardSession && currentBoardSessionId) {
                 const res = await fetch(`/api/board/session/${currentBoardSessionId}/resolve`, {
@@ -1721,7 +1724,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         speakerKey,
                         mood,
                         text: finalMsg,
-                        autoCloseMs
+                        autoCloseMs: tutorialLikeMode ? null : autoCloseMs,
+                        buttonLabel: buttonLabel || (tutorialLikeMode ? '我知道了' : null),
+                        blocking: typeof blocking === 'boolean' ? blocking : tutorialLikeMode
                     });
                 }
                 if (data.session.pending_target_tile == null) {
@@ -1760,7 +1765,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     speakerKey,
                     mood,
                     text: finalMsg,
-                    autoCloseMs
+                    autoCloseMs: tutorialLikeMode ? null : autoCloseMs,
+                    buttonLabel: buttonLabel || (tutorialLikeMode ? '我知道了' : null),
+                    blocking: typeof blocking === 'boolean' ? blocking : tutorialLikeMode
                 });
             }
             const focusTile = getBoardTileByIndex(currentBoardRun.currentTile);
@@ -2988,8 +2995,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 speakerKey: 'judge',
                                 mood: tutorialPassMode ? '教學判定' : 'AI 通關',
                                 text: successText,
-                                buttonLabel: tutorialPassMode ? '看懂了' : null,
-                                autoCloseMs: storyJudgeAutoClose
+                                buttonLabel: tutorialPassMode ? '我知道了' : null,
+                                autoCloseMs: storyJudgeAutoClose,
+                                blocking: tutorialPassMode
                             });
                         }
                         scheduleStoryReloadAfterCompletion();
@@ -3004,31 +3012,65 @@ document.addEventListener('DOMContentLoaded', () => {
                         setTimeout(() => document.body.classList.remove('shake-error'), 500);
 
                         const failText = judgeSummary || retrySummary || 'AI 驗證未通過，請再試一次';
+                        const tutorialWrongTargetText = tutorialPassMode
+                            ? `鯨語看完這張照片後說：\n\n${judgeSummary || '不是這個喔。'}\n\n因為現在是教學模式，所以海羽還是先讓你往下走，正式關卡時就需要拍到指定物件才會通過。`
+                            : null;
                         if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
                             resetPhotoCaptureState();
                             answerModal.classList.add('hidden');
-                            await completeBoardTurn(false, {
-                                speakerKey: 'judge',
-                                mood: '未通過',
-                                text: retrySummary
-                                    ? `${judgeSummary || '這次還沒通過。'}\n\n海羽建議：${retrySummary}`
-                                    : failText,
-                                autoCloseMs: tutorialPassMode ? null : 2800
-                            });
+                            if (tutorialPassMode) {
+                                await completeBoardTurn(true, {
+                                    speakerKey: 'judge',
+                                    mood: '教學判定',
+                                    text: tutorialWrongTargetText,
+                                    autoCloseMs: null,
+                                    buttonLabel: '我知道了',
+                                    blocking: true
+                                });
+                            } else {
+                                await completeBoardTurn(false, {
+                                    speakerKey: 'judge',
+                                    mood: '未通過',
+                                    text: retrySummary
+                                        ? `${judgeSummary || '這次還沒通過。'}\n\n海羽建議：${retrySummary}`
+                                        : failText,
+                                    autoCloseMs: 2800
+                                });
+                            }
                         } else {
-                            answerMessage.textContent = `❌ ${failText}`;
-                            photoCaptureModeActive = true;
-                            setImmersiveCameraMode(true);
-                            renderTutorialModeUi();
-                            await showNpcDialog({
-                                speakerKey: 'rescue',
-                                mood: '裁定未通過',
-                                text: retrySummary
-                                    ? `鯨語的裁定是：${judgeSummary || '這次還沒通過。'}\n\n海羽補充：${retrySummary}`
-                                    : `鯨語的裁定是：${failText}\n\n海羽建議你再整理一下畫面，重新挑戰。`,
-                                buttonLabel: '重新挑戰'
-                            });
-                            btnAnswerSubmit.disabled = false;
+                            if (tutorialPassMode) {
+                                answerMessage.textContent = `🤖 ${judgeSummary || '不是這個喔，但教學模式會先放行'}`;
+                                resetPhotoCaptureState();
+                                answerModal.classList.add('hidden');
+                                tutorialFlowStarted = false;
+                                renderTutorialModeUi();
+                                if (tutorialGuestMode) {
+                                    completeTutorialGuestTask(currentTask);
+                                }
+                                await showNpcDialog({
+                                    speakerKey: 'judge',
+                                    mood: '教學判定',
+                                    text: tutorialWrongTargetText,
+                                    buttonLabel: '我知道了',
+                                    blocking: true
+                                });
+                                scheduleStoryReloadAfterCompletion();
+                                showCompletionModal(aiData.earnedItemName ? `🎁 獲得：${aiData.earnedItemName}` : '✅ 教學模式已完成這一步');
+                            } else {
+                                answerMessage.textContent = `❌ ${failText}`;
+                                photoCaptureModeActive = true;
+                                setImmersiveCameraMode(true);
+                                renderTutorialModeUi();
+                                await showNpcDialog({
+                                    speakerKey: 'rescue',
+                                    mood: '裁定未通過',
+                                    text: retrySummary
+                                        ? `鯨語的裁定是：${judgeSummary || '這次還沒通過。'}\n\n海羽補充：${retrySummary}`
+                                        : `鯨語的裁定是：${failText}\n\n海羽建議你再整理一下畫面，重新挑戰。`,
+                                    buttonLabel: '重新挑戰'
+                                });
+                                btnAnswerSubmit.disabled = false;
+                            }
                         }
                     }
                     return;
