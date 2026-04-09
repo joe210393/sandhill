@@ -1974,7 +1974,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function loadStoryShell(questChainId) {
             Swal.fire({
-                title: '正在為你準備教學場景...',
+                title: '正在載入劇情內容...',
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 didOpen: () => {
@@ -2040,7 +2040,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function loadBoardShell(questChainId, preferredBoardMapId = null, previewMode = false) {
             Swal.fire({
-                title: '正在為你準備教學場景...',
+                title: '正在載入棋盤內容...',
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 didOpen: () => {
@@ -2157,12 +2157,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     Swal.fire({
                         icon: 'info',
                         title: '權限提示',
-                        text: '正式遊玩需要相機和定位權限',
+                        text: '教學模式建議開啟相機和定位權限，體驗會更完整。',
                         confirmButtonText: '我知道了'
                     });
                 }
-                
-                startTutorialHelper();
+
+                if (isCurrentQuestTutorialMode() || isCurrentQuestDemoMode()) {
+                    startTutorialHelper();
+                }
                 
                 return true;
             } catch (err) {
