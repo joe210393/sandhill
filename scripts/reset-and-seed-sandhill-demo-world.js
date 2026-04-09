@@ -36,6 +36,14 @@ function audioAt(index) {
   return AUDIO_POOL[index % AUDIO_POOL.length];
 }
 
+function aiIdentifyConfig(target, prompt) {
+  return {
+    system_prompt: '你是沙丘教學模式的 AI 裁判。請描述玩家照片中最主要的物件，並盡量用繁體中文回答。',
+    user_prompt: prompt,
+    target_label: target
+  };
+}
+
 async function ensureItem(conn, { name, description, image_url, type, effect_value }) {
   const [rows] = await conn.execute('SELECT id FROM items WHERE name = ? LIMIT 1', [name]);
   if (rows.length) {
@@ -53,7 +61,7 @@ async function ensureItem(conn, { name, description, image_url, type, effect_val
 }
 
 async function cleanupExistingContent(conn) {
-  const [questRows] = await conn.execute('SELECT id, title FROM quest_chains ORDER BY id ASC');
+  const [questRows] = await conn.execute('SELECT id FROM quest_chains ORDER BY id ASC');
   console.log(`準備清除 ${questRows.length} 條玩法入口`);
 
   await conn.beginTransaction();
@@ -71,7 +79,7 @@ async function cleanupExistingContent(conn) {
       await conn.execute(
         `UPDATE point_transactions
          SET reference_id = NULL,
-             description = CONCAT(description, ' (demo reset)')
+             description = CONCAT(description, ' (tutorial reset)')
          WHERE reference_type IN ('task_completion', 'quest_chain_completion')
            AND reference_id IN (${placeholders})`,
         taskIds
@@ -81,7 +89,7 @@ async function cleanupExistingContent(conn) {
       await conn.execute(
         `UPDATE point_transactions
          SET reference_id = NULL,
-             description = CONCAT(description, ' (demo reset)')
+             description = CONCAT(description, ' (tutorial reset)')
          WHERE reference_type IN ('task_completion', 'quest_chain_completion')`
       );
     }
@@ -102,8 +110,8 @@ async function insertQuestChain(conn, payload) {
     `INSERT INTO quest_chains
       (name, title, description, short_description, chain_points, badge_name, badge_image,
        created_by, mode_type, is_active, cover_image, entry_order, entry_button_text,
-       entry_scene_label, play_style, game_rules, content_blueprint)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?, ?, ?, ?, ?, ?, ?)`,
+       entry_scene_label, play_style, experience_mode, game_rules, content_blueprint)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       payload.title,
       payload.title,
@@ -119,6 +127,7 @@ async function insertQuestChain(conn, payload) {
       payload.entry_button_text || '開始體驗',
       payload.entry_scene_label || null,
       payload.play_style || null,
+      payload.experience_mode || 'tutorial',
       JSON.stringify(payload.game_rules || {}),
       JSON.stringify(payload.content_blueprint || {})
     ]
@@ -158,8 +167,8 @@ async function insertTask(conn, questChainId, task, context = {}) {
       task.validation_mode || 'manual',
       task.ai_config ? JSON.stringify(task.ai_config) : null,
       task.pass_criteria ? JSON.stringify(task.pass_criteria) : null,
-      task.failure_message || 'Demo 模式會保留 LM 回覆，但先讓你繼續前進。',
-      task.success_message || 'Demo 通關成功，往下一段推進。',
+      task.failure_message || '教學模式會保留 LM 回覆，但先讓你繼續前進。',
+      task.success_message || '教學模式通關成功，往下一段推進。',
       task.max_attempts ?? 9,
       task.location_required ? 1 : 0,
       task.stage_template || 'story_intro',
@@ -185,7 +194,7 @@ async function insertBoardMap(conn, questChainId, map) {
       questChainId,
       map.name,
       map.description,
-      map.play_style || 'fixed_track_race',
+      map.play_style || 'tutorial_board',
       map.cover_image || imageAt(0),
       map.center_lat ?? BASE_LAT,
       map.center_lng ?? BASE_LNG,
@@ -230,243 +239,169 @@ async function insertBoardTile(conn, boardMapId, tile) {
   return result.insertId;
 }
 
-function storyTaskDefs(itemIds, storyKey) {
-  const [compassId, shellId, bottleId, coralId, keyId] = itemIds;
-  if (storyKey === 'coast') {
-    return [
-      {
-        name: '第 1 關｜碼頭報到',
-        task_type: 'location',
-        submission_type: 'answer',
-        validation_mode: 'manual',
-        quest_order: 1,
-        stage_template: 'story_intro',
-        stage_intro: '主持人・史蛋要你先在入口完成報到，確認這段濱海守護線正式開始。',
-        description: '按下報到，讓沙丘確認你已進入故事主線。',
-        hint_text: 'Demo 模式：只要開始就會通過。',
-        story_context: '守護行動從碼頭邊的第一步開始。',
-        guide_content: '這一關示範劇情起手式與報到關卡。',
-        rescue_content: '就算定位不穩，Demo 模式也會先讓你繼續。',
-        event_config: { npc: '主持人・史蛋', sfx: 'start-bell', mood: 'opening' },
-        reward_item_id: compassId,
-        points: 8
-      },
-      {
-        name: '第 2 關｜找回海岸視角',
-        task_type: 'photo',
-        submission_type: 'image',
-        validation_mode: 'ai_reference_match',
-        quest_order: 2,
-        stage_template: 'story_challenge',
-        stage_intro: '潮汐裁判・鯨語要你拍一張和參考景相近的畫面，確認你看懂這段海岸線。',
-        description: '隨手拍下眼前畫面，鯨語會真的看圖，但 Demo 先讓你通過。',
-        hint_text: '這一關會呼叫 LM 判圖，再用 Demo 放行。',
-        story_context: '你正在確認自己與海岸地景的連結。',
-        guide_content: '這一關示範參考照片比對與 AI 裁判回覆。',
-        rescue_content: '就算畫面不完整，Demo 模式仍會帶你往下走。',
-        ai_config: {
-          system_prompt: '你是沙丘 Demo 劇情的 AI 裁判，請比較參考畫面與玩家照片是否屬於相近場景。',
-          user_prompt: '請描述玩家照片看到了什麼，以及是否與海岸/碼頭視角相近。',
-          target_label: 'coast_reference'
-        },
-        pass_criteria: { target_label: 'coast_reference', min_confidence: 0.1 },
-        photoUrl: imageAt(0),
-        cover_image_url: imageAt(0),
-        bgm_url: audioAt(0),
-        event_config: { npc: '潮汐裁判・鯨語', sfx: 'camera-judge', mood: 'focus' },
-        required_item_id: compassId,
-        reward_item_id: shellId,
-        points: 18
-      },
-      {
-        name: '第 3 關｜選擇巡航策略',
-        task_type: 'multiple_choice',
-        submission_type: 'choice',
-        validation_mode: 'manual',
-        quest_order: 3,
-        options: ['沿著海堤找線索', '先找漂流垃圾', '先拍一張合照', '直接往終點跑'],
-        correct_answer: '沿著海堤找線索',
-        stage_template: 'story_choice',
-        stage_intro: '導覽員・潮聲想知道你這輪會用什麼方式探索。',
-        description: '任意選一個答案，Demo 模式會先記錄你的選擇並通關。',
-        hint_text: '這一關用來測選擇題流程與 NPC 對話切換。',
-        story_context: '不同選擇會讓人對航線有不同想像。',
-        guide_content: '這一關示範主線中的選擇題互動。',
-        rescue_content: '就算選錯也不會卡住。',
-        event_config: { npc: '導覽員・潮聲', sfx: 'choice-click', mood: 'curious' },
-        points: 10
-      },
-      {
-        name: '第 4 關｜說出你想找的東西',
-        task_type: 'keyword',
-        submission_type: 'text',
-        validation_mode: 'manual',
-        quest_order: 4,
-        correct_answer: '漂流瓶',
-        stage_template: 'story_keyword',
-        stage_intro: '救援員・海羽要你說出此刻最想尋找的海岸線索。',
-        description: '輸入任意文字，讓系統示範文字輸入型關卡。',
-        hint_text: 'Demo 模式：只要有輸入就過關。',
-        story_context: '每個玩家心中的海岸線索都不一樣。',
-        guide_content: '這一關示範文字輸入型玩法。',
-        rescue_content: '若想不到答案，輸入任何字詞即可繼續。',
-        event_config: { npc: '救援員・海羽', sfx: 'soft-note', mood: 'support' },
-        reward_item_id: bottleId,
-        points: 10
-      },
-      {
-        name: '第 5 關｜留下海岸合照',
-        task_type: 'photo',
-        submission_type: 'image',
-        validation_mode: 'ai_score',
-        quest_order: 5,
-        is_final_step: true,
-        stage_template: 'story_finale',
-        stage_intro: '主持人・史蛋請你留下這條守護線的合照，作為結尾紀錄。',
-        description: '上傳任何畫面，LM 會給評論，Demo 會讓你收尾通關。',
-        hint_text: '這一關示範 AI 評分型收尾關卡。',
-        story_context: '最後一張照片用來替整條故事畫下句點。',
-        guide_content: '這一關示範 AI score 類型與最終結算。',
-        rescue_content: '任何畫面都會先通過，但仍會保留 AI 評語。',
-        ai_config: {
-          system_prompt: '你是沙丘 Demo 劇情的終點裁判，請描述玩家照片氛圍並給簡短評語。',
-          user_prompt: '請對這張收尾照片給出 1 到 10 分的感受分數與一句評語。',
-          score_subject: 'coast_demo_finale'
-        },
-        pass_criteria: { min_score: 1 },
-        photoUrl: imageAt(1),
-        cover_image_url: imageAt(1),
-        bgm_url: audioAt(1),
-        event_config: { npc: '主持人・史蛋', sfx: 'finish-fanfare', mood: 'celebrate' },
-        required_item_id: bottleId,
-        reward_item_id: coralId,
-        points: 24
+function buildMixedStoryTasks(itemIds, variant = 'coast') {
+  const [compassId, badgeId, clueId, passId] = itemIds;
+  const intros = variant === 'coast'
+    ? {
+        title: '第 1 關｜集合報到',
+        intro: '主持人・史蛋先帶你完成報到，讓玩家看懂劇情開場與任務節奏。',
+        context: '這條教學線用來示範完整劇情玩法。'
       }
-    ];
-  }
+    : {
+        title: '第 1 關｜燈塔開機',
+        intro: '主持人・巴布先帶你啟動燈塔裝置，感受另一條劇情線的節奏。',
+        context: '這條教學線用來示範另一套劇情模板。'
+      };
 
   return [
     {
-      name: '第 1 關｜燈塔開機',
+      name: intros.title,
       task_type: 'location',
       submission_type: 'answer',
       validation_mode: 'manual',
       quest_order: 1,
       stage_template: 'story_intro',
-      stage_intro: '主持人・巴布要你先把燈塔偵測器打開，準備進入另一條 Demo 劇情。',
-      description: '按下開始，示範第二條主線的入口流程。',
-      hint_text: 'Demo 模式：入口關不會卡住。',
-      story_context: '燈塔線的調查從設備開機開始。',
-      guide_content: '這一關示範不同劇情入口的第一步。',
-      rescue_content: '若設備條件不足，沙丘也會先替你放行。',
-      event_config: { npc: '主持人・巴布', sfx: 'device-on', mood: 'warmup' },
-      reward_item_id: keyId,
+      stage_intro: intros.intro,
+      description: '按下開始即可通過，示範劇情報到型關卡。',
+      hint_text: '教學模式：直接開始即可。',
+      story_context: intros.context,
+      guide_content: '示範報到關、NPC 開場與第一步推進。',
+      rescue_content: '若玩家不理解，按下開始即可往下。',
+      event_config: { npc: '主持人・史蛋', mood: 'opening' },
+      reward_item_id: compassId,
       points: 8
     },
     {
-      name: '第 2 關｜辨識海邊物件',
+      name: variant === 'coast' ? '第 2 關｜拍下眼前畫面' : '第 2 關｜辨識眼前場景',
       task_type: 'photo',
       submission_type: 'image',
-      validation_mode: 'ai_identify',
+      validation_mode: variant === 'coast' ? 'ai_score' : 'ai_identify',
       quest_order: 2,
       stage_template: 'story_challenge',
-      stage_intro: '鯨語想知道你拍下來的畫面裡有什麼，這一關示範物件辨識。',
-      description: '拍任意畫面讓 LM 描述內容，再由 Demo 自動放行。',
-      hint_text: '這一關是 ai_identify 類型。',
-      story_context: '任何畫面都能成為 AI 觀察的素材。',
-      guide_content: 'LM 會真的回覆看到的東西，但結果仍會放行。',
-      rescue_content: '即使辨識模糊也不會阻擋你前進。',
-      ai_config: {
-        system_prompt: '你是沙丘 Demo 劇情的辨識裁判，請描述玩家照片的主要物件。',
-        user_prompt: '請用一句話描述玩家照片裡最主要的物件或場景。',
-        target_label: 'coastal_object'
-      },
-      pass_criteria: { target_label: 'coastal_object', min_confidence: 0.1 },
-      photoUrl: imageAt(2),
-      cover_image_url: imageAt(2),
-      bgm_url: audioAt(2),
-      event_config: { npc: '潮汐裁判・鯨語', sfx: 'identify-tone', mood: 'analysis' },
-      required_item_id: keyId,
-      reward_item_id: shellId,
-      points: 16
-    },
-    {
-      name: '第 3 關｜數一數眼前線索',
-      task_type: 'photo',
-      submission_type: 'image',
-      validation_mode: 'ai_count',
-      quest_order: 3,
-      stage_template: 'story_observe',
-      stage_intro: '這一關讓鯨語幫你數數看畫面裡的線索數量。',
-      description: '上傳任意照片，LM 會嘗試描述數量，但 Demo 依然先放行。',
-      hint_text: '這一關是 ai_count 類型。',
-      story_context: '觀察與統計是燈塔巡查的另一種節奏。',
-      guide_content: '用來測試 count 類型結果回傳與文案。',
-      rescue_content: '數量不準時仍會先放行。',
-      ai_config: {
-        system_prompt: '你是沙丘 Demo 劇情的計數裁判，請估計玩家照片中可辨識的重複物件數量。',
-        user_prompt: '請估計畫面中最明顯的一種物件大約出現幾個。',
-        target_label: 'visible_object'
-      },
-      pass_criteria: { target_label: 'visible_object', target_count: 1, min_confidence: 0.1 },
-      photoUrl: imageAt(3),
-      cover_image_url: imageAt(3),
-      bgm_url: audioAt(2),
-      event_config: { npc: '潮汐裁判・鯨語', sfx: 'count-scan', mood: 'observe' },
-      reward_item_id: bottleId,
+      stage_intro: '潮汐裁判・鯨語會真的看圖，並告訴玩家看見了什麼。',
+      description: '拍任意畫面都會通過，但教學模式仍會顯示 LM 的判定文字。',
+      hint_text: '這一關示範 AI 圖片關卡與 RPG 裁判對話。',
+      story_context: '用 AI 回覆讓玩家感受裁判真的在看圖。',
+      guide_content: '示範 AI 判定但教學先放行。',
+      rescue_content: '任意照片都會讓你繼續。',
+      ai_config: variant === 'coast'
+        ? { system_prompt: '你是沙丘教學模式的 AI 裁判，請描述玩家照片氛圍。', user_prompt: '請說出你看見了什麼，並給一句簡短回饋。', score_subject: 'tutorial_story_photo' }
+        : aiIdentifyConfig('scene_object', '請用一句話描述玩家照片裡最主要的物件或場景。'),
+      pass_criteria: variant === 'coast' ? { min_score: 1 } : { target_label: 'scene_object', min_confidence: 0.1 },
+      reward_item_id: badgeId,
       points: 18
     },
     {
-      name: '第 4 關｜輸入燈塔密碼',
-      task_type: 'number',
-      submission_type: 'text',
+      name: '第 3 關｜選擇你的行動',
+      task_type: 'multiple_choice',
+      submission_type: 'choice',
       validation_mode: 'manual',
-      quest_order: 4,
-      correct_answer: '42',
-      stage_template: 'story_unlock',
-      stage_intro: '潮聲要你打開燈塔小門，先輸入一組任意數字體驗解鎖。',
-      description: '任意輸入數字即可通過，這一關用來測數字型玩法。',
-      hint_text: 'Demo 模式：任何數字都算通過。',
-      story_context: '每道鎖都只是讓你感受節奏的一部分。',
-      guide_content: '測數字輸入與解鎖型任務。',
-      rescue_content: '輸入任意數字即可繼續。',
-      event_config: { npc: '導覽員・潮聲', sfx: 'keypad-beep', mood: 'unlock' },
+      quest_order: 3,
+      options: variant === 'coast'
+        ? ['先看海線', '先拍合照', '先找垃圾', '先衝終點']
+        : ['先檢查設備', '先看燈塔門', '先自拍', '先跳過'],
+      correct_answer: variant === 'coast' ? '先看海線' : '先檢查設備',
+      stage_template: 'story_choice',
+      stage_intro: '導覽員・潮聲想知道你會怎麼開始探索。',
+      description: '任意選項都能過關，示範選擇題流程與對話切換。',
+      hint_text: '教學模式：任意選項都算通過。',
+      story_context: '玩家會在這裡感受到劇情分支的假象與引導。',
+      guide_content: '示範多選題與 NPC 回饋。',
+      rescue_content: '真的不知道選什麼也沒關係，任意選即可。',
+      event_config: { npc: '導覽員・潮聲', mood: 'curious' },
       points: 10
     },
     {
-      name: '第 5 關｜檢查場景條件',
+      name: '第 4 關｜輸入一句話',
+      task_type: 'keyword',
+      submission_type: 'text',
+      validation_mode: 'manual',
+      quest_order: 4,
+      correct_answer: variant === 'coast' ? '海風' : '燈塔',
+      stage_template: 'story_keyword',
+      stage_intro: '救援員・海羽請你輸入一句話，示範文字輸入型關卡。',
+      description: '任意輸入都可以過關，用來測試手機文字輸入流程。',
+      hint_text: '教學模式：輸入任何文字即可。',
+      story_context: '讓玩家感受不只是拍照，也會有文字互動。',
+      guide_content: '示範文字輸入題。',
+      rescue_content: '隨便輸入也能繼續。',
+      reward_item_id: clueId,
+      points: 10
+    },
+    {
+      name: '第 5 關｜輸入數字',
+      task_type: 'number',
+      submission_type: 'text',
+      validation_mode: 'manual',
+      quest_order: 5,
+      correct_answer: variant === 'coast' ? '7' : '42',
+      stage_template: 'story_unlock',
+      stage_intro: '這一關示範數字型玩法與解鎖節奏。',
+      description: '輸入任意數字即可通過。',
+      hint_text: '教學模式：任意數字皆可。',
+      story_context: '讓玩家體驗解鎖感。',
+      guide_content: '示範數字輸入。',
+      rescue_content: '任意數字都可前進。',
+      reward_item_id: passId,
+      points: 10
+    },
+    {
+      name: '第 6 關｜留下收尾照片',
       task_type: 'photo',
       submission_type: 'image',
       validation_mode: 'ai_rule_check',
-      quest_order: 5,
+      quest_order: 6,
       is_final_step: true,
       stage_template: 'story_finale',
-      stage_intro: '最後一關讓鯨語確認畫面條件，做一次完整的 AI 規則檢查示範。',
-      description: 'LM 會描述畫面條件是否齊全，但 Demo 會先讓你通過。',
-      hint_text: '這一關是 ai_rule_check 類型。',
-      story_context: '調查終點需要做一次總檢視。',
-      guide_content: '用來演示條件檢查、規則式 AI 文案與結尾對話。',
-      rescue_content: '若條件不足，Demo 仍會收尾放行。',
-      ai_config: {
-        system_prompt: '你是沙丘 Demo 劇情的條件檢查裁判，請描述玩家照片中的場景元素。',
-        user_prompt: '請列出畫面中有哪些主要元素，並判斷是否像是一個完整的觀測場景。',
-        required_elements: ['視野', '主體', '背景']
-      },
+      stage_intro: '最後一關交給鯨語檢查畫面內容，讓玩家感受收尾與結算。',
+      description: '上傳任意畫面，LM 會描述內容，但教學模式仍先通過。',
+      hint_text: '示範 AI 條件檢查與結尾對話。',
+      story_context: '最後一關讓玩家看到完整收尾。',
+      guide_content: '示範 rule check 類型。',
+      rescue_content: '任意畫面都會完成主線。',
+      ai_config: { system_prompt: '你是沙丘教學模式的 AI 裁判，請描述玩家照片中的主要元素。', user_prompt: '請說出你看見了什麼，並簡單描述場景元素。', required_elements: ['主體', '背景'] },
       pass_criteria: { all_rules_must_pass: false, min_confidence: 0.1 },
-      photoUrl: imageAt(4),
-      cover_image_url: imageAt(4),
-      bgm_url: audioAt(3),
-      event_config: { npc: '潮汐裁判・鯨語', sfx: 'rule-check', mood: 'final' },
-      required_item_id: shellId,
-      reward_item_id: coralId,
-      points: 22
+      reward_item_id: badgeId,
+      points: 24
     }
   ];
 }
 
-function boardTaskDefs(itemIds, boardKey) {
-  const [compassId, shellId, bottleId, coralId, keyId] = itemIds;
-  if (boardKey === 'fortune') {
+function buildStationeryStoryTasks(itemIds) {
+  const [, badgeId, clueId, passId] = itemIds;
+  const defs = [
+    ['第 1 題｜找一支筆', 'pen_like', '請描述這張照片裡是否出現筆、鉛筆、原子筆或類似書寫工具。', '筆、鉛筆、原子筆等都可以。'],
+    ['第 2 題｜找美工刀', 'utility_knife', '請描述這張照片裡是否出現美工刀或裁切工具。', '任何美工刀都可以。'],
+    ['第 3 題｜找水杯', 'cup_like', '請描述這張照片裡是否出現水杯、馬克杯、咖啡杯或類似杯子。', '馬克杯、咖啡杯等都可以。'],
+    ['第 4 題｜找充電器', 'charger_like', '請描述這張照片裡是否出現充電器、充電頭、充電線或充電設備。', '任何充電器都可以。'],
+    ['第 5 題｜找電腦', 'computer_like', '請描述這張照片裡是否出現筆電、桌機、螢幕連接電腦或其他電腦設備。', '任何電腦都可以。'],
+    ['第 6 題｜找電視螢幕', 'monitor_like', '請描述這張照片裡是否出現電視、監視器、外接螢幕或類似顯示器。', '任何電視螢幕都可以。']
+  ];
+
+  return defs.map((def, index) => ({
+    name: def[0],
+    task_type: 'photo',
+    submission_type: 'image',
+    validation_mode: 'ai_identify',
+    quest_order: index + 1,
+    is_final_step: index === defs.length - 1,
+    stage_template: index === 0 ? 'story_intro' : (index === defs.length - 1 ? 'story_finale' : 'story_challenge'),
+    stage_intro: `潮汐裁判・鯨語要你拍出指定物件。${def[3]}`,
+    description: `LM 會真的看圖並回覆「我看見了...」，但教學模式會先放行。${def[3]}`,
+    hint_text: `教學模式：辨識結果會顯示，但不會卡關。${def[3]}`,
+    story_context: '這條教學線專門示範物件辨識型關卡。',
+    guide_content: '玩家可以連續體驗 6 種辨識題型，全部都是日常文具與設備。',
+    rescue_content: '如果一時找不到，任意拍照也能先繼續。',
+    ai_config: aiIdentifyConfig(def[1], def[2]),
+    pass_criteria: { target_label: def[1], min_confidence: 0.1 },
+    reward_item_id: index % 2 === 0 ? clueId : passId,
+    points: 16 + index
+  }));
+}
+
+function buildBoardTaskDefs(itemIds, variant = 'coast') {
+  const [compassId, badgeId, clueId, passId] = itemIds;
+  if (variant === 'coast') {
     return [
       {
         name: '棋盤挑戰｜起航留影',
@@ -474,17 +409,16 @@ function boardTaskDefs(itemIds, boardKey) {
         submission_type: 'image',
         validation_mode: 'ai_score',
         stage_template: 'board_challenge',
-        stage_intro: '留下第一張棋盤留影，讓 AI 替你記錄這一步。',
-        description: '任意拍照即可前進。',
-        guide_content: '大富翁挑戰格示範：拍照評分。',
-        hint_text: 'Demo：任意照片都會通過。',
-        story_context: '航線開始運轉。',
-        rescue_content: '沒有合適畫面也可直接拍。',
-        event_config: { npc: '棋盤主持人・史蛋', sfx: 'board-camera', mood: 'starter' },
-        ai_config: { system_prompt: '描述這張棋盤教學照片。', user_prompt: '請給一句簡短評語。', score_subject: 'board_photo' },
+        stage_intro: '留下第一張照片，示範棋盤上的拍照挑戰。',
+        description: '任意照片都會先通關。',
+        guide_content: '示範拍照評分格。',
+        hint_text: '教學模式：任意畫面皆可。',
+        story_context: '棋盤的第一張照片只是讓玩家暖身。',
+        rescue_content: '任何畫面都會先放行。',
+        event_config: { npc: '棋盤主持人・史蛋', mood: 'starter' },
+        ai_config: { system_prompt: '請描述這張教學棋盤照片。', user_prompt: '請說出你看見了什麼，並給一句簡短回應。', score_subject: 'tutorial_board_photo' },
         pass_criteria: { min_score: 1 },
-        required_item_id: compassId,
-        reward_item_id: shellId,
+        reward_item_id: compassId,
         points: 15
       },
       {
@@ -492,16 +426,16 @@ function boardTaskDefs(itemIds, boardKey) {
         task_type: 'multiple_choice',
         submission_type: 'choice',
         validation_mode: 'manual',
-        options: ['機會關卡', '命運關卡', '挑戰關卡'],
+        options: ['挑戰關卡', '機會關卡', '命運關卡'],
         correct_answer: '挑戰關卡',
         stage_template: 'board_quiz',
-        stage_intro: '來答一題，感受棋盤上的問題關卡。',
+        stage_intro: '示範棋盤上的問題關卡。',
         description: '任意選一個答案即可通過。',
-        guide_content: '問題關卡示範。',
-        hint_text: 'Demo：任意答案都算通過。',
-        story_context: '答題只是節奏的一部分。',
-        rescue_content: '不用怕答錯，Demo 會先放行。',
-        event_config: { npc: '出題員・潮聲', sfx: 'quiz-bell', mood: 'quiz' },
+        guide_content: '示範選擇題。',
+        hint_text: '教學模式：任意答案皆可。',
+        story_context: '讓玩家看到棋盤不是只有拍照。',
+        rescue_content: '不知道答案也不會卡住。',
+        event_config: { npc: '出題員・潮聲', mood: 'quiz' },
         points: 12
       },
       {
@@ -510,15 +444,15 @@ function boardTaskDefs(itemIds, boardKey) {
         submission_type: 'text',
         validation_mode: 'manual',
         correct_answer: '順風',
-        stage_template: 'board_challenge',
-        stage_intro: '輸入一個你想對海風說的詞。',
-        description: '任意輸入文字即可通過。',
-        guide_content: '文字輸入型挑戰示範。',
-        hint_text: 'Demo：任意文字皆可。',
-        story_context: '有時只是讓玩家參與其中。',
-        rescue_content: '輸入任何內容即可。',
-        event_config: { npc: '救援員・海羽', sfx: 'soft-chime', mood: 'gentle' },
-        reward_item_id: bottleId,
+        stage_template: 'board_keyword',
+        stage_intro: '輸入一句話，示範棋盤上的文字題。',
+        description: '任意輸入都可以過關。',
+        guide_content: '示範文字輸入關。',
+        hint_text: '教學模式：任意文字皆可。',
+        story_context: '棋盤上的挑戰也可以是文字互動。',
+        rescue_content: '隨便輸入就能繼續。',
+        event_config: { npc: '海羽', mood: 'support' },
+        reward_item_id: clueId,
         points: 10
       },
       {
@@ -527,16 +461,16 @@ function boardTaskDefs(itemIds, boardKey) {
         submission_type: 'image',
         validation_mode: 'ai_identify',
         stage_template: 'board_challenge',
-        stage_intro: '鯨語想知道你眼前看到了什麼。',
-        description: '上傳任意畫面，AI 真的會描述，但 Demo 先通關。',
-        guide_content: 'AI identify 挑戰示範。',
-        hint_text: 'Demo：任意畫面皆可。',
-        story_context: '感受 AI 在棋盤上的裁判角色。',
-        rescue_content: '沒拍好也能繼續。',
-        event_config: { npc: '潮汐裁判・鯨語', sfx: 'scan-identify', mood: 'focus' },
-        ai_config: { system_prompt: '請描述玩家照片。', user_prompt: '用一句話描述照片內容。', target_label: 'scene_object' },
+        stage_intro: '鯨語會辨識你眼前的畫面。',
+        description: 'AI 會說出看見了什麼，教學模式依然放行。',
+        guide_content: '示範 identify 關卡。',
+        hint_text: '任意照片都能前進。',
+        story_context: '棋盤上的 AI 也要有存在感。',
+        rescue_content: '拍任何內容都不會卡。',
+        event_config: { npc: '潮汐裁判・鯨語', mood: 'analysis' },
+        ai_config: aiIdentifyConfig('scene_object', '請用一句話描述玩家照片裡最主要的物件或場景。'),
         pass_criteria: { target_label: 'scene_object', min_confidence: 0.1 },
-        reward_item_id: coralId,
+        reward_item_id: passId,
         points: 18
       }
     ];
@@ -549,17 +483,16 @@ function boardTaskDefs(itemIds, boardKey) {
       submission_type: 'image',
       validation_mode: 'ai_score',
       stage_template: 'board_challenge',
-      stage_intro: '先留下一張觀測照，作為競速棋盤的開場。',
-      description: '任意畫面都會先通關。',
-      guide_content: '拍照型挑戰。',
-      hint_text: 'Demo：任意畫面都通過。',
-      story_context: '競速棋盤的第一步是留下視角。',
+      stage_intro: '先拍一張觀測照，示範競速棋盤的第一格。',
+      description: '任意畫面都會通過。',
+      guide_content: '示範拍照型挑戰。',
+      hint_text: '教學模式：任意畫面皆可。',
+      story_context: '競速棋盤的節奏更快。',
       rescue_content: '照片隨手拍即可。',
-      event_config: { npc: '棋盤主持人・巴布', sfx: 'quick-shot', mood: 'fast' },
-      ai_config: { system_prompt: '請描述玩家照片。', user_prompt: '給一句感想。', score_subject: 'board_fast_photo' },
+      event_config: { npc: '主持人・巴布', mood: 'fast' },
+      ai_config: { system_prompt: '請描述這張教學照片。', user_prompt: '請說出你看見了什麼，並給一句回應。', score_subject: 'tutorial_fast_board_photo' },
       pass_criteria: { min_score: 1 },
-      required_item_id: keyId,
-      reward_item_id: shellId,
+      reward_item_id: badgeId,
       points: 14
     },
     {
@@ -569,13 +502,13 @@ function boardTaskDefs(itemIds, boardKey) {
       validation_mode: 'manual',
       correct_answer: '7',
       stage_template: 'board_quiz',
-      stage_intro: '輸入任意數字，示範棋盤上的快問快答。',
-      description: '任意數字即可通關。',
-      guide_content: '數字型問題關卡。',
-      hint_text: 'Demo：任何數字都可。',
-      story_context: '快問快答帶來不同節奏。',
-      rescue_content: '輸入一個數字就行。',
-      event_config: { npc: '出題員・潮聲', sfx: 'quiz-fast', mood: 'tempo' },
+      stage_intro: '輸入任意數字，示範快問快答。',
+      description: '任意數字都能通關。',
+      guide_content: '示範數字題。',
+      hint_text: '教學模式：任意數字皆可。',
+      story_context: '數字題讓棋盤節奏更快。',
+      rescue_content: '輸入一個數字即可。',
+      event_config: { npc: '潮聲', mood: 'tempo' },
       points: 10
     },
     {
@@ -584,22 +517,22 @@ function boardTaskDefs(itemIds, boardKey) {
       submission_type: 'image',
       validation_mode: 'ai_rule_check',
       stage_template: 'board_challenge',
-      stage_intro: '最後一張圖交給鯨語做條件檢查，完成整張競速棋盤。',
-      description: 'AI 會描述條件結果，Demo 仍會先放行。',
-      guide_content: '條件檢查型挑戰。',
-      hint_text: 'Demo：任意畫面都會被放行。',
-      story_context: '終點前的規則確認。',
-      rescue_content: '畫面不足也不會阻擋你通關。',
-      event_config: { npc: '潮汐裁判・鯨語', sfx: 'final-scan', mood: 'resolve' },
-      ai_config: { system_prompt: '請描述這張照片中的場景元素。', user_prompt: '列出畫面中看得到的元素。', required_elements: ['主體', '背景'] },
+      stage_intro: '最後一張圖交給鯨語做條件檢查。',
+      description: 'LM 會描述畫面條件，但教學模式會先放行。',
+      guide_content: '示範 AI 規則檢查。',
+      hint_text: '任意照片都可以前進。',
+      story_context: '讓玩家感受 AI 判定不同型態。',
+      rescue_content: '就算條件不足也不會卡關。',
+      event_config: { npc: '鯨語', mood: 'resolve' },
+      ai_config: { system_prompt: '請描述照片中的主要元素。', user_prompt: '請用一句話說出你看見了什麼，並列出主要元素。', required_elements: ['主體', '背景'] },
       pass_criteria: { all_rules_must_pass: false, min_confidence: 0.1 },
-      reward_item_id: coralId,
+      reward_item_id: passId,
       points: 20
     }
   ];
 }
 
-async function seedStoryCampaign(conn, itemIds, config, orderOffset) {
+async function seedStoryCampaign(conn, itemIds, config, orderOffset, taskBuilder) {
   const questChainId = await insertQuestChain(conn, {
     title: config.title,
     description: config.description,
@@ -613,29 +546,38 @@ async function seedStoryCampaign(conn, itemIds, config, orderOffset) {
     entry_button_text: config.entry_button_text,
     entry_scene_label: config.entry_scene_label,
     play_style: config.play_style,
+    experience_mode: 'tutorial',
     game_rules: {
       demo_autopass: true,
       tutorial_mode: true,
+      gps_required: false,
       rpg_dialog: true,
       mobile_single_hand: true
     },
     content_blueprint: {
-      kind: 'demo_story',
+      kind: 'tutorial_story',
       scene: config.entry_scene_label,
-      chapter: config.play_style
+      chapter: config.play_style,
+      gps_required: false
     }
   });
 
-  const tasks = storyTaskDefs(itemIds, config.storyKey);
+  const tasks = taskBuilder(itemIds);
   const taskIds = [];
   for (let i = 0; i < tasks.length; i += 1) {
-    const taskId = await insertTask(conn, questChainId, tasks[i], { imageIndex: orderOffset + i, audioIndex: i });
+    const taskId = await insertTask(conn, questChainId, {
+      ...tasks[i],
+      location_required: false,
+      lat: BASE_LAT,
+      lng: BASE_LNG,
+      radius: 35
+    }, { imageIndex: orderOffset + i, audioIndex: i });
     taskIds.push(taskId);
   }
   return { questChainId, taskIds };
 }
 
-async function seedBoardCampaign(conn, itemIds, config, orderOffset) {
+async function seedBoardCampaign(conn, itemIds, config, orderOffset, taskBuilder) {
   const questChainId = await insertQuestChain(conn, {
     title: config.title,
     description: config.description,
@@ -649,29 +591,37 @@ async function seedBoardCampaign(conn, itemIds, config, orderOffset) {
     entry_button_text: config.entry_button_text,
     entry_scene_label: config.entry_scene_label,
     play_style: config.play_style,
+    experience_mode: 'tutorial',
     game_rules: {
       demo_autopass: true,
       tutorial_mode: true,
+      gps_required: false,
       rpg_dialog: true,
       board_tutorial: true,
       mobile_single_hand: true
     },
     content_blueprint: {
-      kind: 'demo_board',
+      kind: 'tutorial_board',
       scene: config.entry_scene_label,
-      chapter: config.play_style
+      chapter: config.play_style,
+      gps_required: false
     }
   });
 
-  const tasks = boardTaskDefs(itemIds, config.boardKey);
+  const tasks = taskBuilder(itemIds);
   const taskIds = [];
   for (let i = 0; i < tasks.length; i += 1) {
-    const taskId = await insertTask(conn, questChainId, tasks[i], { imageIndex: orderOffset + i, audioIndex: i + 1 });
+    const taskId = await insertTask(conn, questChainId, {
+      ...tasks[i],
+      location_required: false,
+      lat: BASE_LAT,
+      lng: BASE_LNG,
+      radius: 35
+    }, { imageIndex: orderOffset + i, audioIndex: i + 1 });
     taskIds.push(taskId);
   }
 
   const boardMapId = await insertBoardMap(conn, questChainId, config.map);
-
   for (const tile of config.tiles(taskIds)) {
     await insertBoardTile(conn, boardMapId, tile);
   }
@@ -682,63 +632,72 @@ async function seedBoardCampaign(conn, itemIds, config, orderOffset) {
 async function main() {
   const conn = await mysql.createConnection(DB_CONFIG);
   try {
-    console.log('開始重建 Demo 世界...');
+    console.log('開始重建教學世界...');
     await cleanupExistingContent(conn);
 
     const itemIds = [];
-    itemIds.push(await ensureItem(conn, { name: '潮汐羅盤', description: '用來象徵前進方向的 demo 道具。', image_url: imageAt(0), type: 'normal', effect_value: 0 }));
-    itemIds.push(await ensureItem(conn, { name: '海玻璃徽章', description: '完成劇情後會得到的徽章。', image_url: imageAt(1), type: 'badge', effect_value: 0 }));
-    itemIds.push(await ensureItem(conn, { name: '漂流瓶線索', description: '文字輸入與故事線索的代表物。', image_url: imageAt(2), type: 'clue', effect_value: 0 }));
-    itemIds.push(await ensureItem(conn, { name: '珊瑚通行章', description: '收尾與終點用的 demo 道具。', image_url: imageAt(3), type: 'badge', effect_value: 0 }));
-    itemIds.push(await ensureItem(conn, { name: '燈塔鑰匙', description: '燈塔調查線的起手道具。', image_url: imageAt(4), type: 'key', effect_value: 0 }));
+    itemIds.push(await ensureItem(conn, { name: '潮汐羅盤', description: '象徵方向與前進的教學道具。', image_url: imageAt(0), type: 'normal', effect_value: 0 }));
+    itemIds.push(await ensureItem(conn, { name: '海玻璃徽章', description: '完成教學後獲得的徽章。', image_url: imageAt(1), type: 'badge', effect_value: 0 }));
+    itemIds.push(await ensureItem(conn, { name: '漂流瓶線索', description: '文字輸入與提示用的線索道具。', image_url: imageAt(2), type: 'clue', effect_value: 0 }));
+    itemIds.push(await ensureItem(conn, { name: '珊瑚通行章', description: '關卡結算與收尾用道具。', image_url: imageAt(3), type: 'badge', effect_value: 0 }));
 
     const seeded = [];
 
     seeded.push(await seedStoryCampaign(conn, itemIds, {
-      title: '沙丘 Demo｜潮聲巡航線',
-      description: '以濱海守護與觀察為主軸的 Demo 劇情線，會完整演示報到、AI 拍照、選擇題、文字輸入與收尾評分。',
-      short_description: '劇情模式 Demo：完整體驗報到、拍照、選擇題與收尾評分。',
+      title: '沙丘教學｜潮聲巡航線',
+      description: '完整示範劇情主線：報到、AI 拍照、選擇題、文字題、數字題與收尾照片。',
+      short_description: '劇情教學：完整走一次主線玩法。',
       chain_points: 80,
       badge_name: '潮聲徽章',
       badge_image: imageAt(0),
       cover_image: imageAt(0),
       entry_button_text: '開始巡航',
-      entry_scene_label: '濱海守護',
-      play_style: 'demo_story_coast',
-      storyKey: 'coast'
-    }, 1));
+      entry_scene_label: '濱海劇情',
+      play_style: 'tutorial_story_coast'
+    }, 1, (ids) => buildMixedStoryTasks(ids, 'coast')));
 
     seeded.push(await seedStoryCampaign(conn, itemIds, {
-      title: '沙丘 Demo｜燈塔搜查線',
-      description: '以 AI 辨識、數量判斷、規則檢查與數字解鎖為核心的 Demo 劇情線。',
-      short_description: '劇情模式 Demo：完整體驗 identify、count、rule check 與數字題。',
-      chain_points: 90,
+      title: '沙丘教學｜燈塔搜查線',
+      description: '第二條劇情主線，示範另一套節奏與 AI 互動。',
+      short_description: '劇情教學：另一條劇情模板。',
+      chain_points: 84,
       badge_name: '燈塔徽章',
       badge_image: imageAt(1),
       cover_image: imageAt(1),
       entry_button_text: '開始搜查',
-      entry_scene_label: '燈塔調查',
-      play_style: 'demo_story_lighthouse',
-      storyKey: 'lighthouse'
-    }, 2));
+      entry_scene_label: '燈塔劇情',
+      play_style: 'tutorial_story_lighthouse'
+    }, 2, (ids) => buildMixedStoryTasks(ids, 'lighthouse')));
 
-    seeded.push(await seedBoardCampaign(conn, itemIds, {
-      title: '沙丘 Demo｜濱海命運棋盤',
-      description: '一張含挑戰、機會、命運、問題與終點的完整 Demo 棋盤。',
-      short_description: '大富翁 Demo：混合挑戰格、機會格、命運格與問題格。',
-      chain_points: 120,
-      badge_name: '命運棋盤徽章',
+    seeded.push(await seedStoryCampaign(conn, itemIds, {
+      title: '沙丘教學｜文具辨識線',
+      description: '六題連續物件辨識教學，全部都會真的交給 LM 看圖，但教學模式先放行。',
+      short_description: '劇情教學：文具與設備辨識 6 連關。',
+      chain_points: 96,
+      badge_name: '文具觀察徽章',
       badge_image: imageAt(2),
       cover_image: imageAt(2),
+      entry_button_text: '開始辨識',
+      entry_scene_label: '文具辨識',
+      play_style: 'tutorial_story_stationery'
+    }, 3, (ids) => buildStationeryStoryTasks(ids)));
+
+    seeded.push(await seedBoardCampaign(conn, itemIds, {
+      title: '沙丘教學｜濱海命運棋盤',
+      description: '混合挑戰、問題、機會、命運與事件的完整棋盤教學。',
+      short_description: '大富翁教學：混合型棋盤。',
+      chain_points: 120,
+      badge_name: '命運棋盤徽章',
+      badge_image: imageAt(3),
+      cover_image: imageAt(3),
       entry_button_text: '進入命運棋盤',
       entry_scene_label: '濱海棋盤',
-      play_style: 'demo_board_fortune',
-      boardKey: 'fortune',
+      play_style: 'tutorial_board_fortune',
       map: {
         name: '濱海命運棋盤',
-        description: '混合型示範棋盤，讓玩家可以一路踩到挑戰、機會、命運與問題關卡。',
-        play_style: 'demo_board_fortune',
-        cover_image: imageAt(2),
+        description: '混合挑戰、事件、機會、命運與問題關卡。',
+        play_style: 'tutorial_board_fortune',
+        cover_image: imageAt(3),
         finish_tile: 12,
         dice_min: 1,
         dice_max: 3,
@@ -746,43 +705,43 @@ async function main() {
         rules_json: {
           demo_autopass: true,
           tutorial_mode: true,
+          gps_required: false,
           rpg_dialog: true,
           tutorial_roll_sequence: [2, 1, 2, 3, 1, 2, 1]
         }
       },
       tiles: (taskIds) => ([
         { tile_index: 1, tile_name: '起點｜集合', tile_type: 'story', event_title: '旅程開始', event_body: '主持人・史蛋宣布棋盤啟動。', guide_content: '起點故事格。', tile_meta: { label: '起點', npc: '主持人・史蛋' } },
-        { tile_index: 2, tile_name: '挑戰｜起航留影', tile_type: 'challenge', task_id: taskIds[0], event_title: '留影挑戰', guide_content: '拍照挑戰格', tile_meta: { label: '挑戰關卡', npc: '棋盤主持人・史蛋', icon: '📸' } },
-        { tile_index: 3, tile_name: '機會｜海風補給', tile_type: 'chance', effect_type: 'gain_points', effect_value: 8, event_title: '機會關卡', event_body: '海風替你送來補給。', guide_content: '機會關卡示範。', tile_meta: { label: '機會關卡', card_type: 'chance', npc: '潮聲', sfx: 'slot-machine' } },
-        { tile_index: 4, tile_name: '問題｜路線判斷', tile_type: 'quiz', task_id: taskIds[1], event_title: '問題關卡', guide_content: '選擇題關卡', tile_meta: { label: '問題關卡', npc: '出題員・潮聲', icon: '❓' } },
-        { tile_index: 5, tile_name: '命運｜潮汐轉盤', tile_type: 'fortune', effect_type: 'move_forward', effect_value: 1, event_title: '命運關卡', event_body: '命運轉盤決定你是否再往前一步。', guide_content: '命運關卡示範。', tile_meta: { label: '命運關卡', card_type: 'fortune', npc: '潮汐裁判・鯨語', sfx: 'fortune-wheel' } },
-        { tile_index: 6, tile_name: '挑戰｜輸入口令', tile_type: 'challenge', task_id: taskIds[2], event_title: '文字挑戰', guide_content: '文字輸入型挑戰', tile_meta: { label: '挑戰關卡', npc: '海羽', icon: '⌨️' } },
-        { tile_index: 7, tile_name: '事件｜海流提示', tile_type: 'event', effect_type: 'gain_points', effect_value: 5, event_title: '事件關卡', event_body: '你收到一段海流提示，獲得額外積分。', guide_content: '事件格示範。', tile_meta: { label: '事件關卡', npc: '導覽員・潮聲', icon: '🌊' } },
-        { tile_index: 8, tile_name: '挑戰｜辨識眼前場景', tile_type: 'challenge', task_id: taskIds[3], event_title: '辨識挑戰', guide_content: 'AI 辨識型挑戰', tile_meta: { label: '挑戰關卡', npc: '潮汐裁判・鯨語', icon: '🔍' } },
-        { tile_index: 9, tile_name: '機會｜捷徑', tile_type: 'chance', effect_type: 'move_forward', effect_value: 1, event_title: '機會關卡', event_body: '你發現一條捷徑。', guide_content: '機會格再示範。', tile_meta: { label: '機會關卡', npc: '主持人・史蛋', sfx: 'slot-machine' } },
-        { tile_index: 10, tile_name: '事件｜潮水回退', tile_type: 'event', effect_type: 'move_backward', effect_value: 1, event_title: '事件關卡', event_body: '潮水讓你稍微退後，但 Demo 仍會幫你推進。', guide_content: '負效果事件格示範。', tile_meta: { label: '事件關卡', npc: '海羽', icon: '↩' } },
-        { tile_index: 11, tile_name: '問題｜終點前提問', tile_type: 'quiz', task_id: taskIds[1], event_title: '問題關卡', guide_content: '終點前的最後提問', tile_meta: { label: '問題關卡', npc: '潮聲', icon: '❓' } },
+        { tile_index: 2, tile_name: '挑戰｜起航留影', tile_type: 'challenge', task_id: taskIds[0], event_title: '留影挑戰', guide_content: '拍照挑戰格', tile_meta: { label: '挑戰關卡', npc: '主持人・史蛋' } },
+        { tile_index: 3, tile_name: '機會｜海風補給', tile_type: 'chance', effect_type: 'gain_points', effect_value: 8, event_title: '機會關卡', event_body: '海風替你送來補給。', guide_content: '機會關卡示範。', tile_meta: { label: '機會關卡', npc: '潮聲' } },
+        { tile_index: 4, tile_name: '問題｜路線判斷', tile_type: 'quiz', task_id: taskIds[1], event_title: '問題關卡', guide_content: '選擇題關卡', tile_meta: { label: '問題關卡', npc: '出題員・潮聲' } },
+        { tile_index: 5, tile_name: '命運｜潮汐轉盤', tile_type: 'fortune', effect_type: 'move_forward', effect_value: 1, event_title: '命運關卡', event_body: '命運轉盤決定是否再前進。', guide_content: '命運關卡示範。', tile_meta: { label: '命運關卡', npc: '鯨語' } },
+        { tile_index: 6, tile_name: '挑戰｜輸入口令', tile_type: 'challenge', task_id: taskIds[2], event_title: '文字挑戰', guide_content: '文字輸入型挑戰', tile_meta: { label: '挑戰關卡', npc: '海羽' } },
+        { tile_index: 7, tile_name: '事件｜海流提示', tile_type: 'event', effect_type: 'gain_points', effect_value: 5, event_title: '事件關卡', event_body: '收到一段海流提示。', guide_content: '事件格示範。', tile_meta: { label: '事件關卡', npc: '導覽員・潮聲' } },
+        { tile_index: 8, tile_name: '挑戰｜辨識眼前場景', tile_type: 'challenge', task_id: taskIds[3], event_title: '辨識挑戰', guide_content: 'AI 辨識型挑戰', tile_meta: { label: '挑戰關卡', npc: '潮汐裁判・鯨語' } },
+        { tile_index: 9, tile_name: '機會｜捷徑', tile_type: 'chance', effect_type: 'move_forward', effect_value: 1, event_title: '機會關卡', event_body: '你發現一條捷徑。', guide_content: '機會格再示範。', tile_meta: { label: '機會關卡', npc: '史蛋' } },
+        { tile_index: 10, tile_name: '事件｜潮水回退', tile_type: 'event', effect_type: 'move_backward', effect_value: 1, event_title: '事件關卡', event_body: '潮水讓你稍微退後。', guide_content: '負效果事件格示範。', tile_meta: { label: '事件關卡', npc: '海羽' } },
+        { tile_index: 11, tile_name: '問題｜終點前提問', tile_type: 'quiz', task_id: taskIds[1], event_title: '問題關卡', guide_content: '終點前的最後提問', tile_meta: { label: '問題關卡', npc: '潮聲' } },
         { tile_index: 12, tile_name: '終點｜命運靠岸', tile_type: 'story', event_title: '終點', event_body: '你已完成命運棋盤。', guide_content: '終點故事格。', tile_meta: { label: '終點', npc: '主持人・史蛋' } }
       ])
-    }, 3));
+    }, 4, (ids) => buildBoardTaskDefs(ids, 'coast')));
 
     seeded.push(await seedBoardCampaign(conn, itemIds, {
-      title: '沙丘 Demo｜燈塔競速棋盤',
-      description: '節奏更快的棋盤版本，包含挑戰、命運、事件與終點衝刺。',
-      short_description: '大富翁 Demo：快速競速版，體驗更快節奏的棋盤推進。',
+      title: '沙丘教學｜燈塔競速棋盤',
+      description: '更快節奏的棋盤教學，示範競速、事件、命運與終點收尾。',
+      short_description: '大富翁教學：快速競速版棋盤。',
       chain_points: 100,
       badge_name: '競速棋盤徽章',
-      badge_image: imageAt(3),
-      cover_image: imageAt(3),
+      badge_image: imageAt(4),
+      cover_image: imageAt(4),
       entry_button_text: '進入競速棋盤',
-      entry_scene_label: '燈塔競速',
-      play_style: 'demo_board_sprint',
-      boardKey: 'sprint',
+      entry_scene_label: '燈塔棋盤',
+      play_style: 'tutorial_board_sprint',
       map: {
         name: '燈塔競速棋盤',
-        description: '更短更快的示範棋盤，適合快速驗證流程與事件節奏。',
-        play_style: 'demo_board_sprint',
-        cover_image: imageAt(3),
+        description: '節奏更快的教學棋盤。',
+        play_style: 'tutorial_board_sprint',
+        cover_image: imageAt(4),
         finish_tile: 10,
         dice_min: 1,
         dice_max: 3,
@@ -790,25 +749,26 @@ async function main() {
         rules_json: {
           demo_autopass: true,
           tutorial_mode: true,
+          gps_required: false,
           rpg_dialog: true,
           tutorial_roll_sequence: [1, 3, 2, 2, 1, 3]
         }
       },
       tiles: (taskIds) => ([
         { tile_index: 1, tile_name: '起點｜燈塔集合', tile_type: 'story', event_title: '起點', event_body: '巴布宣布競速開始。', guide_content: '起點故事格。', tile_meta: { label: '起點', npc: '主持人・巴布' } },
-        { tile_index: 2, tile_name: '挑戰｜第一張觀測照', tile_type: 'challenge', task_id: taskIds[0], event_title: '拍照挑戰', guide_content: '照片挑戰格', tile_meta: { label: '挑戰關卡', npc: '主持人・巴布', icon: '📸' } },
-        { tile_index: 3, tile_name: '命運｜順風', tile_type: 'fortune', effect_type: 'move_forward', effect_value: 1, event_title: '命運關卡', event_body: '一陣順風把你往前推。', guide_content: '命運關卡。', tile_meta: { label: '命運關卡', npc: '鯨語', sfx: 'fortune-wheel' } },
-        { tile_index: 4, tile_name: '問題｜快速作答', tile_type: 'quiz', task_id: taskIds[1], event_title: '問題關卡', guide_content: '數字型快答', tile_meta: { label: '問題關卡', npc: '潮聲', icon: '🔢' } },
-        { tile_index: 5, tile_name: '事件｜補給', tile_type: 'event', effect_type: 'gain_points', effect_value: 6, event_title: '事件關卡', event_body: '獲得一組補給積分。', guide_content: '補給事件格。', tile_meta: { label: '事件關卡', npc: '海羽', icon: '🎒' } },
-        { tile_index: 6, tile_name: '挑戰｜條件檢查', tile_type: 'challenge', task_id: taskIds[2], event_title: '條件挑戰', guide_content: 'AI 規則檢查', tile_meta: { label: '挑戰關卡', npc: '鯨語', icon: '🧪' } },
-        { tile_index: 7, tile_name: '機會｜再前進', tile_type: 'chance', effect_type: 'move_forward', effect_value: 1, event_title: '機會關卡', event_body: '你找到一條捷徑。', guide_content: '機會格。', tile_meta: { label: '機會關卡', npc: '史蛋', sfx: 'slot-machine' } },
-        { tile_index: 8, tile_name: '事件｜短暫停靠', tile_type: 'event', effect_type: 'gain_points', effect_value: 4, event_title: '事件關卡', event_body: '在停靠點休整後獲得少量積分。', guide_content: '中繼事件格。', tile_meta: { label: '事件關卡', npc: '潮聲', icon: '⛵' } },
-        { tile_index: 9, tile_name: '問題｜終點前確認', tile_type: 'quiz', task_id: taskIds[1], event_title: '問題關卡', guide_content: '終點前最後確認', tile_meta: { label: '問題關卡', npc: '潮聲', icon: '❓' } },
+        { tile_index: 2, tile_name: '挑戰｜第一張觀測照', tile_type: 'challenge', task_id: taskIds[0], event_title: '拍照挑戰', guide_content: '照片挑戰格', tile_meta: { label: '挑戰關卡', npc: '主持人・巴布' } },
+        { tile_index: 3, tile_name: '命運｜順風', tile_type: 'fortune', effect_type: 'move_forward', effect_value: 1, event_title: '命運關卡', event_body: '一陣順風把你往前推。', guide_content: '命運關卡。', tile_meta: { label: '命運關卡', npc: '鯨語' } },
+        { tile_index: 4, tile_name: '問題｜快速作答', tile_type: 'quiz', task_id: taskIds[1], event_title: '問題關卡', guide_content: '數字型快答', tile_meta: { label: '問題關卡', npc: '潮聲' } },
+        { tile_index: 5, tile_name: '事件｜補給', tile_type: 'event', effect_type: 'gain_points', effect_value: 6, event_title: '事件關卡', event_body: '獲得一組補給積分。', guide_content: '補給事件格。', tile_meta: { label: '事件關卡', npc: '海羽' } },
+        { tile_index: 6, tile_name: '挑戰｜條件檢查', tile_type: 'challenge', task_id: taskIds[2], event_title: '條件挑戰', guide_content: 'AI 規則檢查', tile_meta: { label: '挑戰關卡', npc: '鯨語' } },
+        { tile_index: 7, tile_name: '機會｜再前進', tile_type: 'chance', effect_type: 'move_forward', effect_value: 1, event_title: '機會關卡', event_body: '你找到一條捷徑。', guide_content: '機會格。', tile_meta: { label: '機會關卡', npc: '史蛋' } },
+        { tile_index: 8, tile_name: '事件｜短暫停靠', tile_type: 'event', effect_type: 'gain_points', effect_value: 4, event_title: '事件關卡', event_body: '在停靠點休整後獲得少量積分。', guide_content: '中繼事件格。', tile_meta: { label: '事件關卡', npc: '潮聲' } },
+        { tile_index: 9, tile_name: '問題｜終點前確認', tile_type: 'quiz', task_id: taskIds[1], event_title: '問題關卡', guide_content: '終點前最後確認', tile_meta: { label: '問題關卡', npc: '潮聲' } },
         { tile_index: 10, tile_name: '終點｜燈塔衝線', tile_type: 'story', event_title: '終點', event_body: '你完成競速棋盤，成功衝線。', guide_content: '終點故事格。', tile_meta: { label: '終點', npc: '巴布' } }
       ])
-    }, 4));
+    }, 5, (ids) => buildBoardTaskDefs(ids, 'sprint')));
 
-    console.log('\nDemo 世界已建立完成：');
+    console.log('\n教學世界已建立完成：');
     seeded.forEach((entry, index) => {
       console.log(`- [${index + 1}] quest_chain_id=${entry.questChainId}${entry.boardMapId ? ` board_map_id=${entry.boardMapId}` : ''}`);
     });
