@@ -2055,13 +2055,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (gameShellSummary) gameShellSummary.textContent = contentData.questChain.short_description || contentData.questChain.description || '跟著劇情節奏完成一連串 AI 關卡。';
                 updateGameShellProgress(activeTask);
                 renderGameShellEntries(currentStoryTasks, activeTask?.id);
+                Swal.close();
                 if (activeTask) {
                     await focusStoryTask(activeTask);
                     if (currentStoryCompleted && gameShellObjective) {
                         gameShellObjective.textContent = '這條劇情主線已完成，現在可以回首頁切換其他劇情，或直接進入大富翁模式。';
                     }
                 }
-                Swal.close();
             } catch (err) {
                 Swal.close();
                 throw err;
@@ -2115,10 +2115,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (gameShellSummary) gameShellSummary.textContent = currentBoardMap?.description || '擲骰、前進、觸發事件，讓史蛋、巴布與鯨老陪你一起闖關。';
                 updateGameShellProgress(activeTile);
                 renderGameShellEntries(currentBoardTiles, activeTile?.id);
+                Swal.close();
                 if (activeTile) {
                     await focusBoardTile(activeTile);
                 }
-                Swal.close();
             } catch (err) {
                 Swal.close();
                 throw err;
