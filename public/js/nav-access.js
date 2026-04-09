@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const navRoleMgmt = document.getElementById('navRoleMgmt');
   const navRedeem = document.getElementById('navRedeem');
   const navAdminUsers = document.getElementById('navAdminUsers');
+  const mapLinks = document.querySelectorAll('a[href="/map.html"]');
   const reviewLinks = document.querySelectorAll('a[href="/user-tasks.html"]');
   const navEntryLinks = document.querySelectorAll('a[href="/index.html#gameEntries"]');
   const navShellLinks = document.querySelectorAll('a[href="/ai-lab.html"]');
@@ -43,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
   hide(navRoleMgmt);
   hide(navRedeem);
   hide(navAdminUsers);
+  showLinks(mapLinks, false);
 
   if (!loginUser) {
     show(navTasksList);
@@ -64,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
   } else if (loginUser.role === 'staff') {
     hide(navTasksList);
     hide(navUserTasks);
+    showLinks(mapLinks, true);
     if (navStaff) {
       navStaff.href = '/staff-dashboard.html#review';
       navStaff.textContent = '管理控制台';
@@ -75,6 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
   } else {
     hide(navTasksList);
     hide(navUserTasks);
+    showLinks(mapLinks, true);
     if (navStaff) {
       navStaff.href = '/staff-dashboard.html';
       navStaff.textContent = '管理控制台';
@@ -85,8 +89,8 @@ document.addEventListener('DOMContentLoaded', () => {
     showLinks(navShellLinks, false);
   }
 
-  // 管理員不在全站 header 提供「探索地圖」「獎勵兌換」入口（營運改由管理控制台）
+  // 管理員不在全站 header 提供「獎勵兌換」入口（營運改由管理控制台）
   if (loginUser && loginUser.role === 'admin') {
-    document.querySelectorAll('a[href="/map.html"], a[href="/products.html"]').forEach(hide);
+    document.querySelectorAll('a[href="/products.html"]').forEach(hide);
   }
 });

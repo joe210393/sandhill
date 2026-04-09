@@ -169,8 +169,15 @@
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="/js/common.js"></script>
   <script>
+    const mapPageLoginUser = JSON.parse(localStorage.getItem('loginUser') || 'null');
+    const mapPageRole = mapPageLoginUser?.role || null;
+    const mapPageCanAccess = mapPageRole === 'admin' || mapPageRole === 'staff' || mapPageRole === 'shop';
+    if (!mapPageCanAccess) {
+      window.location.replace('/index.html#gameEntries');
+    }
+
     // Header功能
-    const loginUser = JSON.parse(localStorage.getItem('loginUser') || 'null');
+    const loginUser = mapPageLoginUser;
 
     // 權限檢查和導航顯示
     if (loginUser) {

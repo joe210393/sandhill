@@ -437,8 +437,11 @@
       });
     }
 
-    function getMapUrl(task) {
-      return `/map.html?focusLat=${encodeURIComponent(task.lat)}&focusLng=${encodeURIComponent(task.lng)}&taskId=${encodeURIComponent(task.id)}`;
+    function getPlayUrl(task) {
+      const params = new URLSearchParams({ taskId: String(task.id) });
+      if (task.lat) params.set('lat', String(task.lat));
+      if (task.lng) params.set('lng', String(task.lng));
+      return `/ai-lab.html?${params.toString()}`;
     }
 
     function setupNav() {
@@ -598,7 +601,7 @@
     async function renderTaskPage(task) {
       const taskApp = document.getElementById('taskApp');
       const loadingState = document.getElementById('loadingState');
-      const mapUrl = getMapUrl(task);
+      const playUrl = getPlayUrl(task);
       let userTaskId = null;
       let currentAnswer = '';
       let completedTask = null;
@@ -657,7 +660,7 @@
             <div class="stage-content">
               <div class="stage-copy">${task.description}</div>
               <div class="stage-actions">
-                <button id="primaryStageBtn" class="stage-btn primary">${completedTask ? '查看下一關' : inProgressTask ? '打開探索地圖' : '接下這一關，前往探索地圖'}</button>
+                <button id="primaryStageBtn" class="stage-btn primary">${completedTask ? '查看下一關' : inProgressTask ? '開啟遊戲艙' : '接下這一關並開啟遊戲艙'}</button>
                 <button id="reachStageBtn" class="stage-btn secondary" ${completedTask ? 'style="display:none;"' : ''}>我已抵達任務點，開始挑戰</button>
               </div>
               <div id="taskStatus" class="stage-status">${statusText}</div>
@@ -686,14 +689,14 @@
                   <span class="flow-no">1</span>
                   <div>
                     <strong>先接下關卡</strong>
-                    <p>從這頁確認任務目標後，直接進地圖，不在這裡卡住玩家。</p>
+                    <p>從這頁確認任務目標後，直接進入遊戲艙，不需要再切到地圖頁。</p>
                   </div>
                 </div>
                 <div class="flow-step">
                   <span class="flow-no">2</span>
                   <div>
                     <strong>前往任務點</strong>
-                    <p>地圖才是主舞台，玩家應該被帶去任務地點，而不是停在工具介面。</p>
+                    <p>如果有 GPS 限制，遊戲艙會直接判定是否到點；沒有 GPS 限制就能立即開始。</p>
                   </div>
                 </div>
                 <div class="flow-step">
@@ -742,7 +745,7 @@
           if (nextTask) {
             window.location.href = `/task-detail.html?id=${nextTask.id}`;
           } else {
-            statusEl.textContent = '這條劇情線目前已完成，可以回到探索地圖看看其他關卡。';
+            statusEl.textContent = '這條劇情線目前已完成，可以回到劇本入口看看其他關卡。';
           }
           return;
         }
@@ -769,8 +772,8 @@
           }
         }
 
-        statusEl.textContent = '關卡已接下，正在帶你前往探索地圖。';
-        window.location.href = mapUrl;
+        statusEl.textContent = '關卡已接下，正在打開遊戲艙。';
+        window.location.href = playUrl;
       };
 
       reachBtn.onclick = async function() {
@@ -785,7 +788,7 @@
         }
 
         if (!inProgressTask) {
-          statusEl.textContent = '請先接下這一關，再前往地圖。';
+          statusEl.textContent = '請先接下這一關，再進入遊戲艙。';
           return;
         }
 
@@ -805,7 +808,7 @@
       }
 
       if (inProgressTask) {
-        primaryBtn.textContent = '打開探索地圖';
+        primaryBtn.textContent = '開啟遊戲艙';
       }
 
       const answerMsg = () => document.getElementById('answerMsg');
@@ -871,11 +874,11 @@
               await loadAttemptHistory(userTaskId);
               if (data.isCompleted) {
                 statusEl.textContent = data.questChainCompleted
-                  ? '整條劇情線已完成。你可以回到探索地圖繼續冒險，或直接前往下一個章節。'
+                  ? '整條劇情線已完成。你可以回到劇本入口繼續冒險，或直接前往下一個章節。'
                   : '這一關已完成。你可以繼續前往下一關。';
-                primaryBtn.textContent = nextTask ? '查看下一關' : '回到探索地圖';
+                primaryBtn.textContent = nextTask ? '查看下一關' : '回到劇本入口';
                 if (!nextTask) {
-                  primaryBtn.onclick = () => window.location.href = mapUrl;
+                  primaryBtn.onclick = () => window.location.href = '/index.html#gameEntries';
                 }
                 reachBtn.style.display = 'none';
               }

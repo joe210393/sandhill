@@ -115,7 +115,7 @@ function displayBadges(badges) {
         <div class="badges-empty-state-icon">🎖️</div>
         <div class="badges-empty-state-title">還沒有稱號</div>
         <div class="badges-empty-state-text">完成劇情任務即可獲得專屬稱號！</div>
-        <a href="/map.html" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; border-radius: 30px; text-decoration: none; display: inline-block; font-weight: 600;">開始冒險</a>
+        <a href="/index.html#gameEntries" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; border-radius: 30px; text-decoration: none; display: inline-block; font-weight: 600;">開始冒險</a>
       </div>
     `;
     return;
@@ -270,7 +270,7 @@ function renderTaskCards(list) {
     const statusClass = statusClassMap[task.status] || 'status-progress';
     const finishedInfo = task.finished_at ? `<span>🏁 完成：${formatDate(task.finished_at)}</span>` : '';
     const detailUrl = `/task-detail.html?id=${task.id}`;
-    const mapUrl = task.lat && task.lng ? `/map.html?focusLat=${task.lat}&focusLng=${task.lng}` : '/map.html';
+    const playUrl = `/ai-lab.html?taskId=${encodeURIComponent(task.id)}${task.lat && task.lng ? `&lat=${encodeURIComponent(task.lat)}&lng=${encodeURIComponent(task.lng)}` : ''}`;
 
     card.innerHTML = `
       <div class="task-card-header">
@@ -285,7 +285,7 @@ function renderTaskCards(list) {
       <p class="task-desc">${task.description}</p>
       <div class="task-card-footer">
         <a class="btn btn-primary" href="${detailUrl}">查看任務</a>
-        <a class="btn btn-secondary" href="${mapUrl}">在地圖查看</a>
+        <a class="btn btn-secondary" href="${playUrl}">直接開始</a>
       </div>
     `;
     taskCardsEl.appendChild(card);
