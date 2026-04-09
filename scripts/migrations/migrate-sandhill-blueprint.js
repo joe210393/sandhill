@@ -23,6 +23,7 @@ async function migrate() {
     await conn.execute("UPDATE quest_chains SET title = name WHERE (title IS NULL OR title = '') AND name IS NOT NULL");
 
     await ensureColumn(conn, 'quest_chains', 'mode_type', "VARCHAR(50) NOT NULL DEFAULT 'story_campaign' COMMENT 'story_campaign, board_game'");
+    await ensureColumn(conn, 'quest_chains', 'experience_mode', "VARCHAR(30) NOT NULL DEFAULT 'formal' COMMENT 'formal, tutorial, demo'");
     await ensureColumn(conn, 'quest_chains', 'is_active', "BOOLEAN NOT NULL DEFAULT FALSE COMMENT '首頁入口是否開放'");
     await ensureColumn(conn, 'quest_chains', 'cover_image', "VARCHAR(255) NULL COMMENT '劇情入口封面圖'");
     await ensureColumn(conn, 'quest_chains', 'short_description', "TEXT NULL COMMENT '首頁簡介'");

@@ -227,18 +227,52 @@ function sanitizeQuestChainRow(row) {
   return {
     ...row,
     title: row.title || row.name || '',
+    experience_mode: normalizeExperienceMode(row.experience_mode, row),
     is_active: Boolean(row.is_active),
     game_rules: parseJsonField(row.game_rules, null),
     content_blueprint: parseJsonField(row.content_blueprint, null)
   };
 }
 
+function normalizeExperienceMode(value, questChainLike = null) {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (['formal', 'tutorial', 'demo'].includes(normalized)) {
+    return normalized;
+  }
+  if (!questChainLike) return 'formal';
+  const gameRules = parseJsonField(questChainLike?.game_rules, {}) || {};
+  const contentBlueprint = parseJsonField(questChainLike?.content_blueprint, {}) || {};
+  const playStyle = normalizeNullableString(questChainLike?.play_style)?.toLowerCase() || '';
+  if (
+    normalizeBoolean(gameRules.demo_autopass) ||
+    normalizeBoolean(gameRules.demoAutoPass) ||
+    normalizeBoolean(contentBlueprint.demo_autopass) ||
+    normalizeBoolean(contentBlueprint.demoAutoPass) ||
+    playStyle === 'demo_story'
+  ) {
+    return 'demo';
+  }
+  if (
+    normalizeBoolean(gameRules.tutorial_mode) ||
+    normalizeBoolean(gameRules.tutorialMode) ||
+    normalizeBoolean(contentBlueprint.tutorial_mode) ||
+    normalizeBoolean(contentBlueprint.tutorialMode) ||
+    playStyle === 'tutorial_story' ||
+    playStyle === 'tutorial_board'
+  ) {
+    return 'tutorial';
+  }
+  return 'formal';
+}
+
 function getQuestChainRuntimeFlags(questChainLike) {
   const gameRules = parseJsonField(questChainLike?.game_rules, {}) || {};
   const contentBlueprint = parseJsonField(questChainLike?.content_blueprint, {}) || {};
+  const experienceMode = normalizeExperienceMode(questChainLike?.experience_mode, questChainLike);
   return {
-    demoAutoPass: normalizeBoolean(gameRules.demo_autopass) || normalizeBoolean(contentBlueprint.demo_autopass),
-    tutorialMode: normalizeBoolean(gameRules.tutorial_mode) || normalizeBoolean(contentBlueprint.tutorial_mode),
+    experienceMode,
+    demoAutoPass: experienceMode === 'demo' || normalizeBoolean(gameRules.demo_autopass) || normalizeBoolean(contentBlueprint.demo_autopass),
+    tutorialMode: experienceMode === 'tutorial' || normalizeBoolean(gameRules.tutorial_mode) || normalizeBoolean(contentBlueprint.tutorial_mode),
     rpgStyleDialog: normalizeBoolean(gameRules.rpg_dialog) || normalizeBoolean(contentBlueprint.rpg_dialog)
   };
 }
@@ -1076,7 +1110,7 @@ app.post('/api/quest-chains', staffOrAdminAuth, uploadImage.single('badge_image'
   const {
     title, description, chain_points, badge_name,
     mode_type, is_active, cover_image_url, short_description,
-    entry_order, entry_button_text, entry_scene_label, play_style,
+    entry_order, entry_button_text, entry_scene_label, play_style, experience_mode,
     game_rules, content_blueprint
   } = req.body;
   if (!title) return res.status(400).json({ success: false, message: '缺少標題' });
@@ -1112,6 +1146,7 @@ app.post('/api/quest-chains', staffOrAdminAuth, uploadImage.single('badge_image'
       entry_button_text: normalizeNullableString(entry_button_text),
       entry_scene_label: normalizeNullableString(entry_scene_label),
       play_style: normalizeNullableString(play_style),
+      experience_mode: normalizeExperienceMode(experience_mode, { play_style, game_rules, content_blueprint }),
       game_rules: stringifyJsonField(parseJsonField(game_rules, null)),
       content_blueprint: stringifyJsonField(parseJsonField(content_blueprint, null))
     };
@@ -1134,7 +1169,7 @@ app.put('/api/quest-chains/:id', staffOrAdminAuth, uploadImage.single('badge_ima
   const {
     title, description, chain_points, badge_name,
     mode_type, is_active, cover_image_url, short_description,
-    entry_order, entry_button_text, entry_scene_label, play_style,
+    entry_order, entry_button_text, entry_scene_label, play_style, experience_mode,
     game_rules, content_blueprint
   } = req.body;
   if (!title) return res.status(400).json({ success: false, message: '缺少標題' });
@@ -1177,6 +1212,7 @@ app.put('/api/quest-chains/:id', staffOrAdminAuth, uploadImage.single('badge_ima
       entry_button_text: normalizeNullableString(entry_button_text),
       entry_scene_label: normalizeNullableString(entry_scene_label),
       play_style: normalizeNullableString(play_style),
+      experience_mode: normalizeExperienceMode(experience_mode, { play_style, game_rules, content_blueprint }),
       game_rules: stringifyJsonField(parseJsonField(game_rules, null)),
       content_blueprint: stringifyJsonField(parseJsonField(content_blueprint, null))
     };
@@ -1327,7 +1363,7 @@ app.get('/api/quest-chains/:id/structure-map', staffOrAdminAuth, async (req, res
   try {
     conn = await pool.getConnection();
     const [questRows] = await conn.execute(
-      `SELECT id, title, name, short_description, description, mode_type, play_style,
+      `SELECT id, title, name, short_description, description, mode_type, experience_mode, play_style,
               badge_name, badge_image, cover_image, chain_points, is_active,
               game_rules, content_blueprint, created_by
        FROM quest_chains
@@ -1413,7 +1449,7 @@ app.get('/api/board-maps/by-quest-chain/:questChainId', async (req, res) => {
   try {
     conn = await pool.getConnection();
     const [questRows] = await conn.execute(
-      `SELECT id, title, name, short_description, description, mode_type, play_style, game_rules, content_blueprint, is_active
+      `SELECT id, title, name, short_description, description, mode_type, experience_mode, play_style, game_rules, content_blueprint, is_active
        FROM quest_chains
        WHERE id = ?
        LIMIT 1`,

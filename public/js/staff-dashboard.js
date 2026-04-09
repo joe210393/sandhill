@@ -787,6 +787,12 @@ function renderQuestChainList(chains) {
   }
   container.innerHTML = chains.map(q => {
     const modeTag = q.mode_type === 'board_game' ? '<span class="tag tag-green">大富翁</span>' : '<span class="tag tag-blue">劇情主線</span>';
+    const experienceMode = q.experience_mode || 'formal';
+    const experienceTag = experienceMode === 'tutorial'
+      ? '<span class="tag tag-amber">教學模式</span>'
+      : experienceMode === 'demo'
+        ? '<span class="tag tag-red">Demo 模式</span>'
+        : '<span class="tag tag-gray">正式模式</span>';
     const statusTag = q.is_active
       ? '<span class="tag tag-green">已開放</span>'
       : '<span class="tag tag-red">未開放</span>';
@@ -795,7 +801,7 @@ function renderQuestChainList(chains) {
         <div style="min-width:0;">
           <div class="quest-card-title">${escHtml(q.title)}</div>
           <div class="quest-card-meta">
-            ${modeTag} ${statusTag}
+            ${modeTag} ${experienceTag} ${statusTag}
             ${q.entry_scene_label ? `<span class="tag tag-gray">${escHtml(q.entry_scene_label)}</span>` : ''}
             <span class="tag tag-amber">🏆 ${q.chain_points || 0} 分</span>
             ${q.play_style ? `<span class="tag tag-gray">🎲 ${escHtml(q.play_style)}</span>` : ''}
@@ -819,7 +825,7 @@ function editQuestChain(id) {
     id: q.id, mode_type: q.mode_type, title: q.title,
     short_description: q.short_description || '', description: q.description || '',
     entry_order: q.entry_order || 0, entry_button_text: q.entry_button_text || '',
-    entry_scene_label: q.entry_scene_label || '', play_style: q.play_style || '',
+    entry_scene_label: q.entry_scene_label || '', experience_mode: q.experience_mode || 'formal', play_style: q.play_style || '',
     chain_points: q.chain_points || 100, badge_name: q.badge_name || '',
     is_active: q.is_active
   });
@@ -853,6 +859,7 @@ document.getElementById('questChainForm').addEventListener('submit', function (e
   fd.append('entry_order', form.entry_order.value);
   fd.append('entry_button_text', form.entry_button_text.value.trim());
   fd.append('entry_scene_label', form.entry_scene_label.value.trim());
+  fd.append('experience_mode', form.experience_mode.value);
   fd.append('play_style', form.play_style.value);
   fd.append('is_active', form.is_active.checked ? '1' : '0');
   const badgeFile = form.badge_image?.files[0];

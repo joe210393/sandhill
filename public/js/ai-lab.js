@@ -819,19 +819,32 @@ document.addEventListener('DOMContentLoaded', () => {
             return currentQuestChainData?.game_rules || currentQuestChainData?.content_blueprint || {};
         }
 
-        function isCurrentQuestDemoMode() {
+        function getCurrentExperienceMode() {
+            const explicit = typeof currentQuestChainData?.experience_mode === 'string'
+                ? currentQuestChainData.experience_mode.trim().toLowerCase()
+                : '';
+            if (['formal', 'tutorial', 'demo'].includes(explicit)) {
+                return explicit;
+            }
             const rules = getCurrentQuestRules();
-            return Boolean(rules && (rules.demo_autopass || rules.demoAutoPass));
-        }
-
-        function isCurrentQuestTutorialMode() {
-            const rules = getCurrentQuestRules();
-            return Boolean(
+            if (rules && (rules.demo_autopass || rules.demoAutoPass)) return 'demo';
+            if (
                 (rules && (rules.tutorial_mode || rules.tutorialMode))
                 || currentQuestChainData?.play_style === 'tutorial_story'
                 || currentQuestChainData?.play_style === 'tutorial_board'
                 || currentQuestChainData?.play_style === 'demo_story'
-            );
+            ) {
+                return 'tutorial';
+            }
+            return 'formal';
+        }
+
+        function isCurrentQuestDemoMode() {
+            return getCurrentExperienceMode() === 'demo';
+        }
+
+        function isCurrentQuestTutorialMode() {
+            return getCurrentExperienceMode() === 'tutorial';
         }
 
         function isTutorialGuestMode() {
