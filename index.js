@@ -4047,7 +4047,7 @@ app.post('/api/tutorial/ai-tasks/:taskId/submit', uploadAiTaskImage.single('imag
   try {
     conn = await pool.getConnection();
     const [tasks] = await conn.execute(
-      `SELECT t.*, qc.name AS quest_chain_name, qc.game_rules, qc.content_blueprint
+      `SELECT t.*, qc.name AS quest_chain_name, qc.game_rules, qc.content_blueprint, qc.experience_mode, qc.play_style
        FROM tasks t
        LEFT JOIN quest_chains qc ON t.quest_chain_id = qc.id
        WHERE t.id = ?`,
@@ -4157,7 +4157,7 @@ app.post('/api/tutorial/tasks/:taskId/complete', authenticateToken, async (req, 
     if (!userId) return res.status(400).json({ success: false, message: '使用者不存在' });
 
     const [tasks] = await conn.execute(
-      `SELECT t.*, qc.game_rules, qc.content_blueprint
+      `SELECT t.*, qc.game_rules, qc.content_blueprint, qc.experience_mode, qc.play_style
        FROM tasks t
        LEFT JOIN quest_chains qc ON t.quest_chain_id = qc.id
        WHERE t.id = ?`,
@@ -4221,7 +4221,7 @@ app.post('/api/ai-tasks/:taskId/submit', authenticateToken, uploadAiTaskImage.si
     }
 
     const [tasks] = await conn.execute(
-      `SELECT t.*, qc.name AS quest_chain_name, qc.game_rules, qc.content_blueprint
+      `SELECT t.*, qc.name AS quest_chain_name, qc.game_rules, qc.content_blueprint, qc.experience_mode, qc.play_style
        FROM tasks t
        LEFT JOIN quest_chains qc ON t.quest_chain_id = qc.id
        WHERE t.id = ?`,
