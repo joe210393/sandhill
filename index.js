@@ -4066,7 +4066,8 @@ app.post('/api/tutorial/ai-tasks/:taskId/submit', uploadAiTaskImage.single('imag
     }
 
     const runtimeFlags = getQuestChainRuntimeFlags(task);
-    if (!runtimeFlags.demoAutoPass) {
+    const tutorialLikeMode = runtimeFlags.demoAutoPass || runtimeFlags.tutorialMode;
+    if (!tutorialLikeMode) {
       return res.status(403).json({ success: false, message: '這個教學關卡目前不允許匿名體驗' });
     }
 
@@ -4076,8 +4077,8 @@ app.post('/api/tutorial/ai-tasks/:taskId/submit', uploadAiTaskImage.single('imag
       lmEvaluation = await evaluateAiTaskImage(task, req.file, {
         latitude: req.body.latitude,
         longitude: req.body.longitude,
-        timeoutMs: runtimeFlags.demoAutoPass ? 90000 : 180000,
-        maxRetries: runtimeFlags.demoAutoPass ? 0 : 2
+        timeoutMs: tutorialLikeMode ? 90000 : 180000,
+        maxRetries: tutorialLikeMode ? 0 : 2
       });
     } catch (lmErr) {
       console.warn('教學模式匿名 LM 判定失敗，改用自動放行內容:', lmErr?.message || lmErr);
