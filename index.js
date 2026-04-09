@@ -316,6 +316,22 @@ function buildTutorialForcedAiReason(task, aiReason = '') {
   return `我看見了：${normalized}\n\n但因為現在是教學模式，所以這一關先讓你通過，方便你繼續往下體驗。正式關卡時，仍然需要拍到任務要求的內容才會通過。`;
 }
 
+function buildAiNoContentResult(task) {
+  const label = (task?.pass_criteria && task.pass_criteria.target_label)
+    || (task?.ai_config && task.ai_config.target_label)
+    || null;
+  return {
+    passed: false,
+    confidence: null,
+    label,
+    count_detected: null,
+    score: null,
+    reason: `AI 這次沒有成功回覆可辨識內容，所以暫時無法確認「${task?.name || '這一關'}」是否正確。`,
+    retry_advice: '請重新拍攝一次，盡量讓主體更清楚、靠近一點，或稍後再試一次。',
+    rule_results: null
+  };
+}
+
 async function getUserIdByUsername(conn, username) {
   const [users] = await conn.execute('SELECT id FROM users WHERE username = ? LIMIT 1', [username]);
   return users[0]?.id || null;
@@ -3923,7 +3939,7 @@ app.post('/api/tutorial/ai-tasks/:taskId/submit', uploadAiTaskImage.single('imag
       lmEvaluation = await evaluateAiTaskImage(task, req.file, {
         latitude: req.body.latitude,
         longitude: req.body.longitude,
-        timeoutMs: runtimeFlags.demoAutoPass ? 3000 : 180000,
+        timeoutMs: runtimeFlags.demoAutoPass ? 90000 : 180000,
         maxRetries: runtimeFlags.demoAutoPass ? 0 : 2
       });
     } catch (lmErr) {
@@ -4108,7 +4124,7 @@ app.post('/api/ai-tasks/:taskId/submit', authenticateToken, uploadAiTaskImage.si
         lmEvaluation = await evaluateAiTaskImage(task, req.file, {
           latitude: req.body.latitude,
           longitude: req.body.longitude,
-          timeoutMs: runtimeFlags.demoAutoPass ? 3000 : 180000,
+          timeoutMs: runtimeFlags.demoAutoPass ? 90000 : 180000,
           maxRetries: runtimeFlags.demoAutoPass ? 0 : 2
         });
       } catch (lmErr) {
@@ -5420,9 +5436,28 @@ async function evaluateAiTaskImage(task, file, extraContext = {}) {
   const textContent = Array.isArray(rawContent)
     ? rawContent.map(item => item.text || '').join('\n')
     : rawContent;
-  const parsed = extractJsonObject(textContent);
+  const normalizedText = typeof textContent === 'string' ? textContent.trim() : '';
+  if (!normalizedText) {
+    return {
+      rawContent: '',
+      parsed: buildAiNoContentResult(task)
+    };
+  }
+
+  let parsed;
+  try {
+    parsed = extractJsonObject(normalizedText);
+  } catch (error) {
+    return {
+      rawContent: normalizedText,
+      parsed: {
+        ...buildAiNoContentResult(task),
+        reason: `AI 有回覆一些內容，但格式不完整，暫時無法直接判定正確或不正確。原始回覆：${normalizedText.slice(0, 180)}`
+      }
+    };
+  }
   return {
-    rawContent: textContent,
+    rawContent: normalizedText,
     parsed: normalizeAiTaskResult(task, parsed)
   };
 }
