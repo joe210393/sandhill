@@ -323,20 +323,43 @@ function tutorialIdentifyAliases(targetLabel) {
   return aliasMap[key] || [key];
 }
 
-function isTutorialIdentifyMatch(task, aiReason = '', aiLabel = '') {
-  if (task?.validation_mode !== 'ai_identify') return false;
+function hasNegativeAliasMention(text, alias) {
+  const escaped = String(alias).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const patterns = [
+    new RegExp(`不是\\s*${escaped}`, 'i'),
+    new RegExp(`並非\\s*${escaped}`, 'i'),
+    new RegExp(`而非\\s*${escaped}`, 'i'),
+    new RegExp(`非\\s*${escaped}`, 'i'),
+    new RegExp(`不像\\s*${escaped}`, 'i'),
+    new RegExp(`沒有\\s*${escaped}`, 'i'),
+    new RegExp(`未見\\s*${escaped}`, 'i')
+  ];
+  return patterns.some((pattern) => pattern.test(text));
+}
+
+function evaluateTutorialIdentifyOutcome(task, aiReason = '', aiLabel = '') {
+  if (task?.validation_mode !== 'ai_identify') return 'unknown';
   const targetLabel = task?.pass_criteria?.target_label || task?.ai_config?.target_label;
   const aliases = tutorialIdentifyAliases(targetLabel);
-  if (!aliases.length) return false;
+  if (!aliases.length) return 'unknown';
   const haystack = `${normalizeNullableString(aiReason) || ''}\n${normalizeNullableString(aiLabel) || ''}`.toLowerCase();
-  return aliases.some((alias) => haystack.includes(String(alias).toLowerCase()));
+  const negativeTarget = aliases.some((alias) => hasNegativeAliasMention(haystack, String(alias).toLowerCase()));
+  if (negativeTarget) return 'mismatch';
+
+  const positiveTarget = aliases.some((alias) => haystack.includes(String(alias).toLowerCase()));
+  if (positiveTarget) return 'match';
+
+  return 'mismatch';
 }
 
 function buildTutorialForcedAiReason(task, aiReason = '', aiPassed = null, aiLabel = '') {
   const fallback = `我看見了你上傳的畫面，但因為現在是教學模式，所以「${task?.name || '這一關'}」先讓你通過，方便你把整段流程走完。`;
   const normalized = normalizeNullableString(aiReason);
   if (!normalized) return fallback;
-  const effectivePass = aiPassed === true || isTutorialIdentifyMatch(task, normalized, aiLabel);
+  const identifyOutcome = evaluateTutorialIdentifyOutcome(task, normalized, aiLabel);
+  const effectivePass = task?.validation_mode === 'ai_identify'
+    ? identifyOutcome === 'match'
+    : aiPassed === true;
   if (!effectivePass) {
     return `我看見了：${normalized}\n\n不過這次不是這一關要找的內容喔。因為現在是教學模式，所以我還是先讓你通過，方便你繼續往下體驗。正式關卡時，還是需要拍到任務指定的物品或場景才會過關。`;
   }
