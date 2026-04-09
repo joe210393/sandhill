@@ -509,7 +509,7 @@
         <div class="view-header">
           <h2>發放兌換卷</h2>
         </div>
-        <p class="view-subtitle">建立綁定<strong>玩家手機帳號</strong>的優惠券／兌換卷；玩家可持代碼至「現場核銷」使用。請擇一設定<strong>折扣金額</strong>或<strong>折扣百分比</strong>。</p>
+        <p class="view-subtitle">建立綁定<strong>玩家手機帳號</strong>的券。可做成<strong>折扣兌換卷</strong>，也可直接綁定某個<strong>需 Coupon 的玩法入口</strong>。</p>
         <div style="max-width:520px; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:20px; margin-bottom:20px;">
           <form id="couponIssueForm" class="v2-form">
             <div class="form-group">
@@ -519,6 +519,13 @@
             <div class="form-group">
               <label class="form-label">券名稱</label>
               <input class="form-input" type="text" name="title" required maxlength="255" placeholder="例如：沙丘開幕禮">
+            </div>
+            <div class="form-group">
+              <label class="form-label">綁定玩法入口（選填）</label>
+              <select class="form-select" name="quest_chain_id" id="couponQuestChainSelect">
+                <option value="">不綁定入口（一般折扣券）</option>
+              </select>
+              <div style="font-size:0.82rem; color:#64748b; margin-top:6px;">若綁定入口，玩家點擊該入口時會直接檢查帳號底下是否有這張券。</div>
             </div>
             <div class="grid-2">
               <div class="form-group">
@@ -675,6 +682,15 @@
               <label class="form-label">場景標籤</label>
               <input class="form-input" type="text" name="entry_scene_label" placeholder="劇情主線">
             </div>
+            <div class="form-group">
+              <label class="form-label">遊玩權限</label>
+              <select class="form-select" name="access_mode">
+                <option value="public">公開入口</option>
+                <option value="coupon">需 Coupon</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid-2">
             <div class="form-group">
               <label class="form-label">體驗模式</label>
               <select class="form-select" name="experience_mode">

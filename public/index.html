@@ -1361,6 +1361,7 @@
       const modeLabel = entry.mode_type === 'board_game' ? '大富翁模式' : '劇情主線';
       const sceneLabel = translateTag(entry.entry_scene_label) || modeLabel;
       const buttonText = entry.entry_button_text || (entry.mode_type === 'board_game' ? '進入玩法' : '開始劇情');
+      const accessLabel = entry.access_mode === 'coupon' ? '需 Coupon' : '公開入口';
       const params = new URLSearchParams();
       params.set('questChainId', entry.id);
       params.set('mode', entry.mode_type || fallbackMode || 'story_campaign');
@@ -1370,11 +1371,12 @@
           <div class="entry-meta">
             <span class="entry-pill">${modeLabel}</span>
             <span class="entry-pill">${sceneLabel}</span>
+            <span class="entry-pill">${accessLabel}</span>
             ${entry.play_style ? `<span class="entry-pill">${translateTag(entry.play_style)}</span>` : ''}
           </div>
           <h4>${entry.title || entry.name}</h4>
           <p>${entry.short_description || entry.description || '尚未提供簡介。'}</p>
-          <a class="ocean-btn ocean-btn-primary" href="${href}">${buttonText}</a>
+          <a class="ocean-btn ocean-btn-primary story-entry-link" data-access-mode="${entry.access_mode || 'public'}" data-accessible="${entry.is_accessible ? '1' : '0'}" href="${href}">${buttonText}</a>
         </article>
       `;
     }
@@ -1382,6 +1384,7 @@
     function buildStoryPickerCard(entry, fallbackMode) {
       const modeLabel = entry.mode_type === 'board_game' ? '大富翁模式' : '劇情主線';
       const buttonText = entry.entry_button_text || (entry.mode_type === 'board_game' ? '進入玩法' : '開始劇情');
+      const accessLabel = entry.access_mode === 'coupon' ? '需 Coupon' : '公開入口';
       const params = new URLSearchParams();
       params.set('questChainId', entry.id);
       params.set('mode', entry.mode_type || fallbackMode || 'story_campaign');
@@ -1389,12 +1392,13 @@
         <article class="entry-card">
           <div class="entry-meta">
             <span class="entry-pill">${modeLabel}</span>
+            <span class="entry-pill">${accessLabel}</span>
             ${entry.entry_scene_label ? `<span class="entry-pill">${translateTag(entry.entry_scene_label)}</span>` : ''}
             ${entry.play_style ? `<span class="entry-pill">${translateTag(entry.play_style)}</span>` : ''}
           </div>
           <h4>${entry.title || entry.name}</h4>
           <p>${entry.short_description || entry.description || '尚未提供簡介。'}</p>
-          <a class="ocean-btn ocean-btn-primary" href="/ai-lab.html?${params.toString()}">${buttonText}</a>
+          <a class="ocean-btn ocean-btn-primary story-entry-link" data-access-mode="${entry.access_mode || 'public'}" data-accessible="${entry.is_accessible ? '1' : '0'}" href="/ai-lab.html?${params.toString()}">${buttonText}</a>
         </article>
       `;
     }
@@ -1433,6 +1437,17 @@
     }
 
     loadGameEntries();
+
+    document.addEventListener('click', (event) => {
+      const link = event.target.closest('.story-entry-link');
+      if (!link) return;
+      const accessMode = link.dataset.accessMode || 'public';
+      const accessible = link.dataset.accessible === '1';
+      if (accessMode !== 'coupon' || accessible) return;
+      event.preventDefault();
+      const isLoggedIn = !!loginUser;
+      window.alert(isLoggedIn ? '此入口需專屬 Coupon 才能遊玩。' : '此入口需專屬 Coupon 才能遊玩，請先登入你的帳號。');
+    });
 
     ['heroStoryPickerBtn', 'inlineStoryPickerBtn'].forEach((id) => {
       const btn = document.getElementById(id);

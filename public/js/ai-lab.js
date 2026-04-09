@@ -2204,6 +2204,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (gameShellObjective) gameShellObjective.textContent = '玩法內容載入失敗，請返回首頁重新選擇。';
                 if (gameShellProgress) gameShellProgress.textContent = '目前無法取得進度';
                 if (gameShellEntries) gameShellEntries.innerHTML = '<div class="game-shell-entry muted">暫時無法載入玩法內容。</div>';
+                if (String(err?.message || '').includes('Coupon')) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: '需要專屬 Coupon',
+                        text: err.message || '此入口需專屬 Coupon 才能遊玩。',
+                        confirmButtonText: '我知道了'
+                    });
+                }
                 return false;
             }
         }

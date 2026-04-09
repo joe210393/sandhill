@@ -82,6 +82,7 @@ async function initDb() {
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
         description TEXT,
+        access_mode VARCHAR(30) NOT NULL DEFAULT 'public',
         experience_mode VARCHAR(30) NOT NULL DEFAULT 'formal',
         chain_points INT DEFAULT 0,
         badge_name VARCHAR(100),

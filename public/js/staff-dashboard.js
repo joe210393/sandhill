@@ -775,6 +775,7 @@ function loadQuestChains() {
         });
       }
 
+      refreshCouponQuestChainOptions();
       renderQuestChainList(data.questChains);
     });
 }
@@ -787,6 +788,10 @@ function renderQuestChainList(chains) {
   }
   container.innerHTML = chains.map(q => {
     const modeTag = q.mode_type === 'board_game' ? '<span class="tag tag-green">大富翁</span>' : '<span class="tag tag-blue">劇情主線</span>';
+    const accessMode = q.access_mode || 'public';
+    const accessTag = accessMode === 'coupon'
+      ? '<span class="tag tag-red">需 Coupon</span>'
+      : '<span class="tag tag-green">公開入口</span>';
     const experienceMode = q.experience_mode || 'formal';
     const experienceTag = experienceMode === 'tutorial'
       ? '<span class="tag tag-amber">教學模式</span>'
@@ -801,7 +806,7 @@ function renderQuestChainList(chains) {
         <div style="min-width:0;">
           <div class="quest-card-title">${escHtml(q.title)}</div>
           <div class="quest-card-meta">
-            ${modeTag} ${experienceTag} ${statusTag}
+            ${modeTag} ${accessTag} ${experienceTag} ${statusTag}
             ${q.entry_scene_label ? `<span class="tag tag-gray">${escHtml(q.entry_scene_label)}</span>` : ''}
             <span class="tag tag-amber">🏆 ${q.chain_points || 0} 分</span>
             ${q.play_style ? `<span class="tag tag-gray">🎲 ${escHtml(q.play_style)}</span>` : ''}
@@ -825,7 +830,7 @@ function editQuestChain(id) {
     id: q.id, mode_type: q.mode_type, title: q.title,
     short_description: q.short_description || '', description: q.description || '',
     entry_order: q.entry_order || 0, entry_button_text: q.entry_button_text || '',
-    entry_scene_label: q.entry_scene_label || '', experience_mode: q.experience_mode || 'formal', play_style: q.play_style || '',
+    entry_scene_label: q.entry_scene_label || '', access_mode: q.access_mode || 'public', experience_mode: q.experience_mode || 'formal', play_style: q.play_style || '',
     chain_points: q.chain_points || 100, badge_name: q.badge_name || '',
     is_active: q.is_active
   });
@@ -859,17 +864,16 @@ document.getElementById('questChainForm').addEventListener('submit', function (e
   fd.append('entry_order', form.entry_order.value);
   fd.append('entry_button_text', form.entry_button_text.value.trim());
   fd.append('entry_scene_label', form.entry_scene_label.value.trim());
+  fd.append('access_mode', form.access_mode.value);
   fd.append('experience_mode', form.experience_mode.value);
   fd.append('play_style', form.play_style.value);
   fd.append('is_active', form.is_active.checked ? '1' : '0');
   const badgeFile = form.badge_image?.files[0];
   if (badgeFile) fd.append('badge_image', badgeFile);
 
-  // NOTE: backend currently only supports POST for quest chains (no PUT endpoint for updating)
-  // If editing, we use the same POST approach but include the id
-  const url = id ? `${API_BASE}/api/quest-chains` : `${API_BASE}/api/quest-chains`;
+  const url = id ? `${API_BASE}/api/quest-chains/${id}` : `${API_BASE}/api/quest-chains`;
   fetch(url, {
-    method: 'POST',
+    method: id ? 'PUT' : 'POST',
     headers: { 'x-username': loginUser.username },
     body: fd
   })
@@ -3232,6 +3236,7 @@ function loadIssuedCoupons() {
             <div>
               <div style="font-weight:600;">${escHtml(cp.title)}</div>
               <div style="font-size:0.85rem; color:#64748b; margin-top:4px;">代碼 <code style="background:#e2e8f0;padding:2px 6px;border-radius:4px;">${escHtml(cp.coupon_code)}</code> · ${escHtml(cp.username || '—')}</div>
+              ${cp.quest_chain_title ? `<div style="font-size:0.82rem; color:#475569; margin-top:6px;">綁定入口：${escHtml(cp.quest_chain_title)}</div>` : ''}
             </div>
             <span class="tag ${cp.is_used ? 'tag-gray' : (cp.status === 'expired' ? 'tag-amber' : 'tag-green')}">${cp.is_used ? '已核銷' : (cp.status === 'expired' ? '已過期' : '未使用')}</span>
           </div>
@@ -3244,6 +3249,20 @@ function loadIssuedCoupons() {
     });
 }
 
+function refreshCouponQuestChainOptions() {
+  const select = document.getElementById('couponQuestChainSelect');
+  if (!select) return;
+  const currentValue = select.value;
+  const options = Object.values(globalQuestChainsMap)
+    .sort((a, b) => (Number(a.entry_order || 0) - Number(b.entry_order || 0)) || (Number(a.id) - Number(b.id)))
+    .map((q) => `<option value="${q.id}">${escHtml(q.title)}${q.access_mode === 'coupon' ? '（需 Coupon）' : '（公開入口）'}</option>`)
+    .join('');
+  select.innerHTML = `<option value="">不綁定入口（一般折扣券）</option>${options}`;
+  if ([...select.options].some(option => option.value === currentValue)) {
+    select.value = currentValue;
+  }
+}
+
 const couponIssueFormEl = document.getElementById('couponIssueForm');
 if (couponIssueFormEl) {
   couponIssueFormEl.addEventListener('submit', e => {
@@ -3254,6 +3273,7 @@ if (couponIssueFormEl) {
     const body = {
       username: (fd.get('username') || '').toString().trim(),
       title: (fd.get('title') || '').toString().trim(),
+      quest_chain_id: (fd.get('quest_chain_id') || '').toString().trim(),
       discount_amount: fd.get('discount_amount') || '',
       discount_percent: fd.get('discount_percent') || '',
       expiry_date: fd.get('expiry_date') || '',

@@ -227,11 +227,17 @@ function sanitizeQuestChainRow(row) {
   return {
     ...row,
     title: row.title || row.name || '',
+    access_mode: normalizeAccessMode(row.access_mode),
     experience_mode: normalizeExperienceMode(row.experience_mode, row),
     is_active: Boolean(row.is_active),
     game_rules: parseJsonField(row.game_rules, null),
     content_blueprint: parseJsonField(row.content_blueprint, null)
   };
+}
+
+function normalizeAccessMode(value) {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return normalized === 'coupon' ? 'coupon' : 'public';
 }
 
 function normalizeExperienceMode(value, questChainLike = null) {
@@ -385,6 +391,26 @@ function buildAiNoContentResult(task) {
 async function getUserIdByUsername(conn, username) {
   const [users] = await conn.execute('SELECT id FROM users WHERE username = ? LIMIT 1', [username]);
   return users[0]?.id || null;
+}
+
+async function hasQuestChainCouponAccess(conn, userId, questChainId) {
+  if (!userId || !questChainId) return false;
+  const couponColumns = await getTableColumnSet(conn, 'user_coupons');
+  if (!couponColumns.has('quest_chain_id')) return false;
+  const statusExpr = couponColumns.has('status') ? "AND (status IS NULL OR status = 'active')" : '';
+  const expiryExpr = couponColumns.has('expiry_date') ? 'AND (expiry_date IS NULL OR expiry_date >= CURDATE())' : '';
+  const [rows] = await conn.execute(
+    `SELECT id
+       FROM user_coupons
+      WHERE user_id = ?
+        AND quest_chain_id = ?
+        ${statusExpr}
+        ${expiryExpr}
+      ORDER BY id DESC
+      LIMIT 1`,
+    [userId, questChainId]
+  );
+  return rows.length > 0;
 }
 
 function sanitizeBoardSessionRow(row) {
@@ -1176,7 +1202,7 @@ app.post('/api/quest-chains', staffOrAdminAuth, uploadImage.single('badge_image'
   const {
     title, description, chain_points, badge_name,
     mode_type, is_active, cover_image_url, short_description,
-    entry_order, entry_button_text, entry_scene_label, play_style, experience_mode,
+    entry_order, entry_button_text, entry_scene_label, play_style, experience_mode, access_mode,
     game_rules, content_blueprint
   } = req.body;
   if (!title) return res.status(400).json({ success: false, message: '缺少標題' });
@@ -1212,6 +1238,7 @@ app.post('/api/quest-chains', staffOrAdminAuth, uploadImage.single('badge_image'
       entry_button_text: normalizeNullableString(entry_button_text),
       entry_scene_label: normalizeNullableString(entry_scene_label),
       play_style: normalizeNullableString(play_style),
+      access_mode: normalizeAccessMode(access_mode),
       experience_mode: normalizeExperienceMode(experience_mode, { play_style, game_rules, content_blueprint }),
       game_rules: stringifyJsonField(parseJsonField(game_rules, null)),
       content_blueprint: stringifyJsonField(parseJsonField(content_blueprint, null))
@@ -1235,7 +1262,7 @@ app.put('/api/quest-chains/:id', staffOrAdminAuth, uploadImage.single('badge_ima
   const {
     title, description, chain_points, badge_name,
     mode_type, is_active, cover_image_url, short_description,
-    entry_order, entry_button_text, entry_scene_label, play_style, experience_mode,
+    entry_order, entry_button_text, entry_scene_label, play_style, experience_mode, access_mode,
     game_rules, content_blueprint
   } = req.body;
   if (!title) return res.status(400).json({ success: false, message: '缺少標題' });
@@ -1278,6 +1305,7 @@ app.put('/api/quest-chains/:id', staffOrAdminAuth, uploadImage.single('badge_ima
       entry_button_text: normalizeNullableString(entry_button_text),
       entry_scene_label: normalizeNullableString(entry_scene_label),
       play_style: normalizeNullableString(play_style),
+      access_mode: normalizeAccessMode(access_mode),
       experience_mode: normalizeExperienceMode(experience_mode, { play_style, game_rules, content_blueprint }),
       game_rules: stringifyJsonField(parseJsonField(game_rules, null)),
       content_blueprint: stringifyJsonField(parseJsonField(content_blueprint, null))
@@ -1299,6 +1327,8 @@ app.get('/api/game-entries', async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
+    const optionalUser = getOptionalTokenUser(req);
+    const userId = optionalUser?.username ? await getUserIdByUsername(conn, optionalUser.username) : null;
     const questChainColumns = await getTableColumnSet(conn, 'quest_chains');
     const hasModeType = questChainColumns.has('mode_type');
     const hasIsActive = questChainColumns.has('is_active');
@@ -1306,7 +1336,36 @@ app.get('/api/game-entries', async (req, res) => {
       ? `SELECT * FROM quest_chains ${hasIsActive ? 'WHERE is_active = TRUE' : ''} ORDER BY entry_order ASC, id ASC`
       : 'SELECT * FROM quest_chains ORDER BY id ASC';
     const [rows] = await conn.execute(query);
-    const entries = rows.map(sanitizeQuestChainRow);
+    const couponQuestChainIds = new Set();
+    if (userId) {
+      const couponColumns = await getTableColumnSet(conn, 'user_coupons');
+      if (couponColumns.has('quest_chain_id')) {
+        const statusExpr = couponColumns.has('status') ? "AND (status IS NULL OR status = 'active')" : '';
+        const expiryExpr = couponColumns.has('expiry_date') ? 'AND (expiry_date IS NULL OR expiry_date >= CURDATE())' : '';
+        const [couponRows] = await conn.execute(
+          `SELECT quest_chain_id
+             FROM user_coupons
+            WHERE user_id = ?
+              AND quest_chain_id IS NOT NULL
+              ${statusExpr}
+              ${expiryExpr}`,
+          [userId]
+        );
+        couponRows.forEach((row) => {
+          if (row.quest_chain_id != null) couponQuestChainIds.add(Number(row.quest_chain_id));
+        });
+      }
+    }
+    const entries = rows.map((row) => {
+      const entry = sanitizeQuestChainRow(row);
+      const requiresCoupon = entry.access_mode === 'coupon';
+      const hasCouponAccess = requiresCoupon ? couponQuestChainIds.has(Number(entry.id)) : true;
+      return {
+        ...entry,
+        has_coupon_access: hasCouponAccess,
+        is_accessible: requiresCoupon ? hasCouponAccess : true
+      };
+    });
     res.json({
       success: true,
       storyCampaigns: entries.filter(entry => (entry.mode_type || 'story_campaign') === 'story_campaign'),
@@ -1325,12 +1384,25 @@ app.get('/api/quest-chains/:id/public-content', async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
+    const optionalUser = getOptionalTokenUser(req);
     const questChainColumns = await getTableColumnSet(conn, 'quest_chains');
     const taskColumns = await getTableColumnSet(conn, 'tasks');
     const titleExpr = questChainColumns.has('title') ? 'COALESCE(title, name)' : 'name';
     const [chains] = await conn.execute(`SELECT *, ${titleExpr} AS resolved_title FROM quest_chains WHERE id = ? LIMIT 1`, [id]);
     if (!chains.length) {
       return res.status(404).json({ success: false, message: '找不到此劇情' });
+    }
+    const questChain = sanitizeQuestChainRow({ ...chains[0], title: chains[0].resolved_title });
+    if (questChain.access_mode === 'coupon') {
+      const userId = optionalUser?.username ? await getUserIdByUsername(conn, optionalUser.username) : null;
+      const allowed = await hasQuestChainCouponAccess(conn, userId, Number(id));
+      if (!allowed) {
+        return res.status(403).json({
+          success: false,
+          code: 'COUPON_REQUIRED',
+          message: '此入口需專屬 Coupon 才能遊玩'
+        });
+      }
     }
     const activeFilter = taskColumns.has('is_active') ? 'AND (is_active = TRUE OR is_active IS NULL)' : '';
     const [tasks] = await conn.execute(
@@ -1339,7 +1411,7 @@ app.get('/api/quest-chains/:id/public-content', async (req, res) => {
     );
     res.json({
       success: true,
-      questChain: sanitizeQuestChainRow({ ...chains[0], title: chains[0].resolved_title }),
+      questChain,
       tasks: tasks.map(sanitizeTaskRow)
     });
   } catch (err) {
@@ -1522,6 +1594,21 @@ app.get('/api/board-maps/by-quest-chain/:questChainId', async (req, res) => {
       [questChainId]
     );
     const questChain = questRows[0] || null;
+    if (!questChain) {
+      return res.status(404).json({ success: false, message: '找不到對應的玩法入口' });
+    }
+    const sanitizedQuestChain = sanitizeQuestChainRow(questChain);
+    if (sanitizedQuestChain.access_mode === 'coupon' && !canPreviewInactive) {
+      const userId = previewUser?.username ? await getUserIdByUsername(conn, previewUser.username) : null;
+      const allowed = await hasQuestChainCouponAccess(conn, userId, Number(questChainId));
+      if (!allowed) {
+        return res.status(403).json({
+          success: false,
+          code: 'COUPON_REQUIRED',
+          message: '此入口需專屬 Coupon 才能遊玩'
+        });
+      }
+    }
     const [maps] = await conn.execute(
       `SELECT bm.*,
               COUNT(bt.id) AS tile_count,
@@ -1551,7 +1638,7 @@ app.get('/api/board-maps/by-quest-chain/:questChainId', async (req, res) => {
     );
     res.json({
       success: true,
-      questChain: sanitizeQuestChainRow(questChain),
+      questChain: sanitizedQuestChain,
       boardMap: sanitizeBoardMapRow(boardMap),
       boardMaps: maps.map((row) => sanitizeBoardMapRow(row)),
       tiles: tiles.map((row) => sanitizeBoardTileRow(row))
@@ -6202,6 +6289,10 @@ app.post('/api/coupons/issue', shopOrAdminAuth, async (req, res) => {
   const body = req.body || {};
   const username = typeof body.username === 'string' ? body.username.trim() : '';
   const title = typeof body.title === 'string' ? body.title.trim() : '';
+  const questChainIdRaw = body.quest_chain_id;
+  const questChainId = questChainIdRaw != null && String(questChainIdRaw).trim() !== ''
+    ? Number(questChainIdRaw)
+    : null;
   const amtRaw = body.discount_amount;
   const pctRaw = body.discount_percent;
   const amt = amtRaw != null && amtRaw !== '' ? Number(amtRaw) : null;
@@ -6223,8 +6314,8 @@ app.post('/api/coupons/issue', shopOrAdminAuth, async (req, res) => {
   if (!title || title.length > 255) {
     return res.status(400).json({ success: false, message: '請填寫券名稱（最多 255 字）' });
   }
-  if ((hasAmt && hasPct) || (!hasAmt && !hasPct)) {
-    return res.status(400).json({ success: false, message: '請擇一填寫「折扣金額」或「折扣百分比」（1–100）' });
+  if (questChainId == null && ((hasAmt && hasPct) || (!hasAmt && !hasPct))) {
+    return res.status(400).json({ success: false, message: '請擇一填寫「折扣金額」或「折扣百分比」（1–100），或改成綁定劇情入口的遊玩券' });
   }
   if (couponCode) {
     if (!/^[A-Za-z0-9_-]{4,32}$/.test(couponCode)) {
@@ -6245,14 +6336,28 @@ app.post('/api/coupons/issue', shopOrAdminAuth, async (req, res) => {
     if (u.role !== 'user') {
       return res.status(400).json({ success: false, message: '僅能發放給一般玩家帳號' });
     }
+    let questChainTitle = null;
+    if (questChainId != null) {
+      if (!Number.isFinite(questChainId) || questChainId <= 0) {
+        return res.status(400).json({ success: false, message: '綁定入口格式錯誤' });
+      }
+      const [chains] = await conn.execute(
+        'SELECT id, title, name FROM quest_chains WHERE id = ? LIMIT 1',
+        [questChainId]
+      );
+      if (!chains.length) {
+        return res.status(404).json({ success: false, message: '找不到要綁定的玩法入口' });
+      }
+      questChainTitle = chains[0].title || chains[0].name || null;
+    }
     const discountAmount = hasAmt ? amt : null;
     const discountPercent = hasPct ? pct : null;
     let insertId;
     if (couponCode) {
       const [ins] = await conn.execute(
-        `INSERT INTO user_coupons (coupon_code, user_id, title, discount_amount, discount_percent, expiry_date, is_used, status)
-         VALUES (?, ?, ?, ?, ?, ?, 0, 'active')`,
-        [couponCode, u.id, title, discountAmount, discountPercent, expiryDate]
+        `INSERT INTO user_coupons (coupon_code, user_id, title, quest_chain_id, discount_amount, discount_percent, expiry_date, is_used, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'active')`,
+        [couponCode, u.id, title, questChainId, discountAmount, discountPercent, expiryDate]
       );
       insertId = ins.insertId;
     } else {
@@ -6262,9 +6367,9 @@ app.post('/api/coupons/issue', shopOrAdminAuth, async (req, res) => {
         const code = generateCouponCode();
         try {
           const [ins] = await conn.execute(
-            `INSERT INTO user_coupons (coupon_code, user_id, title, discount_amount, discount_percent, expiry_date, is_used, status)
-             VALUES (?, ?, ?, ?, ?, ?, 0, 'active')`,
-            [code, u.id, title, discountAmount, discountPercent, expiryDate]
+            `INSERT INTO user_coupons (coupon_code, user_id, title, quest_chain_id, discount_amount, discount_percent, expiry_date, is_used, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'active')`,
+            [code, u.id, title, questChainId, discountAmount, discountPercent, expiryDate]
           );
           insertId = ins.insertId;
           couponCode = code;
@@ -6280,8 +6385,8 @@ app.post('/api/coupons/issue', shopOrAdminAuth, async (req, res) => {
     }
     res.json({
       success: true,
-      message: '已發放兌換卷',
-      coupon: { id: insertId, coupon_code: couponCode, username: u.username, title }
+      message: questChainId ? '已發放遊玩券' : '已發放兌換卷',
+      coupon: { id: insertId, coupon_code: couponCode, username: u.username, title, quest_chain_id: questChainId, quest_chain_title: questChainTitle }
     });
   } catch (err) {
     if (err && err.code === 'ER_DUP_ENTRY') {
@@ -6302,20 +6407,25 @@ app.get('/api/coupons/issued', shopOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const [rows] = await conn.execute(
-      `SELECT uc.id, uc.coupon_code, uc.title, uc.discount_amount, uc.discount_percent, uc.expiry_date,
-              uc.is_used, uc.used_at, uc.created_at, u.username AS owner_username
+    const safePageSize = Number(pageSize) || 30;
+    const safeOffset = Number(offset) || 0;
+    const [rows] = await conn.query(
+      `SELECT uc.id, uc.coupon_code, uc.title, uc.quest_chain_id, uc.discount_amount, uc.discount_percent, uc.expiry_date,
+              uc.is_used, uc.used_at, uc.created_at, u.username AS owner_username,
+              qc.title AS quest_chain_title, qc.name AS quest_chain_name
        FROM user_coupons uc
        LEFT JOIN users u ON uc.user_id = u.id
+       LEFT JOIN quest_chains qc ON uc.quest_chain_id = qc.id
        ORDER BY uc.created_at DESC
-       LIMIT ? OFFSET ?`,
-      [pageSize, offset]
+       LIMIT ${safePageSize} OFFSET ${safeOffset}`
     );
     const [[{ total }]] = await conn.execute('SELECT COUNT(*) AS total FROM user_coupons');
     const coupons = rows.map((r) => ({
       id: r.id,
       coupon_code: r.coupon_code,
       title: r.title,
+      quest_chain_id: r.quest_chain_id,
+      quest_chain_title: r.quest_chain_title || r.quest_chain_name || null,
       discount_amount: r.discount_amount,
       discount_percent: r.discount_percent,
       discount: formatCouponDiscount(r),
@@ -6704,6 +6814,7 @@ if (!SKIP_DB) {
             coupon_code VARCHAR(64) NOT NULL,
             user_id INT NULL,
             title VARCHAR(255) NOT NULL DEFAULT '優惠券',
+            quest_chain_id INT NULL,
             discount_amount DECIMAL(10,2) NULL,
             discount_percent INT NULL,
             expiry_date DATE NULL,
@@ -6713,7 +6824,8 @@ if (!SKIP_DB) {
             status VARCHAR(32) DEFAULT 'active',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY uk_user_coupons_code (coupon_code),
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+            FOREIGN KEY (quest_chain_id) REFERENCES quest_chains(id) ON DELETE SET NULL
           )
         `);
         console.log('✅ 資料庫遷移: user_coupons 表已建立');
