@@ -838,6 +838,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return isCurrentQuestTutorialMode() && !getLoginUser();
         }
 
+        function taskUsesGps(task = currentTask) {
+            if (!task) return false;
+            const gpsEnabled = Boolean(task.location_required || task.task_type === 'location');
+            const hasCoords = Number.isFinite(Number(task.lat)) && Number.isFinite(Number(task.lng));
+            return gpsEnabled && hasCoords;
+        }
+
         function getTutorialMockDistance(task = currentTask) {
             const questOrder = Number(task?.quest_order) || 1;
             const radius = Number(task?.radius) || 24;
@@ -2356,6 +2363,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function renderTaskMetrics(distanceMeters = lastTaskDistance, bearing = lastTaskBearing) {
             const tutorialLikeMode = isCurrentQuestTutorialMode() || isCurrentQuestDemoMode();
+            const gpsRequired = taskUsesGps(currentTask);
             const angle = (Number.isFinite(bearing) && lastHeadingUpdateAt)
                 ? ((bearing - deviceHeading + 540) % 360) - 180
                 : null;
@@ -2365,28 +2373,30 @@ document.addEventListener('DOMContentLoaded', () => {
             if (taskBearingValue) {
                 taskBearingValue.textContent = tutorialLikeMode
                     ? `${Math.round(Number.isFinite(bearing) ? bearing : getTutorialMockBearing())}°`
-                    : (Number.isFinite(bearing) ? `${Math.round(bearing)}°` : '--°');
+                    : (!gpsRequired ? '--°' : (Number.isFinite(bearing) ? `${Math.round(bearing)}°` : '--°'));
             }
             if (taskDistanceValue) {
                 taskDistanceValue.textContent = tutorialLikeMode
                     ? `${Math.round(Number.isFinite(distanceMeters) ? distanceMeters : getTutorialMockDistance())}m`
-                    : (Number.isFinite(distanceMeters) ? `${Math.max(0, Math.round(distanceMeters))}m` : '--m');
+                    : (!gpsRequired ? '--' : (Number.isFinite(distanceMeters) ? `${Math.max(0, Math.round(distanceMeters))}m` : '--m'));
             }
             if (taskAngleValue) {
                 taskAngleValue.textContent = tutorialLikeMode
                     ? '--'
-                    : (angle != null ? `${Math.round(angle)}°` : '--°');
+                    : (!gpsRequired ? '--' : (angle != null ? `${Math.round(angle)}°` : '--°'));
             }
             if (taskCoordsValue) {
                 taskCoordsValue.textContent = tutorialLikeMode
                     ? '教學模式'
-                    : (lastLatLng
+                    : (!gpsRequired ? 'GPS 未啟用' : (lastLatLng
                     ? `${lastLatLng.latitude.toFixed(5)}, ${lastLatLng.longitude.toFixed(5)}`
-                    : '--, --');
+                    : '--, --'));
             }
             if (taskStatusLabel) {
                 if (tutorialLikeMode) {
                     taskStatusLabel.textContent = `模擬距離 ${Math.round(Number.isFinite(distanceMeters) ? distanceMeters : getTutorialMockDistance())}m｜不啟用 GPS`;
+                } else if (!gpsRequired) {
+                    taskStatusLabel.textContent = '未啟用 GPS｜任何地方都可開啟任務';
                 } else if (!lastHeadingUpdateAt) {
                     taskStatusLabel.textContent = '點一下畫面啟用方向';
                 } else if (Number.isFinite(distanceMeters)) {
@@ -2532,6 +2542,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (taskCoordsValue) {
                     taskCoordsValue.textContent = '教學 / Demo 模式';
+                }
+                return;
+            }
+            if (!taskUsesGps(currentTask)) {
+                taskReached = true;
+                lastTaskDistance = null;
+                lastTaskBearing = null;
+                renderTaskMetrics();
+                if (locationBar) {
+                    locationBar.textContent = '目前位置：此關卡未啟用 GPS 限制';
+                }
+                if (taskCoordsValue) {
+                    taskCoordsValue.textContent = 'GPS 未啟用';
+                }
+                if (taskStatusLabel) {
+                    taskStatusLabel.textContent = '任何地方都可開啟任務';
+                }
+                if (taskDistanceValue) {
+                    taskDistanceValue.textContent = '--';
                 }
                 return;
             }
@@ -3326,6 +3355,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!currentTask) return;
             const tutorialMode = isCurrentQuestTutorialMode();
             const tutorialGuestMode = isTutorialGuestMode();
+            const gpsRequired = taskUsesGps(currentTask);
             tutorialFlowStarted = true;
             tutorialBoardPhotoCaptureArmed = false;
             renderTutorialModeUi();
@@ -3338,8 +3368,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     buttonLabel: '開始操作'
                 });
             }
+            const demoMode = isCurrentQuestDemoMode() || isCurrentQuestTutorialMode();
+            if (gpsRequired) {
+                if (!lastLatLng && !demoMode) {
+                    Swal.fire({ icon: 'info', title: '尚未取得位置', text: '請先靠近任務地點後再試' });
+                    return;
+                }
+                const dist = lastLatLng
+                    ? haversineDistance(lastLatLng.latitude, lastLatLng.longitude, targetLat, targetLng)
+                    : Number.MAX_SAFE_INTEGER;
+                if (!demoMode && dist > Math.max(6, currentTask.radius || 30)) {
+                    Swal.fire({ icon: 'warning', title: '還沒到任務地點', text: `目前距離約 ${Math.round(dist)}m` });
+                    return;
+                }
+            }
             if (currentTask.task_type === 'location') {
-                const demoMode = isCurrentQuestDemoMode() || isCurrentQuestTutorialMode();
                 if (tutorialGuestMode) {
                     completeTutorialGuestTask(currentTask);
                     tutorialFlowStarted = false;
@@ -3366,17 +3409,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     scheduleStoryReloadAfterCompletion();
                     showCompletionModal('✅ 教學模式已完成這一步');
-                    return;
-                }
-                if (!lastLatLng && !demoMode) {
-                    Swal.fire({ icon: 'info', title: '尚未取得位置', text: '請先靠近任務地點後再試' });
-                    return;
-                }
-                const dist = lastLatLng
-                    ? haversineDistance(lastLatLng.latitude, lastLatLng.longitude, targetLat, targetLng)
-                    : Number.MAX_SAFE_INTEGER;
-                if (!demoMode && dist > Math.max(6, currentTask.radius || 30)) {
-                    Swal.fire({ icon: 'warning', title: '還沒到任務地點', text: `目前距離約 ${Math.round(dist)}m` });
                     return;
                 }
                 if (!currentUserTaskId) await fetchCurrentUserTaskId();
@@ -4305,11 +4337,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             syncTaskEncounterVisibility();
             currentTaskId = task.id;
-            targetLat = Number(task.lat);
-            targetLng = Number(task.lng);
+            targetLat = taskUsesGps(task) ? Number(task.lat) : null;
+            targetLng = taskUsesGps(task) ? Number(task.lng) : null;
             loadTaskBGM(task);
             showTaskContext(task);
-            if (mapInstance && targetLat && targetLng) {
+            if (mapInstance && Number.isFinite(targetLat) && Number.isFinite(targetLng)) {
                 if (!taskMapMarker) {
                     taskMapMarker = L.circleMarker([targetLat, targetLng], {
                         radius: 8,
@@ -4323,6 +4355,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     taskMapMarker.setLatLng([targetLat, targetLng]);
                 }
                 updateTaskMapViewport();
+            } else if (taskMapMarker && mapInstance) {
+                mapInstance.removeLayer(taskMapMarker);
+                taskMapMarker = null;
             }
             if (options.updateUrl !== false) {
                 const newUrl = new URL(window.location.href);
@@ -4330,7 +4365,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (currentEntryMode) newUrl.searchParams.set('mode', currentEntryMode);
                 newUrl.searchParams.set('taskId', task.id);
                 if (Number.isFinite(targetLat)) newUrl.searchParams.set('lat', targetLat);
+                else newUrl.searchParams.delete('lat');
                 if (Number.isFinite(targetLng)) newUrl.searchParams.set('lng', targetLng);
+                else newUrl.searchParams.delete('lng');
                 window.history.replaceState({}, '', newUrl);
             }
             if (!options.skipNearbyReload) {

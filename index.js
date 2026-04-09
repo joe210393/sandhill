@@ -2545,8 +2545,18 @@ app.post('/api/tasks', staffOrAdminAuth, async (req, res) => {
   const requesterRole = requester.role;
   const requesterName = requester.username;
 
-  if (!name || !lat || !lng || !radius || !description || !photoUrl) {
+  const requiresGps = normalizeBoolean(location_required) || task_type === 'location';
+  const hasAnyLocationValue = [lat, lng, radius].some((value) => value !== undefined && value !== null && String(value).trim() !== '');
+  const hasAllLocationValues = [lat, lng, radius].every((value) => value !== undefined && value !== null && String(value).trim() !== '');
+
+  if (!name || !description || !photoUrl) {
     return res.status(400).json({ success: false, message: '缺少參數' });
+  }
+  if (requiresGps && !hasAllLocationValues) {
+    return res.status(400).json({ success: false, message: '啟用 GPS 位置限制時，必須填寫緯度、經度與觸發半徑。' });
+  }
+  if (!requiresGps && hasAnyLocationValue && !hasAllLocationValues) {
+    return res.status(400).json({ success: false, message: '若要保留座標資料，請完整填寫緯度、經度與觸發半徑。' });
   }
 
   // 商店新增任務：若指定 quest_chain_id，必須是自己建立的劇情
@@ -2612,9 +2622,9 @@ app.post('/api/tasks', staffOrAdminAuth, async (req, res) => {
     const taskColumns = await getTableColumnSet(conn, 'tasks');
     const taskRecord = {
       name,
-      lat,
-      lng,
-      radius,
+      lat: hasAllLocationValues ? normalizeNullableString(lat) : null,
+      lng: hasAllLocationValues ? normalizeNullableString(lng) : null,
+      radius: hasAllLocationValues ? normalizeNullableString(radius) : null,
       description,
       photoUrl,
       iconUrl: '/images/flag-red.png',
@@ -2632,7 +2642,7 @@ app.post('/api/tasks', staffOrAdminAuth, async (req, res) => {
       failure_message: validationSettings.failureMessage,
       success_message: validationSettings.successMessage,
       max_attempts: validationSettings.maxAttempts,
-      location_required: validationSettings.locationRequired,
+      location_required: requiresGps,
       type: mainType,
       quest_chain_id: qId,
       quest_order: qOrder,
@@ -3034,8 +3044,18 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
       });
     }
 
-    if (!name || !lat || !lng || !radius || !description || !photoUrl) {
+    const requiresGps = normalizeBoolean(location_required) || task_type === 'location';
+    const hasAnyLocationValue = [lat, lng, radius].some((value) => value !== undefined && value !== null && String(value).trim() !== '');
+    const hasAllLocationValues = [lat, lng, radius].every((value) => value !== undefined && value !== null && String(value).trim() !== '');
+
+    if (!name || !description || !photoUrl) {
       return res.status(400).json({ success: false, message: '缺少參數' });
+    }
+    if (requiresGps && !hasAllLocationValues) {
+      return res.status(400).json({ success: false, message: '啟用 GPS 位置限制時，必須填寫緯度、經度與觸發半徑。' });
+    }
+    if (!requiresGps && hasAnyLocationValue && !hasAllLocationValues) {
+      return res.status(400).json({ success: false, message: '若要保留座標資料，請完整填寫緯度、經度與觸發半徑。' });
     }
 
     const pts = Number(points) || 0;
@@ -3074,9 +3094,9 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
     const taskColumns = await getTableColumnSet(conn, 'tasks');
     const taskRecord = {
       name,
-      lat,
-      lng,
-      radius,
+      lat: hasAllLocationValues ? normalizeNullableString(lat) : null,
+      lng: hasAllLocationValues ? normalizeNullableString(lng) : null,
+      radius: hasAllLocationValues ? normalizeNullableString(radius) : null,
       description,
       photoUrl,
       youtubeUrl: youtubeUrl || null,
@@ -3092,7 +3112,7 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
       failure_message: validationSettings.failureMessage,
       success_message: validationSettings.successMessage,
       max_attempts: validationSettings.maxAttempts,
-      location_required: validationSettings.locationRequired,
+      location_required: requiresGps,
       type: mainType,
       quest_chain_id: qId,
       quest_order: qOrder,

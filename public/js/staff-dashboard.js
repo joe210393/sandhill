@@ -343,6 +343,39 @@ function syncTaskWizardUI() {
 function validateTaskWizardStep(step) {
   const stepEl = getTaskWizardStepElement(step);
   if (!stepEl) return true;
+  if (step === 2) {
+    const form = document.getElementById('taskForm');
+    const typeSel = document.getElementById('taskTypeSelect');
+    const gpsToggle = document.getElementById('taskLocationRequiredToggle');
+    const gpsRequired = Boolean((typeSel && typeSel.value === 'location') || (gpsToggle && gpsToggle.checked));
+    const lat = form?.elements?.lat?.value?.trim() || '';
+    const lng = form?.elements?.lng?.value?.trim() || '';
+    const radius = form?.elements?.radius?.value?.trim() || '';
+    const hasAnyLocationValue = Boolean(lat || lng || radius);
+    const hasAllLocationValues = Boolean(lat && lng && radius);
+
+    if (gpsRequired && !hasAllLocationValues) {
+      const target = !lat ? form.elements.lat : (!lng ? form.elements.lng : form.elements.radius);
+      if (target) {
+        target.setCustomValidity('啟用 GPS 位置限制時，請完整填寫緯度、經度與觸發半徑。');
+        target.reportValidity();
+        target.setCustomValidity('');
+      }
+      scrollToFirstInvalid(stepEl);
+      return false;
+    }
+
+    if (!gpsRequired && hasAnyLocationValue && !hasAllLocationValues) {
+      const target = !lat ? form.elements.lat : (!lng ? form.elements.lng : form.elements.radius);
+      if (target) {
+        target.setCustomValidity('若要保留座標資料，請完整填寫緯度、經度與觸發半徑；否則請全部留空。');
+        target.reportValidity();
+        target.setCustomValidity('');
+      }
+      scrollToFirstInvalid(stepEl);
+      return false;
+    }
+  }
   const inputs = Array.from(stepEl.querySelectorAll('input, select, textarea')).filter((el) => {
     if (el.disabled) return false;
     if (el.closest('[style*="display:none"]')) return false;
@@ -599,6 +632,42 @@ function setupTaskTypeToggle() {
   });
 }
 
+function syncTaskLocationRequirementUi() {
+  const form = document.getElementById('taskForm');
+  const typeSel = document.getElementById('taskTypeSelect');
+  const gpsToggle = document.getElementById('taskLocationRequiredToggle');
+  const hint = document.getElementById('taskLocationRequiredHint');
+  const latInput = document.getElementById('taskLatInput');
+  const lngInput = document.getElementById('taskLngInput');
+  const radiusInput = form?.elements?.radius;
+  if (!form || !typeSel || !gpsToggle || !latInput || !lngInput || !radiusInput) return;
+
+  const forcedByTaskType = typeSel.value === 'location';
+  if (forcedByTaskType) gpsToggle.checked = true;
+  gpsToggle.disabled = forcedByTaskType;
+
+  const gpsRequired = forcedByTaskType || gpsToggle.checked;
+  [latInput, lngInput, radiusInput].forEach((input) => {
+    input.required = gpsRequired;
+    input.setCustomValidity('');
+  });
+
+  if (hint) {
+    hint.textContent = gpsRequired
+      ? '已啟用 GPS 位置限制：玩家必須到這組座標半徑內，才有辦法接取任務。'
+      : '未啟用 GPS 位置限制：任何地方都可以開啟任務；下方座標可作為參考資料保留。';
+  }
+}
+
+function setupLocationRequirementToggle() {
+  const typeSel = document.getElementById('taskTypeSelect');
+  const gpsToggle = document.getElementById('taskLocationRequiredToggle');
+  if (!typeSel || !gpsToggle) return;
+  typeSel.addEventListener('change', syncTaskLocationRequirementUi);
+  gpsToggle.addEventListener('change', syncTaskLocationRequirementUi);
+  syncTaskLocationRequirementUi();
+}
+
 const validationModeMeta = {
   ai_count: { helper: 'AI 判斷指定物件是否達到目標數量。', label: '目標物件標籤', placeholder: 'plastic_bottle', showCount: true, showScore: false },
   ai_identify: { helper: 'AI 辨識照片是否為指定物件或植物。', label: '指定辨識標籤', placeholder: 'morning_glory', showCount: false, showScore: false },
@@ -635,6 +704,7 @@ function setupValidationModeToggle() {
 setupCategoryToggle();
 setupTaskTypeToggle();
 setupValidationModeToggle();
+setupLocationRequirementToggle();
 
 // Apply initial blueprint
 applyBlueprint('story_ai_identify', false);
@@ -1875,6 +1945,7 @@ function openTaskDrawerForCreate() {
   openDrawer('新增關卡', 'form-task');
   resetTaskWizard();
   const form = document.getElementById('taskForm');
+  if (form.elements.location_required) form.elements.location_required.checked = false;
 
   // Auto-lock quest chain context
   if (currentQuestChainId) {
@@ -1911,6 +1982,7 @@ function openTaskDrawerForCreate() {
     bpSel.value = 'story_ai_identify';
     applyBlueprint('story_ai_identify', false);
   }
+  syncTaskLocationRequirementUi();
   syncTaskWizardUI();
 }
 
@@ -2014,6 +2086,7 @@ function populateTaskFormForEdit(t) {
       form.elements.success_message.value = t.success_message || '';
       form.elements.max_attempts.value = t.max_attempts || '';
       if (form.elements.location_required) form.elements.location_required.checked = !!t.location_required;
+      syncTaskLocationRequirementUi();
 
       // Items
       const reqItemSel = form.querySelector('select[name="required_item_id"]');
@@ -2067,6 +2140,7 @@ function duplicateTask(taskId) {
       const photoIn = document.getElementById('taskPhotoInput');
       if (photoIn) photoIn.value = '';
       document.getElementById('taskFormMsg').textContent = '';
+      syncTaskLocationRequirementUi();
       syncTaskWizardUI();
     });
 }

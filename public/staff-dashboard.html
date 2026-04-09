@@ -927,14 +927,25 @@
             <label class="form-label">關卡名稱</label>
             <input class="form-input" type="text" name="name" required>
           </div>
+          <div class="form-group" style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:12px 14px;">
+            <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+              <input type="checkbox" name="location_required" id="taskLocationRequiredToggle" value="1" style="width:18px; height:18px; margin-top:2px;">
+              <span>
+                <strong style="display:block; color:#0f172a;">啟用 GPS 位置限制</strong>
+                <span id="taskLocationRequiredHint" class="form-hint" style="display:block; margin-top:4px;">
+                  開啟後，玩家必須到任務 GPS 範圍內才可開始這一關；關閉時，任何地方都能承接任務。
+                </span>
+              </span>
+            </label>
+          </div>
           <div class="grid-2">
             <div class="form-group">
               <label class="form-label">緯度</label>
-              <input class="form-input" type="number" name="lat" id="taskLatInput" step="any" required>
+              <input class="form-input" type="number" name="lat" id="taskLatInput" step="any">
             </div>
             <div class="form-group">
               <label class="form-label">經度</label>
-              <input class="form-input" type="number" name="lng" id="taskLngInput" step="any" required>
+              <input class="form-input" type="number" name="lng" id="taskLngInput" step="any">
             </div>
           </div>
           <div class="form-group">
@@ -945,7 +956,7 @@
           <div class="grid-2">
             <div class="form-group">
               <label class="form-label">觸發半徑 (m)</label>
-              <input class="form-input" type="number" name="radius" required>
+              <input class="form-input" type="number" name="radius">
             </div>
             <div class="form-group">
               <label class="form-label">積分</label>
@@ -1040,10 +1051,9 @@
                 <input class="form-input" type="number" name="ai_min_confidence" min="0" max="1" step="0.05" placeholder="0.7">
               </div>
               <div class="form-group" style="display:flex; align-items:flex-end;">
-                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; padding-bottom:10px;">
-                  <input type="checkbox" name="location_required" value="1" style="width:16px; height:16px;">
-                  <span style="font-size:0.88rem;">需地點限制</span>
-                </label>
+                <div class="form-hint" style="margin-bottom:10px;">
+                  若此關需要 GPS 到點才能開始，請在上方「場域與目標」區塊開啟「GPS 位置限制」。
+                </div>
               </div>
             </div>
             <div class="form-group">
