@@ -309,11 +309,35 @@ function buildDemoAiResult(task, submissionUrl = null) {
   };
 }
 
-function buildTutorialForcedAiReason(task, aiReason = '', aiPassed = null) {
+function tutorialIdentifyAliases(targetLabel) {
+  const key = normalizeLabel(targetLabel);
+  if (!key) return [];
+  const aliasMap = {
+    pen_like: ['筆', '原子筆', '鉛筆', '自動鉛筆', '簽字筆', 'pen', 'pencil', 'ballpoint'],
+    utility_knife: ['美工刀', '裁切刀', '刀具', '刀片', 'utility knife', 'box cutter'],
+    cup_like: ['水杯', '杯子', '馬克杯', '咖啡杯', '保溫杯', 'cup', 'mug'],
+    charger_like: ['充電器', '充電頭', '充電線', '變壓器', 'adapter', 'charger', 'usb'],
+    computer_like: ['電腦', '筆電', '筆記型電腦', '桌機', 'macbook', 'laptop', 'computer', 'pc'],
+    monitor_like: ['螢幕', '顯示器', '電視', '電視螢幕', '監視器', 'monitor', 'screen', 'display', 'tv']
+  };
+  return aliasMap[key] || [key];
+}
+
+function isTutorialIdentifyMatch(task, aiReason = '', aiLabel = '') {
+  if (task?.validation_mode !== 'ai_identify') return false;
+  const targetLabel = task?.pass_criteria?.target_label || task?.ai_config?.target_label;
+  const aliases = tutorialIdentifyAliases(targetLabel);
+  if (!aliases.length) return false;
+  const haystack = `${normalizeNullableString(aiReason) || ''}\n${normalizeNullableString(aiLabel) || ''}`.toLowerCase();
+  return aliases.some((alias) => haystack.includes(String(alias).toLowerCase()));
+}
+
+function buildTutorialForcedAiReason(task, aiReason = '', aiPassed = null, aiLabel = '') {
   const fallback = `我看見了你上傳的畫面，但因為現在是教學模式，所以「${task?.name || '這一關'}」先讓你通過，方便你把整段流程走完。`;
   const normalized = normalizeNullableString(aiReason);
   if (!normalized) return fallback;
-  if (aiPassed === false) {
+  const effectivePass = aiPassed === true || isTutorialIdentifyMatch(task, normalized, aiLabel);
+  if (!effectivePass) {
     return `我看見了：${normalized}\n\n不過這次不是這一關要找的內容喔。因為現在是教學模式，所以我還是先讓你通過，方便你繼續往下體驗。正式關卡時，還是需要拍到任務指定的物品或場景才會過關。`;
   }
   return `我看見了：${normalized}\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。`;
@@ -3993,7 +4017,7 @@ app.post('/api/tutorial/ai-tasks/:taskId/submit', uploadAiTaskImage.single('imag
       passed: true,
       tutorial_guest: !optionalUser,
       message: '教學模式已完成這一步',
-      reason: buildTutorialForcedAiReason(task, lmResult?.reason, lmResult?.passed),
+      reason: buildTutorialForcedAiReason(task, lmResult?.reason, lmResult?.passed, lmResult?.label),
       retry_advice: '',
       user_task_id: userTaskId,
       earnedItemName: earnedItemName,
@@ -4144,7 +4168,7 @@ app.post('/api/ai-tasks/:taskId/submit', authenticateToken, uploadAiTaskImage.si
           retry_advice: '',
           source: lmResult ? 'sandhill_demo_autopass_with_lm' : fallbackResult.source,
           submission_url: submissionUrl,
-          reason: buildTutorialForcedAiReason(task, lmResult?.reason, lmResult?.passed)
+          reason: buildTutorialForcedAiReason(task, lmResult?.reason, lmResult?.passed, lmResult?.label)
         }
       };
     } else {
