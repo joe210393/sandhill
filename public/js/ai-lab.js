@@ -4072,7 +4072,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (shouldSuppressCameraAlert()) {
-                    updateLocationText(`${msg}（教學模式可繼續體驗）`);
+                    log(`${msg}（教學模式可繼續體驗）`);
                     return;
                 }
                 
@@ -4287,6 +4287,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function loadNearbyVisibleTasks() {
             try {
+                if (currentQuestChainId || isShellExperience) {
+                    nearbyVisibleTasks = [];
+                    renderNearbyTaskMarkers();
+                    updateMiniMapTaskIndicators();
+                    return;
+                }
                 const [taskRes, questProgress] = await Promise.all([
                     fetch('/api/tasks'),
                     fetchQuestProgressMap()
