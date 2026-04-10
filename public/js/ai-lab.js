@@ -1135,6 +1135,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const shouldHideTutorialChrome = isTutorialStory || isTutorialBoard;
             const shouldHideFormalStoryChrome = formalStoryIntroMode && isFormalStoryEntryMode();
             const isPhotoCapture = isPhotoTaskCaptureActive();
+            const shouldHideFormalStoryTaskCard = (
+                currentEntryMode === 'story_campaign'
+                && !isCurrentQuestTutorialMode()
+                && !isCurrentQuestDemoMode()
+                && isPhotoCapture
+            );
             const shouldHidePrimaryCard = shouldHideTutorialChrome && (
                 tutorialFlowStarted
                 || isNpcDialogBlocking()
@@ -1162,8 +1168,15 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.classList.toggle('tutorial-board-clean', isTutorialBoard);
             document.body.classList.toggle('tutorial-story-clean', isTutorialStory);
             document.body.classList.toggle('formal-story-clean', shouldHideFormalStoryChrome);
+            document.body.classList.toggle('formal-story-capture-clean', shouldHideFormalStoryTaskCard);
             featureDockMenu?.classList.toggle('hidden', !isTutorialBoard);
             setImmersiveCameraMode(isPhotoCapture);
+            if (shouldHideFormalStoryTaskCard) {
+                closeDockPanels();
+                taskStatusBox?.classList.add('hidden');
+                taskIntroPanel?.classList.add('hidden');
+                if (taskHudToggle) taskHudToggle.setAttribute('aria-expanded', 'false');
+            }
             if (selectionInstruction) {
                 if (!isPhotoCapture) {
                     selectionInstruction.style.display = 'none';
