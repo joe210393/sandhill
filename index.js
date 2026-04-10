@@ -343,6 +343,90 @@ function hasNegativeAliasMention(text, alias) {
   return patterns.some((pattern) => pattern.test(text));
 }
 
+function getAiIdentifyTargetAliases(task) {
+  const targetLabel = task?.pass_criteria?.target_label || task?.ai_config?.target_label;
+  return tutorialIdentifyAliases(targetLabel);
+}
+
+function containsTargetAliasMention(text, aliases = []) {
+  const haystack = normalizeNullableString(text)?.toLowerCase() || '';
+  if (!haystack) return false;
+  return aliases.some((alias) => haystack.includes(String(alias).toLowerCase()));
+}
+
+function extractObservedLabelFromAiReason(reason = '', aliases = []) {
+  const normalized = normalizeNullableString(reason);
+  if (!normalized) return null;
+  const patterns = [
+    /顯示的是([^，。,；;]+?)(?:，|,|而非|不是|並非|。|；|;|$)/i,
+    /看起來是([^，。,；;]+?)(?:，|,|而非|不是|並非|。|；|;|$)/i,
+    /畫面中是([^，。,；;]+?)(?:，|,|而非|不是|並非|。|；|;|$)/i,
+    /照片中是([^，。,；;]+?)(?:，|,|而非|不是|並非|。|；|;|$)/i,
+    /我看到的是([^，。,；;]+?)(?:，|,|而非|不是|並非|。|；|;|$)/i
+  ];
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    const candidate = normalizeNullableString(match?.[1]);
+    if (!candidate) continue;
+    if (containsTargetAliasMention(candidate, aliases)) continue;
+    return candidate;
+  }
+  return null;
+}
+
+function getObservedIdentifyLabel(task, aiLabel = '', aiReason = '') {
+  const aliases = getAiIdentifyTargetAliases(task);
+  const normalizedLabel = normalizeNullableString(aiLabel);
+  if (
+    normalizedLabel
+    && !containsTargetAliasMention(normalizedLabel, aliases)
+    && !aliases.some((alias) => hasNegativeAliasMention(normalizedLabel.toLowerCase(), String(alias).toLowerCase()))
+  ) {
+    return normalizedLabel;
+  }
+  return extractObservedLabelFromAiReason(aiReason, aliases);
+}
+
+function buildIdentifyFailureReason(task, aiLabel = '', aiReason = '') {
+  const observedLabel = getObservedIdentifyLabel(task, aiLabel, aiReason);
+  if (observedLabel) {
+    return `我看到的是「${observedLabel}」，看起來和這一關要找的目標不太一樣。`;
+  }
+  if (containsTargetAliasMention(aiReason, getAiIdentifyTargetAliases(task))) {
+    return '我有看到畫面主體，但它看起來還不是這一關要找的目標。';
+  }
+  return '我有看到你拍到的主體，但它看起來和這一關要找的目標不太一樣。';
+}
+
+function buildIdentifyRetryAdvice(task, aiLabel = '', aiReason = '', rawRetryAdvice = '') {
+  const observedLabel = getObservedIdentifyLabel(task, aiLabel, aiReason);
+  const safeHint = normalizeNullableString(task?.hint_text);
+  const safeRawRetry = normalizeNullableString(rawRetryAdvice);
+  if (safeRawRetry && !containsTargetAliasMention(safeRawRetry, getAiIdentifyTargetAliases(task))) {
+    return safeRawRetry;
+  }
+  if (safeHint && !containsTargetAliasMention(safeHint, getAiIdentifyTargetAliases(task))) {
+    return `試著回到題目線索再找一次。提示：${safeHint}`;
+  }
+  if (observedLabel) {
+    return '試著依照題目線索，找更接近目標特徵的內容再拍一次。把主體置中、靠近一些，避免背景太雜。';
+  }
+  return '試著回到題目線索，重新找更符合目標特徵的內容。把主體拍清楚、靠近一些，再試一次。';
+}
+
+function sanitizeAiTaskPlayerFacingResult(task, result) {
+  if (!result || task?.validation_mode !== 'ai_identify' || result.passed) {
+    return result;
+  }
+  const observedLabel = getObservedIdentifyLabel(task, result.label, result.reason);
+  return {
+    ...result,
+    label: observedLabel || null,
+    reason: buildIdentifyFailureReason(task, result.label, result.reason),
+    retry_advice: buildIdentifyRetryAdvice(task, result.label, result.reason, result.retry_advice)
+  };
+}
+
 function evaluateTutorialIdentifyOutcome(task, aiReason = '', aiLabel = '') {
   if (task?.validation_mode !== 'ai_identify') return 'unknown';
   const targetLabel = task?.pass_criteria?.target_label || task?.ai_config?.target_label;
@@ -373,13 +457,10 @@ function buildTutorialForcedAiReason(task, aiReason = '', aiPassed = null, aiLab
 }
 
 function buildAiNoContentResult(task) {
-  const label = (task?.pass_criteria && task.pass_criteria.target_label)
-    || (task?.ai_config && task.ai_config.target_label)
-    || null;
   return {
     passed: false,
     confidence: null,
-    label,
+    label: null,
     count_detected: null,
     score: null,
     reason: `AI 這次沒有成功回覆可辨識內容，所以暫時無法確認「${task?.name || '這一關'}」是否正確。`,
@@ -5423,6 +5504,9 @@ function buildAiTaskPrompt(task) {
       task.validation_mode === 'ai_reference_match'
         ? 'JSON 欄位必須包含：passed, same_location, confidence, label, count_detected, score, reason, retry_advice。'
         : 'JSON 欄位必須包含：passed, confidence, label, count_detected, score, reason, retry_advice。',
+      task.validation_mode === 'ai_identify'
+        ? '對於 ai_identify：label 請寫「你實際看到的主要物件或內容」，不要寫成「非某物」或直接抄通關目標。reason 與 retry_advice 是給玩家看的，失敗時只能描述你目前看到的東西與間接提示，不能透露目標答案、指定標籤、正解名稱，也不能寫「不是 XXX」「目標是 XXX」「請拍 XXX」。'
+        : '請讓 reason 與 retry_advice 保持簡潔、友善，適合直接顯示給玩家。',
       '若某欄位不適用，請填 null。',
       '不要輸出 Markdown，不要輸出額外說明。'
     ].join('\n')
@@ -5467,7 +5551,7 @@ function normalizeAiTaskResult(task, aiResult) {
     passed = passed && confidence >= Number(passCriteria.min_confidence);
   }
 
-  return {
+  return sanitizeAiTaskPlayerFacingResult(task, {
     passed,
     confidence: hasConfidence ? confidence : null,
     label,
@@ -5476,7 +5560,7 @@ function normalizeAiTaskResult(task, aiResult) {
     reason: normalizeNullableString(aiResult.reason) || (passed ? 'AI 判定通過' : 'AI 判定未通過'),
     retry_advice: normalizeNullableString(aiResult.retry_advice) || null,
     rule_results: Array.isArray(aiResult.rule_results) ? aiResult.rule_results : null
-  };
+  });
 }
 
 function getMimeTypeFromPath(filePath) {
@@ -5590,7 +5674,8 @@ async function evaluateAiTaskImage(task, file, extraContext = {}) {
       rawContent: normalizedText,
       parsed: {
         ...buildAiNoContentResult(task),
-        reason: `AI 有回覆一些內容，但格式不完整，暫時無法直接判定正確或不正確。原始回覆：${normalizedText.slice(0, 180)}`
+        reason: 'AI 有回覆內容，但格式不完整，所以這次無法安全判定結果。',
+        retry_advice: '請重新拍攝一次，讓主體更清楚、靠近一些，再試一次。'
       }
     };
   }
