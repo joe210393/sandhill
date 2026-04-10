@@ -1511,6 +1511,11 @@ body.tutorial-board-clean #boardStatusCard {
     display: none !important;
 }
 
+body.formal-story-clean .game-hud,
+body.formal-story-clean .game-shell-panel {
+    display: none !important;
+}
+
 .mini-map-wrap.collapsed .mini-map,
 .mini-map-wrap.collapsed .mini-map-task-indicators,
 .mini-map-wrap.collapsed .location-info {

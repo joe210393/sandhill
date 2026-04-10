@@ -513,6 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let currentNpcDialogResolver = null;
         let currentNpcDialogAutoCloseTimer = null;
         let lastStoryDialogueKey = null;
+        let formalStoryIntroMode = false;
         let tutorialFlowStarted = false;
         let tutorialIntroTaskId = null;
         let targetLat = null;
@@ -1089,10 +1090,38 @@ document.addEventListener('DOMContentLoaded', () => {
             );
         }
 
+        function isFormalStoryEntryMode() {
+            return currentEntryMode === 'story_campaign'
+                && !isCurrentQuestTutorialMode()
+                && !isCurrentQuestDemoMode();
+        }
+
+        function setFormalStoryIntroMode(active) {
+            formalStoryIntroMode = Boolean(active) && isFormalStoryEntryMode();
+            if (formalStoryIntroMode) {
+                closeDockPanels();
+                featureDockMenu?.classList.add('hidden');
+                if (featureDockToggle) featureDockToggle.textContent = '☰';
+                gameShellPanel?.classList.add('collapsed');
+                miniMapWrap?.classList.add('collapsed');
+                taskStatusBox?.classList.add('hidden');
+                taskIntroPanel?.classList.add('hidden');
+                if (taskHudToggle) taskHudToggle.setAttribute('aria-expanded', 'false');
+            }
+            renderTutorialModeUi();
+        }
+
+        function exitFormalStoryIntroMode() {
+            if (!formalStoryIntroMode) return;
+            formalStoryIntroMode = false;
+            renderTutorialModeUi();
+        }
+
         function renderTutorialModeUi() {
             const isTutorialStory = currentEntryMode === 'story_campaign' && isCurrentQuestTutorialMode();
             const isTutorialBoard = currentEntryMode === 'board_game' && isCurrentQuestTutorialMode();
             const shouldHideTutorialChrome = isTutorialStory || isTutorialBoard;
+            const shouldHideFormalStoryChrome = formalStoryIntroMode && isFormalStoryEntryMode();
             const isPhotoCapture = isPhotoTaskCaptureActive();
             const shouldHidePrimaryCard = shouldHideTutorialChrome && (
                 tutorialFlowStarted
@@ -1120,6 +1149,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelector('.mini-selection-toolbar')?.classList.toggle('tutorial-hidden', shouldHideTutorialChrome);
             document.body.classList.toggle('tutorial-board-clean', isTutorialBoard);
             document.body.classList.toggle('tutorial-story-clean', isTutorialStory);
+            document.body.classList.toggle('formal-story-clean', shouldHideFormalStoryChrome);
             featureDockMenu?.classList.toggle('hidden', !isTutorialBoard);
             setImmersiveCameraMode(isPhotoCapture);
             if (selectionInstruction) {
@@ -1148,7 +1178,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 reticleOverlay.classList.toggle('hidden', !(isPhotoCapture && cameraCaptureMode === 'task'));
             }
             if (locationBar) {
-                locationBar.style.display = shouldHideTutorialChrome ? 'none' : '';
+                locationBar.style.display = (shouldHideTutorialChrome || shouldHideFormalStoryChrome) ? 'none' : '';
             }
 
             if (isTutorialBoard && tutorialBoardPhotoCaptureArmed) {
@@ -1175,19 +1205,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 gameShellToggle.textContent = shouldHideTutorialChrome ? '教學' : '任務';
             }
 
-            let exitBtn = document.getElementById('tutorialExitBtn');
-            if (shouldHideTutorialChrome && !exitBtn) {
+            const shouldShowExitBtn = currentEntryMode === 'story_campaign' || currentEntryMode === 'board_game';
+            let exitBtn = document.getElementById('shellExitBtn');
+            if (shouldShowExitBtn && !exitBtn) {
                 exitBtn = document.createElement('button');
-                exitBtn.id = 'tutorialExitBtn';
+                exitBtn.id = 'shellExitBtn';
                 exitBtn.className = 'tutorial-exit-btn';
-                exitBtn.textContent = '退出教學';
                 exitBtn.addEventListener('click', () => {
-                    if (confirm('確定要退出教學模式嗎？')) {
+                    const modeLabel = isCurrentQuestTutorialMode()
+                        ? '教學模式'
+                        : currentEntryMode === 'board_game'
+                            ? '目前玩法'
+                            : '目前劇情';
+                    if (confirm(`確定要退出${modeLabel}嗎？`)) {
                         window.location.href = '/index.html';
                     }
                 });
                 document.body.appendChild(exitBtn);
-            } else if (!shouldHideTutorialChrome && exitBtn) {
+            }
+            if (shouldShowExitBtn && exitBtn) {
+                exitBtn.textContent = isCurrentQuestTutorialMode()
+                    ? '退出教學'
+                    : currentEntryMode === 'board_game'
+                        ? '退出玩法'
+                        : '退出劇情';
+            } else if (!shouldShowExitBtn && exitBtn) {
                 exitBtn.remove();
             }
         }
@@ -2031,7 +2073,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 tutorialIntroTaskId = null;
                 isShellExperience = true;
                 updateShellModeUi();
-                renderTutorialModeUi();
+                setFormalStoryIntroMode(true);
                 loadPlayerHudStats();
                 const tutorialGuestState = isTutorialGuestStoryMode() ? getTutorialGuestState(questChainId) : null;
                 if (tutorialGuestState) {
@@ -2095,6 +2137,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentBoardMap = boardData.boardMap || null;
                 currentBoardTiles = Array.isArray(boardData.tiles) ? boardData.tiles : [];
                 isShellExperience = true;
+                formalStoryIntroMode = false;
                 tutorialFlowStarted = false;
                 tutorialIntroTaskId = null;
                 updateShellModeUi();
@@ -4023,6 +4066,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 miniMapWrap.classList.add('collapsed');
             }
             miniMapToggle.addEventListener('click', () => {
+                if (formalStoryIntroMode) {
+                    formalStoryIntroMode = false;
+                    renderTutorialModeUi();
+                }
                 miniMapWrap.classList.toggle('collapsed');
                 const isCollapsed = miniMapWrap.classList.contains('collapsed');
                 localStorage.setItem('aiLabMiniMapCollapsed', isCollapsed ? '1' : '0');
@@ -5250,6 +5297,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (taskIntroBtn && taskIntroPanel) {
             taskIntroBtn.addEventListener('click', () => {
+                exitFormalStoryIntroMode();
                 taskIntroPanel.classList.remove('hidden');
             });
         }
@@ -5271,16 +5319,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (gameShellToggle && gameShellPanel) {
             gameShellToggle.addEventListener('click', () => {
+                exitFormalStoryIntroMode();
                 gameShellPanel.classList.toggle('collapsed');
             });
         }
         if (gameShellBtn && gameShellPanel) {
             gameShellBtn.addEventListener('click', () => {
+                exitFormalStoryIntroMode();
                 gameShellPanel.classList.toggle('collapsed');
             });
         }
         if (taskHudToggle && taskStatusBox) {
             taskHudToggle.addEventListener('click', () => {
+                exitFormalStoryIntroMode();
                 const willOpen = taskStatusBox.classList.contains('hidden');
                 taskStatusBox.classList.toggle('hidden');
                 taskHudToggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
@@ -5306,6 +5357,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (hudPanelBtn) {
             hudPanelBtn.addEventListener('click', () => {
+                exitFormalStoryIntroMode();
                 toggleDockPanel('hud');
                 renderHudSummary();
             });
