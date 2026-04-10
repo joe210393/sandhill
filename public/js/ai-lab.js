@@ -767,6 +767,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function closeNpcDialog() {
+            const shouldRevealFormalStoryShell = formalStoryIntroMode && isFormalStoryEntryMode();
             if (currentNpcDialogAutoCloseTimer) {
                 clearTimeout(currentNpcDialogAutoCloseTimer);
                 currentNpcDialogAutoCloseTimer = null;
@@ -776,6 +777,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 npcDialog.classList.remove('passive');
             }
             if (npcDialog) npcDialog.classList.add('hidden');
+            if (shouldRevealFormalStoryShell) {
+                formalStoryIntroMode = false;
+                closeDockPanels();
+                featureDockMenu?.classList.add('hidden');
+                if (featureDockToggle) featureDockToggle.textContent = '☰';
+                gameShellPanel?.classList.remove('collapsed');
+                miniMapWrap?.classList.add('collapsed');
+                taskStatusBox?.classList.add('hidden');
+                taskIntroPanel?.classList.add('hidden');
+                if (taskHudToggle) taskHudToggle.setAttribute('aria-expanded', 'false');
+            }
             renderTutorialModeUi();
             if (currentNpcDialogResolver) {
                 currentNpcDialogResolver();
@@ -2176,7 +2188,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const previewMode = params.get('preview') === '1';
             if (!questChainId || !mode) return false;
             
-            if (gameShellPanel) gameShellPanel.classList.remove('collapsed');
+            if (gameShellPanel && mode === 'board_game') gameShellPanel.classList.remove('collapsed');
             try {
                 if (mode === 'board_game') {
                     await loadBoardShell(questChainId, boardMapId, previewMode);
