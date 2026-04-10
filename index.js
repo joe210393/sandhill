@@ -398,14 +398,30 @@ function buildIdentifyFailureReason(task, aiLabel = '', aiReason = '') {
   return '我有看到你拍到的主體，但它看起來和這一關要找的目標不太一樣。';
 }
 
+function isSafeIndirectHintText(task, text = '') {
+  const normalized = normalizeNullableString(text);
+  if (!normalized) return false;
+  return !containsTargetAliasMention(normalized, getAiIdentifyTargetAliases(task));
+}
+
+function getSafeIndirectHint(task) {
+  const hintCandidates = [
+    normalizeNullableString(task?.rescue_content),
+    normalizeNullableString(task?.hint_text),
+    normalizeNullableString(task?.stage_intro),
+    normalizeNullableString(task?.guide_content)
+  ].filter(Boolean);
+  return hintCandidates.find((text) => isSafeIndirectHintText(task, text)) || null;
+}
+
 function buildIdentifyRetryAdvice(task, aiLabel = '', aiReason = '', rawRetryAdvice = '') {
   const observedLabel = getObservedIdentifyLabel(task, aiLabel, aiReason);
-  const safeHint = normalizeNullableString(task?.hint_text);
+  const safeHint = getSafeIndirectHint(task);
   const safeRawRetry = normalizeNullableString(rawRetryAdvice);
-  if (safeRawRetry && !containsTargetAliasMention(safeRawRetry, getAiIdentifyTargetAliases(task))) {
+  if (safeRawRetry && isSafeIndirectHintText(task, safeRawRetry)) {
     return safeRawRetry;
   }
-  if (safeHint && !containsTargetAliasMention(safeHint, getAiIdentifyTargetAliases(task))) {
+  if (safeHint) {
     return `試著回到題目線索再找一次。提示：${safeHint}`;
   }
   if (observedLabel) {
@@ -418,12 +434,18 @@ function sanitizeAiTaskPlayerFacingResult(task, result) {
   if (!result || task?.validation_mode !== 'ai_identify' || result.passed) {
     return result;
   }
+  const safeReason = normalizeNullableString(result.reason);
+  const safeRetryAdvice = normalizeNullableString(result.retry_advice);
   const observedLabel = getObservedIdentifyLabel(task, result.label, result.reason);
   return {
     ...result,
     label: observedLabel || null,
-    reason: buildIdentifyFailureReason(task, result.label, result.reason),
-    retry_advice: buildIdentifyRetryAdvice(task, result.label, result.reason, result.retry_advice)
+    reason: isSafeIndirectHintText(task, safeReason)
+      ? safeReason
+      : buildIdentifyFailureReason(task, result.label, result.reason),
+    retry_advice: isSafeIndirectHintText(task, safeRetryAdvice)
+      ? safeRetryAdvice
+      : buildIdentifyRetryAdvice(task, result.label, result.reason, result.retry_advice)
   };
 }
 
@@ -5489,6 +5511,7 @@ function buildAiTaskPrompt(task) {
   const taskGoal = aiConfig.user_prompt || task.description || task.name;
   const criteriaText = JSON.stringify(passCriteria, null, 2);
   const configText = JSON.stringify(aiConfig, null, 2);
+  const indirectHintText = getSafeIndirectHint(task);
 
   return {
     systemPrompt,
@@ -5496,6 +5519,7 @@ function buildAiTaskPrompt(task) {
       `任務名稱：${task.name}`,
       `驗證模式：${task.validation_mode}`,
       `任務說明：${taskGoal}`,
+      indirectHintText ? `玩家可見線索：${indirectHintText}` : null,
       `AI 設定：${configText}`,
       `通關條件：${criteriaText}`,
       task.validation_mode === 'ai_reference_match'
@@ -5505,11 +5529,11 @@ function buildAiTaskPrompt(task) {
         ? 'JSON 欄位必須包含：passed, same_location, confidence, label, count_detected, score, reason, retry_advice。'
         : 'JSON 欄位必須包含：passed, confidence, label, count_detected, score, reason, retry_advice。',
       task.validation_mode === 'ai_identify'
-        ? '對於 ai_identify：label 請寫「你實際看到的主要物件或內容」，不要寫成「非某物」或直接抄通關目標。reason 與 retry_advice 是給玩家看的，失敗時只能描述你目前看到的東西與間接提示，不能透露目標答案、指定標籤、正解名稱，也不能寫「不是 XXX」「目標是 XXX」「請拍 XXX」。'
+        ? '對於 ai_identify：label 請寫「你實際看到的主要物件或內容」，不要寫成「非某物」或直接抄通關目標。reason 與 retry_advice 是給玩家看的。失敗時請先點出玩家目前拍到的是什麼，再給一個不暴露答案的間接提示。你可以使用較抽象的類別、外觀特徵、行為、用途、棲地或題目線索來引導，例如「這次拍到的是乳液，但這一關要找的是四隻腳的動物」；不能直接透露目標答案、指定標籤、正解名稱，也不能寫「不是 XXX」「答案是 XXX」「請拍 XXX」。每次措辭可以自然變化，不需要完全一樣。'
         : '請讓 reason 與 retry_advice 保持簡潔、友善，適合直接顯示給玩家。',
       '若某欄位不適用，請填 null。',
       '不要輸出 Markdown，不要輸出額外說明。'
-    ].join('\n')
+    ].filter(Boolean).join('\n')
   };
 }
 
@@ -5644,7 +5668,7 @@ async function evaluateAiTaskImage(task, file, extraContext = {}) {
           }
         ],
         max_tokens: 800,
-        temperature: 0
+        temperature: task.validation_mode === 'ai_identify' ? 0.2 : 0
       })
     },
     {
