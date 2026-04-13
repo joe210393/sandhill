@@ -255,6 +255,21 @@
     }
     .inline-form-msg.success { color: #047857; }
     .inline-form-msg.info { color: #1d4ed8; }
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:18px; }
+    .stat-card { background:white; border:1px solid #e2e8f0; border-radius:14px; padding:16px; box-shadow:0 8px 20px rgba(15,23,42,0.04); }
+    .stat-card-label { font-size:0.8rem; color:#64748b; margin-bottom:8px; }
+    .stat-card-value { font-size:1.4rem; font-weight:800; color:#0f172a; }
+    .stat-card-subtle { font-size:0.82rem; color:#94a3b8; margin-top:6px; }
+    .panel-card { background:white; border:1px solid #e2e8f0; border-radius:14px; padding:16px; margin-bottom:16px; box-shadow:0 8px 20px rgba(15,23,42,0.04); }
+    .panel-card-header { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+    .panel-card-title { font-size:1rem; font-weight:700; color:#0f172a; }
+    .panel-card-subtitle { font-size:0.84rem; color:#64748b; }
+    .data-table-wrap { overflow:auto; }
+    .data-table { width:100%; border-collapse:collapse; font-size:0.88rem; }
+    .data-table th, .data-table td { padding:10px 12px; border-bottom:1px solid #e2e8f0; text-align:left; vertical-align:top; white-space:nowrap; }
+    .data-table th { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.04em; color:#64748b; background:#f8fafc; position:sticky; top:0; }
+    .data-table td.wrap { white-space:normal; min-width:220px; }
+    .subtle-note { font-size:0.84rem; color:#64748b; }
 
     .detail-switch {
       display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;
@@ -405,6 +420,9 @@
       <div class="v2-nav-item active" data-view="view-quest-chains" data-roles="admin,shop,staff">
         <span>🎯</span> 玩法入口管理
       </div>
+      <div class="v2-nav-item" data-view="view-billing" data-roles="admin,shop,staff">
+        <span>💳</span> 計費與 LM 用量
+      </div>
       <div class="v2-nav-item" data-view="view-assets" data-roles="admin,shop,staff">
         <span>🧊</span> 共用素材庫
       </div>
@@ -440,6 +458,54 @@
         <p class="view-subtitle">管理首頁顯示的劇本與大富翁入口。點擊「管理內容」可進入查看綁定的關卡。</p>
         <div id="questChainListContainer" style="display:grid; gap:12px;">
           <div class="empty-state"><div class="empty-state-icon">📋</div>載入中...</div>
+        </div>
+      </div>
+
+      <div id="view-billing" class="v2-view">
+        <div class="view-header">
+          <h2>計費與 LM 用量</h2>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <input id="billingMonthInput" type="month" class="form-input" style="width:auto; min-width:180px;">
+            <button class="btn-md btn-secondary-v2" type="button" onclick="loadBillingDashboard()">重新整理</button>
+          </div>
+        </div>
+        <p class="view-subtitle">用入口角度追蹤本月 token、預估月費與建置費收款狀態。shop / staff 只會看到自己商家的資料。</p>
+        <div id="billingScopeHint" class="subtle-note" style="margin-bottom:14px;"></div>
+        <div id="billingOverviewCards" class="stats-grid">
+          <div class="empty-state" style="grid-column:1/-1;"><div class="empty-state-icon">💳</div>載入中...</div>
+        </div>
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <div>
+              <div class="panel-card-title">入口月報</div>
+              <div class="panel-card-subtitle">每個入口本月的 token 使用量、方案費率與預估月費。</div>
+            </div>
+          </div>
+          <div id="billingEntriesTable" class="data-table-wrap">
+            <div class="empty-state"><div class="empty-state-icon">📈</div>載入中...</div>
+          </div>
+        </div>
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <div>
+              <div class="panel-card-title">一次性建置費紀錄</div>
+              <div class="panel-card-subtitle">入口建立時產生的收費紀錄，方便追蹤待收與已收款狀態。</div>
+            </div>
+          </div>
+          <div id="billingSetupFeeTable" class="data-table-wrap">
+            <div class="empty-state"><div class="empty-state-icon">🧾</div>載入中...</div>
+          </div>
+        </div>
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <div>
+              <div class="panel-card-title">最近 LM 呼叫明細</div>
+              <div class="panel-card-subtitle">最近的 AI 判定請求，用來確認哪個入口、哪一關正在消耗 token。</div>
+            </div>
+          </div>
+          <div id="billingUsageLogsTable" class="data-table-wrap">
+            <div class="empty-state"><div class="empty-state-icon">🤖</div>載入中...</div>
+          </div>
         </div>
       </div>
 

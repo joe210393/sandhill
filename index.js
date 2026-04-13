@@ -247,6 +247,52 @@ function sanitizeQuestChainRow(row) {
   };
 }
 
+function getCurrentBillingMonth() {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function normalizeBillingMonth(value) {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const match = trimmed.match(/^(\d{4})-(\d{2})$/);
+    if (match) {
+      const month = Number(match[2]);
+      if (month >= 1 && month <= 12) return trimmed;
+    }
+  }
+  return getCurrentBillingMonth();
+}
+
+function getBillingMonthRange(billingMonth) {
+  const normalized = normalizeBillingMonth(billingMonth);
+  const [yearText, monthText] = normalized.split('-');
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
+  const end = new Date(Date.UTC(year, month, 1, 0, 0, 0));
+  return { billingMonth: normalized, start, end };
+}
+
+function roundCurrencyValue(value) {
+  const numeric = Number(value || 0);
+  if (!Number.isFinite(numeric)) return 0;
+  return Math.round(numeric * 100) / 100;
+}
+
+function calculateEstimatedBillingAmount({
+  monthlyBaseFee = 0,
+  tokenPricePer1k = 0,
+  totalTokens = 0,
+  monthlyBillingEnabled = true
+} = {}) {
+  if (!monthlyBillingEnabled) return 0;
+  const baseFee = Number(monthlyBaseFee || 0);
+  const per1k = Number(tokenPricePer1k || 0);
+  const tokens = Number(totalTokens || 0);
+  const amount = baseFee + ((tokens > 0 ? tokens : 0) / 1000) * per1k;
+  return roundCurrencyValue(amount);
+}
+
 function sanitizeShopRow(row) {
   if (!row) return row;
   return {
@@ -1119,7 +1165,7 @@ async function recordLlmUsage(conn, task, userId, usage = {}, meta = {}) {
   const totalTokens = Number(usage.total_tokens || (promptTokens + completionTokens) || 0);
   if (!Number.isFinite(totalTokens) || totalTokens <= 0) return;
   const shopId = Number(task.shop_id || 0) || null;
-  const billingMonth = new Date().toISOString().slice(0, 7);
+  const billingMonth = getCurrentBillingMonth();
   await conn.execute(
     `INSERT INTO llm_usage_logs
       (shop_id, quest_chain_id, task_id, user_id, provider, model, request_type, prompt_tokens, completion_tokens, total_tokens, success, meta_json)
@@ -1159,6 +1205,33 @@ async function recordLlmUsage(conn, task, userId, usage = {}, meta = {}) {
          total_tokens = total_tokens + VALUES(total_tokens)`,
       [shopId, Number(task.quest_chain_id || 0) || null, billingMonth, promptTokens, completionTokens, totalTokens]
     );
+    const [summaryRows] = await conn.execute(
+      `SELECT summary.total_tokens,
+              qc.monthly_billing_enabled,
+              ep.monthly_base_fee,
+              ep.token_price_per_1k
+       FROM llm_usage_monthly_summary summary
+       LEFT JOIN quest_chains qc ON qc.id = summary.quest_chain_id
+       LEFT JOIN entry_plans ep ON ep.id = qc.plan_id
+       WHERE summary.shop_id = ? AND summary.quest_chain_id = ? AND summary.billing_month = ?
+       LIMIT 1`,
+      [shopId, Number(task.quest_chain_id || 0) || null, billingMonth]
+    );
+    const summary = summaryRows[0];
+    if (summary) {
+      const estimatedAmount = calculateEstimatedBillingAmount({
+        monthlyBaseFee: summary.monthly_base_fee,
+        tokenPricePer1k: summary.token_price_per_1k,
+        totalTokens: summary.total_tokens,
+        monthlyBillingEnabled: summary.monthly_billing_enabled
+      });
+      await conn.execute(
+        `UPDATE llm_usage_monthly_summary
+         SET estimated_amount = ?
+         WHERE shop_id = ? AND quest_chain_id = ? AND billing_month = ?`,
+        [estimatedAmount, shopId, Number(task.quest_chain_id || 0) || null, billingMonth]
+      );
+    }
   }
 }
 
@@ -1757,6 +1830,295 @@ app.get('/api/entry-plans', authenticateToken, requireRole('admin', 'shop', 'sta
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: '載入方案列表失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.get('/api/billing/overview', authenticateToken, requireRole('admin', 'shop', 'staff'), async (req, res) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const billingMonth = normalizeBillingMonth(req.query.billing_month);
+    const resolvedShopId = await resolveActorShopId(conn, req.user, req.query.shop_id);
+    const shopFilterClause = resolvedShopId ? 'WHERE qc.shop_id = ?' : '';
+    const shopFilterParams = resolvedShopId ? [resolvedShopId] : [];
+    const setupFilterClause = resolvedShopId ? 'WHERE ebr.shop_id = ?' : '';
+    const setupFilterParams = resolvedShopId ? [resolvedShopId] : [];
+
+    const [entryRows] = await conn.execute(
+      `SELECT COUNT(*) AS entry_count,
+              COUNT(DISTINCT qc.shop_id) AS shop_count,
+              SUM(CASE WHEN qc.is_active THEN 1 ELSE 0 END) AS active_entry_count,
+              SUM(CASE WHEN qc.monthly_billing_enabled THEN 1 ELSE 0 END) AS monthly_enabled_entry_count,
+              SUM(CASE WHEN summary.is_invoiced THEN 1 ELSE 0 END) AS invoiced_entry_count,
+              SUM(CASE WHEN qc.monthly_billing_enabled AND COALESCE(summary.is_invoiced, FALSE) = FALSE THEN 1 ELSE 0 END) AS uninvoiced_entry_count,
+              COALESCE(SUM(summary.prompt_tokens), 0) AS prompt_tokens,
+              COALESCE(SUM(summary.completion_tokens), 0) AS completion_tokens,
+              COALESCE(SUM(summary.total_tokens), 0) AS total_tokens,
+              COALESCE(SUM(
+                CASE
+                  WHEN qc.monthly_billing_enabled THEN COALESCE(ep.monthly_base_fee, 0) + (COALESCE(summary.total_tokens, 0) / 1000) * COALESCE(ep.token_price_per_1k, 0)
+                  ELSE 0
+                END
+              ), 0) AS estimated_amount
+       FROM quest_chains qc
+       LEFT JOIN entry_plans ep ON ep.id = qc.plan_id
+       LEFT JOIN llm_usage_monthly_summary summary
+              ON summary.quest_chain_id = qc.id
+             AND summary.shop_id = qc.shop_id
+             AND summary.billing_month = ?
+       ${shopFilterClause}`,
+      [billingMonth, ...shopFilterParams]
+    );
+
+    const [setupRows] = await conn.execute(
+      `SELECT SUM(CASE WHEN ebr.status = 'pending' THEN 1 ELSE 0 END) AS pending_count,
+              COALESCE(SUM(CASE WHEN ebr.status = 'pending' THEN ebr.amount ELSE 0 END), 0) AS pending_amount,
+              SUM(CASE WHEN ebr.status = 'paid' THEN 1 ELSE 0 END) AS paid_count,
+              COALESCE(SUM(CASE WHEN ebr.status = 'paid' THEN ebr.amount ELSE 0 END), 0) AS paid_amount
+       FROM entry_billing_records ebr
+       ${setupFilterClause}`,
+      setupFilterParams
+    );
+
+    const overview = entryRows[0] || {};
+    const setup = setupRows[0] || {};
+    res.json({
+      success: true,
+      billing_month: billingMonth,
+      overview: {
+        entry_count: Number(overview.entry_count || 0),
+        shop_count: Number(overview.shop_count || 0),
+        active_entry_count: Number(overview.active_entry_count || 0),
+        monthly_enabled_entry_count: Number(overview.monthly_enabled_entry_count || 0),
+        invoiced_entry_count: Number(overview.invoiced_entry_count || 0),
+        uninvoiced_entry_count: Number(overview.uninvoiced_entry_count || 0),
+        prompt_tokens: Number(overview.prompt_tokens || 0),
+        completion_tokens: Number(overview.completion_tokens || 0),
+        total_tokens: Number(overview.total_tokens || 0),
+        estimated_amount: roundCurrencyValue(overview.estimated_amount || 0),
+        setup_fee_pending_count: Number(setup.pending_count || 0),
+        setup_fee_pending_amount: roundCurrencyValue(setup.pending_amount || 0),
+        setup_fee_paid_count: Number(setup.paid_count || 0),
+        setup_fee_paid_amount: roundCurrencyValue(setup.paid_amount || 0)
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '載入計費總覽失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.get('/api/billing/entries', authenticateToken, requireRole('admin', 'shop', 'staff'), async (req, res) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const billingMonth = normalizeBillingMonth(req.query.billing_month);
+    const resolvedShopId = await resolveActorShopId(conn, req.user, req.query.shop_id);
+    const queryParams = [billingMonth];
+    let whereClause = '';
+    if (resolvedShopId) {
+      whereClause = 'WHERE qc.shop_id = ?';
+      queryParams.push(resolvedShopId);
+    }
+
+    const [rows] = await conn.execute(
+      `SELECT qc.id,
+              qc.title,
+              qc.shop_id,
+              qc.is_active,
+              qc.task_limit,
+              qc.setup_fee,
+              qc.setup_fee_paid,
+              qc.monthly_billing_enabled,
+              qc.structure_locked_at,
+              s.name AS shop_name,
+              ep.name AS plan_name,
+              ep.monthly_base_fee,
+              ep.token_price_per_1k,
+              COALESCE(summary.prompt_tokens, 0) AS prompt_tokens,
+              COALESCE(summary.completion_tokens, 0) AS completion_tokens,
+              COALESCE(summary.total_tokens, 0) AS total_tokens,
+              COALESCE(summary.estimated_amount, 0) AS stored_estimated_amount,
+              COALESCE(summary.is_invoiced, FALSE) AS is_invoiced
+       FROM quest_chains qc
+       LEFT JOIN shops s ON s.id = qc.shop_id
+       LEFT JOIN entry_plans ep ON ep.id = qc.plan_id
+       LEFT JOIN llm_usage_monthly_summary summary
+              ON summary.quest_chain_id = qc.id
+             AND summary.shop_id = qc.shop_id
+             AND summary.billing_month = ?
+       ${whereClause}
+       ORDER BY total_tokens DESC, qc.id DESC`,
+      queryParams
+    );
+
+    const entries = rows.map((row) => {
+      const estimatedAmount = calculateEstimatedBillingAmount({
+        monthlyBaseFee: row.monthly_base_fee,
+        tokenPricePer1k: row.token_price_per_1k,
+        totalTokens: row.total_tokens,
+        monthlyBillingEnabled: row.monthly_billing_enabled
+      });
+      return {
+        id: Number(row.id),
+        title: row.title || '',
+        shop_id: row.shop_id == null ? null : Number(row.shop_id),
+        shop_name: row.shop_name || null,
+        plan_name: row.plan_name || null,
+        is_active: Boolean(row.is_active),
+        task_limit: row.task_limit == null ? null : Number(row.task_limit),
+        setup_fee: Number(row.setup_fee || 0),
+        setup_fee_paid: Boolean(row.setup_fee_paid),
+        monthly_billing_enabled: row.monthly_billing_enabled == null ? true : Boolean(row.monthly_billing_enabled),
+        structure_locked_at: row.structure_locked_at || null,
+        prompt_tokens: Number(row.prompt_tokens || 0),
+        completion_tokens: Number(row.completion_tokens || 0),
+        total_tokens: Number(row.total_tokens || 0),
+        monthly_base_fee: Number(row.monthly_base_fee || 0),
+        token_price_per_1k: Number(row.token_price_per_1k || 0),
+        estimated_amount: estimatedAmount,
+        stored_estimated_amount: Number(row.stored_estimated_amount || 0),
+        is_invoiced: Boolean(row.is_invoiced)
+      };
+    });
+
+    res.json({ success: true, billing_month: billingMonth, entries });
+  } catch (err) {
+    console.error(err);
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '載入入口月報失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.get('/api/billing/logs', authenticateToken, requireRole('admin', 'shop', 'staff'), async (req, res) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const { billingMonth, start, end } = getBillingMonthRange(req.query.billing_month);
+    const resolvedShopId = await resolveActorShopId(conn, req.user, req.query.shop_id);
+    const limit = Math.min(Math.max(Number(req.query.limit || 50), 1), 200);
+    const queryParams = [start, end];
+    let whereClause = 'WHERE logs.created_at >= ? AND logs.created_at < ?';
+    if (resolvedShopId) {
+      whereClause += ' AND logs.shop_id = ?';
+      queryParams.push(resolvedShopId);
+    }
+    const [rows] = await conn.execute(
+      `SELECT logs.id,
+              logs.shop_id,
+              logs.quest_chain_id,
+              logs.task_id,
+              logs.user_id,
+              logs.provider,
+              logs.model,
+              logs.request_type,
+              logs.prompt_tokens,
+              logs.completion_tokens,
+              logs.total_tokens,
+              logs.success,
+              logs.created_at,
+              qc.title AS quest_chain_title,
+              t.name AS task_name,
+              s.name AS shop_name,
+              u.username AS player_username
+       FROM llm_usage_logs logs
+       LEFT JOIN quest_chains qc ON qc.id = logs.quest_chain_id
+       LEFT JOIN tasks t ON t.id = logs.task_id
+       LEFT JOIN shops s ON s.id = logs.shop_id
+       LEFT JOIN users u ON u.id = logs.user_id
+       ${whereClause}
+       ORDER BY logs.created_at DESC, logs.id DESC
+       LIMIT ${limit}`,
+      queryParams
+    );
+
+    const logs = rows.map((row) => ({
+      id: Number(row.id),
+      shop_id: row.shop_id == null ? null : Number(row.shop_id),
+      shop_name: row.shop_name || null,
+      quest_chain_id: row.quest_chain_id == null ? null : Number(row.quest_chain_id),
+      quest_chain_title: row.quest_chain_title || null,
+      task_id: row.task_id == null ? null : Number(row.task_id),
+      task_name: row.task_name || null,
+      user_id: row.user_id == null ? null : Number(row.user_id),
+      player_username: row.player_username || null,
+      provider: row.provider || null,
+      model: row.model || null,
+      request_type: row.request_type || 'unknown',
+      prompt_tokens: Number(row.prompt_tokens || 0),
+      completion_tokens: Number(row.completion_tokens || 0),
+      total_tokens: Number(row.total_tokens || 0),
+      success: row.success == null ? true : Boolean(row.success),
+      created_at: row.created_at
+    }));
+
+    res.json({ success: true, billing_month: billingMonth, logs });
+  } catch (err) {
+    console.error(err);
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '載入 LM 用量明細失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.get('/api/entry-billing-records', authenticateToken, requireRole('admin', 'shop', 'staff'), async (req, res) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const resolvedShopId = await resolveActorShopId(conn, req.user, req.query.shop_id);
+    const status = typeof req.query.status === 'string' ? req.query.status.trim().toLowerCase() : '';
+    const limit = Math.min(Math.max(Number(req.query.limit || 100), 1), 300);
+    const params = [];
+    const whereParts = [];
+    if (resolvedShopId) {
+      whereParts.push('ebr.shop_id = ?');
+      params.push(resolvedShopId);
+    }
+    if (status) {
+      whereParts.push('ebr.status = ?');
+      params.push(status);
+    }
+
+    const [rows] = await conn.execute(
+      `SELECT ebr.*,
+              qc.title AS quest_chain_title,
+              s.name AS shop_name,
+              ep.name AS plan_name
+       FROM entry_billing_records ebr
+       LEFT JOIN quest_chains qc ON qc.id = ebr.quest_chain_id
+       LEFT JOIN shops s ON s.id = ebr.shop_id
+       LEFT JOIN entry_plans ep ON ep.id = ebr.plan_id
+       ${whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : ''}
+       ORDER BY ebr.created_at DESC, ebr.id DESC
+       LIMIT ${limit}`,
+      params
+    );
+
+    const records = rows.map((row) => ({
+      id: Number(row.id),
+      quest_chain_id: row.quest_chain_id == null ? null : Number(row.quest_chain_id),
+      quest_chain_title: row.quest_chain_title || null,
+      shop_id: row.shop_id == null ? null : Number(row.shop_id),
+      shop_name: row.shop_name || null,
+      plan_id: row.plan_id == null ? null : Number(row.plan_id),
+      plan_name: row.plan_name || null,
+      billing_type: row.billing_type || 'setup_fee',
+      amount: roundCurrencyValue(row.amount || 0),
+      status: row.status || 'pending',
+      paid_at: row.paid_at || null,
+      note: row.note || null,
+      created_at: row.created_at
+    }));
+
+    res.json({ success: true, records });
+  } catch (err) {
+    console.error(err);
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '載入建置費紀錄失敗' });
   } finally {
     if (conn) conn.release();
   }

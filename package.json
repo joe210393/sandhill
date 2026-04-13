@@ -9,8 +9,9 @@
     "enrich:plant-data": "node scripts/rag/enrich_plant_data.js",
     "build:plant-mapping": "node scripts/rag/build_plant_name_mapping.js",
     "verify:tlpg": "node scripts/rag/verify_from_tlpg_url.js",
-    "test": "node scripts/verify-phase34.js",
-    "test:phase34": "node scripts/verify-phase34.js"
+    "test": "node scripts/verify-phase34.js && node scripts/verify-phase5.js",
+    "test:phase34": "node scripts/verify-phase34.js",
+    "test:phase5": "node scripts/verify-phase5.js"
   },
   "keywords": [],
   "author": "",

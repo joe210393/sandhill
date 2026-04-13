@@ -188,6 +188,230 @@ function loadEntryPlans() {
   });
 }
 
+function getDefaultBillingMonth() {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function getSelectedBillingMonth() {
+  const input = document.getElementById('billingMonthInput');
+  return input?.value || getDefaultBillingMonth();
+}
+
+function formatTokenCount(value) {
+  const numeric = Number(value || 0);
+  return Number.isFinite(numeric) ? numeric.toLocaleString('zh-TW') : '0';
+}
+
+function formatDateTime(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString('zh-TW', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function renderBillingOverview(overview = {}) {
+  const container = document.getElementById('billingOverviewCards');
+  if (!container) return;
+  const cards = [
+    ['入口總數', overview.entry_count || 0, `啟用中 ${formatTokenCount(overview.active_entry_count || 0)} 個`],
+    ['商家數', overview.shop_count || 0, `啟用月計費 ${formatTokenCount(overview.monthly_enabled_entry_count || 0)} 個入口`],
+    ['本月總 tokens', formatTokenCount(overview.total_tokens || 0), `Prompt ${formatTokenCount(overview.prompt_tokens || 0)} / Completion ${formatTokenCount(overview.completion_tokens || 0)}`],
+    ['本月預估金額', formatCurrency(overview.estimated_amount || 0), `待開帳 ${formatTokenCount(overview.uninvoiced_entry_count || 0)} 個入口`],
+    ['建置費待收', formatTokenCount(overview.setup_fee_pending_count || 0), `金額 ${formatCurrency(overview.setup_fee_pending_amount || 0)}`],
+    ['建置費已收', formatTokenCount(overview.setup_fee_paid_count || 0), `金額 ${formatCurrency(overview.setup_fee_paid_amount || 0)}`],
+    ['已開帳入口', formatTokenCount(overview.invoiced_entry_count || 0), '可作為月底結帳依據'],
+    ['月計費入口', formatTokenCount(overview.monthly_enabled_entry_count || 0), '僅這些入口會計入 LM 月費']
+  ];
+  container.innerHTML = cards.map(([label, value, subtle]) => `
+    <div class="stat-card">
+      <div class="stat-card-label">${escHtml(label)}</div>
+      <div class="stat-card-value">${escHtml(String(value))}</div>
+      <div class="stat-card-subtle">${escHtml(subtle)}</div>
+    </div>
+  `).join('');
+}
+
+function renderBillingEntries(entries = []) {
+  const container = document.getElementById('billingEntriesTable');
+  if (!container) return;
+  if (!entries.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📈</div>這個月份還沒有入口計費資料</div>';
+    return;
+  }
+  container.innerHTML = `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>入口</th>
+          <th>商家 / 方案</th>
+          <th>本月 Tokens</th>
+          <th>預估月費</th>
+          <th>建置費</th>
+          <th>狀態</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${entries.map((entry) => `
+          <tr>
+            <td class="wrap">
+              <strong>${escHtml(entry.title || `入口 #${entry.id}`)}</strong><br>
+              <span class="subtle-note">上限 ${escHtml(entry.task_limit ? `${entry.task_limit} 關` : '未限制')}</span>
+            </td>
+            <td class="wrap">
+              <div>${escHtml(entry.shop_name || '未指定商家')}</div>
+              <div class="subtle-note">${escHtml(entry.plan_name || '歷史方案')}｜基本月費 ${formatCurrency(entry.monthly_base_fee || 0)}｜每 1K tokens ${formatCurrency(entry.token_price_per_1k || 0)}</div>
+            </td>
+            <td>
+              <strong>${formatTokenCount(entry.total_tokens || 0)}</strong><br>
+              <span class="subtle-note">P ${formatTokenCount(entry.prompt_tokens || 0)} / C ${formatTokenCount(entry.completion_tokens || 0)}</span>
+            </td>
+            <td>
+              <strong>${formatCurrency(entry.estimated_amount || 0)}</strong><br>
+              <span class="subtle-note">${entry.monthly_billing_enabled ? '月計費啟用' : '未啟用月計費'}</span>
+            </td>
+            <td>
+              <strong>${formatCurrency(entry.setup_fee || 0)}</strong><br>
+              <span class="subtle-note">${entry.setup_fee_paid ? '已收款' : '待收款'}</span>
+            </td>
+            <td>
+              <span class="tag ${entry.is_active ? 'tag-green' : 'tag-red'}">${entry.is_active ? '已開放' : '草稿 / 停用'}</span>
+              <span class="tag ${entry.is_invoiced ? 'tag-blue' : 'tag-amber'}">${entry.is_invoiced ? '已開帳' : '待開帳'}</span>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderSetupFeeRecords(records = []) {
+  const container = document.getElementById('billingSetupFeeTable');
+  if (!container) return;
+  if (!records.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🧾</div>目前沒有建置費紀錄</div>';
+    return;
+  }
+  container.innerHTML = `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>建立時間</th>
+          <th>入口</th>
+          <th>商家 / 方案</th>
+          <th>金額</th>
+          <th>狀態</th>
+          <th>備註</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${records.map((record) => `
+          <tr>
+            <td>${escHtml(formatDateTime(record.created_at))}</td>
+            <td class="wrap">${escHtml(record.quest_chain_title || `入口 #${record.quest_chain_id || record.id}`)}</td>
+            <td class="wrap">${escHtml(record.shop_name || '未指定商家')}<br><span class="subtle-note">${escHtml(record.plan_name || '未指定方案')}</span></td>
+            <td><strong>${formatCurrency(record.amount || 0)}</strong></td>
+            <td>
+              <span class="tag ${record.status === 'paid' ? 'tag-green' : record.status === 'pending' ? 'tag-amber' : 'tag-gray'}">${escHtml(record.status || 'pending')}</span>
+              <div class="subtle-note">${record.paid_at ? `付款於 ${escHtml(formatDateTime(record.paid_at))}` : '尚未標記收款'}</div>
+            </td>
+            <td class="wrap">${escHtml(record.note || '—')}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderBillingUsageLogs(logs = []) {
+  const container = document.getElementById('billingUsageLogsTable');
+  if (!container) return;
+  if (!logs.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🤖</div>這個月份還沒有 LM 呼叫明細</div>';
+    return;
+  }
+  container.innerHTML = `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>時間</th>
+          <th>入口 / 關卡</th>
+          <th>模型</th>
+          <th>請求類型</th>
+          <th>Tokens</th>
+          <th>玩家</th>
+          <th>結果</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${logs.map((log) => `
+          <tr>
+            <td>${escHtml(formatDateTime(log.created_at))}</td>
+            <td class="wrap">
+              <strong>${escHtml(log.quest_chain_title || '未指定入口')}</strong><br>
+              <span class="subtle-note">${escHtml(log.task_name || '未指定關卡')}</span>
+            </td>
+            <td class="wrap">${escHtml(log.model || '未記錄模型')}</td>
+            <td>${escHtml(log.request_type || 'unknown')}</td>
+            <td>
+              <strong>${formatTokenCount(log.total_tokens || 0)}</strong><br>
+              <span class="subtle-note">P ${formatTokenCount(log.prompt_tokens || 0)} / C ${formatTokenCount(log.completion_tokens || 0)}</span>
+            </td>
+            <td>${escHtml(log.player_username || '匿名 / 系統')}</td>
+            <td><span class="tag ${log.success ? 'tag-green' : 'tag-red'}">${log.success ? '成功' : '失敗'}</span></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function setBillingLoadingState() {
+  const cards = document.getElementById('billingOverviewCards');
+  const entries = document.getElementById('billingEntriesTable');
+  const setup = document.getElementById('billingSetupFeeTable');
+  const logs = document.getElementById('billingUsageLogsTable');
+  if (cards) cards.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="empty-state-icon">💳</div>載入中...</div>';
+  if (entries) entries.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📈</div>載入中...</div>';
+  if (setup) setup.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🧾</div>載入中...</div>';
+  if (logs) logs.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🤖</div>載入中...</div>';
+}
+
+function loadBillingDashboard() {
+  const billingMonth = getSelectedBillingMonth();
+  const params = new URLSearchParams({ billing_month: billingMonth });
+  const scopeHint = document.getElementById('billingScopeHint');
+  if (scopeHint) {
+    scopeHint.textContent = loginUser?.role === 'admin'
+      ? '目前為平台管理視角，可查看全部商家的用量與收費狀態。'
+      : `目前為 ${loginUser?.shop_name || '你的商家'} 視角，只顯示自己商家的入口資料。`;
+  }
+  setBillingLoadingState();
+  return Promise.all([
+    apiJson(`${API_BASE}/api/billing/overview?${params.toString()}`, { headers: withActorHeaders() }),
+    apiJson(`${API_BASE}/api/billing/entries?${params.toString()}`, { headers: withActorHeaders() }),
+    apiJson(`${API_BASE}/api/entry-billing-records?limit=20`, { headers: withActorHeaders() }),
+    apiJson(`${API_BASE}/api/billing/logs?${params.toString()}&limit=20`, { headers: withActorHeaders() })
+  ])
+    .then(([overviewData, entriesData, setupData, logsData]) => {
+      renderBillingOverview(overviewData.overview || {});
+      renderBillingEntries(entriesData.entries || []);
+      renderSetupFeeRecords(setupData.records || []);
+      renderBillingUsageLogs(logsData.logs || []);
+    })
+    .catch((error) => {
+      const message = error.message || '載入計費資料失敗';
+      const cards = document.getElementById('billingOverviewCards');
+      if (cards) cards.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="empty-state-icon">⚠️</div>${escHtml(message)}</div>`;
+      showToast(message, 'error');
+    });
+}
+
 async function apiFetch(url, options = {}) {
   const res = await fetch(url, {
     credentials: 'same-origin',
@@ -240,6 +464,7 @@ function switchView(viewId) {
   const navMap = {
     'view-quest-chains': 'view-quest-chains',
     'view-quest-detail': 'view-quest-chains',
+    'view-billing': 'view-billing',
     'view-assets': 'view-assets',
     'view-products': 'view-products',
     'view-redemptions': 'view-redemptions',
@@ -255,6 +480,7 @@ function switchView(viewId) {
   const hashMap = {
     'view-quest-chains': 'quests',
     'view-quest-detail': 'quests',
+    'view-billing': 'billing',
     'view-assets': 'assets',
     'view-products': 'products',
     'view-redemptions': 'redemptions',
@@ -268,6 +494,7 @@ function switchView(viewId) {
   }
 
   // Lazy-load data for new views
+  if (viewId === 'view-billing') loadBillingDashboard();
   if (viewId === 'view-products') loadProducts();
   if (viewId === 'view-redemptions') loadRedemptions();
   if (viewId === 'view-pos') loadPosHistory();
@@ -280,6 +507,7 @@ function switchViewFromHash(hash = window.location.hash) {
     quests: 'view-quest-chains',
     quest: 'view-quest-chains',
     review: 'view-quest-chains',
+    billing: 'view-billing',
     assets: 'view-assets',
     products: 'view-products',
     redemptions: 'view-redemptions',
@@ -2732,13 +2960,6 @@ function applySidebarRBAC() {
     }
     label.style.display = hasVisible ? 'block' : 'none';
   });
-  // Auto-select first visible nav item
-  const firstVisible = document.querySelector('.v2-nav-item[style*="flex"], .v2-nav-item:not([style*="none"])');
-  if (firstVisible) {
-    document.querySelectorAll('.v2-nav-item').forEach(n => n.classList.remove('active'));
-    firstVisible.classList.add('active');
-    switchView(firstVisible.dataset.view);
-  }
   // Hide create account section for shop role
   const createSection = document.getElementById('roleSection_createAccount');
   if (createSection) createSection.style.display = role === 'admin' ? 'block' : 'none';
@@ -3115,6 +3336,10 @@ function hydrateLoginHeader() {
 
 async function bootstrapSession() {
   try {
+    const billingMonthInput = document.getElementById('billingMonthInput');
+    if (billingMonthInput && !billingMonthInput.value) {
+      billingMonthInput.value = getDefaultBillingMonth();
+    }
     const data = await apiJson(`${API_BASE}/api/me`);
     loginUser = data.user;
     window.loginUser = data.user;
