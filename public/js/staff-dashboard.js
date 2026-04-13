@@ -91,7 +91,9 @@ const DRAWER_FORM_ID_MAP = {
   'form-asset': 'assetForm',
   'form-npc': 'npcForm',
   'form-product': 'productForm',
-  'form-import-users': 'importUsersForm'
+  'form-import-users': 'importUsersForm',
+  'form-shop': 'shopForm',
+  'form-plan': 'planForm'
 };
 
 // Current drill-down context
@@ -101,6 +103,7 @@ let currentQuestChainMode = '';
 
 // Drawer state
 let activeFormId = null;
+let currentQuestChainSearchTerm = '';
 
 // ── Utilities ─────────────────────────────────────────────────
 function showToast(msg, type = 'success') {
@@ -146,6 +149,18 @@ function populateQuestChainShopOptions() {
   });
   if (!isAdmin && actorShopId) {
     select.value = actorShopId;
+  }
+  const staffShopSelect = document.getElementById('staffShopSelect');
+  if (staffShopSelect) {
+    const currentValue = staffShopSelect.value;
+    staffShopSelect.innerHTML = '<option value="">-- 請選擇商店 --</option>';
+    options.forEach((shop) => {
+      const option = document.createElement('option');
+      option.value = String(shop.id);
+      option.textContent = shop.name || `商家 #${shop.id}`;
+      staffShopSelect.appendChild(option);
+    });
+    if (currentValue) staffShopSelect.value = currentValue;
   }
 }
 
@@ -225,13 +240,15 @@ function loadShops() {
     populateQuestChainShopOptions();
     syncQuestChainCommercialFields();
     if (Object.keys(globalQuestChainsMap).length) {
-      renderQuestChainList(Object.values(globalQuestChainsMap));
+      renderQuestChainList(filterQuestChains(Object.values(globalQuestChainsMap)));
     }
+    renderShopList(Object.values(globalShopsMap));
   });
 }
 
 function loadEntryPlans() {
-  return apiJson(`${API_BASE}/api/entry-plans`, {
+  const suffix = loginUser?.role === 'admin' ? '?include_inactive=1' : '';
+  return apiJson(`${API_BASE}/api/entry-plans${suffix}`, {
     headers: withActorHeaders()
   }).then((data) => {
     globalEntryPlansMap = {};
@@ -241,8 +258,9 @@ function loadEntryPlans() {
     populateQuestChainPlanOptions();
     syncQuestChainCommercialFields();
     if (Object.keys(globalQuestChainsMap).length) {
-      renderQuestChainList(Object.values(globalQuestChainsMap));
+      renderQuestChainList(filterQuestChains(Object.values(globalQuestChainsMap)));
     }
+    renderPlanList(Object.values(globalEntryPlansMap));
   });
 }
 
@@ -270,6 +288,22 @@ function formatDateTime(value) {
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit'
+  });
+}
+
+function filterQuestChains(chains = []) {
+  const term = String(currentQuestChainSearchTerm || '').trim().toLowerCase();
+  if (!term) return chains;
+  return chains.filter((chain) => {
+    const haystack = [
+      chain.title,
+      chain.short_description,
+      chain.shop_name,
+      globalShopsMap[String(chain.shop_id)]?.name,
+      chain.plan_name,
+      globalEntryPlansMap[String(chain.plan_id)]?.name
+    ].filter(Boolean).join(' ').toLowerCase();
+    return haystack.includes(term);
   });
 }
 
@@ -341,6 +375,39 @@ function renderBillingEntries(entries = []) {
               <span class="tag ${entry.is_active ? 'tag-green' : 'tag-red'}">${entry.is_active ? '已開放' : '草稿 / 停用'}</span>
               <span class="tag ${entry.is_invoiced ? 'tag-blue' : 'tag-amber'}">${entry.is_invoiced ? '已開帳' : '待開帳'}</span>
             </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderBillingShopTotals(shops = []) {
+  const container = document.getElementById('billingShopTotalsTable');
+  if (!container) return;
+  if (!shops.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏪</div>目前沒有商店總帳資料</div>';
+    return;
+  }
+  container.innerHTML = `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>商店</th>
+          <th>入口數</th>
+          <th>本月 Tokens</th>
+          <th>預估月費</th>
+          <th>建置費</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${shops.map((shop) => `
+          <tr>
+            <td class="wrap"><strong>${escHtml(shop.name || `商店 #${shop.id}`)}</strong><br><span class="subtle-note">管理帳號：${escHtml(shop.owner_username || 'admin')}</span></td>
+            <td>${formatTokenCount(shop.entry_count || 0)}<br><span class="subtle-note">啟用 ${formatTokenCount(shop.active_entry_count || 0)} 個</span></td>
+            <td><strong>${formatTokenCount(shop.total_tokens || 0)}</strong><br><span class="subtle-note">P ${formatTokenCount(shop.prompt_tokens || 0)} / C ${formatTokenCount(shop.completion_tokens || 0)}</span></td>
+            <td><strong>${formatCurrency(shop.estimated_amount || 0)}</strong></td>
+            <td><strong>待收 ${formatCurrency(shop.setup_fee_pending_amount || 0)}</strong><br><span class="subtle-note">已收 ${formatCurrency(shop.setup_fee_paid_amount || 0)}</span></td>
           </tr>
         `).join('')}
       </tbody>
@@ -431,10 +498,12 @@ function renderBillingUsageLogs(logs = []) {
 
 function setBillingLoadingState() {
   const cards = document.getElementById('billingOverviewCards');
+  const shops = document.getElementById('billingShopTotalsTable');
   const entries = document.getElementById('billingEntriesTable');
   const setup = document.getElementById('billingSetupFeeTable');
   const logs = document.getElementById('billingUsageLogsTable');
   if (cards) cards.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="empty-state-icon">💳</div>載入中...</div>';
+  if (shops) shops.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏪</div>載入中...</div>';
   if (entries) entries.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📈</div>載入中...</div>';
   if (setup) setup.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🧾</div>載入中...</div>';
   if (logs) logs.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🤖</div>載入中...</div>';
@@ -452,15 +521,17 @@ function loadBillingDashboard() {
   setBillingLoadingState();
   return Promise.all([
     apiJson(`${API_BASE}/api/billing/overview?${params.toString()}`, { headers: withActorHeaders() }),
+    apiJson(`${API_BASE}/api/billing/shops?${params.toString()}`, { headers: withActorHeaders() }),
     apiJson(`${API_BASE}/api/billing/entries?${params.toString()}`, { headers: withActorHeaders() }),
     apiJson(`${API_BASE}/api/entry-billing-records?limit=20`, { headers: withActorHeaders() }),
     apiJson(`${API_BASE}/api/billing/logs?${params.toString()}&limit=20`, { headers: withActorHeaders() })
   ])
-    .then(([overviewData, entriesData, setupData, logsData]) => {
-      if (!overviewData.success || !entriesData.success || !setupData.success || !logsData.success) {
+    .then(([overviewData, shopsData, entriesData, setupData, logsData]) => {
+      if (!overviewData.success || !shopsData.success || !entriesData.success || !setupData.success || !logsData.success) {
         throw new Error('載入計費資料失敗');
       }
       renderBillingOverview(overviewData.overview || {});
+      renderBillingShopTotals(shopsData.shops || []);
       renderBillingEntries(entriesData.entries || []);
       renderSetupFeeRecords(setupData.records || []);
       renderBillingUsageLogs(logsData.logs || []);
@@ -525,6 +596,8 @@ function wireLatLngPaste(inputEl, latEl, lngEl) {
 const STAFF_DASH_HASH_BY_VIEW = {
   'view-quest-chains': 'quests',
   'view-billing': 'billing',
+  'view-shops': 'shops',
+  'view-plans': 'plans',
   'view-assets': 'assets',
   'view-products': 'products',
   'view-reward-shop': 'reward-shop',
@@ -582,6 +655,8 @@ function switchView(viewId, opts = {}) {
     'view-quest-chains': 'view-quest-chains',
     'view-quest-detail': 'view-quest-chains',
     'view-billing': 'view-billing',
+    'view-shops': 'view-shops',
+    'view-plans': 'view-plans',
     'view-assets': 'view-assets',
     'view-products': 'view-products',
     'view-reward-shop': 'view-reward-shop',
@@ -600,6 +675,8 @@ function switchView(viewId, opts = {}) {
 
   // Lazy-load data for new views
   if (viewId === 'view-billing') loadBillingDashboard();
+  if (viewId === 'view-shops') loadShopManagement();
+  if (viewId === 'view-plans') loadPlanManagement();
   if (viewId === 'view-reward-shop') ensureRewardShopIframe();
   if (viewId === 'view-products') loadProducts();
   if (viewId === 'view-redemptions') loadRedemptions();
@@ -830,6 +907,10 @@ function openDrawer(title, formSectionId, data, opts = {}) {
     const editingChain = form?.elements?.id?.value ? globalQuestChainsMap[String(form.elements.id.value)] || null : null;
     applyQuestChainFormLockUi(editingChain);
     setInlineMessage('questChainFormMsg', '');
+  } else if (activeFormId === 'shopForm') {
+    setInlineMessage('shopFormMsg', '');
+  } else if (activeFormId === 'planForm') {
+    setInlineMessage('planFormMsg', '');
   }
 
   drawer.classList.add('open');
@@ -1157,14 +1238,14 @@ function loadQuestChains() {
       }
 
       refreshCouponQuestChainOptions();
-      renderQuestChainList(data.questChains);
+      renderQuestChainList(filterQuestChains(data.questChains));
     });
 }
 
 function renderQuestChainList(chains) {
   const container = document.getElementById('questChainListContainer');
   if (!chains.length) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div>目前沒有玩法入口，點右上角新增</div>';
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div>${currentQuestChainSearchTerm ? '找不到符合搜尋條件的入口' : '目前沒有玩法入口，點右上角新增'}</div>`;
     return;
   }
   container.innerHTML = chains.map(q => {
@@ -1221,6 +1302,18 @@ function renderQuestChainList(chains) {
   }).join('');
 }
 
+function applyQuestChainSearch() {
+  currentQuestChainSearchTerm = document.getElementById('questChainSearchInput')?.value.trim() || '';
+  renderQuestChainList(filterQuestChains(Object.values(globalQuestChainsMap)));
+}
+
+function resetQuestChainSearch() {
+  currentQuestChainSearchTerm = '';
+  const input = document.getElementById('questChainSearchInput');
+  if (input) input.value = '';
+  renderQuestChainList(Object.values(globalQuestChainsMap));
+}
+
 function editQuestChain(id) {
   const q = globalQuestChainsMap[id];
   if (!q) return;
@@ -1256,6 +1349,114 @@ function deleteQuestChain(id) {
       if (d.success) { showToast('已刪除'); loadQuestChains(); }
       else showToast(d.message || '刪除失敗', 'error');
     });
+}
+
+function renderShopList(shops = []) {
+  const container = document.getElementById('shopListContainer');
+  if (!container) return;
+  if (!shops.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏪</div>尚無商店資料</div>';
+    return;
+  }
+  container.innerHTML = shops.map((shop) => `
+    <div class="quest-card">
+      <div style="min-width:0;">
+        <div class="quest-card-title">${escHtml(shop.name || `商店 #${shop.id}`)}</div>
+        <div class="quest-card-meta">
+          <span class="tag ${shop.is_active ? 'tag-green' : 'tag-red'}">${shop.is_active ? '啟用中' : '已停用'}</span>
+          <span class="tag tag-gray">建置者 ${escHtml(shop.builder_username || 'admin')}</span>
+          <span class="tag tag-gray">商店帳號 ${escHtml(shop.owner_username || '未建立')}</span>
+          <span class="tag tag-gray">員工 ${formatTokenCount(shop.staff_count || 0)} 人</span>
+          <span class="tag tag-gray">入口 ${formatTokenCount(shop.quest_chain_count || 0)} 個</span>
+        </div>
+        <div style="font-size:0.84rem; color:#64748b; margin-top:8px;">
+          ${escHtml(shop.contact_name || '未填聯絡人')}｜${escHtml(shop.contact_phone || '未填電話')}｜${escHtml(shop.contact_email || '未填 Email')}
+        </div>
+      </div>
+      <div class="quest-card-actions">
+        <button class="btn-sm btn-secondary-v2" onclick="openShopDrawer('${shop.id}')">編輯</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function loadShopManagement() {
+  return apiJson(`${API_BASE}/api/shops`, {
+    headers: withActorHeaders()
+  }).then((data) => {
+    renderShopList(data.shops || []);
+  });
+}
+
+function openShopDrawer(id = '') {
+  const shop = id ? globalShopsMap[String(id)] : null;
+  openDrawer(shop ? '編輯商店' : '新增商店', 'form-shop', {
+    shop_id: shop?.id || '',
+    shop_name: shop?.name || '',
+    username: '',
+    password: '',
+    contact_name: shop?.contact_name || '',
+    contact_phone: shop?.contact_phone || '',
+    contact_email: shop?.contact_email || '',
+    shop_address: shop?.address || '',
+    shop_description: shop?.description || '',
+    status: shop?.status || 'active'
+  });
+  const form = document.getElementById('shopForm');
+  if (form) {
+    const editing = Boolean(shop);
+    form.elements.username.disabled = editing;
+    form.elements.password.disabled = editing;
+    form.elements.username.required = !editing;
+    form.elements.password.required = !editing;
+  }
+}
+
+function renderPlanList(plans = []) {
+  const container = document.getElementById('planListContainer');
+  if (!container) return;
+  if (!plans.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📐</div>尚無方案資料</div>';
+    return;
+  }
+  container.innerHTML = plans.map((plan) => `
+    <div class="quest-card">
+      <div style="min-width:0;">
+        <div class="quest-card-title">${escHtml(plan.name || `方案 #${plan.id}`)}</div>
+        <div class="quest-card-meta">
+          <span class="tag ${plan.is_active ? 'tag-green' : 'tag-red'}">${plan.is_active ? '可使用' : '已停用'}</span>
+          <span class="tag tag-gray">上限 ${formatTokenCount(plan.task_limit || 0)} 關</span>
+          <span class="tag tag-gray">建置費 ${formatCurrency(plan.setup_fee || 0)}</span>
+          <span class="tag tag-gray">月費 ${formatCurrency(plan.monthly_base_fee || 0)}</span>
+          <span class="tag tag-gray">1K tokens ${formatCurrency(plan.token_price_per_1k || 0)}</span>
+        </div>
+      </div>
+      <div class="quest-card-actions">
+        <button class="btn-sm btn-secondary-v2" onclick="openPlanDrawer('${plan.id}')">編輯</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function loadPlanManagement() {
+  return apiJson(`${API_BASE}/api/entry-plans?include_inactive=1`, {
+    headers: withActorHeaders()
+  }).then((data) => {
+    renderPlanList(data.plans || []);
+  });
+}
+
+function openPlanDrawer(id = '') {
+  const plan = id ? globalEntryPlansMap[String(id)] : null;
+  openDrawer(plan ? '編輯方案' : '新增方案', 'form-plan', {
+    id: plan?.id || '',
+    name: plan?.name || '',
+    task_limit: plan?.task_limit || '',
+    setup_fee: plan?.setup_fee || 0,
+    monthly_base_fee: plan?.monthly_base_fee || 0,
+    token_price_per_1k: plan?.token_price_per_1k || 0,
+    is_active: plan?.is_active !== false
+  });
 }
 
 // ── Quest Chain Form Submit ───────────────────────────────────
@@ -3583,6 +3784,14 @@ function applySidebarRBAC() {
   // Hide create account section for shop role
   const createSection = document.getElementById('roleSection_createAccount');
   if (createSection) createSection.style.display = role === 'admin' ? 'block' : 'none';
+  const assignSection = document.getElementById('roleSection_assignStaff');
+  if (assignSection) assignSection.style.display = role === 'admin' ? 'block' : 'none';
+  const subtitle = document.getElementById('rolesViewSubtitle');
+  if (subtitle) {
+    subtitle.textContent = role === 'admin'
+      ? '僅限平台管理員。管理後台帳號與 staff 指派規則。'
+      : '此頁僅保留帳號安全設定；商店與會員管理由平台管理員統一處理。';
+  }
 }
 
 function hydrateLoginHeader() {
@@ -4102,13 +4311,15 @@ function createAccount() {
 }
 
 function assignStaff() {
-  const phone = document.getElementById('staffPhoneInput').value.trim();
-  if (!phone) { showToast('請輸入手機號碼', 'error'); return; }
+  const username = document.getElementById('staffPhoneInput').value.trim();
+  const shopId = document.getElementById('staffShopSelect')?.value || '';
+  if (!username) { showToast('請輸入玩家手機帳號', 'error'); return; }
+  if (!shopId) { showToast('請先選擇商店', 'error'); return; }
   fetch(`${API_BASE}/api/staff/assign`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
     credentials: 'include',
-    body: JSON.stringify({ phone })
+    body: JSON.stringify({ username, shop_id: shopId })
   }).then(r => r.json()).then(d => {
     if (d.success) { showToast('已指派為工作人員'); document.getElementById('staffPhoneInput').value = ''; }
     else showToast(d.message || '指派失敗', 'error');
@@ -4116,20 +4327,108 @@ function assignStaff() {
 }
 
 function revokeStaff() {
-  const phone = document.getElementById('staffPhoneInput').value.trim();
-  if (!phone) { showToast('請輸入手機號碼', 'error'); return; }
-  showConfirm(`確定要撤銷 ${phone} 的工作人員權限嗎？`, () => {
+  const username = document.getElementById('staffPhoneInput').value.trim();
+  if (!username) { showToast('請輸入玩家手機帳號', 'error'); return; }
+  showConfirm(`確定要撤銷 ${username} 的工作人員權限嗎？`, () => {
     fetch(`${API_BASE}/api/staff/revoke`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-username': loginUser.username },
       credentials: 'include',
-      body: JSON.stringify({ phone })
+      body: JSON.stringify({ username })
     }).then(r => r.json()).then(d => {
       if (d.success) { showToast('已撤銷'); document.getElementById('staffPhoneInput').value = ''; }
       else showToast(d.message || '撤銷失敗', 'error');
     });
   });
 }
+
+document.getElementById('shopForm')?.addEventListener('submit', function(e) {
+  e.preventDefault();
+  const form = this;
+  const id = form.elements.shop_id.value;
+  const msgEl = document.getElementById('shopFormMsg');
+  setInlineMessage(msgEl, '');
+  const payload = {
+    shop_name: form.elements.shop_name.value.trim(),
+    contact_name: form.elements.contact_name.value.trim(),
+    contact_phone: form.elements.contact_phone.value.trim(),
+    contact_email: form.elements.contact_email.value.trim(),
+    shop_address: form.elements.shop_address.value.trim(),
+    shop_description: form.elements.shop_description.value.trim(),
+    status: form.elements.status.value
+  };
+  if (!payload.shop_name) {
+    setInlineMessage(msgEl, '請填寫商店名稱');
+    return;
+  }
+
+  const request = id
+    ? fetch(`${API_BASE}/api/shop/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...withActorHeaders() },
+        credentials: 'include',
+        body: JSON.stringify({ ...payload, shop_id: id })
+      })
+    : fetch(`${API_BASE}/api/admin/accounts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...withActorHeaders() },
+        credentials: 'include',
+        body: JSON.stringify({
+          role: 'shop',
+          username: form.elements.username.value.trim(),
+          password: form.elements.password.value,
+          ...payload
+        })
+      });
+
+  setInlineMessage(msgEl, id ? '商店資料更新中...' : '商店建立中...', 'info');
+  request.then(r => r.json()).then(async (d) => {
+    if (!d.success) {
+      setInlineMessage(msgEl, d.message || '操作失敗');
+      return;
+    }
+    showToast(id ? '商店資料已更新' : '商店已建立');
+    closeDrawer();
+    await loadShops();
+    await loadShopManagement();
+  }).catch(() => setInlineMessage(msgEl, '連線失敗'));
+});
+
+document.getElementById('planForm')?.addEventListener('submit', function(e) {
+  e.preventDefault();
+  const form = this;
+  const id = form.elements.id.value;
+  const msgEl = document.getElementById('planFormMsg');
+  setInlineMessage(msgEl, '');
+  const payload = {
+    name: form.elements.name.value.trim(),
+    task_limit: Number(form.elements.task_limit.value || 0),
+    setup_fee: Number(form.elements.setup_fee.value || 0),
+    monthly_base_fee: Number(form.elements.monthly_base_fee.value || 0),
+    token_price_per_1k: Number(form.elements.token_price_per_1k.value || 0),
+    is_active: form.elements.is_active.checked
+  };
+  if (!payload.name || !payload.task_limit) {
+    setInlineMessage(msgEl, '請填寫方案名稱與關卡上限');
+    return;
+  }
+  setInlineMessage(msgEl, id ? '方案更新中...' : '方案建立中...', 'info');
+  fetch(`${API_BASE}/api/entry-plans${id ? `/${id}` : ''}`, {
+    method: id ? 'PUT' : 'POST',
+    headers: { 'Content-Type': 'application/json', ...withActorHeaders() },
+    credentials: 'include',
+    body: JSON.stringify(payload)
+  }).then(r => r.json()).then(async (d) => {
+    if (!d.success) {
+      setInlineMessage(msgEl, d.message || '操作失敗');
+      return;
+    }
+    showToast(id ? '方案已更新' : '方案已建立');
+    closeDrawer();
+    await loadEntryPlans();
+    await loadPlanManagement();
+  }).catch(() => setInlineMessage(msgEl, '連線失敗'));
+});
 
 function changePassword() {
   const oldPw = document.getElementById('oldPasswordInput').value;
@@ -4164,6 +4463,14 @@ if (userSearchInputEl) {
   userSearchInputEl.addEventListener('input', () => {
     clearTimeout(userSearchDebounceTimer);
     userSearchDebounceTimer = setTimeout(() => loadUsers(1), 360);
+  });
+}
+
+const questChainSearchInputEl = document.getElementById('questChainSearchInput');
+if (questChainSearchInputEl) {
+  questChainSearchInputEl.addEventListener('input', () => {
+    currentQuestChainSearchTerm = questChainSearchInputEl.value.trim();
+    renderQuestChainList(filterQuestChains(Object.values(globalQuestChainsMap)));
   });
 }
 

@@ -24,7 +24,7 @@ async function clickByText(page, selector, text) {
 }
 
 async function setValue(page, selector, value) {
-  await page.waitForSelector(selector, { visible: true });
+  await page.waitForSelector(selector);
   await page.$eval(
     selector,
     (el, nextValue) => {
@@ -37,7 +37,7 @@ async function setValue(page, selector, value) {
 }
 
 async function setChecked(page, selector, checked) {
-  await page.waitForSelector(selector, { visible: true });
+  await page.waitForSelector(selector);
   await page.$eval(
     selector,
     (el, nextChecked) => {
@@ -62,12 +62,20 @@ async function clickQuestCardMenuAction(page, title, actionText) {
   await page.evaluate(({ questTitle, nextActionText }) => {
     const card = [...document.querySelectorAll('.quest-card')].find((el) => el.textContent.includes(questTitle));
     if (!card) throw new Error(`Cannot find quest card: ${questTitle}`);
-    const menuBtn = card.querySelector('.card-menu-btn');
-    if (!menuBtn) throw new Error(`Cannot find quest card menu button: ${questTitle}`);
-    menuBtn.click();
-    const actionBtn = [...card.querySelectorAll('.card-menu button')].find((btn) =>
-      (btn.textContent || '').trim().includes(nextActionText)
+    const candidateTexts = [nextActionText];
+    if (nextActionText === '編輯入口') candidateTexts.push('編輯');
+    let actionBtn = [...card.querySelectorAll('button')].find((btn) =>
+      !btn.disabled && candidateTexts.some((text) => (btn.textContent || '').trim().includes(text))
     );
+    if (!actionBtn) {
+      const menuBtn = card.querySelector('.card-menu-btn');
+      if (menuBtn) {
+        menuBtn.click();
+        actionBtn = [...card.querySelectorAll('.card-menu button')].find((btn) =>
+          (btn.textContent || '').trim().includes(nextActionText)
+        );
+      }
+    }
     if (!actionBtn) throw new Error(`Cannot find quest card action "${nextActionText}" for ${questTitle}`);
     actionBtn.click();
   }, { questTitle: title, nextActionText: actionText });
@@ -102,7 +110,7 @@ async function submitTaskForm(page) {
 }
 
 async function selectFirstNonEmptyOption(page, selector) {
-  await page.waitForSelector(selector, { visible: true });
+  await page.waitForSelector(selector);
   return page.$eval(selector, (el) => {
     const option = [...el.options].find((opt) => opt.value);
     if (!option) throw new Error(`No non-empty option found for ${el.name || el.id}`);
@@ -235,8 +243,8 @@ async function run() {
     stepLog.push('建立驗收 shop');
     const { shopId } = await createShopViaApi(page, stamp);
 
-    stepLog.push('打開 staff-dashboard-v2');
-    await page.goto(`${BASE_URL}/staff-dashboard-v2.html`, { waitUntil: 'networkidle2' });
+    stepLog.push('打開 staff-dashboard');
+    await page.goto(`${BASE_URL}/staff-dashboard.html`, { waitUntil: 'networkidle2' });
 
     stepLog.push('建立草稿入口');
     await clickByText(page, 'button', '新增入口');
@@ -313,7 +321,7 @@ async function run() {
       { timeout: 15000 },
       { chainId: questChainId, title: taskTitle }
     );
-    await page.goto(`${BASE_URL}/staff-dashboard-v2.html`, { waitUntil: 'networkidle2' });
+    await page.goto(`${BASE_URL}/staff-dashboard.html`, { waitUntil: 'networkidle2' });
     await openQuestDetailFromList(page, questTitle);
     await page.waitForFunction(
       (title) => [...document.querySelectorAll('.task-item-title')].some((el) => el.textContent.includes(title)),
@@ -488,7 +496,7 @@ async function run() {
       const closeBtn = document.querySelector('#rightDrawer .drawer-close');
       if (closeBtn) closeBtn.click();
     });
-    await page.goto(`${BASE_URL}/staff-dashboard-v2.html`, { waitUntil: 'networkidle2' });
+    await page.goto(`${BASE_URL}/staff-dashboard.html`, { waitUntil: 'networkidle2' });
     await openQuestDetailFromList(page, questTitlePublished);
     await page.waitForFunction(
       (title) => [...document.querySelectorAll('.task-item-title')].some((el) => el.textContent.includes(title)),

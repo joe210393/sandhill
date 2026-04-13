@@ -192,8 +192,8 @@ async function run() {
       throw new Error(`Billing API payload incomplete: ${JSON.stringify(apiCheck)}`);
     }
 
-    stepLog.push('驗證 staff-dashboard-v2 計費畫面');
-    await page.goto(`${BASE_URL}/staff-dashboard-v2.html#billing`, { waitUntil: 'networkidle2' });
+    stepLog.push('驗證 staff-dashboard 計費畫面');
+    await page.goto(`${BASE_URL}/staff-dashboard.html#billing`, { waitUntil: 'networkidle2' });
     await page.waitForFunction(
       (targetTitle) => {
         const table = document.getElementById('billingEntriesTable');
@@ -207,12 +207,12 @@ async function run() {
       return cards && cards.textContent.includes('本月總 tokens') && cards.textContent.includes('本月預估金額');
     });
 
-    stepLog.push('驗證 staff-dashboard 舊版計費畫面');
-    await page.goto(`${BASE_URL}/staff-dashboard.html#billing`, { waitUntil: 'networkidle2' });
+    stepLog.push('驗證 dashboard 商店總帳畫面');
     await page.waitForFunction(
       (targetTitle) => {
-        const table = document.getElementById('billingEntriesTable');
-        return table && table.textContent.includes(targetTitle) && table.textContent.includes('1,500');
+        const table = document.getElementById('billingShopTotalsTable');
+        const entryTable = document.getElementById('billingEntriesTable');
+        return table && entryTable && entryTable.textContent.includes(targetTitle) && table.textContent.includes('第五階段驗收商家');
       },
       {},
       questTitle

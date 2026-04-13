@@ -337,6 +337,12 @@
         <span>💳</span> 現場核銷
       </div>
       <div class="v2-sidebar-label" style="margin-top:12px;">管理</div>
+      <div class="v2-nav-item" data-view="view-shops" data-roles="admin">
+        <span>🏪</span> 商店管理
+      </div>
+      <div class="v2-nav-item" data-view="view-plans" data-roles="admin">
+        <span>📐</span> 方案管理
+      </div>
       <div class="v2-nav-item" data-view="view-users" data-roles="admin">
         <span>👥</span> 會員管理
       </div>
@@ -356,6 +362,11 @@
           <button class="btn-md btn-primary-v2" onclick="openDrawer('新增玩法入口', 'form-quest-chain')">+ 新增入口</button>
         </div>
         <p class="view-subtitle">管理首頁顯示的劇本與大富翁入口。點擊「管理內容」可進入查看綁定的關卡。</p>
+        <div style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; align-items:center;">
+          <input type="search" id="questChainSearchInput" class="form-input" placeholder="搜尋入口標題、商家、方案…" style="max-width:320px;" autocomplete="off">
+          <button type="button" class="btn-sm btn-primary-v2" onclick="applyQuestChainSearch()">搜尋</button>
+          <button type="button" class="btn-sm btn-secondary-v2" onclick="resetQuestChainSearch()">清除</button>
+        </div>
         <div id="questChainListContainer" style="display:grid; gap:12px;">
           <div class="empty-state"><div class="empty-state-icon">📋</div>載入中...</div>
         </div>
@@ -373,6 +384,17 @@
         <div id="billingScopeHint" class="subtle-note" style="margin-bottom:14px;"></div>
         <div id="billingOverviewCards" class="stats-grid">
           <div class="empty-state" style="grid-column:1/-1;"><div class="empty-state-icon">💳</div>載入中...</div>
+        </div>
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <div>
+              <div class="panel-card-title">商店總帳</div>
+              <div class="panel-card-subtitle">平台管理員可看每個商店的本月總帳；商店帳號只會看到自己。</div>
+            </div>
+          </div>
+          <div id="billingShopTotalsTable" class="data-table-wrap">
+            <div class="empty-state"><div class="empty-state-icon">🏪</div>載入中...</div>
+          </div>
         </div>
         <div class="panel-card">
           <div class="panel-card-header">
@@ -633,6 +655,28 @@
       </div>
 
       <!-- View 7: Users -->
+      <div id="view-shops" class="v2-view">
+        <div class="view-header">
+          <h2>商店管理</h2>
+          <button class="btn-md btn-primary-v2" onclick="openShopDrawer()">+ 新增商店</button>
+        </div>
+        <p class="view-subtitle">僅限平台管理員。可建立商店帳號、維護商店資料，並查看建置者與目前入口數。</p>
+        <div id="shopListContainer" style="display:grid; gap:12px;">
+          <div class="empty-state"><div class="empty-state-icon">🏪</div>載入中...</div>
+        </div>
+      </div>
+
+      <div id="view-plans" class="v2-view">
+        <div class="view-header">
+          <h2>方案管理</h2>
+          <button class="btn-md btn-primary-v2" onclick="openPlanDrawer()">+ 新增方案</button>
+        </div>
+        <p class="view-subtitle">僅限平台管理員。設定入口可用的關卡上限、一次性建置費、每月基本費與 token 單價。</p>
+        <div id="planListContainer" style="display:grid; gap:12px;">
+          <div class="empty-state"><div class="empty-state-icon">📐</div>載入中...</div>
+        </div>
+      </div>
+
       <div id="view-users" class="v2-view">
         <div class="view-header">
           <h2>會員管理</h2>
@@ -658,22 +702,27 @@
       <!-- View 8: Roles -->
       <div id="view-roles" class="v2-view">
         <div class="view-header"><h2>權限管理</h2></div>
-        <p class="view-subtitle" id="rolesViewSubtitle">管理後台帳號與工作人員權限。商店帳號可指派／撤銷 staff；建立 admin／shop 僅限管理員。</p>
+        <p class="view-subtitle" id="rolesViewSubtitle">僅限平台管理員。管理後台帳號與 staff 指派規則。</p>
         <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
           <div style="background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0;" id="roleSection_createAccount">
             <h3 style="margin:0 0 12px; font-size:1rem;">建立管理帳號</h3>
-            <p style="color:#64748b; font-size:0.85rem; margin-bottom:14px;">建立新的 shop 或 admin 帳號</p>
+            <p style="color:#64748b; font-size:0.85rem; margin-bottom:14px;">建立新的 admin 帳號；商店請改到「商店管理」建立。</p>
             <div class="form-group">
-              <select id="newAccountRole" class="form-select"><option value="shop">商店帳號</option><option value="admin">管理員</option></select>
+              <select id="newAccountRole" class="form-select"><option value="admin">管理員</option></select>
             </div>
             <div class="form-group"><input id="newAccountUsername" class="form-input" placeholder="帳號名稱"></div>
             <div class="form-group"><input id="newAccountPassword" class="form-input" type="password" placeholder="密碼（6 位以上）"></div>
             <button class="btn-md btn-primary-v2" onclick="createAccount()" style="width:100%;">建立帳號</button>
           </div>
-          <div style="background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0;">
+          <div style="background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0;" id="roleSection_assignStaff">
             <h3 style="margin:0 0 12px; font-size:1rem;">指派 / 撤銷工作人員</h3>
-            <p style="color:#64748b; font-size:0.85rem; margin-bottom:14px;">輸入手機號碼指派或撤銷 staff 權限</p>
+            <p style="color:#64748b; font-size:0.85rem; margin-bottom:14px;">輸入玩家手機帳號，並指定要綁定到哪一個商店。</p>
             <div class="form-group"><input id="staffPhoneInput" class="form-input" placeholder="09xxxxxxxx"></div>
+            <div class="form-group">
+              <select id="staffShopSelect" class="form-select">
+                <option value="">-- 請選擇商店 --</option>
+              </select>
+            </div>
             <div style="display:flex; gap:8px;">
               <button class="btn-md btn-primary-v2" onclick="assignStaff()" style="flex:1;">指派</button>
               <button class="btn-md btn-danger-v2" onclick="revokeStaff()" style="flex:1;">撤銷</button>
@@ -1618,6 +1667,93 @@
             </div>
           </div>
           <div id="importFormMsg" style="color:#dc2626; font-size:0.88rem; min-height:20px; margin-top:8px;"></div>
+        </form>
+      </div>
+
+      <div id="form-shop" class="drawer-form-section" data-form-id="shopForm">
+        <form id="shopForm" class="v2-form">
+          <input type="hidden" name="shop_id">
+          <div class="form-group">
+            <label class="form-label">商店名稱</label>
+            <input class="form-input" type="text" name="shop_name" required placeholder="例如：沙丘教育館">
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">登入帳號</label>
+              <input class="form-input" type="text" name="username" placeholder="建立新商店時必填">
+            </div>
+            <div class="form-group">
+              <label class="form-label">登入密碼</label>
+              <input class="form-input" type="password" name="password" placeholder="建立新商店時必填">
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">聯絡人</label>
+              <input class="form-input" type="text" name="contact_name">
+            </div>
+            <div class="form-group">
+              <label class="form-label">聯絡電話</label>
+              <input class="form-input" type="text" name="contact_phone">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">聯絡 Email</label>
+            <input class="form-input" type="email" name="contact_email">
+          </div>
+          <div class="form-group">
+            <label class="form-label">地址</label>
+            <input class="form-input" type="text" name="shop_address">
+          </div>
+          <div class="form-group">
+            <label class="form-label">商店描述</label>
+            <textarea class="form-textarea" name="shop_description" style="height:88px;"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">狀態</label>
+            <select class="form-select" name="status">
+              <option value="active">啟用中</option>
+              <option value="inactive">已停用</option>
+            </select>
+          </div>
+          <div id="shopFormMsg" class="inline-form-msg"></div>
+        </form>
+      </div>
+
+      <div id="form-plan" class="drawer-form-section" data-form-id="planForm">
+        <form id="planForm" class="v2-form">
+          <input type="hidden" name="id">
+          <div class="form-group">
+            <label class="form-label">方案名稱</label>
+            <input class="form-input" type="text" name="name" required placeholder="例如：20 關方案">
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">關卡上限</label>
+              <input class="form-input" type="number" name="task_limit" min="1" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">一次性建置費</label>
+              <input class="form-input" type="number" name="setup_fee" min="0" step="0.01" required>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">每月基本費</label>
+              <input class="form-input" type="number" name="monthly_base_fee" min="0" step="0.01" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">每 1K tokens 單價</label>
+              <input class="form-input" type="number" name="token_price_per_1k" min="0" step="0.01" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="checkbox" name="is_active" checked style="width:16px; height:16px;">
+              <span style="font-size:0.9rem;">此方案目前可用</span>
+            </label>
+          </div>
+          <div id="planFormMsg" class="inline-form-msg"></div>
         </form>
       </div>
 

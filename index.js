@@ -298,6 +298,8 @@ function sanitizeShopRow(row) {
   return {
     ...row,
     id: row.id == null ? null : Number(row.id),
+    staff_count: row.staff_count == null ? 0 : Number(row.staff_count),
+    quest_chain_count: row.quest_chain_count == null ? 0 : Number(row.quest_chain_count),
     is_active: row.status ? row.status === 'active' : true
   };
 }
@@ -1584,7 +1586,7 @@ app.post('/api/register', async (req, res) => {
 
 // admin 建立 admin/shop 帳號（帳號密碼）
 app.post('/api/admin/accounts', authenticateToken, requireRole('admin'), async (req, res) => {
-  const { username, password, role, shop_name, contact_name, contact_phone, contact_email, shop_address, shop_description } = req.body;
+  const { username, password, role, shop_name, contact_name, contact_phone, contact_email, shop_address, shop_description, status } = req.body;
   if (!username || !password || !role) {
     return res.status(400).json({ success: false, message: '缺少參數' });
   }
@@ -1602,7 +1604,7 @@ app.post('/api/admin/accounts', authenticateToken, requireRole('admin'), async (
     if (role === 'shop') {
       const [shopInsert] = await conn.execute(
         `INSERT INTO shops (code, name, owner_username, contact_name, contact_phone, contact_email, address, description, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           buildShopCode(username),
           normalizeNullableString(shop_name) || username,
@@ -1611,7 +1613,8 @@ app.post('/api/admin/accounts', authenticateToken, requireRole('admin'), async (
           normalizeNullableString(contact_phone),
           normalizeNullableString(contact_email),
           normalizeNullableString(shop_address),
-          normalizeNullableString(shop_description)
+          normalizeNullableString(shop_description),
+          normalizeNullableString(status) || 'active'
         ]
       );
       shopId = shopInsert.insertId;
@@ -1644,7 +1647,7 @@ app.post('/api/admin/accounts', authenticateToken, requireRole('admin'), async (
 });
 
 // admin/shop 指派 staff：指定人選需先註冊 user（手機門號）
-app.post('/api/staff/assign', authenticateToken, requireRole('admin', 'shop'), async (req, res) => {
+app.post('/api/staff/assign', authenticateToken, requireRole('admin'), async (req, res) => {
   const { username, shop_id } = req.body;
   if (!username) return res.status(400).json({ success: false, message: '缺少 username' });
   let conn;
@@ -1679,7 +1682,7 @@ app.post('/api/staff/assign', authenticateToken, requireRole('admin', 'shop'), a
 });
 
 // admin/shop 撤銷 staff：staff 變回 user，即可接取任務
-app.post('/api/staff/revoke', authenticateToken, requireRole('admin', 'shop'), async (req, res) => {
+app.post('/api/staff/revoke', authenticateToken, requireRole('admin'), async (req, res) => {
   const { username } = req.body;
   if (!username) return res.status(400).json({ success: false, message: '缺少 username' });
   let conn;
@@ -1799,6 +1802,7 @@ app.get('/api/shops', authenticateToken, requireRole('admin', 'shop', 'staff'), 
     const [rows] = await conn.execute(
       `SELECT s.*,
               owner.username AS owner_username,
+              owner.created_by AS builder_username,
               (SELECT COUNT(*) FROM users staff WHERE staff.shop_id = s.id AND staff.role = 'staff') AS staff_count,
               (SELECT COUNT(*) FROM quest_chains qc WHERE qc.shop_id = s.id) AS quest_chain_count
        FROM shops s
@@ -1811,6 +1815,79 @@ app.get('/api/shops', authenticateToken, requireRole('admin', 'shop', 'staff'), 
   } catch (err) {
     console.error(err);
     res.status(err.statusCode || 500).json({ success: false, message: err.message || '載入商家列表失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.get('/api/billing/shops', authenticateToken, requireRole('admin', 'shop', 'staff'), async (req, res) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const billingMonth = normalizeBillingMonth(req.query.billing_month);
+    const resolvedShopId = await resolveActorShopId(conn, req.user, req.query.shop_id);
+    const params = [billingMonth];
+    let whereClause = '';
+    if (resolvedShopId) {
+      whereClause = 'WHERE s.id = ?';
+      params.push(resolvedShopId);
+    }
+    const [rows] = await conn.execute(
+      `SELECT s.id,
+              s.name,
+              s.owner_username,
+              COUNT(DISTINCT qc.id) AS entry_count,
+              SUM(CASE WHEN qc.is_active THEN 1 ELSE 0 END) AS active_entry_count,
+              COALESCE(SUM(summary.prompt_tokens), 0) AS prompt_tokens,
+              COALESCE(SUM(summary.completion_tokens), 0) AS completion_tokens,
+              COALESCE(SUM(summary.total_tokens), 0) AS total_tokens,
+              COALESCE(SUM(
+                CASE
+                  WHEN qc.monthly_billing_enabled THEN COALESCE(ep.monthly_base_fee, 0) + (COALESCE(summary.total_tokens, 0) / 1000) * COALESCE(ep.token_price_per_1k, 0)
+                  ELSE 0
+                END
+              ), 0) AS estimated_amount,
+              COALESCE(setup.pending_amount, 0) AS setup_fee_pending_amount,
+              COALESCE(setup.paid_amount, 0) AS setup_fee_paid_amount
+       FROM shops s
+       LEFT JOIN quest_chains qc ON qc.shop_id = s.id
+       LEFT JOIN entry_plans ep ON ep.id = qc.plan_id
+       LEFT JOIN llm_usage_monthly_summary summary
+              ON summary.shop_id = s.id
+             AND summary.quest_chain_id = qc.id
+             AND summary.billing_month = ?
+       LEFT JOIN (
+         SELECT shop_id,
+                SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) AS pending_amount,
+                SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) AS paid_amount
+         FROM entry_billing_records
+         GROUP BY shop_id
+       ) setup ON setup.shop_id = s.id
+       ${whereClause}
+       GROUP BY s.id, s.name, s.owner_username, setup.pending_amount, setup.paid_amount
+       ORDER BY estimated_amount DESC, total_tokens DESC, s.id DESC`,
+      params
+    );
+    res.json({
+      success: true,
+      billing_month: billingMonth,
+      shops: rows.map((row) => ({
+        id: Number(row.id),
+        name: row.name || `商家 #${row.id}`,
+        owner_username: row.owner_username || null,
+        entry_count: Number(row.entry_count || 0),
+        active_entry_count: Number(row.active_entry_count || 0),
+        prompt_tokens: Number(row.prompt_tokens || 0),
+        completion_tokens: Number(row.completion_tokens || 0),
+        total_tokens: Number(row.total_tokens || 0),
+        estimated_amount: roundCurrencyValue(row.estimated_amount || 0),
+        setup_fee_pending_amount: roundCurrencyValue(row.setup_fee_pending_amount || 0),
+        setup_fee_paid_amount: roundCurrencyValue(row.setup_fee_paid_amount || 0)
+      }))
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '載入商店總帳失敗' });
   } finally {
     if (conn) conn.release();
   }
@@ -1830,6 +1907,72 @@ app.get('/api/entry-plans', authenticateToken, requireRole('admin', 'shop', 'sta
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: '載入方案列表失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.post('/api/entry-plans', authenticateToken, requireRole('admin'), async (req, res) => {
+  const { name, task_limit, setup_fee, monthly_base_fee, token_price_per_1k, is_active } = req.body || {};
+  if (!name || !task_limit) {
+    return res.status(400).json({ success: false, message: '方案名稱與關卡上限為必填' });
+  }
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [result] = await conn.execute(
+      `INSERT INTO entry_plans
+        (name, task_limit, setup_fee, monthly_base_fee, token_price_per_1k, is_active)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        String(name).trim(),
+        Number(task_limit) || 0,
+        Number(setup_fee || 0),
+        Number(monthly_base_fee || 0),
+        Number(token_price_per_1k || 0),
+        is_active == null ? true : normalizeBoolean(is_active)
+      ]
+    );
+    res.json({ success: true, message: '方案建立成功', id: result.insertId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '建立方案失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.put('/api/entry-plans/:id', authenticateToken, requireRole('admin'), async (req, res) => {
+  const { id } = req.params;
+  const { name, task_limit, setup_fee, monthly_base_fee, token_price_per_1k, is_active } = req.body || {};
+  if (!name || !task_limit) {
+    return res.status(400).json({ success: false, message: '方案名稱與關卡上限為必填' });
+  }
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [existing] = await conn.execute('SELECT id FROM entry_plans WHERE id = ? LIMIT 1', [id]);
+    if (!existing.length) {
+      return res.status(404).json({ success: false, message: '找不到方案' });
+    }
+    await conn.execute(
+      `UPDATE entry_plans
+          SET name = ?, task_limit = ?, setup_fee = ?, monthly_base_fee = ?, token_price_per_1k = ?, is_active = ?
+        WHERE id = ?`,
+      [
+        String(name).trim(),
+        Number(task_limit) || 0,
+        Number(setup_fee || 0),
+        Number(monthly_base_fee || 0),
+        Number(token_price_per_1k || 0),
+        is_active == null ? true : normalizeBoolean(is_active),
+        id
+      ]
+    );
+    res.json({ success: true, message: '方案更新成功' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '更新方案失敗' });
   } finally {
     if (conn) conn.release();
   }
