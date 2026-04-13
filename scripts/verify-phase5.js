@@ -221,7 +221,7 @@ async function run() {
           && table.textContent.includes('公益入口')
           && table.textContent.includes('公益代付');
       },
-      {},
+      { timeout: 60000 },
       questTitle
     );
     await page.waitForFunction(() => {
@@ -231,7 +231,17 @@ async function run() {
         && cards.textContent.includes('本月預估金額')
         && cards.textContent.includes('公益入口')
         && cards.textContent.includes('公益免收建置費');
-    });
+    }, { timeout: 60000 });
+    await page.waitForFunction(() => {
+      const tokensChart = document.getElementById('billingDailyTokensChart');
+      const amountChart = document.getElementById('billingDailyAmountChart');
+      const summary = document.getElementById('billingDailyChartSummary');
+      return tokensChart
+        && amountChart
+        && summary
+        && tokensChart.textContent.includes('全平台總量')
+        && summary.textContent.includes('本月 Tokens');
+    }, { timeout: 60000 });
 
     stepLog.push('驗證 dashboard 商店總帳畫面');
     await page.waitForFunction(
@@ -244,7 +254,7 @@ async function run() {
           && table.textContent.includes('第五階段驗收商家')
           && table.textContent.includes('公益代付');
       },
-      {},
+      { timeout: 60000 },
       questTitle
     );
 

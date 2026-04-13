@@ -2252,6 +2252,148 @@ app.get('/api/billing/logs', authenticateToken, requireRole('admin', 'shop', 'st
   }
 });
 
+app.get('/api/billing/daily', authenticateToken, requireRole('admin', 'shop', 'staff'), async (req, res) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const { billingMonth, start, end } = getBillingMonthRange(req.query.billing_month);
+    const resolvedShopId = await resolveActorShopId(conn, req.user, req.query.shop_id);
+    const queryParams = [start, end];
+    let whereClause = 'WHERE logs.created_at >= ? AND logs.created_at < ?';
+    if (resolvedShopId) {
+      whereClause += ' AND logs.shop_id = ?';
+      queryParams.push(resolvedShopId);
+    }
+
+    const [rows] = await conn.execute(
+      `SELECT DATE_FORMAT(logs.created_at + INTERVAL 8 HOUR, '%Y-%m-%d') AS day_key,
+              logs.shop_id,
+              s.name AS shop_name,
+              COUNT(*) AS request_count,
+              COALESCE(SUM(logs.prompt_tokens), 0) AS prompt_tokens,
+              COALESCE(SUM(logs.completion_tokens), 0) AS completion_tokens,
+              COALESCE(SUM(logs.total_tokens), 0) AS total_tokens,
+              COALESCE(SUM(
+                CASE
+                  WHEN COALESCE(qc.monthly_billing_enabled, TRUE) = FALSE THEN 0
+                  WHEN COALESCE(qc.billing_policy, 'commercial') = 'public_good'
+                    THEN 0
+                  ELSE (COALESCE(logs.total_tokens, 0) / 1000) * COALESCE(ep.token_price_per_1k, 0)
+                END
+              ), 0) AS estimated_amount,
+              COALESCE(SUM(
+                CASE
+                  WHEN COALESCE(qc.monthly_billing_enabled, TRUE) = FALSE THEN 0
+                  WHEN COALESCE(qc.billing_policy, 'commercial') = 'public_good'
+                    THEN (COALESCE(logs.total_tokens, 0) / 1000) * COALESCE(ep.token_price_per_1k, 0)
+                  ELSE 0
+                END
+              ), 0) AS donated_amount
+       FROM llm_usage_logs logs
+       LEFT JOIN quest_chains qc ON qc.id = logs.quest_chain_id
+       LEFT JOIN entry_plans ep ON ep.id = qc.plan_id
+       LEFT JOIN shops s ON s.id = logs.shop_id
+       ${whereClause}
+       GROUP BY day_key, logs.shop_id, s.name
+       ORDER BY day_key ASC, logs.shop_id ASC`,
+      queryParams
+    );
+
+    const [yearText, monthText] = billingMonth.split('-');
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const dayKeys = Array.from({ length: daysInMonth }, (_, index) => {
+      const day = String(index + 1).padStart(2, '0');
+      return `${billingMonth}-${day}`;
+    });
+
+    const buildEmptyDay = (dayKey) => ({
+      date: dayKey,
+      request_count: 0,
+      prompt_tokens: 0,
+      completion_tokens: 0,
+      total_tokens: 0,
+      estimated_amount: 0,
+      donated_amount: 0
+    });
+
+    const totalsMap = new Map(dayKeys.map((dayKey) => [dayKey, buildEmptyDay(dayKey)]));
+    const shopsMap = new Map();
+
+    rows.forEach((row) => {
+      const dayKey = row.day_key;
+      if (!totalsMap.has(dayKey)) return;
+      const totalDay = totalsMap.get(dayKey);
+      totalDay.request_count += Number(row.request_count || 0);
+      totalDay.prompt_tokens += Number(row.prompt_tokens || 0);
+      totalDay.completion_tokens += Number(row.completion_tokens || 0);
+      totalDay.total_tokens += Number(row.total_tokens || 0);
+      totalDay.estimated_amount = roundCurrencyValue(Number(totalDay.estimated_amount || 0) + Number(row.estimated_amount || 0));
+      totalDay.donated_amount = roundCurrencyValue(Number(totalDay.donated_amount || 0) + Number(row.donated_amount || 0));
+
+      const shopKey = String(row.shop_id || '');
+      if (!shopsMap.has(shopKey)) {
+        shopsMap.set(shopKey, {
+          shop_id: row.shop_id == null ? null : Number(row.shop_id),
+          shop_name: row.shop_name || (row.shop_id == null ? '未指定商店' : `商店 #${row.shop_id}`),
+          request_count: 0,
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          total_tokens: 0,
+          estimated_amount: 0,
+          donated_amount: 0,
+          daily: new Map(dayKeys.map((key) => [key, buildEmptyDay(key)]))
+        });
+      }
+
+      const shopRecord = shopsMap.get(shopKey);
+      const shopDay = shopRecord.daily.get(dayKey);
+      shopRecord.request_count += Number(row.request_count || 0);
+      shopRecord.prompt_tokens += Number(row.prompt_tokens || 0);
+      shopRecord.completion_tokens += Number(row.completion_tokens || 0);
+      shopRecord.total_tokens += Number(row.total_tokens || 0);
+      shopRecord.estimated_amount = roundCurrencyValue(Number(shopRecord.estimated_amount || 0) + Number(row.estimated_amount || 0));
+      shopRecord.donated_amount = roundCurrencyValue(Number(shopRecord.donated_amount || 0) + Number(row.donated_amount || 0));
+
+      shopDay.request_count += Number(row.request_count || 0);
+      shopDay.prompt_tokens += Number(row.prompt_tokens || 0);
+      shopDay.completion_tokens += Number(row.completion_tokens || 0);
+      shopDay.total_tokens += Number(row.total_tokens || 0);
+      shopDay.estimated_amount = roundCurrencyValue(Number(shopDay.estimated_amount || 0) + Number(row.estimated_amount || 0));
+      shopDay.donated_amount = roundCurrencyValue(Number(shopDay.donated_amount || 0) + Number(row.donated_amount || 0));
+    });
+
+    const totals = dayKeys.map((dayKey) => totalsMap.get(dayKey));
+    const shops = Array.from(shopsMap.values())
+      .map((shop) => ({
+        shop_id: shop.shop_id,
+        shop_name: shop.shop_name,
+        request_count: Number(shop.request_count || 0),
+        prompt_tokens: Number(shop.prompt_tokens || 0),
+        completion_tokens: Number(shop.completion_tokens || 0),
+        total_tokens: Number(shop.total_tokens || 0),
+        estimated_amount: roundCurrencyValue(shop.estimated_amount || 0),
+        donated_amount: roundCurrencyValue(shop.donated_amount || 0),
+        daily: dayKeys.map((dayKey) => shop.daily.get(dayKey))
+      }))
+      .sort((left, right) => Number(right.total_tokens || 0) - Number(left.total_tokens || 0));
+
+    res.json({
+      success: true,
+      billing_month: billingMonth,
+      days: dayKeys,
+      totals,
+      shops
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '載入每日 LM 用量圖表失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
 app.get('/api/entry-billing-records', authenticateToken, requireRole('admin', 'shop', 'staff'), async (req, res) => {
   let conn;
   try {
