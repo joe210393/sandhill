@@ -402,10 +402,10 @@
     <!-- Sidebar -->
     <aside class="v2-sidebar" id="mainSidebar">
       <div class="v2-sidebar-label">遊戲內容</div>
-      <div class="v2-nav-item active" data-view="view-quest-chains" data-roles="admin">
+      <div class="v2-nav-item active" data-view="view-quest-chains" data-roles="admin,shop,staff">
         <span>🎯</span> 玩法入口管理
       </div>
-      <div class="v2-nav-item" data-view="view-assets" data-roles="admin">
+      <div class="v2-nav-item" data-view="view-assets" data-roles="admin,shop,staff">
         <span>🧊</span> 共用素材庫
       </div>
       <div class="v2-sidebar-label" style="margin-top:12px;">兌換營運</div>
@@ -454,6 +454,7 @@
             <button id="btnAddTile" class="btn-md btn-primary-v2" style="display:none;" onclick="openTileDrawerForCreate()">+ 新增格子</button>
           </div>
         </div>
+        <div id="questStructureLockBanner" style="display:none; background:#fff7ed; border:1px solid #fdba74; color:#9a3412; border-radius:10px; padding:12px 16px; margin-bottom:16px;"></div>
         <div class="detail-switch">
           <button id="detailModeListBtn" class="detail-switch-btn active" onclick="setDetailContentMode('list')">清單檢視</button>
           <button id="detailModeMapBtn" class="detail-switch-btn" onclick="setDetailContentMode('map')">主結構地圖</button>
@@ -659,12 +660,59 @@
       <div id="form-quest-chain" class="drawer-form-section" data-form-id="questChainForm">
         <form id="questChainForm" class="v2-form">
           <input type="hidden" name="id" id="qc_id">
+          <div id="questChainFormLockBanner" style="display:none; background:#fff7ed; border:1px solid #fdba74; color:#9a3412; border-radius:10px; padding:12px 16px; margin-bottom:16px;"></div>
+          <div class="locked-field" id="questChainCommercialSummary">
+            <div class="locked-field-label">商業設定摘要</div>
+            <div class="locked-field-value" id="questChainCommercialSummaryText">建立入口前，先指定商家與方案。</div>
+          </div>
           <div class="form-group">
             <label class="form-label">入口模式</label>
             <select class="form-select" name="mode_type">
               <option value="story_campaign">劇情主線</option>
               <option value="board_game">大富翁模式</option>
             </select>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">所屬商家</label>
+              <select class="form-select" name="shop_id" id="questChainShopSelect" required>
+                <option value="">-- 請選擇商家 --</option>
+              </select>
+              <div class="form-hint" id="questChainShopHint">入口、商品、coupon 與 LM 用量都會歸屬在這個商家底下。</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">入口方案</label>
+              <select class="form-select" name="plan_id" id="questChainPlanSelect" required>
+                <option value="">-- 請選擇方案 --</option>
+              </select>
+              <div class="form-hint" id="questChainPlanHint">每個入口都需要綁定一種關卡上限方案。</div>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">關卡上限</label>
+              <input class="form-input" type="number" name="task_limit" id="questChainTaskLimitInput" readonly>
+              <div class="form-hint">依方案自動帶入，發布後不建議變更。</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">一次性建置費</label>
+              <input class="form-input" type="number" name="setup_fee" id="questChainSetupFeeInput" readonly>
+              <div class="form-hint">入口建立時記錄一次，後續文字與素材修改不再重複收費。</div>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" name="setup_fee_paid" value="1" style="width:16px; height:16px;">
+                <span style="font-size:0.9rem;">已完成建置費收款</span>
+              </label>
+            </div>
+            <div class="form-group">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" name="monthly_billing_enabled" value="1" checked style="width:16px; height:16px;">
+                <span style="font-size:0.9rem;">啟用每月 LM token 計費</span>
+              </label>
+            </div>
           </div>
           <div class="form-group">
             <label class="form-label">入口標題</label>
@@ -721,8 +769,9 @@
           <div class="form-group">
             <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
               <input type="checkbox" name="is_active" value="1" checked style="width:16px; height:16px;">
-              <span style="font-size:0.9rem;">建立後立即開放</span>
+              <span style="font-size:0.9rem;">建立後立即開放並鎖定結構</span>
             </label>
+            <div class="form-hint">若先取消勾選，代表先以草稿方式建置；一旦開放，後續只能修改文案與素材。</div>
           </div>
           <div id="questChainFormMsg" class="inline-form-msg"></div>
         </form>
@@ -733,6 +782,7 @@
         <form id="taskForm" class="v2-form">
           <input type="hidden" name="id" id="task_id">
           <input type="hidden" name="quest_chain_id" id="task_quest_chain_id">
+          <div id="taskStructureLockBanner" style="display:none; background:#fff7ed; border:1px solid #fdba74; color:#9a3412; border-radius:10px; padding:12px 16px; margin-bottom:16px;"></div>
 
           <div class="wizard-shell">
             <div class="wizard-steps" id="taskWizardSteps">
@@ -903,9 +953,9 @@
           <div class="form-group">
             <label class="form-label">提交類型</label>
             <select name="task_type" id="taskTypeSelect" class="form-select">
-              <option value="qa">問答題 (人工審核)</option>
+              <option value="qa">問答題 (AI 文字判定)</option>
               <option value="multiple_choice">選擇題 (自動驗證)</option>
-              <option value="photo">拍照/上傳 (人工審核)</option>
+              <option value="photo">拍照/上傳 (AI 自動判定)</option>
               <option value="number">數字解謎 (自動驗證)</option>
               <option value="keyword">關鍵字解碼 (自動驗證)</option>
               <option value="location">地理打卡 (自動驗證)</option>
@@ -946,8 +996,9 @@
           <div class="form-group">
             <label class="form-label">驗證模式</label>
             <select name="validation_mode" id="validationModeSelect" class="form-select">
-              <option value="manual">人工審核</option>
+              <option value="auto">系統自動判定</option>
               <option value="keyword">文字關鍵字驗證</option>
+              <option value="ai_text_check">AI 文字判定</option>
               <option value="ai_count">AI 數量判斷</option>
               <option value="ai_identify">AI 指定物辨識</option>
               <option value="ai_score">AI 圖像評分</option>

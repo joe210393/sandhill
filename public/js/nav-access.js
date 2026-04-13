@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
     hide(navUserTasks);
     showLinks(mapLinks, true);
     if (navStaff) {
-      navStaff.href = '/staff-dashboard.html#review';
+      navStaff.href = '/staff-dashboard.html#quests';
       navStaff.textContent = '管理控制台';
       show(navStaff);
     }

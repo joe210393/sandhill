@@ -173,6 +173,8 @@ if (!SKIP_DB) {
 
 const ALLOWED_TASK_TYPES = ['qa', 'multiple_choice', 'photo', 'number', 'keyword', 'location'];
 const AI_VALIDATION_MODES = ['ai_count', 'ai_identify', 'ai_score', 'ai_rule_check', 'ai_reference_match'];
+const TEXT_AI_VALIDATION_MODES = ['ai_text_check'];
+const SYSTEM_VALIDATION_MODES = ['auto', 'keyword'];
 
 function parseJsonField(value, fallback = null) {
   if (value === undefined || value === null || value === '') return fallback;
@@ -226,6 +228,16 @@ function sanitizeQuestChainRow(row) {
   if (!row) return row;
   return {
     ...row,
+    id: row.id == null ? null : Number(row.id),
+    shop_id: row.shop_id == null ? null : Number(row.shop_id),
+    plan_id: row.plan_id == null ? null : Number(row.plan_id),
+    task_limit: row.task_limit == null ? null : Number(row.task_limit),
+    setup_fee: row.setup_fee == null ? 0 : Number(row.setup_fee),
+    chain_points: row.chain_points == null ? 0 : Number(row.chain_points),
+    lm_total_tokens: row.lm_total_tokens == null ? 0 : Number(row.lm_total_tokens),
+    current_billing_month_tokens: row.current_billing_month_tokens == null ? 0 : Number(row.current_billing_month_tokens),
+    setup_fee_paid: Boolean(row.setup_fee_paid),
+    monthly_billing_enabled: row.monthly_billing_enabled == null ? true : Boolean(row.monthly_billing_enabled),
     title: row.title || row.name || '',
     access_mode: normalizeAccessMode(row.access_mode),
     experience_mode: normalizeExperienceMode(row.experience_mode, row),
@@ -233,6 +245,25 @@ function sanitizeQuestChainRow(row) {
     game_rules: parseJsonField(row.game_rules, null),
     content_blueprint: parseJsonField(row.content_blueprint, null)
   };
+}
+
+function sanitizeShopRow(row) {
+  if (!row) return row;
+  return {
+    ...row,
+    id: row.id == null ? null : Number(row.id),
+    is_active: row.status ? row.status === 'active' : true
+  };
+}
+
+function buildShopCode(seed) {
+  const normalized = String(seed || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32);
+  return normalized || `shop-${Date.now().toString(36)}`;
 }
 
 function normalizeAccessMode(value) {
@@ -586,15 +617,30 @@ async function updateDynamicRecord(conn, tableName, id, record) {
 }
 
 function prepareTaskValidationSettings(body = {}) {
-  const validationModeInput = normalizeNullableString(body.validation_mode) || 'manual';
-  const isAiMode = AI_VALIDATION_MODES.includes(validationModeInput);
-  const validationMode = isAiMode || ['manual', 'keyword'].includes(validationModeInput)
-    ? validationModeInput
-    : 'manual';
-  const submissionType = isAiMode ? 'image' : (body.submission_type === 'image' ? 'image' : 'answer');
-  const taskType = isAiMode
-    ? 'photo'
-    : (ALLOWED_TASK_TYPES.includes(body.task_type) ? body.task_type : 'qa');
+  const requestedTaskType = ALLOWED_TASK_TYPES.includes(body.task_type) ? body.task_type : 'qa';
+  const validationModeInput = normalizeNullableString(body.validation_mode) || 'auto';
+  let validationMode = validationModeInput;
+
+  if (validationMode === 'manual') {
+    if (requestedTaskType === 'photo') validationMode = 'ai_rule_check';
+    else if (requestedTaskType === 'qa') validationMode = 'ai_text_check';
+    else if (requestedTaskType === 'keyword') validationMode = 'keyword';
+    else validationMode = 'auto';
+  }
+
+  const isImageAiMode = AI_VALIDATION_MODES.includes(validationMode);
+  const isTextAiMode = TEXT_AI_VALIDATION_MODES.includes(validationMode);
+  const isAiMode = isImageAiMode || isTextAiMode;
+
+  if (!isAiMode && !SYSTEM_VALIDATION_MODES.includes(validationMode)) {
+    if (requestedTaskType === 'photo') validationMode = 'ai_rule_check';
+    else if (requestedTaskType === 'qa') validationMode = 'ai_text_check';
+    else if (requestedTaskType === 'keyword') validationMode = 'keyword';
+    else validationMode = 'auto';
+  }
+
+  const submissionType = isImageAiMode ? 'image' : 'answer';
+  const taskType = isImageAiMode ? 'photo' : requestedTaskType;
 
   const rawAiConfig = parseJsonField(body.ai_config, null) || {};
   const rawPassCriteria = parseJsonField(body.pass_criteria, null) || {};
@@ -617,7 +663,8 @@ function prepareTaskValidationSettings(body = {}) {
   const aiConfig = {
     system_prompt: normalizeNullableString(rawAiConfig.system_prompt),
     user_prompt: normalizeNullableString(rawAiConfig.user_prompt),
-    target_label: normalizeNullableString(rawAiConfig.target_label)
+    target_label: normalizeNullableString(rawAiConfig.target_label),
+    answer_guardrails: normalizeNullableString(rawAiConfig.answer_guardrails)
   };
 
   const passCriteria = {
@@ -636,6 +683,10 @@ function prepareTaskValidationSettings(body = {}) {
 
   if (!aiConfig.user_prompt) {
     throw new Error('AI 任務必須設定 AI 使用者提示詞');
+  }
+
+  if (isTextAiMode && taskType !== 'qa') {
+    throw new Error('AI 文字判定目前僅支援問答題型');
   }
 
   if (validationMode === 'ai_count') {
@@ -696,7 +747,9 @@ function generateToken(user) {
     {
       id: user.id,
       username: user.username,
-      role: user.role
+      role: user.role,
+      shop_id: user.shop_id || null,
+      shop_name: user.shop_name || null
     },
     FINAL_JWT_SECRET,
     { expiresIn: JWT_EXPIRE }
@@ -750,8 +803,367 @@ function verifyToken(token) {
   }
 }
 
+async function loadUserAuthContextByUsername(username) {
+  if (SKIP_DB || !pool || !username) return null;
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [rows] = await conn.execute(
+      `SELECT u.id, u.username, u.role, u.shop_id, u.managed_by, u.created_by,
+              u.shop_name AS legacy_shop_name, u.shop_address AS legacy_shop_address, u.shop_description AS legacy_shop_description,
+              s.name AS shop_name, s.address AS shop_address, s.description AS shop_description, s.status AS shop_status
+       FROM users u
+       LEFT JOIN shops s ON s.id = u.shop_id
+       WHERE u.username = ?
+       LIMIT 1`,
+      [username]
+    );
+    if (!rows.length) return null;
+    const row = rows[0];
+    return {
+      id: Number(row.id),
+      username: row.username,
+      role: row.role,
+      shop_id: row.shop_id == null ? null : Number(row.shop_id),
+      managed_by: row.managed_by || null,
+      created_by: row.created_by || null,
+      shop_name: row.shop_name || row.legacy_shop_name || null,
+      shop_address: row.shop_address || row.legacy_shop_address || null,
+      shop_description: row.shop_description || row.legacy_shop_description || null,
+      shop_status: row.shop_status || null
+    };
+  } finally {
+    if (conn) conn.release();
+  }
+}
+
+function actorHasShopScope(actor) {
+  return actor?.role === 'shop' || actor?.role === 'staff';
+}
+
+function getActorShopId(actor) {
+  return actor?.shop_id == null ? null : Number(actor.shop_id);
+}
+
+function actorCanAccessShop(actor, shopId) {
+  if (actor?.role === 'admin') return true;
+  const actorShopId = getActorShopId(actor);
+  return Number.isFinite(actorShopId) && Number(actorShopId) === Number(shopId);
+}
+
+function assertActorHasShopScope(actor) {
+  const shopId = getActorShopId(actor);
+  if (!actorHasShopScope(actor) || !Number.isFinite(shopId) || shopId <= 0) {
+    const err = new Error('此帳號尚未綁定商家範圍');
+    err.statusCode = 403;
+    throw err;
+  }
+  return shopId;
+}
+
+async function ensureShopExists(conn, shopId) {
+  const numericShopId = Number(shopId);
+  if (!Number.isFinite(numericShopId) || numericShopId <= 0) {
+    const err = new Error('無效的 shop_id');
+    err.statusCode = 400;
+    throw err;
+  }
+  const [rows] = await conn.execute('SELECT * FROM shops WHERE id = ? LIMIT 1', [numericShopId]);
+  if (!rows.length) {
+    const err = new Error('找不到指定商家');
+    err.statusCode = 404;
+    throw err;
+  }
+  return sanitizeShopRow(rows[0]);
+}
+
+async function resolveActorShopId(conn, actor, explicitShopId = null) {
+  if (actor?.role === 'admin') {
+    if (explicitShopId == null || String(explicitShopId).trim() === '') return null;
+    const shop = await ensureShopExists(conn, explicitShopId);
+    return shop.id;
+  }
+  return assertActorHasShopScope(actor);
+}
+
+async function getQuestChainById(conn, questChainId) {
+  const [rows] = await conn.execute('SELECT * FROM quest_chains WHERE id = ? LIMIT 1', [questChainId]);
+  return rows[0] ? sanitizeQuestChainRow(rows[0]) : null;
+}
+
+async function assertQuestChainAccess(conn, actor, questChainId, { allowAdmin = true } = {}) {
+  const chain = await getQuestChainById(conn, questChainId);
+  if (!chain) {
+    const err = new Error('找不到此玩法入口');
+    err.statusCode = 404;
+    throw err;
+  }
+  if (allowAdmin && actor?.role === 'admin') return chain;
+  if (!actorCanAccessShop(actor, chain.shop_id)) {
+    const err = new Error('無權限存取此玩法入口');
+    err.statusCode = 403;
+    throw err;
+  }
+  return chain;
+}
+
+function isQuestChainStructureLocked(chain) {
+  if (!chain) return false;
+  return Boolean(chain.structure_locked_at) || Boolean(chain.is_active);
+}
+
+function resolveQuestChainStructureLockedAt(chain) {
+  if (!chain) return null;
+  return chain.structure_locked_at || (isQuestChainStructureLocked(chain) ? new Date() : null);
+}
+
+function createStructureLockedError(scopeLabel = '此玩法入口') {
+  const err = new Error(`${scopeLabel}已發布，核心結構已鎖定；目前只能調整文案與素材`);
+  err.statusCode = 409;
+  err.code = 'STRUCTURE_LOCKED';
+  return err;
+}
+
+async function assertQuestChainStructureUnlocked(conn, actor, questChainId, scopeLabel = '此玩法入口') {
+  const chain = await assertQuestChainAccess(conn, actor, questChainId);
+  if (isQuestChainStructureLocked(chain)) {
+    throw createStructureLockedError(scopeLabel);
+  }
+  return chain;
+}
+
+const TASK_STRUCTURE_BOOLEAN_FIELDS = new Set(['location_required', 'is_final_step']);
+
+function normalizeStructureComparableValue(value, field = null) {
+  if (field && TASK_STRUCTURE_BOOLEAN_FIELDS.has(field)) {
+    if (value === undefined || value === null || value === '') return false;
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value !== 0;
+    if (typeof value === 'string') {
+      const trimmed = value.trim().toLowerCase();
+      if (trimmed === '' || trimmed === '0' || trimmed === 'false' || trimmed === 'null') return false;
+      if (trimmed === '1' || trimmed === 'true') return true;
+    }
+  }
+
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === '') return null;
+    if (trimmed === 'true') return true;
+    if (trimmed === 'false') return false;
+    if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) {
+      const numeric = Number(trimmed);
+      return Number.isFinite(numeric) ? numeric : trimmed;
+    }
+    return trimmed;
+  }
+  return JSON.stringify(value);
+}
+
+const TASK_STRUCTURE_LOCKED_FIELDS = [
+  'lat',
+  'lng',
+  'radius',
+  'points',
+  'task_type',
+  'options',
+  'correct_answer',
+  'submission_type',
+  'validation_mode',
+  'ai_config',
+  'pass_criteria',
+  'max_attempts',
+  'location_required',
+  'type',
+  'quest_chain_id',
+  'quest_order',
+  'time_limit_start',
+  'time_limit_end',
+  'max_participants',
+  'required_item_id',
+  'reward_item_id',
+  'is_final_step',
+  'ar_model_id',
+  'ar_order_model',
+  'ar_order_image',
+  'ar_order_youtube'
+];
+
+function getLockedTaskStructureChanges(existingTask, nextTaskRecord = {}) {
+  return TASK_STRUCTURE_LOCKED_FIELDS.filter((field) => {
+    if (!(field in nextTaskRecord)) return false;
+    const prev = normalizeStructureComparableValue(existingTask?.[field], field);
+    const next = normalizeStructureComparableValue(nextTaskRecord[field], field);
+    return prev !== next;
+  });
+}
+
+const QUEST_CHAIN_STRUCTURE_LOCKED_FIELDS = [
+  'chain_points',
+  'mode_type',
+  'entry_order',
+  'access_mode',
+  'experience_mode',
+  'play_style',
+  'game_rules',
+  'content_blueprint'
+];
+
+function getLockedQuestChainStructureChanges(existingChain, nextChainRecord = {}) {
+  return QUEST_CHAIN_STRUCTURE_LOCKED_FIELDS.filter((field) => {
+    if (!(field in nextChainRecord)) return false;
+    const prev = normalizeStructureComparableValue(existingChain?.[field], field);
+    const next = normalizeStructureComparableValue(nextChainRecord[field], field);
+    return prev !== next;
+  });
+}
+
+async function getTaskByIdForScope(conn, taskId) {
+  const [rows] = await conn.execute('SELECT * FROM tasks WHERE id = ? LIMIT 1', [taskId]);
+  return rows[0] ? sanitizeTaskRow(rows[0]) : null;
+}
+
+async function assertTaskAccess(conn, actor, taskId, { allowAdmin = true } = {}) {
+  const task = await getTaskByIdForScope(conn, taskId);
+  if (!task) {
+    const err = new Error('找不到此任務');
+    err.statusCode = 404;
+    throw err;
+  }
+  if (allowAdmin && actor?.role === 'admin') return task;
+  if (!actorCanAccessShop(actor, task.shop_id)) {
+    const err = new Error('無權限存取此任務');
+    err.statusCode = 403;
+    throw err;
+  }
+  return task;
+}
+
+async function getProductByIdForScope(conn, productId) {
+  const [rows] = await conn.execute('SELECT * FROM products WHERE id = ? LIMIT 1', [productId]);
+  return rows[0] || null;
+}
+
+async function assertProductAccess(conn, actor, productId, { allowAdmin = true } = {}) {
+  const product = await getProductByIdForScope(conn, productId);
+  if (!product) {
+    const err = new Error('找不到此商品');
+    err.statusCode = 404;
+    throw err;
+  }
+  if (allowAdmin && actor?.role === 'admin') return product;
+  if (!actorCanAccessShop(actor, product.shop_id)) {
+    const err = new Error('無權限存取此商品');
+    err.statusCode = 403;
+    throw err;
+  }
+  return product;
+}
+
+async function getBoardMapByIdForScope(conn, boardMapId) {
+  const [rows] = await conn.execute('SELECT * FROM board_maps WHERE id = ? LIMIT 1', [boardMapId]);
+  return rows[0] ? sanitizeBoardMapRow(rows[0]) : null;
+}
+
+async function assertBoardMapAccess(conn, actor, boardMapId, { allowAdmin = true } = {}) {
+  const boardMap = await getBoardMapByIdForScope(conn, boardMapId);
+  if (!boardMap) {
+    const err = new Error('找不到此棋盤');
+    err.statusCode = 404;
+    throw err;
+  }
+  if (allowAdmin && actor?.role === 'admin') return boardMap;
+  if (!actorCanAccessShop(actor, boardMap.shop_id)) {
+    const err = new Error('無權限存取此棋盤');
+    err.statusCode = 403;
+    throw err;
+  }
+  return boardMap;
+}
+
+async function getBoardTileByIdForScope(conn, boardTileId) {
+  const [rows] = await conn.execute(
+    `SELECT bt.*, bm.shop_id
+     FROM board_tiles bt
+     INNER JOIN board_maps bm ON bm.id = bt.board_map_id
+     WHERE bt.id = ?
+     LIMIT 1`,
+    [boardTileId]
+  );
+  return rows[0] ? sanitizeBoardTileRow(rows[0]) : null;
+}
+
+async function assertBoardTileAccess(conn, actor, boardTileId, { allowAdmin = true } = {}) {
+  const boardTile = await getBoardTileByIdForScope(conn, boardTileId);
+  if (!boardTile) {
+    const err = new Error('找不到此格子');
+    err.statusCode = 404;
+    throw err;
+  }
+  if (allowAdmin && actor?.role === 'admin') return boardTile;
+  if (!actorCanAccessShop(actor, boardTile.shop_id)) {
+    const err = new Error('無權限存取此格子');
+    err.statusCode = 403;
+    throw err;
+  }
+  return boardTile;
+}
+
+async function recordLlmUsage(conn, task, userId, usage = {}, meta = {}) {
+  if (!conn || !task || !task.quest_chain_id) return;
+  const promptTokens = Number(usage.prompt_tokens || 0);
+  const completionTokens = Number(usage.completion_tokens || 0);
+  const totalTokens = Number(usage.total_tokens || (promptTokens + completionTokens) || 0);
+  if (!Number.isFinite(totalTokens) || totalTokens <= 0) return;
+  const shopId = Number(task.shop_id || 0) || null;
+  const billingMonth = new Date().toISOString().slice(0, 7);
+  await conn.execute(
+    `INSERT INTO llm_usage_logs
+      (shop_id, quest_chain_id, task_id, user_id, provider, model, request_type, prompt_tokens, completion_tokens, total_tokens, success, meta_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      shopId,
+      Number(task.quest_chain_id || 0) || null,
+      Number(task.id || 0) || null,
+      Number(userId || 0) || null,
+      'openai_compatible',
+      meta.model || null,
+      meta.request_type || task.validation_mode || 'unknown',
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      meta.success !== false,
+      JSON.stringify(meta || {})
+    ]
+  );
+  await conn.execute(
+    `UPDATE quest_chains
+        SET lm_total_prompt_tokens = COALESCE(lm_total_prompt_tokens, 0) + ?,
+            lm_total_completion_tokens = COALESCE(lm_total_completion_tokens, 0) + ?,
+            lm_total_tokens = COALESCE(lm_total_tokens, 0) + ?,
+            current_billing_month_tokens = COALESCE(current_billing_month_tokens, 0) + ?
+      WHERE id = ?`,
+    [promptTokens, completionTokens, totalTokens, totalTokens, task.quest_chain_id]
+  );
+  if (shopId) {
+    await conn.execute(
+      `INSERT INTO llm_usage_monthly_summary
+        (shop_id, quest_chain_id, billing_month, prompt_tokens, completion_tokens, total_tokens, estimated_amount, is_invoiced)
+       VALUES (?, ?, ?, ?, ?, ?, 0, FALSE)
+       ON DUPLICATE KEY UPDATE
+         prompt_tokens = prompt_tokens + VALUES(prompt_tokens),
+         completion_tokens = completion_tokens + VALUES(completion_tokens),
+         total_tokens = total_tokens + VALUES(total_tokens)`,
+      [shopId, Number(task.quest_chain_id || 0) || null, billingMonth, promptTokens, completionTokens, totalTokens]
+    );
+  }
+}
+
 // JWT 認證中間層
-function authenticateToken(req, res, next) {
+async function authenticateToken(req, res, next) {
   const token = req.cookies.token || req.headers.authorization?.replace('Bearer ', '');
 
   if (!token) {
@@ -763,8 +1175,22 @@ function authenticateToken(req, res, next) {
     return res.status(401).json({ success: false, message: '認證令牌無效或已過期' });
   }
 
+  if (!SKIP_DB && decoded.username) {
+    try {
+      const userContext = await loadUserAuthContextByUsername(decoded.username);
+      if (!userContext) {
+        return res.status(401).json({ success: false, message: '此帳號已不存在或無法使用' });
+      }
+      req.user = userContext;
+      return next();
+    } catch (err) {
+      console.error('載入登入者商家範圍失敗:', err);
+      return res.status(500).json({ success: false, message: '載入登入資訊失敗' });
+    }
+  }
+
   req.user = decoded;
-  next();
+  return next();
 }
 
 // 兼容性認證中間層 - 現在與 authenticateToken 功能完全相同
@@ -973,7 +1399,8 @@ app.post('/api/login', async (req, res) => {
       }
 
       // 生成 JWT token
-      const token = generateToken(users[0]);
+      const userContext = await loadUserAuthContextByUsername(users[0].username) || users[0];
+      const token = generateToken(userContext);
 
       // 設置 httpOnly cookie
       res.cookie('token', token, {
@@ -987,9 +1414,11 @@ app.post('/api/login', async (req, res) => {
 
       // 返回用戶信息（不包含敏感數據）
       const userResponse = {
-        id: users[0].id,
-        username: users[0].username,
-        role: users[0].role
+        id: userContext.id,
+        username: userContext.username,
+        role: userContext.role,
+        shop_id: userContext.shop_id || null,
+        shop_name: userContext.shop_name || null
       };
 
       res.json({ success: true, user: userResponse });
@@ -1082,7 +1511,7 @@ app.post('/api/register', async (req, res) => {
 
 // admin 建立 admin/shop 帳號（帳號密碼）
 app.post('/api/admin/accounts', authenticateToken, requireRole('admin'), async (req, res) => {
-  const { username, password, role } = req.body;
+  const { username, password, role, shop_name, contact_name, contact_phone, contact_email, shop_address, shop_description } = req.body;
   if (!username || !password || !role) {
     return res.status(400).json({ success: false, message: '缺少參數' });
   }
@@ -1096,11 +1525,43 @@ app.post('/api/admin/accounts', authenticateToken, requireRole('admin'), async (
     if (exist.length > 0) return res.status(400).json({ success: false, message: '帳號已存在' });
 
     const hashed = await bcrypt.hash(password, 10);
-    await conn.execute(
-      'INSERT INTO users (username, password, role, created_by) VALUES (?, ?, ?, ?)',
-      [username, hashed, role, req.user.username]
+    let shopId = null;
+    if (role === 'shop') {
+      const [shopInsert] = await conn.execute(
+        `INSERT INTO shops (code, name, owner_username, contact_name, contact_phone, contact_email, address, description, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+        [
+          buildShopCode(username),
+          normalizeNullableString(shop_name) || username,
+          username,
+          normalizeNullableString(contact_name) || normalizeNullableString(shop_name) || username,
+          normalizeNullableString(contact_phone),
+          normalizeNullableString(contact_email),
+          normalizeNullableString(shop_address),
+          normalizeNullableString(shop_description)
+        ]
+      );
+      shopId = shopInsert.insertId;
+    }
+    const [userInsert] = await conn.execute(
+      `INSERT INTO users
+        (username, password, role, shop_id, created_by, shop_name, shop_address, shop_description)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        username,
+        hashed,
+        role,
+        shopId,
+        req.user.username,
+        normalizeNullableString(shop_name),
+        normalizeNullableString(shop_address),
+        normalizeNullableString(shop_description)
+      ]
     );
-    res.json({ success: true, message: '建立成功' });
+    if (shopId) {
+      await conn.execute('UPDATE shops SET owner_username = ? WHERE id = ?', [username, shopId]);
+    }
+    res.json({ success: true, message: '建立成功', user_id: userInsert.insertId, shop_id: shopId });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: '伺服器錯誤' });
@@ -1111,21 +1572,31 @@ app.post('/api/admin/accounts', authenticateToken, requireRole('admin'), async (
 
 // admin/shop 指派 staff：指定人選需先註冊 user（手機門號）
 app.post('/api/staff/assign', authenticateToken, requireRole('admin', 'shop'), async (req, res) => {
-  const { username } = req.body;
+  const { username, shop_id } = req.body;
   if (!username) return res.status(400).json({ success: false, message: '缺少 username' });
   let conn;
   try {
     conn = await pool.getConnection();
+    const actor = req.user;
+    const targetShopId = actor.role === 'admin'
+      ? Number(shop_id || 0) || null
+      : assertActorHasShopScope(actor);
+    if (!targetShopId) {
+      return res.status(400).json({ success: false, message: 'admin 指派 staff 時必須指定 shop_id' });
+    }
+    await ensureShopExists(conn, targetShopId);
     const [rows] = await conn.execute('SELECT id, role FROM users WHERE username = ?', [username]);
     if (rows.length === 0) return res.status(404).json({ success: false, message: '找不到使用者' });
     const u = rows[0];
     if (u.role === 'admin' || u.role === 'shop') return res.status(400).json({ success: false, message: '不可將 admin/shop 指派為 staff' });
-    // 允許 user -> staff、或 staff 重新綁定（由 admin）
-    if (u.role === 'staff' && req.user.role !== 'admin') {
+    if (u.role === 'staff' && actor.role !== 'admin') {
       return res.status(403).json({ success: false, message: '此帳號已是 staff，僅 admin 可重新指派' });
     }
-    await conn.execute('UPDATE users SET role = ?, managed_by = ? WHERE id = ?', ['staff', req.user.username, u.id]);
-    res.json({ success: true, message: '已指派為 staff' });
+    await conn.execute(
+      'UPDATE users SET role = ?, managed_by = ?, shop_id = ? WHERE id = ?',
+      ['staff', req.user.username, targetShopId, u.id]
+    );
+    res.json({ success: true, message: '已指派為 staff', shop_id: targetShopId });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: '伺服器錯誤' });
@@ -1141,14 +1612,14 @@ app.post('/api/staff/revoke', authenticateToken, requireRole('admin', 'shop'), a
   let conn;
   try {
     conn = await pool.getConnection();
-    const [rows] = await conn.execute('SELECT id, role, managed_by FROM users WHERE username = ?', [username]);
+    const [rows] = await conn.execute('SELECT id, role, managed_by, shop_id FROM users WHERE username = ?', [username]);
     if (rows.length === 0) return res.status(404).json({ success: false, message: '找不到使用者' });
     const u = rows[0];
     if (u.role !== 'staff') return res.status(400).json({ success: false, message: '此帳號不是 staff' });
-    if (req.user.role === 'shop' && u.managed_by !== req.user.username) {
+    if (req.user.role === 'shop' && !actorCanAccessShop(req.user, u.shop_id)) {
       return res.status(403).json({ success: false, message: '無權限撤銷非本店 staff' });
     }
-    await conn.execute('UPDATE users SET role = ?, managed_by = NULL WHERE id = ?', ['user', u.id]);
+    await conn.execute('UPDATE users SET role = ?, managed_by = NULL, shop_id = NULL WHERE id = ?', ['user', u.id]);
     res.json({ success: true, message: '已撤銷 staff，恢復為一般用戶' });
   } catch (err) {
     console.error(err);
@@ -1187,33 +1658,105 @@ app.get('/api/shop/profile', authenticateToken, requireRole('shop', 'admin'), as
   let conn;
   try {
     conn = await pool.getConnection();
-    const [rows] = await conn.execute(
-      'SELECT username, role, shop_name, shop_address, shop_description FROM users WHERE username = ?',
-      [req.user.username]
-    );
-    if (rows.length === 0) return res.status(404).json({ success: false, message: '找不到帳號' });
-    res.json({ success: true, profile: rows[0] });
+    const resolvedShopId = await resolveActorShopId(conn, req.user, req.query.shop_id);
+    if (!resolvedShopId) {
+      return res.status(400).json({ success: false, message: '請指定要查看的 shop_id' });
+    }
+    const shop = await ensureShopExists(conn, resolvedShopId);
+    res.json({ success: true, profile: shop });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '伺服器錯誤' });
   } finally {
     if (conn) conn.release();
   }
 });
 
 app.put('/api/shop/profile', authenticateToken, requireRole('shop', 'admin'), async (req, res) => {
-  const { shop_name, shop_address, shop_description } = req.body;
+  const { shop_id, shop_name, shop_address, shop_description, contact_name, contact_phone, contact_email, status } = req.body;
   let conn;
   try {
     conn = await pool.getConnection();
+    const resolvedShopId = await resolveActorShopId(conn, req.user, shop_id);
+    if (!resolvedShopId) {
+      return res.status(400).json({ success: false, message: '請指定要更新的 shop_id' });
+    }
+    await ensureShopExists(conn, resolvedShopId);
     await conn.execute(
-      'UPDATE users SET shop_name = ?, shop_address = ?, shop_description = ? WHERE username = ?',
-      [shop_name || null, shop_address || null, shop_description || null, req.user.username]
+      `UPDATE shops
+          SET name = ?, address = ?, description = ?, contact_name = ?, contact_phone = ?, contact_email = ?,
+              status = COALESCE(?, status)
+        WHERE id = ?`,
+      [
+        normalizeNullableString(shop_name),
+        normalizeNullableString(shop_address),
+        normalizeNullableString(shop_description),
+        normalizeNullableString(contact_name),
+        normalizeNullableString(contact_phone),
+        normalizeNullableString(contact_email),
+        req.user.role === 'admin' ? normalizeNullableString(status) : null,
+        resolvedShopId
+      ]
     );
-    res.json({ success: true, message: '店家資訊已更新' });
+    await conn.execute(
+      `UPDATE users
+          SET shop_name = ?, shop_address = ?, shop_description = ?
+        WHERE shop_id = ? AND role = 'shop'`,
+      [
+        normalizeNullableString(shop_name),
+        normalizeNullableString(shop_address),
+        normalizeNullableString(shop_description),
+        resolvedShopId
+      ]
+    );
+    res.json({ success: true, message: '店家資訊已更新', shop_id: resolvedShopId });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.get('/api/shops', authenticateToken, requireRole('admin', 'shop', 'staff'), async (req, res) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const actorShopId = req.user?.role === 'admin' ? null : assertActorHasShopScope(req.user);
+    const [rows] = await conn.execute(
+      `SELECT s.*,
+              owner.username AS owner_username,
+              (SELECT COUNT(*) FROM users staff WHERE staff.shop_id = s.id AND staff.role = 'staff') AS staff_count,
+              (SELECT COUNT(*) FROM quest_chains qc WHERE qc.shop_id = s.id) AS quest_chain_count
+       FROM shops s
+       LEFT JOIN users owner ON owner.shop_id = s.id AND owner.role = 'shop'
+       WHERE (? = 'admin' OR s.id = ?)
+       ORDER BY s.created_at DESC, s.id DESC`,
+      [req.user?.role || '', actorShopId]
+    );
+    res.json({ success: true, shops: rows.map((row) => sanitizeShopRow(row)) });
+  } catch (err) {
+    console.error(err);
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '載入商家列表失敗' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.get('/api/entry-plans', authenticateToken, requireRole('admin', 'shop', 'staff'), async (req, res) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const includeInactive = req.user?.role === 'admin' && req.query.include_inactive === '1';
+    const [rows] = await conn.execute(
+      `SELECT * FROM entry_plans
+       ${includeInactive ? '' : 'WHERE is_active = TRUE'}
+       ORDER BY task_limit ASC, id ASC`
+    );
+    res.json({ success: true, plans: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '載入方案列表失敗' });
   } finally {
     if (conn) conn.release();
   }
@@ -1251,20 +1794,16 @@ app.get('/api/tasks/admin', authenticateToken, requireRole('shop', 'admin'), asy
   let conn;
   try {
     conn = await pool.getConnection();
-    const username = req.user.username;
     const userRole = req.user.role;
-
-    let query, params;
-
-    if (userRole === 'admin') {
-      // 管理員可以看到所有任務
-      query = 'SELECT * FROM tasks ORDER BY id DESC';
-      params = [];
-    } else {
-      // 商店只能看到自己創建的任務
-      query = 'SELECT * FROM tasks WHERE created_by = ? ORDER BY id DESC';
-      params = [username];
+    const actorShopId = getActorShopId(req.user);
+    let query = 'SELECT * FROM tasks';
+    let params = [];
+    if (userRole !== 'admin') {
+      assertActorHasShopScope(req.user);
+      query += ' WHERE shop_id = ?';
+      params.push(actorShopId);
     }
+    query += ' ORDER BY id DESC';
 
     const [rows] = await conn.execute(query, params);
     res.json({ success: true, tasks: rows.map(sanitizeTaskRow), userRole });
@@ -1283,18 +1822,28 @@ app.get('/api/quest-chains', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const { username, role } = req.user || {};
-    // admin 看全部；shop 只看自己建立的劇情
-    const [rows] = await conn.execute(
-      role === 'admin'
-        ? 'SELECT * FROM quest_chains ORDER BY id DESC'
-        : 'SELECT * FROM quest_chains WHERE created_by = ? ORDER BY id DESC',
-      role === 'admin' ? [] : [username]
-    );
+    const { role } = req.user || {};
+    const actorShopId = getActorShopId(req.user);
+    let query = `
+      SELECT qc.*,
+             s.name AS shop_name,
+             ep.name AS plan_name
+      FROM quest_chains qc
+      LEFT JOIN shops s ON s.id = qc.shop_id
+      LEFT JOIN entry_plans ep ON ep.id = qc.plan_id
+    `;
+    let params = [];
+    if (role !== 'admin') {
+      assertActorHasShopScope(req.user);
+      query += ' WHERE qc.shop_id = ?';
+      params.push(actorShopId);
+    }
+    query += ' ORDER BY qc.id DESC';
+    const [rows] = await conn.execute(query, params);
     res.json({ success: true, questChains: rows.map(sanitizeQuestChainRow) });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '伺服器錯誤' });
   } finally {
     if (conn) conn.release();
   }
@@ -1306,11 +1855,13 @@ app.post('/api/quest-chains', staffOrAdminAuth, uploadImage.single('badge_image'
     title, description, chain_points, badge_name,
     mode_type, is_active, cover_image_url, short_description,
     entry_order, entry_button_text, entry_scene_label, play_style, experience_mode, access_mode,
-    game_rules, content_blueprint
+    game_rules, content_blueprint,
+    shop_id, plan_id, task_limit, setup_fee, setup_fee_paid, monthly_billing_enabled, structure_locked_at
   } = req.body;
   if (!title) return res.status(400).json({ success: false, message: '缺少標題' });
+  if (!plan_id) return res.status(400).json({ success: false, message: '建立玩法入口時必須選擇入口方案' });
 
-  const creator = req.user?.username || req.user?.username;
+  const creator = req.user?.username || null;
   
   // 處理上傳的圖片
   let badge_image = null;
@@ -1324,7 +1875,26 @@ app.post('/api/quest-chains', staffOrAdminAuth, uploadImage.single('badge_image'
   let conn;
   try {
     conn = await pool.getConnection();
+    const resolvedShopId = await resolveActorShopId(conn, req.user, shop_id);
+    if (!resolvedShopId) {
+      return res.status(400).json({ success: false, message: '建立玩法入口時必須指定 shop_id' });
+    }
+    let selectedPlan = null;
+    if (plan_id) {
+      const [planRows] = await conn.execute('SELECT * FROM entry_plans WHERE id = ? LIMIT 1', [Number(plan_id)]);
+      if (!planRows.length) {
+        return res.status(404).json({ success: false, message: '找不到指定方案' });
+      }
+      selectedPlan = planRows[0];
+    }
+    const resolvedTaskLimit = task_limit ? Number(task_limit) : (selectedPlan ? Number(selectedPlan.task_limit || 0) || null : null);
+    const resolvedSetupFee = setup_fee != null && String(setup_fee).trim() !== ''
+      ? Number(setup_fee)
+      : Number(selectedPlan?.setup_fee || 0);
     const questChainColumns = await getTableColumnSet(conn, 'quest_chains');
+    const resolvedStructureLockedAt = normalizeBoolean(is_active)
+      ? (normalizeNullableString(structure_locked_at) || new Date())
+      : normalizeNullableString(structure_locked_at);
     const questChainRecord = {
       title,
       name: title,
@@ -1333,6 +1903,13 @@ app.post('/api/quest-chains', staffOrAdminAuth, uploadImage.single('badge_image'
       badge_name: badge_name || null,
       badge_image: badge_image || null,
       created_by: creator,
+      shop_id: resolvedShopId,
+      plan_id: plan_id ? Number(plan_id) : null,
+      task_limit: resolvedTaskLimit,
+      setup_fee: resolvedSetupFee,
+      setup_fee_paid: normalizeBoolean(setup_fee_paid),
+      monthly_billing_enabled: monthly_billing_enabled == null ? true : normalizeBoolean(monthly_billing_enabled),
+      structure_locked_at: resolvedStructureLockedAt,
       mode_type: normalizeNullableString(mode_type) || 'story_campaign',
       is_active: normalizeBoolean(is_active),
       cover_image: badge_image || null,
@@ -1350,10 +1927,26 @@ app.post('/api/quest-chains', staffOrAdminAuth, uploadImage.single('badge_image'
       Object.entries(questChainRecord).filter(([column]) => questChainColumns.has(column))
     );
     const [insertHeader] = await insertDynamicRecord(conn, 'quest_chains', filteredRecord);
+    if (resolvedShopId && (selectedPlan || resolvedSetupFee > 0)) {
+      await conn.execute(
+        `INSERT INTO entry_billing_records
+          (quest_chain_id, shop_id, plan_id, billing_type, amount, status, paid_at, note)
+         VALUES (?, ?, ?, 'setup_fee', ?, ?, ?, ?)`,
+        [
+          insertHeader.insertId,
+          resolvedShopId,
+          selectedPlan ? Number(selectedPlan.id) : null,
+          resolvedSetupFee,
+          normalizeBoolean(setup_fee_paid) ? 'paid' : 'pending',
+          normalizeBoolean(setup_fee_paid) ? new Date() : null,
+          selectedPlan ? `${selectedPlan.name || '入口方案'} 建置費` : '玩法入口建置費'
+        ]
+      );
+    }
     res.json({ success: true, message: '劇情建立成功', id: insertHeader.insertId });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '伺服器錯誤' });
   } finally {
     if (conn) conn.release();
   }
@@ -1373,17 +1966,8 @@ app.put('/api/quest-chains/:id', staffOrAdminAuth, uploadImage.single('badge_ima
   let conn;
   try {
     conn = await pool.getConnection();
-    const username = req.user?.username || null;
-    const role = req.user?.role || null;
-    const [rows] = await conn.execute('SELECT * FROM quest_chains WHERE id = ? LIMIT 1', [id]);
-    if (!rows.length) {
-      return res.status(404).json({ success: false, message: '找不到此玩法入口' });
-    }
-
-    const chain = rows[0];
-    if (role !== 'admin' && chain.created_by !== username) {
-      return res.status(403).json({ success: false, message: '無權限編輯此玩法入口' });
-    }
+    const chain = await assertQuestChainAccess(conn, req.user, id);
+    const chainLockActive = isQuestChainStructureLocked(chain);
 
     let badge_image = chain.badge_image || chain.cover_image || null;
     if (req.file) {
@@ -1393,6 +1977,7 @@ app.put('/api/quest-chains/:id', staffOrAdminAuth, uploadImage.single('badge_ima
     }
 
     const questChainColumns = await getTableColumnSet(conn, 'quest_chains');
+    const resolvedStructureLockedAt = chain.structure_locked_at || (normalizeBoolean(is_active) ? new Date() : null);
     const questChainRecord = {
       title,
       name: title,
@@ -1400,6 +1985,13 @@ app.put('/api/quest-chains/:id', staffOrAdminAuth, uploadImage.single('badge_ima
       chain_points: chain_points || 0,
       badge_name: badge_name || null,
       badge_image: badge_image || null,
+      shop_id: chain.shop_id || null,
+      plan_id: chain.plan_id || null,
+      task_limit: chain.task_limit || null,
+      setup_fee: chain.setup_fee || 0,
+      setup_fee_paid: chain.setup_fee_paid,
+      monthly_billing_enabled: chain.monthly_billing_enabled,
+      structure_locked_at: resolvedStructureLockedAt,
       mode_type: normalizeNullableString(mode_type) || 'story_campaign',
       is_active: normalizeBoolean(is_active),
       cover_image: badge_image || null,
@@ -1416,11 +2008,22 @@ app.put('/api/quest-chains/:id', staffOrAdminAuth, uploadImage.single('badge_ima
     const filteredRecord = Object.fromEntries(
       Object.entries(questChainRecord).filter(([column]) => questChainColumns.has(column))
     );
+    if (chainLockActive) {
+      const changedFields = getLockedQuestChainStructureChanges(chain, filteredRecord);
+      if (changedFields.length) {
+        return res.status(409).json({
+          success: false,
+          code: 'QUEST_CHAIN_STRUCTURE_LOCKED',
+          message: '此入口已發布，入口核心結構已鎖定；目前只能修改文案、素材與營運狀態',
+          locked_fields: changedFields
+        });
+      }
+    }
     await updateDynamicRecord(conn, 'quest_chains', id, filteredRecord);
     res.json({ success: true, message: '玩法入口更新成功' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '伺服器錯誤' });
   } finally {
     if (conn) conn.release();
   }
@@ -1528,24 +2131,11 @@ app.get('/api/quest-chains/:id/public-content', async (req, res) => {
 // 後台：刪除玩法入口前的影響範圍
 app.get('/api/quest-chains/:id/delete-impact', staffOrAdminAuth, async (req, res) => {
   const { id } = req.params;
-  const username = req.user?.username || null;
-  const userRole = req.user?.role || null;
 
   let conn;
   try {
     conn = await pool.getConnection();
-    const [questRows] = await conn.execute(
-      'SELECT id, title, name, created_by, mode_type FROM quest_chains WHERE id = ? LIMIT 1',
-      [id]
-    );
-    if (!questRows.length) {
-      return res.status(404).json({ success: false, message: '找不到此玩法入口' });
-    }
-
-    const questChain = sanitizeQuestChainRow(questRows[0]);
-    if (userRole !== 'admin' && questChain.created_by !== username) {
-      return res.status(403).json({ success: false, message: '無權限查看此玩法入口' });
-    }
+    const questChain = await assertQuestChainAccess(conn, req.user, id);
 
     const [taskRows] = await conn.execute(
       'SELECT id, name, quest_order, task_type, validation_mode FROM tasks WHERE quest_chain_id = ? ORDER BY COALESCE(quest_order, 9999), id ASC',
@@ -1591,7 +2181,7 @@ app.get('/api/quest-chains/:id/delete-impact', staffOrAdminAuth, async (req, res
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '載入刪除影響範圍失敗' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '載入刪除影響範圍失敗' });
   } finally {
     if (conn) conn.release();
   }
@@ -1606,7 +2196,7 @@ app.get('/api/quest-chains/:id/structure-map', staffOrAdminAuth, async (req, res
     const [questRows] = await conn.execute(
       `SELECT id, title, name, short_description, description, mode_type, experience_mode, play_style,
               badge_name, badge_image, cover_image, chain_points, is_active,
-              game_rules, content_blueprint, created_by
+              game_rules, content_blueprint, created_by, shop_id
        FROM quest_chains
        WHERE id = ?
        LIMIT 1`,
@@ -1617,6 +2207,9 @@ app.get('/api/quest-chains/:id/structure-map', staffOrAdminAuth, async (req, res
     }
 
     const questChain = sanitizeQuestChainRow(questRows[0]);
+    if (req.user?.role !== 'admin' && !actorCanAccessShop(req.user, questChain.shop_id)) {
+      return res.status(403).json({ success: false, message: '無權限查看此玩法入口結構' });
+    }
     const [taskRows] = await conn.execute(
       `SELECT t.*,
               req_item.name AS required_item_name,
@@ -1674,7 +2267,7 @@ app.get('/api/quest-chains/:id/structure-map', staffOrAdminAuth, async (req, res
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '載入結構地圖失敗' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '載入結構地圖失敗' });
   } finally {
     if (conn) conn.release();
   }
@@ -1690,7 +2283,7 @@ app.get('/api/board-maps/by-quest-chain/:questChainId', async (req, res) => {
   try {
     conn = await pool.getConnection();
     const [questRows] = await conn.execute(
-      `SELECT id, title, name, short_description, description, mode_type, experience_mode, play_style, game_rules, content_blueprint, is_active
+      `SELECT id, title, name, short_description, description, mode_type, experience_mode, play_style, game_rules, content_blueprint, is_active, shop_id
        FROM quest_chains
        WHERE id = ?
        LIMIT 1`,
@@ -1701,6 +2294,9 @@ app.get('/api/board-maps/by-quest-chain/:questChainId', async (req, res) => {
       return res.status(404).json({ success: false, message: '找不到對應的玩法入口' });
     }
     const sanitizedQuestChain = sanitizeQuestChainRow(questChain);
+    if (previewMode && previewUser?.role !== 'admin' && !actorCanAccessShop(previewUser, sanitizedQuestChain.shop_id)) {
+      return res.status(403).json({ success: false, message: '無權限預覽其他商家的玩法入口' });
+    }
     if (sanitizedQuestChain.access_mode === 'coupon' && !canPreviewInactive) {
       const userId = previewUser?.username ? await getUserIdByUsername(conn, previewUser.username) : null;
       const allowed = await hasQuestChainCouponAccess(conn, userId, Number(questChainId));
@@ -1760,6 +2356,7 @@ app.get('/api/board-maps/for-admin/:questChainId', staffOrAdminAuth, async (req,
   let conn;
   try {
     conn = await pool.getConnection();
+    await assertQuestChainAccess(conn, req.user, questChainId);
     const [maps] = await conn.execute(
       `SELECT bm.*,
               (SELECT COUNT(*) FROM board_tiles bt WHERE bt.board_map_id = bm.id) AS tile_count,
@@ -1776,7 +2373,7 @@ app.get('/api/board-maps/for-admin/:questChainId', staffOrAdminAuth, async (req,
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '載入大富翁地圖失敗' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '載入大富翁地圖失敗' });
   } finally {
     if (conn) conn.release();
   }
@@ -1786,6 +2383,11 @@ app.get('/api/board-maps/admin', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
+    const params = [];
+    const shopScopeSql = req.user?.role === 'admin' ? '' : 'WHERE bm.shop_id = ?';
+    if (req.user?.role !== 'admin') {
+      params.push(assertActorHasShopScope(req.user));
+    }
     const [maps] = await conn.execute(`
       SELECT bm.*, qc.title AS quest_chain_title, qc.mode_type, qc.is_active AS quest_chain_active,
              COUNT(bt.id) AS tile_count,
@@ -1794,16 +2396,17 @@ app.get('/api/board-maps/admin', staffOrAdminAuth, async (req, res) => {
       FROM board_maps bm
       LEFT JOIN quest_chains qc ON bm.quest_chain_id = qc.id
       LEFT JOIN board_tiles bt ON bt.board_map_id = bm.id
+      ${shopScopeSql}
       GROUP BY bm.id, qc.title, qc.mode_type, qc.is_active
       ORDER BY bm.is_active DESC, bm.id DESC
-    `);
+    `, params);
     res.json({
       success: true,
       boardMaps: maps.map((row) => sanitizeBoardMapRow(row))
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '載入大富翁地圖失敗' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '載入大富翁地圖失敗' });
   } finally {
     if (conn) conn.release();
   }
@@ -1837,17 +2440,17 @@ app.post('/api/board-maps', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const [chains] = await conn.execute('SELECT id, mode_type FROM quest_chains WHERE id = ? LIMIT 1', [quest_chain_id]);
-    if (!chains.length) {
-      return res.status(404).json({ success: false, message: '找不到對應玩法入口' });
+    const chain = await assertQuestChainAccess(conn, req.user, quest_chain_id);
+    if (isQuestChainStructureLocked(chain)) {
+      throw createStructureLockedError('此玩法入口');
     }
 
     const [insertResult] = await conn.execute(
       `INSERT INTO board_maps
        (quest_chain_id, name, description, play_style, cover_image, center_lat, center_lng, max_rounds,
         start_tile, finish_tile, dice_min, dice_max, failure_move, exact_finish_required, reward_points,
-        is_active, rules_json, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        is_active, rules_json, created_by, shop_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         Number(quest_chain_id),
         name,
@@ -1866,7 +2469,8 @@ app.post('/api/board-maps', staffOrAdminAuth, async (req, res) => {
         Number(reward_points || 0),
         normalizeBoolean(is_active),
         stringifyJsonField(rules_json),
-        req.user?.username || null
+        req.user?.username || null,
+        chain.shop_id || null
       ]
     );
     res.json({
@@ -1876,7 +2480,7 @@ app.post('/api/board-maps', staffOrAdminAuth, async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '建立大富翁地圖失敗' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '建立大富翁地圖失敗' });
   } finally {
     if (conn) conn.release();
   }
@@ -1911,12 +2515,17 @@ app.put('/api/board-maps/:id', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
+    const existingBoardMap = await assertBoardMapAccess(conn, req.user, id);
+    const targetChain = await assertQuestChainAccess(conn, req.user, quest_chain_id);
+    if (isQuestChainStructureLocked(targetChain)) {
+      throw createStructureLockedError('此玩法入口');
+    }
     await conn.execute(
       `UPDATE board_maps
        SET quest_chain_id = ?, name = ?, description = ?, play_style = ?, cover_image = ?,
            center_lat = ?, center_lng = ?, max_rounds = ?, start_tile = ?, finish_tile = ?,
            dice_min = ?, dice_max = ?, failure_move = ?, exact_finish_required = ?, reward_points = ?,
-           is_active = ?, rules_json = ?
+           is_active = ?, rules_json = ?, shop_id = ?
        WHERE id = ?`,
       [
         Number(quest_chain_id),
@@ -1936,13 +2545,14 @@ app.put('/api/board-maps/:id', staffOrAdminAuth, async (req, res) => {
         Number(reward_points || 0),
         normalizeBoolean(is_active),
         stringifyJsonField(rules_json),
+        targetChain.shop_id || existingBoardMap.shop_id || null,
         Number(id)
       ]
     );
     res.json({ success: true, message: '大富翁地圖更新成功' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '更新大富翁地圖失敗' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '更新大富翁地圖失敗' });
   } finally {
     if (conn) conn.release();
   }
@@ -1953,11 +2563,18 @@ app.delete('/api/board-maps/:id', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
+    const boardMap = await assertBoardMapAccess(conn, req.user, id);
+    if (boardMap.quest_chain_id) {
+      const chain = await assertQuestChainAccess(conn, req.user, boardMap.quest_chain_id);
+      if (isQuestChainStructureLocked(chain)) {
+        throw createStructureLockedError('此玩法入口');
+      }
+    }
     await conn.execute('DELETE FROM board_maps WHERE id = ?', [id]);
     res.json({ success: true, message: '大富翁地圖已刪除' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '刪除大富翁地圖失敗' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '刪除大富翁地圖失敗' });
   } finally {
     if (conn) conn.release();
   }
@@ -1968,6 +2585,7 @@ app.get('/api/board-maps/:boardMapId/tiles', staffOrAdminAuth, async (req, res) 
   let conn;
   try {
     conn = await pool.getConnection();
+    await assertBoardMapAccess(conn, req.user, boardMapId);
     const [tiles] = await conn.execute(
       `SELECT bt.*, t.name AS task_name, t.validation_mode, t.task_type
        FROM board_tiles bt
@@ -1982,7 +2600,7 @@ app.get('/api/board-maps/:boardMapId/tiles', staffOrAdminAuth, async (req, res) 
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '載入格子列表失敗' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '載入格子列表失敗' });
   } finally {
     if (conn) conn.release();
   }
@@ -2014,6 +2632,19 @@ app.post('/api/board-maps/:boardMapId/tiles', staffOrAdminAuth, async (req, res)
   let conn;
   try {
     conn = await pool.getConnection();
+    const boardMap = await assertBoardMapAccess(conn, req.user, boardMapId);
+    if (boardMap.quest_chain_id) {
+      const chain = await assertQuestChainAccess(conn, req.user, boardMap.quest_chain_id);
+      if (isQuestChainStructureLocked(chain)) {
+        throw createStructureLockedError('此玩法入口');
+      }
+    }
+    if (task_id) {
+      const task = await assertTaskAccess(conn, req.user, task_id);
+      if (Number(task.quest_chain_id || 0) !== Number(boardMap.quest_chain_id || 0)) {
+        return res.status(400).json({ success: false, message: '綁定任務必須屬於同一個玩法入口' });
+      }
+    }
     await conn.execute(
       `INSERT INTO board_tiles
        (board_map_id, tile_index, tile_name, tile_type, latitude, longitude, radius_meters, task_id,
@@ -2040,7 +2671,7 @@ app.post('/api/board-maps/:boardMapId/tiles', staffOrAdminAuth, async (req, res)
     res.json({ success: true, message: '格子建立成功' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '建立格子失敗' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '建立格子失敗' });
   } finally {
     if (conn) conn.release();
   }
@@ -2073,6 +2704,20 @@ app.put('/api/board-tiles/:id', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
+    await assertBoardTileAccess(conn, req.user, id);
+    const boardMap = await assertBoardMapAccess(conn, req.user, board_map_id);
+    if (boardMap.quest_chain_id) {
+      const chain = await assertQuestChainAccess(conn, req.user, boardMap.quest_chain_id);
+      if (isQuestChainStructureLocked(chain)) {
+        throw createStructureLockedError('此玩法入口');
+      }
+    }
+    if (task_id) {
+      const task = await assertTaskAccess(conn, req.user, task_id);
+      if (Number(task.quest_chain_id || 0) !== Number(boardMap.quest_chain_id || 0)) {
+        return res.status(400).json({ success: false, message: '綁定任務必須屬於同一個玩法入口' });
+      }
+    }
     await conn.execute(
       `UPDATE board_tiles
        SET board_map_id = ?, tile_index = ?, tile_name = ?, tile_type = ?, latitude = ?, longitude = ?,
@@ -2101,7 +2746,7 @@ app.put('/api/board-tiles/:id', staffOrAdminAuth, async (req, res) => {
     res.json({ success: true, message: '格子更新成功' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '更新格子失敗' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '更新格子失敗' });
   } finally {
     if (conn) conn.release();
   }
@@ -2112,11 +2757,19 @@ app.delete('/api/board-tiles/:id', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
+    const boardTile = await assertBoardTileAccess(conn, req.user, id);
+    const boardMap = await assertBoardMapAccess(conn, req.user, boardTile.board_map_id);
+    if (boardMap.quest_chain_id) {
+      const chain = await assertQuestChainAccess(conn, req.user, boardMap.quest_chain_id);
+      if (isQuestChainStructureLocked(chain)) {
+        throw createStructureLockedError('此玩法入口');
+      }
+    }
     await conn.execute('DELETE FROM board_tiles WHERE id = ?', [id]);
     res.json({ success: true, message: '格子已刪除' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '刪除格子失敗' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '刪除格子失敗' });
   } finally {
     if (conn) conn.release();
   }
@@ -2394,22 +3047,13 @@ app.post('/api/board/session/:sessionId/resolve', authenticateToken, async (req,
 // 刪除劇情
 app.delete('/api/quest-chains/:id', staffOrAdminAuth, async (req, res) => {
   const { id } = req.params;
-  const username = req.user?.username || req.user?.username;
-  const userRole = req.user?.role;
 
   let conn;
   try {
     conn = await pool.getConnection();
-    
-    // 1. 檢查權限與擁有者
-    const [quests] = await conn.execute('SELECT created_by FROM quest_chains WHERE id = ?', [id]);
-    if (quests.length === 0) {
-      return res.status(404).json({ success: false, message: '找不到此劇情' });
-    }
-    
-    // Admin 可以刪除所有；Shop 只能刪除自己的
-    if (userRole !== 'admin' && quests[0].created_by !== username) {
-      return res.status(403).json({ success: false, message: '無權限刪除此劇情' });
+    const chain = await assertQuestChainAccess(conn, req.user, id);
+    if (isQuestChainStructureLocked(chain)) {
+      throw createStructureLockedError('此玩法入口');
     }
 
     // 2. 統計將一併刪除的子內容
@@ -2483,7 +3127,7 @@ app.delete('/api/quest-chains/:id', staffOrAdminAuth, async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '伺服器錯誤' });
   } finally {
     if (conn) conn.release();
   }
@@ -2828,14 +3472,10 @@ app.post('/api/tasks', staffOrAdminAuth, async (req, res) => {
     // 背景音樂
     bgm_url,
     stage_template, stage_intro, hint_text, story_context, guide_content, rescue_content,
-    event_config, is_active
+    event_config, is_active, shop_id
   } = req.body;
 
   console.log('[POST /api/tasks] Received:', req.body);
-
-  const requester = req.user || {};
-  const requesterRole = requester.role;
-  const requesterName = requester.username;
 
   const requiresGps = normalizeBoolean(location_required) || task_type === 'location';
   const hasAnyLocationValue = [lat, lng, radius].some((value) => value !== undefined && value !== null && String(value).trim() !== '');
@@ -2851,30 +3491,11 @@ app.post('/api/tasks', staffOrAdminAuth, async (req, res) => {
     return res.status(400).json({ success: false, message: '若要保留座標資料，請完整填寫緯度、經度與觸發半徑。' });
   }
 
-  // 商店新增任務：若指定 quest_chain_id，必須是自己建立的劇情
-  if (requesterRole === 'shop' && quest_chain_id) {
-    let connCheck;
-    try {
-      connCheck = await pool.getConnection();
-      const [chains] = await connCheck.execute(
-        'SELECT id FROM quest_chains WHERE id = ? AND created_by = ?',
-        [quest_chain_id, requesterName]
-      );
-      if (chains.length === 0) {
-        return res.status(403).json({ success: false, message: '無權使用其他人建立的劇情' });
-      }
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({ success: false, message: '伺服器錯誤' });
-    } finally {
-      if (connCheck) connCheck.release();
-    }
-  }
-
   let conn;
   try {
     conn = await pool.getConnection();
     const username = req.user?.username;
+    let actorShopId = await resolveActorShopId(conn, req.user, shop_id);
     const pts = Number(points) || 0;
     
     const opts = options ? JSON.stringify(options) : null;
@@ -2900,6 +3521,14 @@ app.post('/api/tasks', staffOrAdminAuth, async (req, res) => {
     const maxP = max_participants ? Number(max_participants) : null;
     const qId = quest_chain_id ? Number(quest_chain_id) : null;
     const qOrder = quest_order ? Number(quest_order) : null;
+    let targetQuestChain = null;
+    if (qId) {
+      targetQuestChain = await assertQuestChainAccess(conn, req.user, qId);
+      if (isQuestChainStructureLocked(targetQuestChain)) {
+        throw createStructureLockedError('此玩法入口');
+      }
+      actorShopId = targetQuestChain.shop_id || actorShopId;
+    }
     
     const reqItemId = required_item_id ? Number(required_item_id) : null;
     const rewItemId = reward_item_id ? Number(reward_item_id) : null;
@@ -2924,6 +3553,7 @@ app.post('/api/tasks', staffOrAdminAuth, async (req, res) => {
       ar_image_url: ar_image_url || null,
       points: pts,
       created_by: username,
+      shop_id: actorShopId,
       task_type: tType,
       options: opts,
       correct_answer: correct_answer || null,
@@ -2957,7 +3587,9 @@ app.post('/api/tasks', staffOrAdminAuth, async (req, res) => {
       guide_content: normalizeNullableString(guide_content),
       rescue_content: normalizeNullableString(rescue_content),
       event_config: stringifyJsonField(parseJsonField(event_config, null)),
-      is_active: is_active === undefined ? true : normalizeBoolean(is_active)
+      is_active: is_active === undefined ? true : normalizeBoolean(is_active),
+      structure_locked: targetQuestChain ? isQuestChainStructureLocked(targetQuestChain) : false,
+      structure_locked_at: targetQuestChain ? resolveQuestChainStructureLockedAt(targetQuestChain) : null
     };
     const filteredRecord = Object.fromEntries(
       Object.entries(taskRecord).filter(([column]) => taskColumns.has(column))
@@ -3074,7 +3706,7 @@ app.get('/api/user-tasks', authenticateToken, async (req, res) => {
     res.json({ success: true, tasks: rows });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '伺服器錯誤' });
   } finally {
     if (conn) conn.release();
   }
@@ -3142,103 +3774,13 @@ app.delete('/api/user-tasks/:id', authenticateToken, requireRole('admin'), async
   }
 });
 
-// 完成任務（人工審核用，需 reviewer 權限）
+// 舊人工完成任務入口已停用，保留相容回應
 app.post('/api/user-tasks/finish', reviewerAuth, async (req, res) => {
-  const { username, task_id } = req.body;
-  if (!username || !task_id) return res.status(400).json({ success: false, message: '缺少參數' });
-  let conn;
-  try {
-    conn = await pool.getConnection();
-
-    // 取得 user_id
-    const [users] = await conn.execute('SELECT id FROM users WHERE username = ?', [username]);
-    if (users.length === 0) return res.status(400).json({ success: false, message: '找不到使用者' });
-    const userId = users[0].id;
-
-    // 取得任務資訊 + 建立者（用於權限判斷）
-    const [tasks] = await conn.execute('SELECT name, points, created_by, quest_chain_id, quest_order FROM tasks WHERE id = ?', [task_id]);
-    if (tasks.length === 0) return res.status(400).json({ success: false, message: '找不到任務' });
-    const task = tasks[0];
-
-    // 權限範圍判斷（admin 全部；shop 僅自己；staff 僅所屬 shop/admin）
-    // 新規則：shop 也可審核全部任務（不限制 created_by）
-
-    // 開始交易
-    await conn.beginTransaction();
-
-    try {
-      // 更新任務狀態為完成
-      await conn.execute('UPDATE user_tasks SET status = "完成", finished_at = NOW() WHERE user_id = ? AND task_id = ? AND status = "進行中"', [userId, task_id]);
-
-      // 記錄積分獲得交易
-      if (task.points > 0) {
-        await conn.execute(
-          'INSERT INTO point_transactions (user_id, type, points, description, reference_type, reference_id) VALUES (?, ?, ?, ?, ?, ?)',
-          [userId, 'earned', task.points, `完成任務: ${task.name}`, 'task_completion', task_id]
-        );
-      }
-
-      // 發放獎勵道具 (檢查任務是否有 reward_item_id)
-      let earnedItemName = null;
-      const [taskDetails] = await conn.execute('SELECT reward_item_id, i.name as item_name FROM tasks t LEFT JOIN items i ON t.reward_item_id = i.id WHERE t.id = ?', [task_id]);
-      if (taskDetails.length > 0 && taskDetails[0].reward_item_id) {
-        const rewardItemId = taskDetails[0].reward_item_id;
-        earnedItemName = taskDetails[0].item_name;
-        // 檢查背包是否已有此道具
-        const [inventory] = await conn.execute(
-          'SELECT id, quantity FROM user_inventory WHERE user_id = ? AND item_id = ?',
-          [userId, rewardItemId]
-        );
-        if (inventory.length > 0) {
-          // 已有，數量+1
-          await conn.execute('UPDATE user_inventory SET quantity = quantity + 1 WHERE id = ?', [inventory[0].id]);
-        } else {
-          // 沒有，新增
-          await conn.execute('INSERT INTO user_inventory (user_id, item_id, quantity) VALUES (?, ?, 1)', [userId, rewardItemId]);
-        }
-      }
-
-      // 更新劇情任務進度
-      if (task.quest_chain_id && task.quest_order) {
-        const [userQuests] = await conn.execute(
-          'SELECT id, current_step_order FROM user_quests WHERE user_id = ? AND quest_chain_id = ?',
-          [userId, task.quest_chain_id]
-        );
-
-        if (userQuests.length > 0) {
-          if (userQuests[0].current_step_order === task.quest_order) {
-            await conn.execute(
-              'UPDATE user_quests SET current_step_order = current_step_order + 1 WHERE id = ?',
-              [userQuests[0].id]
-            );
-          }
-        } else {
-          await conn.execute(
-            'INSERT INTO user_quests (user_id, quest_chain_id, current_step_order) VALUES (?, ?, ?)',
-            [userId, task.quest_chain_id, task.quest_order + 1]
-          );
-        }
-      }
-
-      await conn.commit();
-      
-      let msg = `已完成任務，獲得 ${task.points} 積分！`;
-      if (earnedItemName) {
-        msg += ` 並獲得道具：${earnedItemName}`;
-      }
-      res.json({ success: true, message: msg });
-
-    } catch (err) {
-      await conn.rollback();
-      throw err;
-    }
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
-  } finally {
-    if (conn) conn.release();
-  }
+  return res.status(410).json({
+    success: false,
+    code: 'MANUAL_REVIEW_REMOVED',
+    message: '平台已改為 AI / 系統自動判定，人工審核入口已停用'
+  });
 });
 
 // 查詢單一任務
@@ -3295,37 +3837,11 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const username = req.user?.username;
-
-    // 獲取用戶角色
-    const [userRows] = await conn.execute(
-      'SELECT role FROM users WHERE username = ?',
-      [username]
-    );
-
-    if (userRows.length === 0) {
-      return res.status(401).json({ success: false, message: '用戶不存在' });
-    }
-
-    const userRole = userRows[0].role;
-
-    // 檢查任務是否存在，並確認權限
-    let taskQuery, taskParams;
-    if (userRole === 'admin') {
-      taskQuery = 'SELECT id FROM tasks WHERE id = ?';
-      taskParams = [id];
-    } else {
-      taskQuery = 'SELECT id FROM tasks WHERE id = ? AND created_by = ?';
-      taskParams = [id, username];
-    }
-
-    const [taskRows] = await conn.execute(taskQuery, taskParams);
-    if (taskRows.length === 0) {
-      return res.status(403).json({ success: false, message: '無權限編輯此任務' });
-    }
-
-    const [existingTaskRows] = await conn.execute('SELECT id, quest_chain_id, type, created_by FROM tasks WHERE id = ? LIMIT 1', [id]);
-    const existingTask = existingTaskRows[0] || null;
+    const existingTask = await assertTaskAccess(conn, req.user, id);
+    const existingQuestChain = existingTask.quest_chain_id
+      ? await assertQuestChainAccess(conn, req.user, existingTask.quest_chain_id)
+      : null;
+    const chainLockActive = Boolean(existingTask.structure_locked || existingTask.structure_locked_at) || isQuestChainStructureLocked(existingQuestChain);
 
     const qId = quest_chain_id ? Number(quest_chain_id) : null;
 
@@ -3348,6 +3864,10 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
     }
     if (!requiresGps && hasAnyLocationValue && !hasAllLocationValues) {
       return res.status(400).json({ success: false, message: '若要保留座標資料，請完整填寫緯度、經度與觸發半徑。' });
+    }
+    let targetQuestChain = null;
+    if (qId) {
+      targetQuestChain = await assertQuestChainAccess(conn, req.user, qId);
     }
 
     const pts = Number(points) || 0;
@@ -3394,6 +3914,7 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
       youtubeUrl: youtubeUrl || null,
       ar_image_url: ar_image_url || null,
       points: pts,
+      shop_id: existingTask.shop_id || getActorShopId(req.user),
       task_type: tType,
       options: opts,
       correct_answer: correct_answer || null,
@@ -3427,16 +3948,31 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
       guide_content: normalizeNullableString(guide_content),
       rescue_content: normalizeNullableString(rescue_content),
       event_config: stringifyJsonField(parseJsonField(event_config, null)),
-      is_active: is_active === undefined ? true : normalizeBoolean(is_active)
+      is_active: is_active === undefined ? true : normalizeBoolean(is_active),
+      structure_locked: chainLockActive,
+      structure_locked_at: chainLockActive
+        ? (existingTask.structure_locked_at || resolveQuestChainStructureLockedAt(existingQuestChain) || new Date())
+        : null
     };
     const filteredRecord = Object.fromEntries(
       Object.entries(taskRecord).filter(([column]) => taskColumns.has(column))
     );
+    if (chainLockActive) {
+      const changedFields = getLockedTaskStructureChanges(existingTask, filteredRecord);
+      if (changedFields.length) {
+        return res.status(409).json({
+          success: false,
+          code: 'TASK_STRUCTURE_LOCKED',
+          message: '此入口已發布，關卡核心結構已鎖定；目前只能修改文案與素材',
+          locked_fields: changedFields
+        });
+      }
+    }
     await updateDynamicRecord(conn, 'tasks', id, filteredRecord);
     res.json({ success: true, message: '更新成功' });
   } catch (err) {
     console.error(err);
-    res.status(err.message?.includes('AI ') || err.message?.includes('max_attempts') || err.message?.includes('信心值') ? 400 : 500).json({ success: false, message: err.message || '伺服器錯誤' });
+    res.status(err.statusCode || (err.message?.includes('AI ') || err.message?.includes('max_attempts') || err.message?.includes('信心值') ? 400 : 500)).json({ success: false, message: err.message || '伺服器錯誤' });
   } finally {
     if (conn) conn.release();
   }
@@ -3453,28 +3989,22 @@ app.post('/api/tasks/:id/duplicate', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const username = req.user?.username || null;
-    const role = req.user?.role || null;
-    const [rows] = await conn.execute('SELECT * FROM tasks WHERE id = ? LIMIT 1', [sourceId]);
-    if (!rows.length) {
-      return res.status(404).json({ success: false, message: '找不到來源關卡' });
-    }
-    const sourceTask = sanitizeTaskRow(rows[0]);
-    if (role !== 'admin' && sourceTask.created_by !== username) {
-      return res.status(403).json({ success: false, message: '無權限複製此關卡' });
+    const sourceTask = await assertTaskAccess(conn, req.user, sourceId);
+    if (sourceTask.quest_chain_id) {
+      const sourceChain = await assertQuestChainAccess(conn, req.user, sourceTask.quest_chain_id);
+      if (isQuestChainStructureLocked(sourceChain)) {
+        throw createStructureLockedError('此玩法入口');
+      }
     }
 
     const destinationQuestChainId = Number.isFinite(targetQuestChainId) && targetQuestChainId > 0
       ? targetQuestChainId
       : (sourceTask.quest_chain_id ? Number(sourceTask.quest_chain_id) : null);
 
-    if (role === 'shop' && destinationQuestChainId) {
-      const [chains] = await conn.execute(
-        'SELECT id FROM quest_chains WHERE id = ? AND created_by = ? LIMIT 1',
-        [destinationQuestChainId, username]
-      );
-      if (!chains.length) {
-        return res.status(403).json({ success: false, message: '無權將關卡複製到其他人建立的玩法入口' });
+    if (destinationQuestChainId) {
+      const destinationChain = await assertQuestChainAccess(conn, req.user, destinationQuestChainId);
+      if (isQuestChainStructureLocked(destinationChain)) {
+        throw createStructureLockedError('此玩法入口');
       }
     }
 
@@ -3483,7 +4013,8 @@ app.post('/api/tasks/:id/duplicate', staffOrAdminAuth, async (req, res) => {
       ...sourceTask,
       name: `${sourceTask.name}（複製）`,
       quest_chain_id: destinationQuestChainId,
-      created_by: username,
+      created_by: req.user?.username || null,
+      shop_id: sourceTask.shop_id || getActorShopId(req.user),
       photoUrl: sourceTask.photoUrl || null,
       options: sourceTask.options ? JSON.stringify(sourceTask.options) : null,
       ai_config: stringifyJsonField(sourceTask.ai_config),
@@ -3510,7 +4041,7 @@ app.post('/api/tasks/:id/duplicate', staffOrAdminAuth, async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '複製關卡失敗' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '複製關卡失敗' });
   } finally {
     if (conn) conn.release();
   }
@@ -3525,11 +4056,9 @@ app.get('/api/tasks/:id/delete-impact', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const username = req.user?.username || null;
-    const role = req.user?.role || null;
     const [taskRows] = await conn.execute(
       `SELECT t.id, t.name, t.quest_chain_id, t.created_by, t.task_type, t.validation_mode,
-              qc.title AS quest_chain_title
+              t.shop_id, qc.title AS quest_chain_title
        FROM tasks t
        LEFT JOIN quest_chains qc ON qc.id = t.quest_chain_id
        WHERE t.id = ?
@@ -3540,7 +4069,7 @@ app.get('/api/tasks/:id/delete-impact', staffOrAdminAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: '找不到此關卡' });
     }
     const task = sanitizeTaskRow(taskRows[0]);
-    if (role !== 'admin' && task.created_by !== username) {
+    if (req.user?.role !== 'admin' && !actorCanAccessShop(req.user, task.shop_id)) {
       return res.status(403).json({ success: false, message: '無權限查看此關卡' });
     }
 
@@ -3588,33 +4117,12 @@ app.delete('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const username = req.user?.username;
-
-    // 獲取用戶角色
-    const [userRows] = await conn.execute(
-      'SELECT role FROM users WHERE username = ?',
-      [username]
-    );
-
-    if (userRows.length === 0) {
-      return res.status(401).json({ success: false, message: '用戶不存在' });
-    }
-
-    const userRole = userRows[0].role;
-
-    // 檢查任務是否存在，並確認權限
-    let taskQuery, taskParams;
-    if (userRole === 'admin') {
-      taskQuery = 'SELECT id FROM tasks WHERE id = ?';
-      taskParams = [id];
-    } else {
-      taskQuery = 'SELECT id FROM tasks WHERE id = ? AND created_by = ?';
-      taskParams = [id, username];
-    }
-
-    const [taskRows] = await conn.execute(taskQuery, taskParams);
-    if (taskRows.length === 0) {
-      return res.status(403).json({ success: false, message: '無權限刪除此任務' });
+    const task = await assertTaskAccess(conn, req.user, id);
+    if (task.quest_chain_id) {
+      const chain = await assertQuestChainAccess(conn, req.user, task.quest_chain_id);
+      if (isQuestChainStructureLocked(chain)) {
+        throw createStructureLockedError('此玩法入口');
+      }
     }
 
     await conn.beginTransaction();
@@ -3634,7 +4142,7 @@ app.delete('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
     res.json({ success: true, message: '關卡已刪除，關聯棋盤格與玩家進度已同步清理' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '伺服器錯誤' });
   } finally {
     if (conn) conn.release();
   }
@@ -3830,7 +4338,7 @@ function shopOrAdminAuth(req, res, next) {
   });
 }
 
-// ===== Reviewer 權限：staff / shop / admin 都可審核（新規則）=====
+// ===== 營運角色權限：staff / shop / admin =====
 function reviewerAuth(req, res, next) {
   authenticateTokenCompat(req, res, async () => {
     if (!req.user || !req.user.username) return res.status(401).json({ success: false, message: '未認證' });
@@ -3887,39 +4395,11 @@ app.post('/api/user-tasks/:id/redeem', reviewerAuth, async (req, res) => {
 
 // ===== Staff 查詢所有進行中任務（可搜尋） =====
 app.get('/api/user-tasks/in-progress', reviewerAuth, async (req, res) => {
-  const { taskName, username } = req.query;
-  let conn;
-  try {
-    conn = await pool.getConnection();
-    const userRole = req.user.role;
-    const reqUsername = req.user.username;
-    const reviewerOwner = reqUsername;
-    let sql = `SELECT ut.id as user_task_id, ut.user_id, ut.task_id, ut.status, ut.started_at, ut.finished_at, ut.redeemed, ut.redeemed_at, ut.redeemed_by, ut.answer, u.username, t.name as task_name, t.description, t.points, t.created_by as task_creator, t.task_type
-      FROM user_tasks ut
-      JOIN users u ON ut.user_id = u.id
-      JOIN tasks t ON ut.task_id = t.id
-      WHERE ut.status = '進行中'`;
-    const params = [];
-
-    // 新規則：shop 也可審核全部任務（不再限制 created_by）
-
-    if (taskName) {
-      sql += ' AND t.name LIKE ?';
-      params.push('%' + taskName + '%');
-    }
-    if (username) {
-      sql += ' AND u.username LIKE ?';
-      params.push('%' + username + '%');
-    }
-    sql += ' ORDER BY ut.started_at DESC';
-    const [rows] = await conn.execute(sql, params);
-    res.json({ success: true, tasks: rows });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
-  } finally {
-    if (conn) conn.release();
-  }
+  res.json({
+    success: true,
+    tasks: [],
+    message: '人工審核流程已停用，進行中的任務會由 AI 或系統規則自動判定'
+  });
 });
 
 // ===== Staff 查詢所有已完成但未兌換的任務（可搜尋） =====
@@ -3938,7 +4418,7 @@ app.get('/api/user-tasks/to-redeem', reviewerAuth, async (req, res) => {
       WHERE ut.status = '完成' AND ut.redeemed = 0`;
     const params = [];
 
-    // 新規則：shop 也可審核全部任務（不再限制 created_by）
+    // 新規則：shop 也可查看本商家範圍內的兌換資料（不再限制 created_by）
 
     if (taskName) {
       sql += ' AND t.name LIKE ?';
@@ -3978,6 +4458,7 @@ app.patch('/api/user-tasks/:id/answer', authenticateToken, async (req, res) => {
     // 1. 取得任務資訊
     const [rows] = await conn.execute(`
       SELECT ut.*, t.task_type, t.correct_answer, t.points, t.name as task_name, ut.user_id, ut.task_id, t.quest_chain_id, t.quest_order,
+             t.validation_mode, t.ai_config, t.pass_criteria, t.failure_message, t.success_message,
              qc.game_rules, qc.content_blueprint
       FROM user_tasks ut
       JOIN tasks t ON ut.task_id = t.id
@@ -4013,11 +4494,25 @@ app.patch('/api/user-tasks/:id/answer', authenticateToken, async (req, res) => {
     let questChainCompleted = false; // 移到外層宣告
     let questChainReward = null; // 移到外層宣告
     const runtimeFlags = getQuestChainRuntimeFlags(userTask);
+    let aiTextEvaluation = null;
 
     // 2. 檢查是否為自動驗證題型且答案正確
     if (runtimeFlags.demoAutoPass) {
       isCompleted = true;
       message = buildDemoAutoPassMessage(userTask);
+    } else if (userTask.validation_mode === 'ai_text_check' || userTask.task_type === 'qa') {
+      aiTextEvaluation = await evaluateAiTaskText(userTask, answer, {
+        timeoutMs: 90000,
+        maxRetries: 1
+      });
+      const textResult = aiTextEvaluation.parsed;
+      isCompleted = Boolean(textResult.passed);
+      message = isCompleted
+        ? (userTask.success_message || textResult.reason || 'AI 認為你的回答已符合題意，任務完成！')
+        : (textResult.reason || userTask.failure_message || 'AI 認為這次回答還沒有抓到題目重點。');
+    } else if (userTask.task_type === 'photo') {
+      isCompleted = true;
+      message = userTask.success_message || '照片已提交完成，系統已自動記錄這一關。';
     } else if (['multiple_choice', 'number', 'keyword', 'location'].includes(userTask.task_type)) {
       if (userTask.task_type === 'location') {
         // 地理圍欄任務：只要前端送出請求，即視為完成
@@ -4037,6 +4532,38 @@ app.patch('/api/user-tasks/:id/answer', authenticateToken, async (req, res) => {
        await conn.beginTransaction();
        try {
          await conn.execute('UPDATE user_tasks SET answer = ? WHERE id = ?', [answer, id]);
+         if (aiTextEvaluation) {
+           const [attemptCountRows] = await conn.execute(
+             'SELECT COUNT(*) AS count FROM task_attempts WHERE user_task_id = ?',
+             [id]
+           );
+           const attemptNo = Number(attemptCountRows[0]?.count || 0) + 1;
+           await recordLlmUsage(conn, userTask, userId, aiTextEvaluation?.usage, {
+             model: aiTextEvaluation?.model || null,
+             request_type: 'ai_text_submit',
+             success: true
+           });
+           await conn.execute(
+             `INSERT INTO task_attempts
+               (user_id, task_id, user_task_id, attempt_no, submission_type, submitted_answer, ai_result, ai_raw_response, passed,
+                score, failure_reason, retry_advice)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             [
+               userId,
+               userTask.task_id,
+               id,
+               attemptNo,
+               'answer',
+               answer,
+               JSON.stringify(aiTextEvaluation.parsed),
+               aiTextEvaluation.rawContent,
+               true,
+               aiTextEvaluation.parsed.score,
+               null,
+               null
+             ]
+           );
+         }
          ({ message, earnedItemName, questChainCompleted, questChainReward } = await completeUserTask(conn, userTask));
 
          await conn.commit();
@@ -4046,7 +4573,46 @@ app.patch('/api/user-tasks/:id/answer', authenticateToken, async (req, res) => {
        }
     } else {
        // 只更新答案，狀態不變（保持進行中）
-       await conn.execute('UPDATE user_tasks SET answer = ? WHERE id = ?', [answer, id]);
+       await conn.beginTransaction();
+       try {
+         await conn.execute('UPDATE user_tasks SET answer = ? WHERE id = ?', [answer, id]);
+         if (aiTextEvaluation) {
+           const [attemptCountRows] = await conn.execute(
+             'SELECT COUNT(*) AS count FROM task_attempts WHERE user_task_id = ?',
+             [id]
+           );
+           const attemptNo = Number(attemptCountRows[0]?.count || 0) + 1;
+           await recordLlmUsage(conn, userTask, userId, aiTextEvaluation?.usage, {
+             model: aiTextEvaluation?.model || null,
+             request_type: 'ai_text_submit',
+             success: false
+           });
+           await conn.execute(
+             `INSERT INTO task_attempts
+               (user_id, task_id, user_task_id, attempt_no, submission_type, submitted_answer, ai_result, ai_raw_response, passed,
+                score, failure_reason, retry_advice)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             [
+               userId,
+               userTask.task_id,
+               id,
+               attemptNo,
+               'answer',
+               answer,
+               JSON.stringify(aiTextEvaluation.parsed),
+               aiTextEvaluation.rawContent,
+               false,
+               aiTextEvaluation.parsed.score,
+               aiTextEvaluation.parsed.reason || userTask.failure_message || 'AI 判定未通過',
+               aiTextEvaluation.parsed.retry_advice || null
+             ]
+           );
+         }
+         await conn.commit();
+       } catch (err) {
+         await conn.rollback();
+         throw err;
+       }
     }
 
     // 如果任務完成，發送推送通知
@@ -4189,14 +4755,22 @@ app.post('/api/tutorial/ai-tasks/:taskId/submit', uploadAiTaskImage.single('imag
 
     const fallbackResult = buildDemoAiResult(task, submissionUrl);
     const lmResult = lmEvaluation?.parsed || null;
+    const optionalUser = getOptionalTokenUser(req);
+    const optionalUserId = optionalUser?.username ? await getUserIdByUsername(conn, optionalUser.username) : null;
+
+    await recordLlmUsage(conn, task, optionalUserId, lmEvaluation?.usage, {
+      model: lmEvaluation?.model || null,
+      request_type: 'tutorial_ai_submit',
+      success: true,
+      tutorial_guest: !optionalUser
+    });
 
     // 若有 JWT 登入，建立 user_task 完成紀錄以推進劇情進度
     let userTaskId = null;
     let earnedItemName = null;
-    const optionalUser = getOptionalTokenUser(req);
     if (optionalUser) {
       try {
-        const userId = await getUserIdByUsername(conn, optionalUser.username);
+        const userId = optionalUserId;
         if (userId) {
           await conn.beginTransaction();
           try {
@@ -4404,6 +4978,11 @@ app.post('/api/ai-tasks/:taskId/submit', authenticateToken, uploadAiTaskImage.si
     await conn.beginTransaction();
     let completion = null;
     try {
+      await recordLlmUsage(conn, task, user.id, evaluation?.usage, {
+        model: evaluation?.model || null,
+        request_type: 'ai_task_submit',
+        success: result.passed
+      });
       await conn.execute(
         `INSERT INTO task_attempts
           (user_id, task_id, user_task_id, attempt_no, submission_type, submission_url, ai_result, ai_raw_response, passed,
@@ -4741,46 +5320,20 @@ app.get('/api/products/admin', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const username = req.user?.username;
-
-    // 獲取用戶角色
-    const [userRows] = await conn.execute(
-      'SELECT role FROM users WHERE username = ?',
-      [username]
-    );
-
-    if (userRows.length === 0) {
-      return res.status(401).json({ success: false, message: '用戶不存在' });
+    const userRole = req.user?.role;
+    let query = 'SELECT * FROM products';
+    let params = [];
+    if (userRole !== 'admin') {
+      query += ' WHERE shop_id = ?';
+      params.push(assertActorHasShopScope(req.user));
     }
-
-    const userRole = userRows[0].role;
-
-    // 檢查 products 表是否有 created_by 欄位
-    const [createdByCols] = await conn.execute("SHOW COLUMNS FROM products LIKE 'created_by'");
-    const hasCreatedBy = createdByCols.length > 0;
-    
-    let query, params;
-    if (userRole === 'admin') {
-      // 管理員可以看到所有商品
-      query = 'SELECT * FROM products ORDER BY created_at DESC';
-      params = [];
-    } else {
-      // 工作人員只能看到自己創建的商品（如果有 created_by 欄位）
-      if (hasCreatedBy) {
-      query = 'SELECT * FROM products WHERE created_by = ? ORDER BY created_at DESC';
-      params = [username];
-      } else {
-        // 如果沒有 created_by 欄位，工作人員可以看到所有商品（向後兼容）
-        query = 'SELECT * FROM products ORDER BY created_at DESC';
-        params = [];
-      }
-    }
+    query += ' ORDER BY created_at DESC';
 
     const [rows] = await conn.execute(query, params);
     res.json({ success: true, products: rows, userRole });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '伺服器錯誤' });
   } finally {
     if (conn) conn.release();
   }
@@ -4796,38 +5349,29 @@ app.post('/api/products', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const username = req.user?.username;
-
-    // 檢查 products 表是否有 is_active 和 created_by 欄位
-    const [isActiveCols] = await conn.execute("SHOW COLUMNS FROM products LIKE 'is_active'");
-    const [createdByCols] = await conn.execute("SHOW COLUMNS FROM products LIKE 'created_by'");
-    const hasIsActive = isActiveCols.length > 0;
-    const hasCreatedBy = createdByCols.length > 0;
-
-    let result;
-    if (hasIsActive && hasCreatedBy) {
-      // 如果有 is_active 和 created_by 欄位，包含在 INSERT 中
-      [result] = await conn.execute(
-        'INSERT INTO products (name, description, image_url, points_required, stock, created_by, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [name, description || '', image_url || '', points_required, stock, username, is_active !== undefined ? is_active : true]
-      );
-    } else if (hasCreatedBy) {
-      // 如果只有 created_by 欄位，不包含 is_active
-      [result] = await conn.execute(
-      'INSERT INTO products (name, description, image_url, points_required, stock, created_by) VALUES (?, ?, ?, ?, ?, ?)',
-      [name, description || '', image_url || '', points_required, stock, username]
-    );
-    } else {
-      // 如果都沒有，使用最簡單的 INSERT 語句
-      [result] = await conn.execute(
-        'INSERT INTO products (name, description, image_url, points_required, stock) VALUES (?, ?, ?, ?, ?)',
-        [name, description || '', image_url || '', points_required, stock]
-      );
+    const actorShopId = await resolveActorShopId(conn, req.user, req.body.shop_id);
+    if (!actorShopId) {
+      return res.status(400).json({ success: false, message: '建立商品時必須指定 shop_id' });
     }
+    const [result] = await conn.execute(
+      `INSERT INTO products
+        (name, description, image_url, points_required, stock, created_by, shop_id, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        name,
+        description || '',
+        image_url || '',
+        points_required,
+        stock,
+        req.user?.username || null,
+        actorShopId,
+        is_active !== undefined ? is_active : true
+      ]
+    );
     res.json({ success: true, message: '商品新增成功', productId: result.insertId });
   } catch (err) {
     console.error('[/api/products POST] 錯誤:', err);
-    res.status(500).json({ success: false, message: '伺服器錯誤', error: err.message });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '伺服器錯誤' });
   } finally {
     if (conn) conn.release();
   }
@@ -4844,44 +5388,7 @@ app.put('/api/products/:id', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const username = req.user?.username;
-
-    // 獲取用戶角色
-    const [userRows] = await conn.execute(
-      'SELECT role FROM users WHERE username = ?',
-      [username]
-    );
-
-    if (userRows.length === 0) {
-      return res.status(401).json({ success: false, message: '用戶不存在' });
-    }
-
-    const userRole = userRows[0].role;
-
-    // 檢查 products 表是否有 created_by 欄位
-    const [createdByCols] = await conn.execute("SHOW COLUMNS FROM products LIKE 'created_by'");
-    const hasCreatedBy = createdByCols.length > 0;
-
-    // 檢查商品是否存在，並確認權限
-    let productQuery, productParams;
-    if (userRole === 'admin') {
-      productQuery = 'SELECT id FROM products WHERE id = ?';
-      productParams = [id];
-    } else {
-      if (hasCreatedBy) {
-      productQuery = 'SELECT id FROM products WHERE id = ? AND created_by = ?';
-      productParams = [id, username];
-      } else {
-        // 如果沒有 created_by 欄位，工作人員可以編輯任何商品（向後兼容）
-        productQuery = 'SELECT id FROM products WHERE id = ?';
-        productParams = [id];
-      }
-    }
-
-    const [productRows] = await conn.execute(productQuery, productParams);
-    if (productRows.length === 0) {
-      return res.status(403).json({ success: false, message: '無權限編輯此商品' });
-    }
+    await assertProductAccess(conn, req.user, id);
 
     await conn.execute(
       'UPDATE products SET name = ?, description = ?, image_url = ?, points_required = ?, stock = ?, is_active = ? WHERE id = ?',
@@ -4890,7 +5397,7 @@ app.put('/api/products/:id', staffOrAdminAuth, async (req, res) => {
     res.json({ success: true, message: '商品更新成功' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '伺服器錯誤' });
   } finally {
     if (conn) conn.release();
   }
@@ -4902,34 +5409,7 @@ app.delete('/api/products/:id', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const username = req.user?.username;
-
-    // 獲取用戶角色
-    const [userRows] = await conn.execute(
-      'SELECT role FROM users WHERE username = ?',
-      [username]
-    );
-
-    if (userRows.length === 0) {
-      return res.status(401).json({ success: false, message: '用戶不存在' });
-    }
-
-    const userRole = userRows[0].role;
-
-    // 檢查商品是否存在，並確認權限
-    let productQuery, productParams;
-    if (userRole === 'admin') {
-      productQuery = 'SELECT id FROM products WHERE id = ?';
-      productParams = [id];
-    } else {
-      productQuery = 'SELECT id FROM products WHERE id = ? AND created_by = ?';
-      productParams = [id, username];
-    }
-
-    const [productRows] = await conn.execute(productQuery, productParams);
-    if (productRows.length === 0) {
-      return res.status(403).json({ success: false, message: '無權限刪除此商品' });
-    }
+    await assertProductAccess(conn, req.user, id);
 
     await conn.execute(
       'DELETE FROM products WHERE id = ?',
@@ -4938,7 +5418,7 @@ app.delete('/api/products/:id', staffOrAdminAuth, async (req, res) => {
     res.json({ success: true, message: '商品刪除成功' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '伺服器錯誤' });
   } finally {
     if (conn) conn.release();
   }
@@ -5117,29 +5597,10 @@ app.get('/api/product-redemptions/admin', staffOrAdminAuth, async (req, res) => 
   let conn;
   try {
     conn = await pool.getConnection();
-    const username = req.user?.username;
-
-    // 獲取用戶角色
-    const [userRows] = await conn.execute(
-      'SELECT role FROM users WHERE username = ?',
-      [username]
-    );
-
-    if (userRows.length === 0) {
-      return res.status(401).json({ success: false, message: '用戶不存在' });
-    }
-
-    const userRole = userRows[0].role;
-    
-    // 檢查 products 表是否有 created_by 欄位
-    const [createdByCols] = await conn.execute("SHOW COLUMNS FROM products LIKE 'created_by'");
-    const hasCreatedBy = createdByCols.length > 0;
-    
+    const userRole = req.user?.role;
     let query, params;
 
     if (userRole === 'admin') {
-      // 管理員可以看到所有兌換記錄
-      if (hasCreatedBy) {
       query = `
         SELECT pr.*, p.name as product_name, p.image_url, p.created_by as merchant_name, u.username
         FROM product_redemptions pr
@@ -5147,46 +5608,24 @@ app.get('/api/product-redemptions/admin', staffOrAdminAuth, async (req, res) => 
         JOIN users u ON pr.user_id = u.id
         ORDER BY pr.redeemed_at DESC
       `;
-      } else {
-        query = `
-          SELECT pr.*, p.name as product_name, p.image_url, NULL as merchant_name, u.username
-          FROM product_redemptions pr
-          JOIN products p ON pr.product_id = p.id
-          JOIN users u ON pr.user_id = u.id
-          ORDER BY pr.redeemed_at DESC
-        `;
-      }
       params = [];
     } else {
-      // 工作人員只能看到自己管理的商品的兌換記錄
-      if (hasCreatedBy) {
       query = `
         SELECT pr.*, p.name as product_name, p.image_url, p.created_by as merchant_name, u.username
         FROM product_redemptions pr
         JOIN products p ON pr.product_id = p.id
         JOIN users u ON pr.user_id = u.id
-        WHERE p.created_by = ?
+        WHERE p.shop_id = ?
         ORDER BY pr.redeemed_at DESC
       `;
-      params = [username];
-      } else {
-        // 如果沒有 created_by 欄位，工作人員可以看到所有記錄（向後兼容）
-        query = `
-          SELECT pr.*, p.name as product_name, p.image_url, NULL as merchant_name, u.username
-          FROM product_redemptions pr
-          JOIN products p ON pr.product_id = p.id
-          JOIN users u ON pr.user_id = u.id
-          ORDER BY pr.redeemed_at DESC
-        `;
-        params = [];
-      }
+      params = [assertActorHasShopScope(req.user)];
     }
 
     const [rows] = await conn.execute(query, params);
     res.json({ success: true, redemptions: rows });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '伺服器錯誤' });
   } finally {
     if (conn) conn.release();
   }
@@ -5507,7 +5946,7 @@ function normalizeLabel(value) {
 function buildAiTaskPrompt(task) {
   const aiConfig = parseJsonField(task.ai_config, {}) || {};
   const passCriteria = parseJsonField(task.pass_criteria, {}) || {};
-  const systemPrompt = aiConfig.system_prompt || '你是活動任務的 AI 審核員。請根據任務規則檢查照片，並只回傳 JSON。';
+  const systemPrompt = aiConfig.system_prompt || '你是活動任務的 AI 判定助理。請根據任務規則檢查照片，並只回傳 JSON。';
   const taskGoal = aiConfig.user_prompt || task.description || task.name;
   const criteriaText = JSON.stringify(passCriteria, null, 2);
   const configText = JSON.stringify(aiConfig, null, 2);
@@ -5534,6 +5973,64 @@ function buildAiTaskPrompt(task) {
       '若某欄位不適用，請填 null。',
       '不要輸出 Markdown，不要輸出額外說明。'
     ].filter(Boolean).join('\n')
+  };
+}
+
+function buildAiTextTaskPrompt(task, answer) {
+  const aiConfig = parseJsonField(task.ai_config, {}) || {};
+  const passCriteria = parseJsonField(task.pass_criteria, {}) || {};
+  const systemPrompt = aiConfig.system_prompt || '你是活動任務的 AI 導師兼評分員。請根據題目與玩家回答，只回傳 JSON。';
+  const guidance = aiConfig.answer_guardrails || '請溫和指出回答是否切中題目重點，必要時給玩家一點方向，但不要過度冗長。';
+  const expectedAnswer = normalizeNullableString(task.correct_answer);
+  return {
+    systemPrompt,
+    userPrompt: [
+      `任務名稱：${task.name}`,
+      `驗證模式：${task.validation_mode}`,
+      `任務說明：${task.description || task.name}`,
+      `AI 題目引導：${aiConfig.user_prompt || task.description || task.name}`,
+      expectedAnswer ? `參考答案：${expectedAnswer}` : null,
+      Object.keys(passCriteria).length ? `通關條件：${JSON.stringify(passCriteria, null, 2)}` : null,
+      `玩家回答：${answer}`,
+      `玩家引導原則：${guidance}`,
+      '請判斷玩家回答是否足夠通過此題，並只輸出 JSON。',
+      'JSON 欄位必須包含：passed, confidence, score, reason, retry_advice。',
+      'reason 與 retry_advice 會直接顯示給玩家，語氣友善、具引導性，但不要離題。',
+      '若某欄位不適用，請填 null。',
+      '不要輸出 Markdown，不要輸出額外說明。'
+    ].filter(Boolean).join('\n')
+  };
+}
+
+function buildAiTextNoContentResult(task) {
+  return {
+    passed: false,
+    confidence: null,
+    score: null,
+    reason: `沙丘暫時無法完整理解你在「${task?.name || '這一題'}」的回答。`,
+    retry_advice: '請換個更清楚的說法，或補充你觀察到的重點後再試一次。'
+  };
+}
+
+function normalizeAiTextTaskResult(task, aiResult) {
+  const passCriteria = parseJsonField(task.pass_criteria, {}) || {};
+  const confidence = aiResult.confidence === null || aiResult.confidence === undefined ? null : Number(aiResult.confidence);
+  const score = aiResult.score === null || aiResult.score === undefined ? null : Number(aiResult.score);
+  let passed = normalizeBoolean(aiResult.passed);
+
+  if (Number.isFinite(Number(passCriteria.min_score)) && Number.isFinite(score)) {
+    passed = passed && score >= Number(passCriteria.min_score);
+  }
+  if (Number.isFinite(Number(passCriteria.min_confidence)) && Number.isFinite(confidence)) {
+    passed = passed && confidence >= Number(passCriteria.min_confidence);
+  }
+
+  return {
+    passed,
+    confidence: Number.isFinite(confidence) ? confidence : null,
+    score: Number.isFinite(score) ? score : null,
+    reason: normalizeNullableString(aiResult.reason) || (passed ? 'AI 認為你的回答已符合題意。' : 'AI 認為這次回答還沒有抓到題目的重點。'),
+    retry_advice: normalizeNullableString(aiResult.retry_advice) || null
   };
 }
 
@@ -5678,6 +6175,8 @@ async function evaluateAiTaskImage(task, file, extraContext = {}) {
   );
 
   const aiData = await response.json();
+  const usage = aiData?.usage || null;
+  const model = aiData?.model || AI_MODEL;
   const rawContent = aiData.choices?.[0]?.message?.content;
   const textContent = Array.isArray(rawContent)
     ? rawContent.map(item => item.text || '').join('\n')
@@ -5686,7 +6185,9 @@ async function evaluateAiTaskImage(task, file, extraContext = {}) {
   if (!normalizedText) {
     return {
       rawContent: '',
-      parsed: buildAiNoContentResult(task)
+      parsed: buildAiNoContentResult(task),
+      usage,
+      model
     };
   }
 
@@ -5700,12 +6201,82 @@ async function evaluateAiTaskImage(task, file, extraContext = {}) {
         ...buildAiNoContentResult(task),
         reason: 'AI 有回覆內容，但格式不完整，所以這次無法安全判定結果。',
         retry_advice: '請重新拍攝一次，讓主體更清楚、靠近一些，再試一次。'
-      }
+      },
+      usage,
+      model
     };
   }
   return {
     rawContent: normalizedText,
-    parsed: normalizeAiTaskResult(task, parsed)
+    parsed: normalizeAiTaskResult(task, parsed),
+    usage,
+    model
+  };
+}
+
+async function evaluateAiTaskText(task, answer, extraContext = {}) {
+  const { AI_API_URL, AI_MODEL, AI_API_KEY } = getAiConfig();
+  const prompt = buildAiTextTaskPrompt(task, answer);
+
+  const response = await fetchAIWithRetry(
+    `${AI_API_URL}/chat/completions`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${AI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        messages: [
+          { role: 'system', content: prompt.systemPrompt },
+          { role: 'user', content: prompt.userPrompt }
+        ],
+        max_tokens: 500,
+        temperature: 0.2
+      })
+    },
+    {
+      timeoutMs: Number(extraContext.timeoutMs || 90000),
+      maxRetries: Number.isFinite(Number(extraContext.maxRetries)) ? Number(extraContext.maxRetries) : 1
+    }
+  );
+
+  const aiData = await response.json();
+  const usage = aiData?.usage || null;
+  const model = aiData?.model || AI_MODEL;
+  const rawContent = aiData.choices?.[0]?.message?.content;
+  const normalizedText = typeof rawContent === 'string'
+    ? rawContent.trim()
+    : Array.isArray(rawContent)
+      ? rawContent.map(item => item.text || '').join('\n').trim()
+      : '';
+
+  if (!normalizedText) {
+    return { rawContent: '', parsed: buildAiTextNoContentResult(task), usage, model };
+  }
+
+  let parsed;
+  try {
+    parsed = extractJsonObject(normalizedText);
+  } catch (error) {
+    return {
+      rawContent: normalizedText,
+      parsed: {
+        ...buildAiTextNoContentResult(task),
+        reason: 'AI 有回覆，但格式不完整，所以這次沒辦法安全判定。',
+        retry_advice: '請換個更清楚的說法，再提交一次。'
+      },
+      usage,
+      model
+    };
+  }
+
+  return {
+    rawContent: normalizedText,
+    parsed: normalizeAiTextTaskResult(task, parsed),
+    usage,
+    model
   };
 }
 
@@ -6259,65 +6830,15 @@ app.put('/api/product-redemptions/:id/status', staffOrAdminAuth, async (req, res
   let conn;
   try {
     conn = await pool.getConnection();
-    const username = req.user?.username;
-
-    // 獲取用戶角色
-    const [userRows] = await conn.execute(
-      'SELECT role FROM users WHERE username = ?',
-      [username]
+    const actorShopId = getActorShopId(req.user);
+    const [redemptions] = await conn.execute(
+      `SELECT pr.*, p.name as product_name, p.shop_id, p.created_by
+       FROM product_redemptions pr
+       JOIN products p ON pr.product_id = p.id
+       WHERE pr.id = ?
+         AND (? = 'admin' OR p.shop_id = ?)`,
+      [id, req.user?.role || '', actorShopId]
     );
-
-    if (userRows.length === 0) {
-      return res.status(401).json({ success: false, message: '用戶不存在' });
-    }
-
-    const userRole = userRows[0].role;
-
-    // 檢查 products 表是否有 created_by 欄位
-    const [createdByCols] = await conn.execute("SHOW COLUMNS FROM products LIKE 'created_by'");
-    const hasCreatedBy = createdByCols.length > 0;
-
-    // 獲取兌換記錄詳情和商品名稱
-    let query, params;
-    if (userRole === 'admin') {
-      if (hasCreatedBy) {
-      query = `
-        SELECT pr.*, p.name as product_name, p.created_by
-        FROM product_redemptions pr
-        JOIN products p ON pr.product_id = p.id
-        WHERE pr.id = ?
-      `;
-      } else {
-        query = `
-          SELECT pr.*, p.name as product_name, NULL as created_by
-          FROM product_redemptions pr
-          JOIN products p ON pr.product_id = p.id
-          WHERE pr.id = ?
-        `;
-      }
-      params = [id];
-    } else {
-      if (hasCreatedBy) {
-      query = `
-        SELECT pr.*, p.name as product_name, p.created_by
-        FROM product_redemptions pr
-        JOIN products p ON pr.product_id = p.id
-        WHERE pr.id = ? AND p.created_by = ?
-      `;
-      params = [id, username];
-      } else {
-        // 如果沒有 created_by 欄位，工作人員可以處理任何兌換記錄（向後兼容）
-        query = `
-          SELECT pr.*, p.name as product_name, NULL as created_by
-          FROM product_redemptions pr
-          JOIN products p ON pr.product_id = p.id
-          WHERE pr.id = ?
-        `;
-        params = [id];
-      }
-    }
-
-    const [redemptions] = await conn.execute(query, params);
 
     if (redemptions.length === 0) {
       return res.status(404).json({ success: false, message: '兌換記錄不存在或無權限處理' });
@@ -6361,7 +6882,7 @@ app.put('/api/product-redemptions/:id/status', staffOrAdminAuth, async (req, res
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '伺服器錯誤' });
   } finally {
     if (conn) conn.release();
   }
@@ -6435,6 +6956,10 @@ app.post('/api/coupons/issue', shopOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
+    const actorShopId = await resolveActorShopId(conn, req.user, body.shop_id);
+    if (!actorShopId) {
+      return res.status(400).json({ success: false, message: '發放優惠券時必須指定 shop_id' });
+    }
     const [users] = await conn.execute(
       'SELECT id, username, role FROM users WHERE username = ? LIMIT 1',
       [username]
@@ -6452,11 +6977,14 @@ app.post('/api/coupons/issue', shopOrAdminAuth, async (req, res) => {
         return res.status(400).json({ success: false, message: '綁定入口格式錯誤' });
       }
       const [chains] = await conn.execute(
-        'SELECT id, title, name FROM quest_chains WHERE id = ? LIMIT 1',
+        'SELECT id, title, name, shop_id FROM quest_chains WHERE id = ? LIMIT 1',
         [questChainId]
       );
       if (!chains.length) {
         return res.status(404).json({ success: false, message: '找不到要綁定的玩法入口' });
+      }
+      if (actorShopId && !actorCanAccessShop(req.user, chains[0].shop_id)) {
+        return res.status(403).json({ success: false, message: '不可發放其他商家的玩法券' });
       }
       questChainTitle = chains[0].title || chains[0].name || null;
     }
@@ -6465,9 +6993,9 @@ app.post('/api/coupons/issue', shopOrAdminAuth, async (req, res) => {
     let insertId;
     if (couponCode) {
       const [ins] = await conn.execute(
-        `INSERT INTO user_coupons (coupon_code, user_id, title, quest_chain_id, discount_amount, discount_percent, expiry_date, is_used, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'active')`,
-        [couponCode, u.id, title, questChainId, discountAmount, discountPercent, expiryDate]
+        `INSERT INTO user_coupons (coupon_code, user_id, shop_id, title, quest_chain_id, discount_amount, discount_percent, expiry_date, is_used, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'active')`,
+        [couponCode, u.id, actorShopId, title, questChainId, discountAmount, discountPercent, expiryDate]
       );
       insertId = ins.insertId;
     } else {
@@ -6477,9 +7005,9 @@ app.post('/api/coupons/issue', shopOrAdminAuth, async (req, res) => {
         const code = generateCouponCode();
         try {
           const [ins] = await conn.execute(
-            `INSERT INTO user_coupons (coupon_code, user_id, title, quest_chain_id, discount_amount, discount_percent, expiry_date, is_used, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'active')`,
-            [code, u.id, title, questChainId, discountAmount, discountPercent, expiryDate]
+            `INSERT INTO user_coupons (coupon_code, user_id, shop_id, title, quest_chain_id, discount_amount, discount_percent, expiry_date, is_used, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'active')`,
+            [code, u.id, actorShopId, title, questChainId, discountAmount, discountPercent, expiryDate]
           );
           insertId = ins.insertId;
           couponCode = code;
@@ -6519,6 +7047,8 @@ app.get('/api/coupons/issued', shopOrAdminAuth, async (req, res) => {
     conn = await pool.getConnection();
     const safePageSize = Number(pageSize) || 30;
     const safeOffset = Number(offset) || 0;
+    const actorShopId = getActorShopId(req.user);
+    const whereSql = req.user?.role === 'admin' ? '' : 'WHERE uc.shop_id = ?';
     const [rows] = await conn.query(
       `SELECT uc.id, uc.coupon_code, uc.title, uc.quest_chain_id, uc.discount_amount, uc.discount_percent, uc.expiry_date,
               uc.is_used, uc.used_at, uc.created_at, u.username AS owner_username,
@@ -6526,10 +7056,17 @@ app.get('/api/coupons/issued', shopOrAdminAuth, async (req, res) => {
        FROM user_coupons uc
        LEFT JOIN users u ON uc.user_id = u.id
        LEFT JOIN quest_chains qc ON uc.quest_chain_id = qc.id
+       ${whereSql}
        ORDER BY uc.created_at DESC
-       LIMIT ${safePageSize} OFFSET ${safeOffset}`
+       LIMIT ${safePageSize} OFFSET ${safeOffset}`,
+      req.user?.role === 'admin' ? [] : [actorShopId]
     );
-    const [[{ total }]] = await conn.execute('SELECT COUNT(*) AS total FROM user_coupons');
+    const [[{ total }]] = await conn.execute(
+      req.user?.role === 'admin'
+        ? 'SELECT COUNT(*) AS total FROM user_coupons'
+        : 'SELECT COUNT(*) AS total FROM user_coupons WHERE shop_id = ?',
+      req.user?.role === 'admin' ? [] : [actorShopId]
+    );
     const coupons = rows.map((r) => ({
       id: r.id,
       coupon_code: r.coupon_code,
@@ -6565,12 +7102,14 @@ app.get('/api/coupons/lookup/:code', shopOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
+    const actorShopId = getActorShopId(req.user);
     const [rows] = await conn.execute(
       `SELECT uc.*, u.username AS owner_username
        FROM user_coupons uc
        LEFT JOIN users u ON uc.user_id = u.id
-       WHERE LOWER(TRIM(uc.coupon_code)) = LOWER(?)`,
-      [code]
+       WHERE LOWER(TRIM(uc.coupon_code)) = LOWER(?)
+         AND (? = 'admin' OR uc.shop_id = ?)`,
+      [code, req.user?.role || '', actorShopId]
     );
     if (rows.length === 0) {
       return res.json({ success: false, message: '查無此券' });
@@ -6609,7 +7148,13 @@ app.post('/api/coupons/:id/redeem', shopOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const [rows] = await conn.execute('SELECT * FROM user_coupons WHERE id = ?', [id]);
+    const actorShopId = getActorShopId(req.user);
+    const [rows] = await conn.execute(
+      `SELECT * FROM user_coupons
+       WHERE id = ?
+         AND (? = 'admin' OR shop_id = ?)`,
+      [id, req.user?.role || '', actorShopId]
+    );
     if (rows.length === 0) {
       return res.status(404).json({ success: false, message: '優惠券不存在' });
     }
@@ -6638,14 +7183,17 @@ app.get('/api/coupons/redeem-history', shopOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
+    const actorShopId = getActorShopId(req.user);
     const [rows] = await conn.execute(
       `SELECT uc.coupon_code, uc.title, uc.used_at AS redeemed_at,
               COALESCE(u.username, '') AS username
        FROM user_coupons uc
        LEFT JOIN users u ON uc.user_id = u.id
        WHERE uc.is_used = 1 AND DATE(uc.used_at) = CURDATE()
+         AND (? = 'admin' OR uc.shop_id = ?)
        ORDER BY uc.used_at DESC
-       LIMIT 100`
+       LIMIT 100`,
+      [req.user?.role || '', actorShopId]
     );
     const history = rows.map((r) => ({
       coupon_code: r.coupon_code,

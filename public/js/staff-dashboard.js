@@ -70,6 +70,8 @@ async function apiJson(url, options = {}) {
 
 // ── Global State ──────────────────────────────────────────────
 let globalQuestChainsMap = {};
+let globalShopsMap = {};
+let globalEntryPlansMap = {};
 let globalTaskRecords = [];
 let globalBoardMaps = [];
 let globalModelsMap = {};
@@ -112,6 +114,136 @@ function escHtml(str) {
   const d = document.createElement('div');
   d.textContent = str || '';
   return d.innerHTML;
+}
+
+function setInlineMessage(elOrId, message = '', type = 'error') {
+  const el = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
+  if (!el) return;
+  el.textContent = message;
+  el.className = `inline-form-msg${message ? ` ${type}` : ''}`;
+}
+
+function formatCurrency(amount) {
+  const value = Number(amount || 0);
+  if (!Number.isFinite(value)) return 'NT$0';
+  return `NT$${value.toLocaleString('zh-TW')}`;
+}
+
+function populateQuestChainShopOptions() {
+  const select = document.getElementById('questChainShopSelect');
+  if (!select) return;
+  const isAdmin = loginUser?.role === 'admin';
+  const actorShopId = loginUser?.shop_id ? String(loginUser.shop_id) : '';
+  const options = Object.values(globalShopsMap);
+  select.innerHTML = isAdmin
+    ? '<option value="">-- 請選擇商家 --</option>'
+    : '';
+  options.forEach((shop) => {
+    const option = document.createElement('option');
+    option.value = String(shop.id);
+    option.textContent = shop.name || `商家 #${shop.id}`;
+    select.appendChild(option);
+  });
+  if (!isAdmin && actorShopId) {
+    select.value = actorShopId;
+  }
+}
+
+function populateQuestChainPlanOptions() {
+  const select = document.getElementById('questChainPlanSelect');
+  if (!select) return;
+  select.innerHTML = '<option value="">-- 請選擇方案 --</option>';
+  Object.values(globalEntryPlansMap)
+    .sort((a, b) => Number(a.task_limit || 0) - Number(b.task_limit || 0))
+    .forEach((plan) => {
+      const option = document.createElement('option');
+      option.value = String(plan.id);
+      option.textContent = `${plan.name || `方案 ${plan.id}`}｜${plan.task_limit || 0} 關｜${formatCurrency(plan.setup_fee)}`;
+      select.appendChild(option);
+    });
+}
+
+function syncQuestChainCommercialFields() {
+  const form = document.getElementById('questChainForm');
+  if (!form) return;
+  const isEditing = Boolean(form.elements.id?.value);
+  const shopSelect = form.elements.shop_id;
+  const planSelect = form.elements.plan_id;
+  const taskLimitInput = form.elements.task_limit;
+  const setupFeeInput = form.elements.setup_fee;
+  const shopHint = document.getElementById('questChainShopHint');
+  const planHint = document.getElementById('questChainPlanHint');
+  const summary = document.getElementById('questChainCommercialSummaryText');
+  const selectedShop = globalShopsMap[String(shopSelect?.value || '')] || null;
+  const selectedPlan = globalEntryPlansMap[String(planSelect?.value || '')] || null;
+
+  if (selectedPlan) {
+    taskLimitInput.value = selectedPlan.task_limit ?? '';
+    setupFeeInput.value = selectedPlan.setup_fee ?? 0;
+  } else if (!isEditing || !planSelect?.value) {
+    taskLimitInput.value = '';
+    setupFeeInput.value = '';
+  }
+
+  if (!loginUser?.role || !shopSelect || !planSelect) return;
+  if (loginUser.role !== 'admin' && loginUser.shop_id) {
+    shopSelect.value = String(loginUser.shop_id);
+  }
+
+  const lockCommercialFields = isEditing;
+  shopSelect.disabled = loginUser.role !== 'admin' || lockCommercialFields;
+  planSelect.disabled = lockCommercialFields;
+
+  if (shopHint) {
+    shopHint.textContent = loginUser.role === 'admin'
+      ? (lockCommercialFields ? '入口建立後商家歸屬會固定保留；若要搬移，建議以資料遷移方式處理。' : 'admin 可指定入口要歸屬到哪個建置商家。')
+      : '這個入口會自動歸屬在你目前登入的商家底下。';
+  }
+  if (planHint) {
+    planHint.textContent = lockCommercialFields
+      ? '入口建立後會保留原本方案與關卡上限，避免後續計價與內容範圍混亂。'
+      : '請先選擇方案，系統會自動帶入關卡上限與一次性建置費。';
+  }
+
+  if (summary) {
+    const shopText = selectedShop?.name || (shopSelect?.value ? `商家 #${shopSelect.value}` : '尚未指定商家');
+    const planText = selectedPlan?.name || (planSelect?.value ? `方案 #${planSelect.value}` : '尚未指定方案');
+    const limitText = taskLimitInput?.value ? `${taskLimitInput.value} 關` : '未設定關卡上限';
+    const feeText = formatCurrency(setupFeeInput?.value);
+    summary.textContent = `${shopText}｜${planText}｜${limitText}｜建置費 ${feeText}`;
+  }
+}
+
+function loadShops() {
+  return apiJson(`${API_BASE}/api/shops`, {
+    headers: withActorHeaders()
+  }).then((data) => {
+    globalShopsMap = {};
+    (data.shops || []).forEach((shop) => {
+      globalShopsMap[String(shop.id)] = shop;
+    });
+    populateQuestChainShopOptions();
+    syncQuestChainCommercialFields();
+    if (Object.keys(globalQuestChainsMap).length) {
+      renderQuestChainList(Object.values(globalQuestChainsMap));
+    }
+  });
+}
+
+function loadEntryPlans() {
+  return apiJson(`${API_BASE}/api/entry-plans`, {
+    headers: withActorHeaders()
+  }).then((data) => {
+    globalEntryPlansMap = {};
+    (data.plans || []).forEach((plan) => {
+      globalEntryPlansMap[String(plan.id)] = plan;
+    });
+    populateQuestChainPlanOptions();
+    syncQuestChainCommercialFields();
+    if (Object.keys(globalQuestChainsMap).length) {
+      renderQuestChainList(Object.values(globalQuestChainsMap));
+    }
+  });
 }
 
 /** Paste from Google Maps etc.: "lat, lng" or two decimals */
@@ -166,7 +298,6 @@ function wireLatLngPaste(inputEl, latEl, lngEl) {
 const STAFF_DASH_HASH_BY_VIEW = {
   'view-quest-chains': 'quests',
   'view-assets': 'assets',
-  'view-review': 'review',
   'view-products': 'products',
   'view-reward-shop': 'reward-shop',
   'view-redemptions': 'redemptions',
@@ -186,8 +317,9 @@ function setStaffViewHash(viewId) {
 /** 在側欄可見性套用後呼叫：優先還原網址 #hash，否則選第一個可見分頁 */
 function selectInitialStaffView() {
   const raw = (location.hash || '').replace(/^#\/?/, '').toLowerCase();
-  const fromHash = raw
-    ? Object.keys(STAFF_DASH_HASH_BY_VIEW).find(k => STAFF_DASH_HASH_BY_VIEW[k] === raw)
+  const normalizedHash = raw === 'review' ? 'quests' : raw;
+  const fromHash = normalizedHash
+    ? Object.keys(STAFF_DASH_HASH_BY_VIEW).find(k => STAFF_DASH_HASH_BY_VIEW[k] === normalizedHash)
     : null;
 
   if (fromHash) {
@@ -212,6 +344,9 @@ function selectInitialStaffView() {
 }
 
 function switchView(viewId, opts = {}) {
+  if (viewId === 'view-review') {
+    viewId = 'view-quest-chains';
+  }
   document.querySelectorAll('.v2-view').forEach(el => el.classList.remove('active'));
   document.getElementById(viewId)?.classList.add('active');
 
@@ -219,7 +354,6 @@ function switchView(viewId, opts = {}) {
     'view-quest-chains': 'view-quest-chains',
     'view-quest-detail': 'view-quest-chains',
     'view-assets': 'view-assets',
-    'view-review': 'view-review',
     'view-products': 'view-products',
     'view-reward-shop': 'view-reward-shop',
     'view-redemptions': 'view-redemptions',
@@ -236,21 +370,12 @@ function switchView(viewId, opts = {}) {
   if (!opts.skipHash) setStaffViewHash(viewId);
 
   // Lazy-load data for new views
-  if (viewId === 'view-review') ensureReviewIframe();
   if (viewId === 'view-reward-shop') ensureRewardShopIframe();
   if (viewId === 'view-products') loadProducts();
   if (viewId === 'view-redemptions') loadRedemptions();
   if (viewId === 'view-coupon-issue') loadIssuedCoupons();
   if (viewId === 'view-pos') loadPosHistory();
   if (viewId === 'view-users') loadUsers(1);
-}
-
-function ensureReviewIframe() {
-  const iframe = document.getElementById('reviewTasksIframe');
-  if (!iframe) return;
-  if (!iframe.getAttribute('src') || iframe.getAttribute('src') === 'about:blank') {
-    iframe.src = '/user-tasks.html?embed=1';
-  }
 }
 
 function ensureRewardShopIframe() {
@@ -466,6 +591,17 @@ function openDrawer(title, formSectionId, data, opts = {}) {
     if (preview) preview.style.display = 'none';
   }
 
+  if (activeFormId === 'questChainForm') {
+    const shopSelect = form?.elements?.shop_id;
+    if (shopSelect && loginUser?.role !== 'admin' && loginUser?.shop_id) {
+      shopSelect.value = String(loginUser.shop_id);
+    }
+    syncQuestChainCommercialFields();
+    const editingChain = form?.elements?.id?.value ? globalQuestChainsMap[String(form.elements.id.value)] || null : null;
+    applyQuestChainFormLockUi(editingChain);
+    setInlineMessage('questChainFormMsg', '');
+  }
+
   drawer.classList.add('open');
   overlay.classList.add('open');
   syncDrawerFooter();
@@ -512,6 +648,8 @@ function fillForm(form, data) {
   });
 }
 
+const IMAGE_AI_VALIDATION_MODES = ['ai_count', 'ai_identify', 'ai_score', 'ai_rule_check', 'ai_reference_match'];
+
 // ── Blueprint System ──────────────────────────────────────────
 const blueprintConfigs = {
   // 劇情主線
@@ -536,9 +674,9 @@ const blueprintConfigs = {
     defaults: { category: 'quest', taskType: 'keyword', validationMode: 'keyword' }
   },
   story_choice: {
-    modeText: '劇情主線', judgeText: '選擇題自動驗證',
+    modeText: '劇情主線', judgeText: '選擇題自動判定',
     summary: '適合情境選擇、知識測驗。四選一自動判定。',
-    defaults: { category: 'quest', taskType: 'multiple_choice', validationMode: 'manual' }
+    defaults: { category: 'quest', taskType: 'multiple_choice', validationMode: 'auto' }
   },
   // 大富翁
   board_ai_count: {
@@ -552,9 +690,9 @@ const blueprintConfigs = {
     defaults: { category: 'single', taskType: 'photo', validationMode: 'ai_identify' }
   },
   board_event: {
-    modeText: '大富翁模式', judgeText: '人工 / 劇情事件',
-    summary: '事件格或補給格，無 AI 裁判。',
-    defaults: { category: 'single', taskType: 'qa', validationMode: 'manual' }
+    modeText: '大富翁模式', judgeText: 'AI 劇情判定',
+    summary: '事件格或補給格，交給 AI 依題目與情境自動回應。',
+    defaults: { category: 'single', taskType: 'qa', validationMode: 'ai_text_check' }
   },
   // 教育課程
   edu_observe: {
@@ -563,14 +701,14 @@ const blueprintConfigs = {
     defaults: { category: 'quest', taskType: 'photo', validationMode: 'ai_identify' }
   },
   edu_quiz: {
-    modeText: '教育課程', judgeText: '自動批改',
+    modeText: '教育課程', judgeText: '自動判定',
     summary: '隨堂測驗：可設定選擇題或填答題，系統自動批改。適合導覽後的知識複習。',
-    defaults: { category: 'quest', taskType: 'multiple_choice', validationMode: 'manual' }
+    defaults: { category: 'quest', taskType: 'multiple_choice', validationMode: 'auto' }
   },
   edu_fieldwork: {
     modeText: '教育課程', judgeText: '地點打卡驗證',
     summary: '實地考察：學生到達指定地點自動打卡完成。適合戶外教學路線。',
-    defaults: { category: 'quest', taskType: 'location', validationMode: 'manual' }
+    defaults: { category: 'quest', taskType: 'location', validationMode: 'auto' }
   },
   edu_creative: {
     modeText: '教育課程', judgeText: 'AI 作品評分',
@@ -599,7 +737,7 @@ function inferBlueprintFromTask(task) {
   if (task?.validation_mode === 'ai_reference_match') return 'story_reference_match';
   if (task?.validation_mode === 'ai_score') return 'story_ai_score';
   if (task?.validation_mode === 'ai_count' && task?.type !== 'quest') return 'board_ai_count';
-  if (task?.validation_mode === 'manual' && task?.type !== 'quest') return 'board_event';
+  if (task?.validation_mode === 'ai_text_check' && task?.type !== 'quest') return 'board_event';
   return 'story_ai_identify';
 }
 
@@ -625,10 +763,18 @@ function setupTaskTypeToggle() {
   const sel = document.getElementById('taskTypeSelect');
   const mcDiv = document.getElementById('multipleChoiceOptions');
   const saDiv = document.getElementById('standardAnswerBlock');
+  const validationSel = document.getElementById('validationModeSelect');
   if (!sel) return;
   sel.addEventListener('change', () => {
     mcDiv.style.display = sel.value === 'multiple_choice' ? 'block' : 'none';
     saDiv.style.display = (sel.value === 'number' || sel.value === 'keyword') ? 'block' : 'none';
+    if (validationSel) {
+      if (sel.value === 'qa' && validationSel.value === 'auto') validationSel.value = 'ai_text_check';
+      else if (sel.value === 'photo' && validationSel.value === 'auto') validationSel.value = 'ai_rule_check';
+      else if (sel.value === 'keyword' && validationSel.value === 'auto') validationSel.value = 'keyword';
+      else if (['multiple_choice', 'number', 'location'].includes(sel.value) && ['ai_text_check', 'ai_rule_check'].includes(validationSel.value)) validationSel.value = 'auto';
+      validationSel.dispatchEvent(new Event('change'));
+    }
   });
 }
 
@@ -669,6 +815,7 @@ function setupLocationRequirementToggle() {
 }
 
 const validationModeMeta = {
+  ai_text_check: { helper: 'AI 會閱讀玩家的文字回答，自動判定是否符合題意。', label: '回答主題', placeholder: '請描述你觀察到的內容', showCount: false, showScore: false },
   ai_count: { helper: 'AI 判斷指定物件是否達到目標數量。', label: '目標物件標籤', placeholder: 'plastic_bottle', showCount: true, showScore: false },
   ai_identify: { helper: 'AI 辨識照片是否為指定物件或植物。', label: '指定辨識標籤', placeholder: 'morning_glory', showCount: false, showScore: false },
   ai_score: { helper: 'AI 依主題為照片評分，達門檻即通關。', label: '評分主題', placeholder: 'group_photo', showCount: false, showScore: true },
@@ -711,8 +858,12 @@ applyBlueprint('story_ai_identify', false);
 
 // ── AI Payload Builder ────────────────────────────────────────
 function buildAiTaskPayload(form) {
-  const validation_mode = form.validation_mode?.value || 'manual';
+  const requestedTaskType = form.task_type?.value || 'qa';
+  let validation_mode = form.validation_mode?.value || 'auto';
+  if (validation_mode === 'auto' && requestedTaskType === 'qa') validation_mode = 'ai_text_check';
+  if (validation_mode === 'auto' && requestedTaskType === 'photo') validation_mode = 'ai_rule_check';
   const isAi = validation_mode.startsWith('ai_');
+  const isImageAi = IMAGE_AI_VALIDATION_MODES.includes(validation_mode);
   const targetLabel = form.ai_target_label?.value.trim() || null;
   const targetCount = form.ai_target_count?.value ? Number(form.ai_target_count.value) : null;
   const minScore = form.ai_min_score?.value ? Number(form.ai_min_score.value) : null;
@@ -733,7 +884,7 @@ function buildAiTaskPayload(form) {
   } : null;
 
   return {
-    submission_type: isAi ? 'image' : 'answer',
+    submission_type: isImageAi ? 'image' : 'answer',
     validation_mode,
     ai_config,
     pass_criteria,
@@ -748,6 +899,7 @@ function validateAiPayload(form, payload, msgEl) {
   const mode = payload.validation_mode;
   if (!mode.startsWith('ai_')) return true;
   if (!payload.ai_config?.user_prompt) { msgEl.textContent = 'AI 任務請填寫使用者提示詞'; return false; }
+  if (mode === 'ai_text_check') return true;
   if (mode === 'ai_count' && !payload.ai_config?.target_label) { msgEl.textContent = '數量判斷請填目標標籤'; return false; }
   if (mode === 'ai_count' && !payload.pass_criteria?.target_count) { msgEl.textContent = '數量判斷請填目標數量'; return false; }
   if (mode === 'ai_identify' && !payload.ai_config?.target_label) { msgEl.textContent = '辨識任務請填目標標籤'; return false; }
@@ -757,10 +909,9 @@ function validateAiPayload(form, payload, msgEl) {
 
 // ── Load Quest Chains ─────────────────────────────────────────
 function loadQuestChains() {
-  return fetch(`${API_BASE}/api/quest-chains`, {
-    headers: { 'x-username': loginUser.username }
+  return apiJson(`${API_BASE}/api/quest-chains`, {
+    headers: withActorHeaders()
   })
-    .then(r => r.json())
     .then(data => {
       if (!data.success) return;
       globalQuestChainsMap = {};
@@ -801,22 +952,39 @@ function renderQuestChainList(chains) {
     const statusTag = q.is_active
       ? '<span class="tag tag-green">已開放</span>'
       : '<span class="tag tag-red">未開放</span>';
+    const structureLockTag = isQuestChainStructureLockedClient(q)
+      ? '<span class="tag tag-red">結構已鎖定</span>'
+      : '<span class="tag tag-blue">可編輯結構</span>';
+    const shopName = q.shop_name || globalShopsMap[String(q.shop_id)]?.name || (q.shop_id ? `商家 #${q.shop_id}` : '未指定商家');
+    const planName = q.plan_name || globalEntryPlansMap[String(q.plan_id)]?.name || (q.plan_id ? `方案 #${q.plan_id}` : '歷史入口');
+    const taskLimit = q.task_limit ? `${q.task_limit} 關` : '未限制';
+    const setupFee = formatCurrency(q.setup_fee || 0);
+    const billingTag = q.setup_fee_paid
+      ? '<span class="tag tag-green">建置費已收款</span>'
+      : '<span class="tag tag-amber">建置費待收</span>';
     return `
       <div class="quest-card">
         <div style="min-width:0;">
           <div class="quest-card-title">${escHtml(q.title)}</div>
           <div class="quest-card-meta">
             ${modeTag} ${accessTag} ${experienceTag} ${statusTag}
+            ${structureLockTag}
             ${q.entry_scene_label ? `<span class="tag tag-gray">${escHtml(q.entry_scene_label)}</span>` : ''}
             <span class="tag tag-amber">🏆 ${q.chain_points || 0} 分</span>
             ${q.play_style ? `<span class="tag tag-gray">🎲 ${escHtml(q.play_style)}</span>` : ''}
+            <span class="tag tag-gray">🏪 ${escHtml(shopName)}</span>
+            <span class="tag tag-gray">📦 ${escHtml(planName)}</span>
+            <span class="tag tag-gray">📏 ${escHtml(taskLimit)}</span>
+            <span class="tag tag-gray">💰 ${escHtml(setupFee)}</span>
+            ${billingTag}
+            <span class="tag tag-gray">🤖 本月 ${Number(q.current_billing_month_tokens || 0).toLocaleString('zh-TW')} tokens</span>
           </div>
           ${q.short_description ? `<div style="font-size:0.85rem; color:#64748b; margin-top:6px;">${escHtml(q.short_description)}</div>` : ''}
         </div>
         <div class="quest-card-actions">
           <button class="btn-sm btn-secondary-v2" onclick="goToQuestDetail('${q.id}')">管理內容</button>
           <button class="btn-sm btn-secondary-v2" onclick="editQuestChain('${q.id}')">編輯</button>
-          <button class="btn-sm btn-danger-v2" onclick="deleteQuestChain('${q.id}')">刪除</button>
+          ${isQuestChainStructureLockedClient(q) ? '' : `<button class="btn-sm btn-danger-v2" onclick="deleteQuestChain('${q.id}')">刪除</button>`}
         </div>
       </div>
     `;
@@ -832,11 +1000,23 @@ function editQuestChain(id) {
     entry_order: q.entry_order || 0, entry_button_text: q.entry_button_text || '',
     entry_scene_label: q.entry_scene_label || '', access_mode: q.access_mode || 'public', experience_mode: q.experience_mode || 'formal', play_style: q.play_style || '',
     chain_points: q.chain_points || 100, badge_name: q.badge_name || '',
+    shop_id: q.shop_id || '',
+    plan_id: q.plan_id || '',
+    task_limit: q.task_limit || '',
+    setup_fee: q.setup_fee || 0,
+    setup_fee_paid: q.setup_fee_paid,
+    monthly_billing_enabled: q.monthly_billing_enabled !== false,
     is_active: q.is_active
   });
+  applyQuestChainFormLockUi(q);
 }
 
 function deleteQuestChain(id) {
+  const q = globalQuestChainsMap[id];
+  if (isQuestChainStructureLockedClient(q)) {
+    showToast('這個入口的結構已鎖定，發布後請改用停用或維護，不可直接刪除', 'error');
+    return;
+  }
   if (!confirm('確定要刪除此玩法入口嗎？\n如果底下還有關卡，將無法刪除。')) return;
   fetch(`${API_BASE}/api/quest-chains/${id}`, {
     method: 'DELETE', headers: { 'x-username': loginUser.username }
@@ -853,8 +1033,21 @@ document.getElementById('questChainForm').addEventListener('submit', function (e
   e.preventDefault();
   const form = this;
   const id = form.elements.id.value;
+  const msgEl = document.getElementById('questChainFormMsg');
+  setInlineMessage(msgEl, '');
+  if (!form.reportValidity()) {
+    scrollToFirstInvalid(form);
+    setInlineMessage(msgEl, '請先完成必填欄位');
+    return;
+  }
 
   const fd = new FormData();
+  fd.append('shop_id', form.shop_id.value);
+  fd.append('plan_id', form.plan_id.value);
+  fd.append('task_limit', form.task_limit.value);
+  fd.append('setup_fee', form.setup_fee.value);
+  fd.append('setup_fee_paid', form.setup_fee_paid.checked ? '1' : '0');
+  fd.append('monthly_billing_enabled', form.monthly_billing_enabled.checked ? '1' : '0');
   fd.append('title', form.title.value.trim());
   fd.append('description', form.description.value.trim());
   fd.append('short_description', form.short_description.value.trim());
@@ -872,22 +1065,28 @@ document.getElementById('questChainForm').addEventListener('submit', function (e
   if (badgeFile) fd.append('badge_image', badgeFile);
 
   const url = id ? `${API_BASE}/api/quest-chains/${id}` : `${API_BASE}/api/quest-chains`;
+  setInlineMessage(msgEl, id ? '入口更新中...' : '入口建立中...', 'info');
   fetch(url, {
     method: id ? 'PUT' : 'POST',
-    headers: { 'x-username': loginUser.username },
+    headers: withActorHeaders(),
     body: fd
   })
     .then(r => r.json())
     .then(d => {
       if (d.success) {
+        setInlineMessage(msgEl, id ? '入口已更新' : '入口已建立', 'success');
         showToast(id ? '更新成功' : '建立成功');
         closeDrawer();
         loadQuestChains();
       } else {
+        setInlineMessage(msgEl, d.message || '操作失敗');
         showToast(d.message || '操作失敗', 'error');
       }
     })
-    .catch(() => showToast('伺服器連線失敗', 'error'));
+    .catch(() => {
+      setInlineMessage(msgEl, '伺服器連線失敗');
+      showToast('伺服器連線失敗', 'error');
+    });
 });
 
 // Badge preview
@@ -904,17 +1103,167 @@ if (qcBadgeInput) {
   });
 }
 
+const questChainShopSelect = document.getElementById('questChainShopSelect');
+if (questChainShopSelect) {
+  questChainShopSelect.addEventListener('change', syncQuestChainCommercialFields);
+}
+
+const questChainPlanSelect = document.getElementById('questChainPlanSelect');
+if (questChainPlanSelect) {
+  questChainPlanSelect.addEventListener('change', syncQuestChainCommercialFields);
+}
+
 // ── Drill-down: Load quest detail ─────────────────────────────
 let currentBoardMapId = null;
 let currentBoardMapName = '';
 let currentBoardTiles = [];
 let lastLoadedBoardMap = null;
+let currentQuestChainLocked = false;
+let currentQuestChainFormLocked = false;
 
 const boardPlayStyleLabels = {
   fixed_track_race: '終點競走型',
   random_trip: '三回合探索型',
   round_score: '積分累積型'
 };
+
+const TASK_STRUCTURE_LOCK_FIELD_NAMES = [
+  'type',
+  'quest_chain_id_select',
+  'quest_order',
+  'is_final_step',
+  'time_limit_start',
+  'time_limit_end',
+  'max_participants',
+  'task_type',
+  'validation_mode',
+  'location_required',
+  'lat',
+  'lng',
+  'radius',
+  'points',
+  'correct_answer_text',
+  'optionA',
+  'optionB',
+  'optionC',
+  'optionD',
+  'correct_answer_select',
+  'ai_target_label',
+  'ai_target_count',
+  'ai_min_score',
+  'ai_min_confidence',
+  'ai_system_prompt',
+  'ai_user_prompt',
+  'max_attempts',
+  'required_item_id',
+  'reward_item_id',
+  'ar_model_id',
+  'ar_order_model',
+  'ar_order_image',
+  'ar_order_youtube'
+];
+
+const QUEST_CHAIN_FORM_LOCK_FIELD_NAMES = [
+  'mode_type',
+  'chain_points',
+  'entry_order',
+  'access_mode',
+  'experience_mode',
+  'play_style'
+];
+
+function isQuestChainStructureLockedClient(chain) {
+  if (!chain) return false;
+  return Boolean(chain.structure_locked_at) || Boolean(chain.is_active);
+}
+
+function applyQuestChainStructureLockUi(chain) {
+  currentQuestChainLocked = isQuestChainStructureLockedClient(chain);
+  const banner = document.getElementById('questStructureLockBanner');
+  const createTaskBtn = document.getElementById('btnAddTask');
+  const createTileBtn = document.getElementById('btnAddTile');
+  const createBoardMapBtn = document.getElementById('btnCreateBoardMap');
+  const editBoardMapBtn = document.getElementById('btnEditBoardMap');
+
+  if (banner) {
+    if (currentQuestChainLocked) {
+      banner.style.display = 'block';
+      banner.textContent = '這個入口已進入發布後維護階段，核心結構已鎖定。你仍可修改文案、提示與素材，但不能新增、刪除或更動題型、GPS、驗證方式、順序等結構設定。';
+    } else {
+      banner.style.display = 'none';
+      banner.textContent = '';
+    }
+  }
+
+  if (createTaskBtn) {
+    createTaskBtn.disabled = currentQuestChainLocked;
+    createTaskBtn.style.opacity = currentQuestChainLocked ? '0.55' : '1';
+    createTaskBtn.style.cursor = currentQuestChainLocked ? 'not-allowed' : 'pointer';
+  }
+  if (createTileBtn) {
+    createTileBtn.disabled = currentQuestChainLocked;
+    createTileBtn.style.opacity = currentQuestChainLocked ? '0.55' : '1';
+    createTileBtn.style.cursor = currentQuestChainLocked ? 'not-allowed' : 'pointer';
+  }
+  if (createBoardMapBtn) {
+    createBoardMapBtn.disabled = currentQuestChainLocked;
+    createBoardMapBtn.style.opacity = currentQuestChainLocked ? '0.55' : '1';
+    createBoardMapBtn.style.cursor = currentQuestChainLocked ? 'not-allowed' : 'pointer';
+  }
+  if (editBoardMapBtn) {
+    editBoardMapBtn.disabled = currentQuestChainLocked;
+    editBoardMapBtn.style.opacity = currentQuestChainLocked ? '0.55' : '1';
+    editBoardMapBtn.style.cursor = currentQuestChainLocked ? 'not-allowed' : 'pointer';
+  }
+}
+
+function applyQuestChainFormLockUi(chain = null) {
+  const form = document.getElementById('questChainForm');
+  const banner = document.getElementById('questChainFormLockBanner');
+  if (!form) return;
+
+  currentQuestChainFormLocked = isQuestChainStructureLockedClient(chain);
+  if (banner) {
+    if (currentQuestChainFormLocked) {
+      banner.style.display = 'block';
+      banner.textContent = '這個入口已發布，入口核心結構已鎖定。你現在仍可調整標題、介紹、入口文案、封面素材、收款狀態與上下架狀態，但不能修改方案、模式、玩法規則與入口結構。';
+    } else {
+      banner.style.display = 'none';
+      banner.textContent = '';
+    }
+  }
+
+  QUEST_CHAIN_FORM_LOCK_FIELD_NAMES.forEach((name) => {
+    const field = form.elements[name];
+    if (!field) return;
+    field.disabled = currentQuestChainFormLocked;
+  });
+}
+
+function applyTaskStructureLockUi(task = null, chain = null) {
+  const banner = document.getElementById('taskStructureLockBanner');
+  const form = document.getElementById('taskForm');
+  const blueprintSelect = document.getElementById('taskBlueprintSelect');
+  const locked = Boolean(task && (task.structure_locked || task.structure_locked_at || isQuestChainStructureLockedClient(chain)));
+
+  if (banner) {
+    if (locked) {
+      banner.style.display = 'block';
+      banner.textContent = '這個入口已發布，關卡核心結構已鎖定。你現在只能修改文字敘事、提示、成功失敗文案、封面與素材，不能修改題型、GPS、驗證方式、順序、積分與通關規則。';
+    } else {
+      banner.style.display = 'none';
+      banner.textContent = '';
+    }
+  }
+
+  if (!form) return;
+  TASK_STRUCTURE_LOCK_FIELD_NAMES.forEach((name) => {
+    const field = form.elements[name];
+    if (!field) return;
+    field.disabled = locked;
+  });
+  if (blueprintSelect) blueprintSelect.disabled = locked;
+}
 
 function setBoardMapToolbar(hasMap, bm) {
   const stats = document.getElementById('boardMapStatsBlock');
@@ -949,6 +1298,7 @@ function setBoardMapToolbar(hasMap, bm) {
     if (btnAddTile) btnAddTile.style.display = 'none';
     if (btnAddTask) btnAddTask.style.display = 'inline-flex';
   }
+  applyQuestChainStructureLockUi(globalQuestChainsMap[String(currentQuestChainId)] || null);
 }
 
 function goToQuestDetail(questChainId) {
@@ -958,6 +1308,7 @@ function goToQuestDetail(questChainId) {
   currentQuestChainId = questChainId;
   currentQuestChainTitle = q.title;
   currentQuestChainMode = q.mode_type;
+  applyQuestChainStructureLockUi(q);
 
   document.getElementById('detailQuestTitle').textContent = `管理：${q.title}`;
   document.getElementById('task_locked_quest_name').textContent = q.title;
@@ -1025,6 +1376,7 @@ function inferNodeKindLabel(node, modeType) {
 function getTaskHumanType(task) {
   if (task.validation_mode?.startsWith('ai_')) {
     const map = {
+      ai_text_check: 'AI 文字判定',
       ai_count: 'AI 數量判斷',
       ai_identify: 'AI 指定物辨識',
       ai_score: 'AI 圖像評分',
@@ -1284,7 +1636,9 @@ function loadTasksForQuest(questChainId) {
       tasks.sort((a, b) => (a.quest_order || 0) - (b.quest_order || 0));
 
       if (!tasks.length) {
-        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📦</div>此入口尚無關卡，點右上角新增</div>';
+        container.innerHTML = currentQuestChainLocked
+          ? '<div class="empty-state"><div class="empty-state-icon">📦</div>此入口目前沒有關卡，而且結構已鎖定；若要補齊內容，請先建立草稿版入口再規劃後上線。</div>'
+          : '<div class="empty-state"><div class="empty-state-icon">📦</div>此入口尚無關卡，點右上角新增</div>';
         return;
       }
 
@@ -1308,6 +1662,13 @@ function renderTaskItem(t) {
   const coordTag = Number.isFinite(lat) && Number.isFinite(lng)
     ? `<span class="tag tag-gray">📍 ${lat.toFixed(4)}, ${lng.toFixed(4)}</span>`
     : '<span class="tag tag-gray">📍 未設定</span>';
+  const structureTag = currentQuestChainLocked
+    ? '<span class="tag tag-red">結構已鎖定</span>'
+    : '';
+  const destructiveActions = currentQuestChainLocked
+    ? ''
+    : `<button class="btn-sm btn-secondary-v2" onclick="duplicateTask('${t.id}')">複製</button>
+        <button class="btn-sm btn-danger-v2" onclick="deleteTask('${t.id}')">刪除</button>`;
 
   return `
     <div class="task-item">
@@ -1319,13 +1680,13 @@ function renderTaskItem(t) {
           <span class="tag tag-gray">${typeLabel}</span>
           <span class="tag tag-gray">💰 ${t.points || 0}</span>
           ${coordTag}
+          ${structureTag}
         </div>
         <div class="task-item-desc">${escHtml(t.description || '')}</div>
       </div>
       <div class="task-item-actions">
-        <button class="btn-sm btn-secondary-v2" onclick="duplicateTask('${t.id}')">複製</button>
         <button class="btn-sm btn-secondary-v2" onclick="editTask('${t.id}')">編輯</button>
-        <button class="btn-sm btn-danger-v2" onclick="deleteTask('${t.id}')">刪除</button>
+        ${destructiveActions}
       </div>
     </div>
   `;
@@ -1653,6 +2014,10 @@ function restoreTileForm(snap) {
 }
 
 function openTaskDrawerForBoardChallenge() {
+  if (currentQuestChainLocked) {
+    showToast('這個入口的結構已鎖定，無法再新增挑戰關卡', 'error');
+    return;
+  }
   openDrawer('新增關卡（挑戰格）', 'form-task');
   const form = document.getElementById('taskForm');
   document.getElementById('task_quest_chain_id').value = currentQuestChainId || '';
@@ -1669,6 +2034,7 @@ function openTaskDrawerForBoardChallenge() {
   const bpSel = document.getElementById('taskBlueprintSelect');
   bpSel.value = 'board_ai_identify';
   applyBlueprint('board_ai_identify', false);
+  applyTaskStructureLockUi(null, globalQuestChainsMap[String(currentQuestChainId)] || null);
 }
 
 function openTaskDrawerFromTileChallenge() {
@@ -1697,6 +2063,10 @@ function openTaskDrawerFromTileChallenge() {
 }
 
 function openBoardMapDrawer(isEdit) {
+  if (currentQuestChainLocked) {
+    showToast('這個入口的結構已鎖定，無法再調整大富翁地圖', 'error');
+    return;
+  }
   const title = isEdit ? '編輯大富翁地圖' : '建立大富翁地圖';
   openDrawer(title, 'form-board-map', null, { skipReset: true });
   const form = document.getElementById('boardMapForm');
@@ -1736,6 +2106,10 @@ function openBoardMapDrawer(isEdit) {
 
 // ── Tile Drawer: Open for create ──────────────────────────────
 function openTileDrawerForCreate() {
+  if (currentQuestChainLocked) {
+    showToast('這個入口的結構已鎖定，無法再新增格子', 'error');
+    return;
+  }
   openDrawer('新增格子', 'form-tile');
   const form = document.getElementById('tileForm');
   form.reset();
@@ -1766,6 +2140,10 @@ function openTileDrawerForCreate() {
 
 // ── Tile Drawer: Open for edit ────────────────────────────────
 function editTile(tileId) {
+  if (currentQuestChainLocked) {
+    showToast('這個入口的結構已鎖定，無法再編輯格子', 'error');
+    return;
+  }
   const tile = currentBoardTiles.find(t => String(t.id) === String(tileId));
   if (!tile) return;
 
@@ -1806,6 +2184,10 @@ function editTile(tileId) {
 }
 
 function duplicateTile(tileId) {
+  if (currentQuestChainLocked) {
+    showToast('這個入口的結構已鎖定，無法再複製格子', 'error');
+    return;
+  }
   const tile = currentBoardTiles.find(t => String(t.id) === String(tileId));
   if (!tile) return;
   openTileDrawerForCreate();
@@ -1935,6 +2317,10 @@ document.getElementById('tileForm').addEventListener('submit', function (e) {
 
 // ── Delete Tile ───────────────────────────────────────────────
 function deleteTile(tileId) {
+  if (currentQuestChainLocked) {
+    showToast('這個入口的結構已鎖定，無法再刪除格子', 'error');
+    return;
+  }
   showConfirm('確定要刪除這個格子嗎？', () => {
     fetch(`${API_BASE}/api/board-tiles/${tileId}`, {
       method: 'DELETE',
@@ -1953,6 +2339,10 @@ function deleteTile(tileId) {
 
 // ── Task Drawer: Open for create ──────────────────────────────
 function openTaskDrawerForCreate() {
+  if (currentQuestChainLocked) {
+    showToast('這個入口的結構已鎖定，無法再新增關卡', 'error');
+    return;
+  }
   openDrawer('新增關卡', 'form-task');
   resetTaskWizard();
   const form = document.getElementById('taskForm');
@@ -1995,6 +2385,7 @@ function openTaskDrawerForCreate() {
   }
   syncTaskLocationRequirementUi();
   syncTaskWizardUI();
+  applyTaskStructureLockUi(null, globalQuestChainsMap[String(currentQuestChainId)] || null);
 }
 
 function populateTaskFormForEdit(t) {
@@ -2081,7 +2472,10 @@ function populateTaskFormForEdit(t) {
 
       // Validation mode
       const valSel = document.getElementById('validationModeSelect');
-      valSel.value = t.validation_mode || 'manual';
+      const normalizedValidationMode = t.validation_mode === 'manual'
+        ? (t.task_type === 'photo' ? 'ai_rule_check' : (t.task_type === 'qa' ? 'ai_text_check' : 'auto'))
+        : (t.validation_mode || 'auto');
+      valSel.value = normalizedValidationMode;
       valSel.dispatchEvent(new Event('change'));
 
       // AI fields
@@ -2120,6 +2514,8 @@ function populateTaskFormForEdit(t) {
   applyBlueprint(bp, true);
 
   document.getElementById('taskFormMsg').textContent = '';
+  const chain = globalQuestChainsMap[String(t.quest_chain_id || currentQuestChainId)] || null;
+  applyTaskStructureLockUi(t, chain);
 }
 
 function editTask(taskId) {
@@ -2135,6 +2531,10 @@ function editTask(taskId) {
 }
 
 function duplicateTask(taskId) {
+  if (currentQuestChainLocked) {
+    showToast('這個入口的結構已鎖定，無法再複製關卡', 'error');
+    return;
+  }
   fetch(`${API_BASE}/api/tasks/${taskId}`)
     .then(r => r.json())
     .then(data => {
@@ -2153,6 +2553,7 @@ function duplicateTask(taskId) {
       document.getElementById('taskFormMsg').textContent = '';
       syncTaskLocationRequirementUi();
       syncTaskWizardUI();
+      applyTaskStructureLockUi(null, globalQuestChainsMap[String(currentQuestChainId)] || null);
     });
 }
 
@@ -2165,7 +2566,7 @@ document.getElementById('taskForm').addEventListener('submit', async function (e
   msgEl.textContent = '';
 
   const aiPayload = buildAiTaskPayload(form);
-  const task_type = aiPayload.validation_mode.startsWith('ai_') ? 'photo' : form.elements.task_type.value;
+  const task_type = IMAGE_AI_VALIDATION_MODES.includes(aiPayload.validation_mode) ? 'photo' : form.elements.task_type.value;
 
   // Validate
   if (!validateAiPayload(form, aiPayload, msgEl)) return;
@@ -2425,6 +2826,10 @@ if (uploadBgmBtnEl) {
 
 // ── Delete Task ───────────────────────────────────────────────
 function deleteTask(taskId) {
+  if (currentQuestChainLocked) {
+    showToast('這個入口的結構已鎖定，無法再刪除關卡', 'error');
+    return;
+  }
   if (!confirm('確定要刪除這個關卡嗎？')) return;
   fetch(`${API_BASE}/api/tasks/${taskId}`, {
     method: 'DELETE', headers: { 'x-username': loginUser.username }
@@ -2952,7 +3357,7 @@ function applySidebarRBAC() {
 
 function hydrateLoginHeader() {
   const info = document.getElementById('loginUserInfo');
-  const roles = { admin: '管理員', shop: '工作人員', staff: '工作人員', user: '玩家' };
+  const roles = { admin: '平台管理員', shop: '建置廠商', staff: '廠商員工', user: '玩家' };
   if (info && loginUser) {
     info.textContent = `${roles[loginUser.role] || ''}：${loginUser.username}`;
   }
@@ -2986,11 +3391,12 @@ async function bootstrapSession() {
 
     const role = loginUser?.role || '';
     const initLoads = [];
-    if (role === 'admin') {
-      initLoads.push(loadQuestChains(), loadItems(), loadARModels(), loadBgmAssets(), loadProducts());
-    } else if (role === 'shop') {
-      initLoads.push(loadProducts());
-    } else if (role !== 'staff') {
+    if (['admin', 'shop', 'staff'].includes(role)) {
+      initLoads.push(loadShops(), loadEntryPlans(), loadQuestChains(), loadItems(), loadARModels(), loadBgmAssets());
+      if (role === 'admin' || role === 'shop') {
+        initLoads.push(loadProducts());
+      }
+    } else {
       throw new Error('僅限管理員、商店或工作人員使用');
     }
 

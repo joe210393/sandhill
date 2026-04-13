@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>審核台 | 沙丘</title>
+  <title>任務狀態台 | 沙丘</title>
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="icon" type="image/png" href="/images/mascot.png" />
   <script>
@@ -13,19 +13,19 @@
   </script>
 </head>
 <body>
-  <div class="embed-topbar" id="embedTopbar" aria-hidden="true"><span>審核台</span><a href="/staff-dashboard.html#review">回管理控制台</a></div>
+  <div class="embed-topbar" id="embedTopbar" aria-hidden="true"><span>任務狀態台</span><a href="/staff-dashboard.html#quests">回管理控制台</a></div>
   <header id="mainHeader">
     <button id="hamburgerBtn" class="hamburger" aria-label="展開選單">&#9776;</button>
     <div class="header-content" id="headerContent">
-      <h1 id="pageTitle">審核台</h1>
+      <h1 id="pageTitle">任務狀態台</h1>
       <nav class="main-nav">
         <a href="/index.html">首頁</a>
         <a href="/map.html">探索地圖</a>
         <a href="/ai-lab.html">海底探索艙</a>
         <a href="/tasks-list.html" id="navTasksList">關卡圖鑑</a>
         <a href="/products.html" id="navProducts">獎勵兌換</a>
-        <a href="/user-tasks.html" class="current-page" id="navReviewDesk">審核台</a>
-        <a href="/staff-dashboard.html#review" id="navStaff" style="display:none;">管理控制台</a>
+        <a href="/user-tasks.html" class="current-page" id="navReviewDesk">任務狀態台</a>
+        <a href="/staff-dashboard.html#quests" id="navStaff" style="display:none;">管理控制台</a>
         <a href="/user-dashboard.html" id="navUserTasks" style="display:none;">玩家中心</a>
         <span id="loginUserInfo" style="display:none;color:#666;text-decoration:none;cursor:default;"></span>
         <button id="logoutBtn" style="display:none;">登出</button>
@@ -332,8 +332,8 @@
   <main>
     <section id="staffReviewSection" style="display:none;">
       <div class="review-header">
-        <h2>關卡審核</h2>
-        <p>在此檢視並處理所有使用者正在進行中的任務</p>
+        <h2>平台狀態</h2>
+        <p>此頁會顯示目前任務已改為 AI / 系統自動判定，無需人工介入。</p>
       </div>
       <form id="searchForm" class="review-filter">
         <div class="filter-group">
@@ -353,7 +353,7 @@
       <div id="staffPagination" class="review-pagination"></div>
     </section>
     <section id="userProgressSection" style="display:none;">
-      <h2>審核進度</h2>
+      <h2>任務進度</h2>
       <ul id="userTasks"></ul>
     </section>
   </main>
@@ -365,7 +365,7 @@
     // Header功能
     window.loginUser = JSON.parse(localStorage.getItem('loginUser') || 'null');
 
-    // 僅限審核角色使用（admin/shop/staff）
+    // 僅限營運角色使用（admin/shop/staff）
     if (!window.loginUser || (window.loginUser.role !== 'admin' && window.loginUser.role !== 'shop' && window.loginUser.role !== 'staff')) {
       alert('僅限管理員/商店/工作人員使用');
       window.location.href = '/index.html';
@@ -392,7 +392,7 @@
       } else if (window.loginUser.role === 'staff') {
         const ns = document.getElementById('navStaff');
         ns.style.display = '';
-        ns.href = '/staff-dashboard.html#review';
+        ns.href = '/staff-dashboard.html#quests';
       }
       // 工作人員與管理員不顯示任務列表
       if (window.loginUser && (window.loginUser.role === 'shop' || window.loginUser.role === 'admin' || window.loginUser.role === 'staff')) {

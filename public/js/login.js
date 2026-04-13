@@ -19,9 +19,9 @@ if (formUser) {
     const data = await res.json();
     if (data.success) {
       localStorage.setItem('loginUser', JSON.stringify(data.user));
-      // staff 也走一般登入，但登入後導向審核頁
+      // staff 也走一般登入，但登入後導向內容控制台
       if (data.user && data.user.role === 'staff') {
-        window.location.href = '/staff-dashboard.html#review';
+        window.location.href = '/staff-dashboard.html#quests';
       } else {
         window.location.href = '/index.html';
       }
@@ -44,7 +44,7 @@ if (formUser) {
       return;
     }
     if (loginUser.role === 'staff') {
-      window.location.replace('/staff-dashboard.html#review');
+      window.location.replace('/staff-dashboard.html#quests');
       return;
     }
     // user
