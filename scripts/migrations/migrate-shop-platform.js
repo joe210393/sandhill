@@ -73,9 +73,9 @@ async function ensureDefaultPlans(conn) {
     )
   `);
   const plans = [
-    ['starter_10', '10 關方案', 10, 0, 0, 0],
-    ['growth_20', '20 關方案', 20, 0, 0, 0],
-    ['pro_30', '30 關方案', 30, 0, 0, 0]
+    ['starter_10', '10 關方案', 10, 5000, 0, 0.1],
+    ['growth_20', '20 關方案', 20, 8000, 0, 0.1],
+    ['pro_30', '30 關方案', 30, 11000, 0, 0.1]
   ];
   for (const [code, name, taskLimit, setupFee, monthlyBaseFee, tokenPricePer1k] of plans) {
     await conn.query(
@@ -160,6 +160,7 @@ async function migrate() {
         completion_tokens INT NOT NULL DEFAULT 0,
         total_tokens INT NOT NULL DEFAULT 0,
         estimated_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+        donated_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
         is_invoiced BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -174,11 +175,13 @@ async function migrate() {
     await ensureColumn(conn, 'quest_chains', 'setup_fee', 'DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER task_limit');
     await ensureColumn(conn, 'quest_chains', 'setup_fee_paid', 'BOOLEAN DEFAULT FALSE AFTER setup_fee');
     await ensureColumn(conn, 'quest_chains', 'monthly_billing_enabled', 'BOOLEAN DEFAULT TRUE AFTER setup_fee_paid');
+    await ensureColumn(conn, 'quest_chains', 'billing_policy', "VARCHAR(20) NOT NULL DEFAULT 'commercial' AFTER monthly_billing_enabled");
     await ensureColumn(conn, 'quest_chains', 'structure_locked_at', 'TIMESTAMP NULL AFTER monthly_billing_enabled');
     await ensureColumn(conn, 'quest_chains', 'lm_total_prompt_tokens', 'INT NOT NULL DEFAULT 0 AFTER structure_locked_at');
     await ensureColumn(conn, 'quest_chains', 'lm_total_completion_tokens', 'INT NOT NULL DEFAULT 0 AFTER lm_total_prompt_tokens');
     await ensureColumn(conn, 'quest_chains', 'lm_total_tokens', 'INT NOT NULL DEFAULT 0 AFTER lm_total_completion_tokens');
     await ensureColumn(conn, 'quest_chains', 'current_billing_month_tokens', 'INT NOT NULL DEFAULT 0 AFTER lm_total_tokens');
+    await ensureColumn(conn, 'llm_usage_monthly_summary', 'donated_amount', 'DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER estimated_amount');
 
     await ensureColumn(conn, 'tasks', 'shop_id', 'INT NULL AFTER created_by');
     await ensureColumn(conn, 'tasks', 'structure_locked', 'BOOLEAN DEFAULT FALSE AFTER shop_id');
@@ -246,6 +249,16 @@ async function migrate() {
     `);
 
     await conn.query(`
+      UPDATE quest_chains qc
+      LEFT JOIN users creator_user ON creator_user.username = qc.created_by
+      SET qc.billing_policy = CASE
+        WHEN creator_user.role = 'admin' OR LOWER(COALESCE(qc.created_by, '')) = 'admin' THEN 'public_good'
+        ELSE 'commercial'
+      END
+      WHERE qc.billing_policy IS NULL OR qc.billing_policy = '' OR qc.billing_policy = 'commercial'
+    `);
+
+    await conn.query(`
       UPDATE tasks t
       LEFT JOIN quest_chains qc ON qc.id = t.quest_chain_id
       LEFT JOIN users creator_user ON creator_user.username = t.created_by
@@ -284,6 +297,36 @@ async function migrate() {
       SET bm.shop_id = qc.shop_id
       WHERE bm.shop_id IS NULL
         AND qc.shop_id IS NOT NULL
+    `);
+
+    await conn.query(`
+      UPDATE entry_billing_records ebr
+      JOIN quest_chains qc ON qc.id = ebr.quest_chain_id
+      SET ebr.status = 'cancelled',
+          ebr.note = CONCAT(
+            COALESCE(NULLIF(ebr.note, ''), '玩法入口建置費'),
+            '｜公益入口免收建置費'
+          )
+      WHERE qc.billing_policy = 'public_good'
+        AND ebr.billing_type = 'setup_fee'
+        AND ebr.status <> 'cancelled'
+    `);
+
+    await conn.query(`
+      UPDATE llm_usage_monthly_summary summary
+      LEFT JOIN quest_chains qc ON qc.id = summary.quest_chain_id
+      LEFT JOIN entry_plans ep ON ep.id = qc.plan_id
+      SET summary.estimated_amount = CASE
+            WHEN COALESCE(qc.billing_policy, 'commercial') = 'public_good' THEN 0
+            WHEN COALESCE(qc.monthly_billing_enabled, TRUE) THEN COALESCE(ep.monthly_base_fee, 0) + (COALESCE(summary.total_tokens, 0) / 1000) * COALESCE(ep.token_price_per_1k, 0)
+            ELSE 0
+          END,
+          summary.donated_amount = CASE
+            WHEN COALESCE(qc.billing_policy, 'commercial') = 'public_good'
+             AND COALESCE(qc.monthly_billing_enabled, TRUE)
+              THEN COALESCE(ep.monthly_base_fee, 0) + (COALESCE(summary.total_tokens, 0) / 1000) * COALESCE(ep.token_price_per_1k, 0)
+            ELSE 0
+          END
     `);
 
     await ensureForeignKey(conn, 'users', 'fk_users_shop_id', 'ALTER TABLE users ADD CONSTRAINT fk_users_shop_id FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE SET NULL');

@@ -137,27 +137,36 @@ async function run() {
       [1200, 25, 3600, plan.id]
     );
 
-    stepLog.push('建立入口');
+    stepLog.push('建立 admin 公益入口');
     const questChainId = await createQuestChainViaApi(page, { shopId, planId: plan.id, title: questTitle });
 
-    stepLog.push('寫入 LM 月報與明細');
+    stepLog.push('寫入公益入口 LM 月報與明細');
     await db.execute(
       `INSERT INTO llm_usage_monthly_summary
-        (shop_id, quest_chain_id, billing_month, prompt_tokens, completion_tokens, total_tokens, estimated_amount, is_invoiced)
-       VALUES (?, ?, ?, ?, ?, ?, ?, FALSE)
+        (shop_id, quest_chain_id, billing_month, prompt_tokens, completion_tokens, total_tokens, estimated_amount, donated_amount, is_invoiced)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, FALSE)
        ON DUPLICATE KEY UPDATE
          prompt_tokens = VALUES(prompt_tokens),
          completion_tokens = VALUES(completion_tokens),
          total_tokens = VALUES(total_tokens),
          estimated_amount = VALUES(estimated_amount),
+         donated_amount = VALUES(donated_amount),
          is_invoiced = FALSE`,
-      [shopId, questChainId, billingMonth, 900, 600, 1500, 1237.5]
+      [shopId, questChainId, billingMonth, 900, 600, 1500, 0, 1237.5]
     );
     await db.execute(
       `INSERT INTO llm_usage_logs
         (shop_id, quest_chain_id, task_id, user_id, provider, model, request_type, prompt_tokens, completion_tokens, total_tokens, success, meta_json)
        VALUES (?, ?, NULL, NULL, 'openai_compatible', 'phase5-test-model', 'ai_identify', ?, ?, ?, TRUE, ?)`,
       [shopId, questChainId, 900, 600, 1500, JSON.stringify({ source: 'verify-phase5' })]
+    );
+    await db.execute(
+      `UPDATE quest_chains
+          SET billing_policy = 'public_good',
+              monthly_billing_enabled = TRUE,
+              setup_fee_paid = FALSE
+        WHERE id = ?`,
+      [questChainId]
     );
 
     stepLog.push('驗證 billing API');
@@ -179,7 +188,7 @@ async function run() {
         entries,
         logs,
         records,
-        hasEntry: (entries.entries || []).some((entry) => entry.title === targetTitle && Number(entry.total_tokens) === 1500),
+        entry: (entries.entries || []).find((entry) => entry.title === targetTitle) || null,
         hasLog: (logs.logs || []).some((log) => log.quest_chain_title === targetTitle && Number(log.total_tokens) === 1500),
         hasSetupFee: (records.records || []).some((record) => record.quest_chain_title === targetTitle)
       };
@@ -188,8 +197,17 @@ async function run() {
     if (!apiCheck.overview?.success || !apiCheck.entries?.success || !apiCheck.logs?.success || !apiCheck.records?.success) {
       throw new Error(`Billing API verification failed: ${JSON.stringify(apiCheck)}`);
     }
-    if (!apiCheck.hasEntry || !apiCheck.hasLog || !apiCheck.hasSetupFee) {
+    if (!apiCheck.entry || !apiCheck.hasLog) {
       throw new Error(`Billing API payload incomplete: ${JSON.stringify(apiCheck)}`);
+    }
+    if (apiCheck.hasSetupFee) {
+      throw new Error(`Public-good entry should not create setup fee record: ${JSON.stringify(apiCheck)}`);
+    }
+    if (apiCheck.entry.billing_policy !== 'public_good' || Number(apiCheck.entry.estimated_amount) !== 0 || Number(apiCheck.entry.donated_amount) <= 0) {
+      throw new Error(`Billing API payload incomplete: ${JSON.stringify(apiCheck)}`);
+    }
+    if (Number(apiCheck.overview?.overview?.donated_amount || 0) <= 0) {
+      throw new Error(`Billing overview should include donated amount: ${JSON.stringify(apiCheck)}`);
     }
 
     stepLog.push('驗證 staff-dashboard 計費畫面');
@@ -197,14 +215,22 @@ async function run() {
     await page.waitForFunction(
       (targetTitle) => {
         const table = document.getElementById('billingEntriesTable');
-        return table && table.textContent.includes(targetTitle) && table.textContent.includes('1,500');
+        return table
+          && table.textContent.includes(targetTitle)
+          && table.textContent.includes('1,500')
+          && table.textContent.includes('公益入口')
+          && table.textContent.includes('公益代付');
       },
       {},
       questTitle
     );
     await page.waitForFunction(() => {
       const cards = document.getElementById('billingOverviewCards');
-      return cards && cards.textContent.includes('本月總 tokens') && cards.textContent.includes('本月預估金額');
+      return cards
+        && cards.textContent.includes('本月總 tokens')
+        && cards.textContent.includes('本月預估金額')
+        && cards.textContent.includes('公益入口')
+        && cards.textContent.includes('公益免收建置費');
     });
 
     stepLog.push('驗證 dashboard 商店總帳畫面');
@@ -212,7 +238,11 @@ async function run() {
       (targetTitle) => {
         const table = document.getElementById('billingShopTotalsTable');
         const entryTable = document.getElementById('billingEntriesTable');
-        return table && entryTable && entryTable.textContent.includes(targetTitle) && table.textContent.includes('第五階段驗收商家');
+        return table
+          && entryTable
+          && entryTable.textContent.includes(targetTitle)
+          && table.textContent.includes('第五階段驗收商家')
+          && table.textContent.includes('公益代付');
       },
       {},
       questTitle

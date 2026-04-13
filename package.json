@@ -11,7 +11,8 @@
     "verify:tlpg": "node scripts/rag/verify_from_tlpg_url.js",
     "test": "node scripts/verify-phase34.js && node scripts/verify-phase5.js",
     "test:phase34": "node scripts/verify-phase34.js",
-    "test:phase5": "node scripts/verify-phase5.js"
+    "test:phase5": "node scripts/verify-phase5.js",
+    "demo:billing": "node scripts/run-billing-demo-scenario.js"
   },
   "keywords": [],
   "author": "",

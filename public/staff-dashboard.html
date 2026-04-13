@@ -797,16 +797,17 @@
             <div class="form-group">
               <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
                 <input type="checkbox" name="setup_fee_paid" value="1" style="width:16px; height:16px;">
-                <span style="font-size:0.9rem;">已完成建置費收款</span>
+                <span id="questChainSetupFeePaidLabel" style="font-size:0.9rem;">已完成建置費收款</span>
               </label>
             </div>
             <div class="form-group">
               <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
                 <input type="checkbox" name="monthly_billing_enabled" value="1" checked style="width:16px; height:16px;">
-                <span style="font-size:0.9rem;">啟用每月 LM token 計費</span>
+                <span id="questChainMonthlyBillingLabel" style="font-size:0.9rem;">啟用每月 LM token 計費</span>
               </label>
             </div>
           </div>
+          <div class="form-hint" id="questChainBillingPolicyHint">商業入口會記錄建置費與月費；若由 admin 建置，會自動改為公益入口。</div>
           <div class="form-group">
             <label class="form-label">入口標題</label>
             <input class="form-input" type="text" name="title" required placeholder="例如：沙丘教學模式">

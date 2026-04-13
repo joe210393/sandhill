@@ -132,6 +132,18 @@ function formatCurrency(amount) {
   return `NT$${value.toLocaleString('zh-TW')}`;
 }
 
+function normalizeQuestChainBillingPolicy(chain = null) {
+  if (!chain) return 'commercial';
+  const policy = typeof chain.billing_policy === 'string' ? chain.billing_policy.trim().toLowerCase() : '';
+  if (policy === 'public_good') return 'public_good';
+  if (!policy && String(chain.created_by || '').trim().toLowerCase() === 'admin') return 'public_good';
+  return 'commercial';
+}
+
+function isPublicGoodQuestChain(chain = null) {
+  return normalizeQuestChainBillingPolicy(chain) === 'public_good';
+}
+
 function populateQuestChainShopOptions() {
   const select = document.getElementById('questChainShopSelect');
   if (!select) return;
@@ -186,11 +198,21 @@ function syncQuestChainCommercialFields() {
   const planSelect = form.elements.plan_id;
   const taskLimitInput = form.elements.task_limit;
   const setupFeeInput = form.elements.setup_fee;
+  const setupFeePaidInput = form.elements.setup_fee_paid;
+  const monthlyBillingInput = form.elements.monthly_billing_enabled;
   const shopHint = document.getElementById('questChainShopHint');
   const planHint = document.getElementById('questChainPlanHint');
   const summary = document.getElementById('questChainCommercialSummaryText');
+  const billingHint = document.getElementById('questChainBillingPolicyHint');
+  const setupFeePaidLabel = document.getElementById('questChainSetupFeePaidLabel');
+  const monthlyBillingLabel = document.getElementById('questChainMonthlyBillingLabel');
   const selectedShop = globalShopsMap[String(shopSelect?.value || '')] || null;
   const selectedPlan = globalEntryPlansMap[String(planSelect?.value || '')] || null;
+  const editingChain = isEditing ? globalQuestChainsMap[String(form.elements.id?.value || '')] || null : null;
+  const billingPolicy = editingChain
+    ? normalizeQuestChainBillingPolicy(editingChain)
+    : (loginUser?.role === 'admin' ? 'public_good' : 'commercial');
+  const isPublicGood = billingPolicy === 'public_good';
 
   if (selectedPlan) {
     taskLimitInput.value = selectedPlan.task_limit ?? '';
@@ -208,16 +230,35 @@ function syncQuestChainCommercialFields() {
   const lockCommercialFields = isEditing;
   shopSelect.disabled = loginUser.role !== 'admin' || lockCommercialFields;
   planSelect.disabled = lockCommercialFields;
+  if (setupFeePaidInput) {
+    setupFeePaidInput.disabled = isPublicGood;
+    if (isPublicGood) setupFeePaidInput.checked = false;
+  }
+  if (monthlyBillingInput) {
+    monthlyBillingInput.disabled = isPublicGood;
+    if (isPublicGood) monthlyBillingInput.checked = true;
+  }
+  if (setupFeePaidLabel) {
+    setupFeePaidLabel.textContent = isPublicGood ? '公益入口免收建置費' : '已完成建置費收款';
+  }
+  if (monthlyBillingLabel) {
+    monthlyBillingLabel.textContent = isPublicGood ? '持續統計 LM tokens 與公益代付值' : '啟用每月 LM token 計費';
+  }
 
   if (shopHint) {
     shopHint.textContent = loginUser.role === 'admin'
-      ? (lockCommercialFields ? '入口建立後商家歸屬會固定保留；若要搬移，建議以資料遷移方式處理。' : 'admin 可指定入口要歸屬到哪個建置商家。')
+      ? (lockCommercialFields ? '入口建立後商家歸屬會固定保留；若要搬移，建議以資料遷移方式處理。' : 'admin 可指定入口要歸屬到哪個建置商家；由 admin 建立時，會自動視為公益入口。')
       : '這個入口會自動歸屬在你目前登入的商家底下。';
   }
   if (planHint) {
     planHint.textContent = lockCommercialFields
       ? '入口建立後會保留原本方案與關卡上限，避免後續計價與內容範圍混亂。'
-      : '請先選擇方案，系統會自動帶入關卡上限與一次性建置費。';
+      : (isPublicGood ? '公益入口仍會綁定方案，方便統計關卡上限與捐贈等值。' : '請先選擇方案，系統會自動帶入關卡上限與一次性建置費。');
+  }
+  if (billingHint) {
+    billingHint.textContent = isPublicGood
+      ? '這個入口屬於 admin 建置的公益入口：不代收建置費、不向商家收取 LM 月費，但仍會統計 token 與公益代付值。'
+      : '商業入口會記錄建置費與月費；若由 admin 建置，會自動改為公益入口。';
   }
 
   if (summary) {
@@ -225,7 +266,9 @@ function syncQuestChainCommercialFields() {
     const planText = selectedPlan?.name || (planSelect?.value ? `方案 #${planSelect.value}` : '尚未指定方案');
     const limitText = taskLimitInput?.value ? `${taskLimitInput.value} 關` : '未設定關卡上限';
     const feeText = formatCurrency(setupFeeInput?.value);
-    summary.textContent = `${shopText}｜${planText}｜${limitText}｜建置費 ${feeText}`;
+    summary.textContent = isPublicGood
+      ? `${shopText}｜${planText}｜${limitText}｜公益入口｜建置費參考 ${feeText}（免收）`
+      : `${shopText}｜${planText}｜${limitText}｜建置費 ${feeText}`;
   }
 }
 
@@ -315,10 +358,12 @@ function renderBillingOverview(overview = {}) {
     ['商家數', overview.shop_count || 0, `啟用月計費 ${formatTokenCount(overview.monthly_enabled_entry_count || 0)} 個入口`],
     ['本月總 tokens', formatTokenCount(overview.total_tokens || 0), `Prompt ${formatTokenCount(overview.prompt_tokens || 0)} / Completion ${formatTokenCount(overview.completion_tokens || 0)}`],
     ['本月預估金額', formatCurrency(overview.estimated_amount || 0), `待開帳 ${formatTokenCount(overview.uninvoiced_entry_count || 0)} 個入口`],
+    ['公益入口', formatTokenCount(overview.public_good_entry_count || 0), `平台公益代付 ${formatCurrency(overview.donated_amount || 0)}`],
+    ['公益免收建置費', formatCurrency(overview.donated_setup_fee_amount || 0), '由 admin 建置的入口不代收建置費'],
     ['建置費待收', formatTokenCount(overview.setup_fee_pending_count || 0), `金額 ${formatCurrency(overview.setup_fee_pending_amount || 0)}`],
     ['建置費已收', formatTokenCount(overview.setup_fee_paid_count || 0), `金額 ${formatCurrency(overview.setup_fee_paid_amount || 0)}`],
     ['已開帳入口', formatTokenCount(overview.invoiced_entry_count || 0), '可作為月底結帳依據'],
-    ['月計費入口', formatTokenCount(overview.monthly_enabled_entry_count || 0), '僅這些入口會計入 LM 月費']
+    ['月計費入口', formatTokenCount(overview.monthly_enabled_entry_count || 0), '僅商業入口會計入 LM 月費']
   ];
   container.innerHTML = cards.map(([label, value, subtle]) => `
     <div class="stat-card">
@@ -343,7 +388,7 @@ function renderBillingEntries(entries = []) {
           <th>入口</th>
           <th>商家 / 方案</th>
           <th>本月 Tokens</th>
-          <th>預估月費</th>
+          <th>本月應收 / 公益代付</th>
           <th>建置費</th>
           <th>狀態</th>
         </tr>
@@ -354,6 +399,7 @@ function renderBillingEntries(entries = []) {
             <td class="wrap">
               <strong>${escHtml(entry.title || `入口 #${entry.id}`)}</strong><br>
               <span class="subtle-note">上限 ${escHtml(entry.task_limit ? `${entry.task_limit} 關` : '未限制')}</span>
+              ${entry.billing_policy === 'public_good' ? '<br><span class="tag tag-green">公益入口</span>' : ''}
             </td>
             <td class="wrap">
               <div>${escHtml(entry.shop_name || '未指定商家')}</div>
@@ -365,15 +411,19 @@ function renderBillingEntries(entries = []) {
             </td>
             <td>
               <strong>${formatCurrency(entry.estimated_amount || 0)}</strong><br>
-              <span class="subtle-note">${entry.monthly_billing_enabled ? '月計費啟用' : '未啟用月計費'}</span>
+              <span class="subtle-note">${entry.billing_policy === 'public_good'
+                ? `公益代付 ${formatCurrency(entry.donated_amount || 0)}`
+                : (entry.monthly_billing_enabled ? '月計費啟用' : '未啟用月計費')}</span>
             </td>
             <td>
-              <strong>${formatCurrency(entry.setup_fee || 0)}</strong><br>
-              <span class="subtle-note">${entry.setup_fee_paid ? '已收款' : '待收款'}</span>
+              <strong>${entry.billing_policy === 'public_good' ? '公益免收' : formatCurrency(entry.setup_fee || 0)}</strong><br>
+              <span class="subtle-note">${entry.billing_policy === 'public_good'
+                ? `參考 ${formatCurrency(entry.donated_setup_fee_amount || 0)}`
+                : (entry.setup_fee_paid ? '已收款' : '待收款')}</span>
             </td>
             <td>
               <span class="tag ${entry.is_active ? 'tag-green' : 'tag-red'}">${entry.is_active ? '已開放' : '草稿 / 停用'}</span>
-              <span class="tag ${entry.is_invoiced ? 'tag-blue' : 'tag-amber'}">${entry.is_invoiced ? '已開帳' : '待開帳'}</span>
+              <span class="tag ${entry.billing_policy === 'public_good' ? 'tag-green' : (entry.is_invoiced ? 'tag-blue' : 'tag-amber')}">${entry.billing_policy === 'public_good' ? '公益免計費' : (entry.is_invoiced ? '已開帳' : '待開帳')}</span>
             </td>
           </tr>
         `).join('')}
@@ -396,18 +446,18 @@ function renderBillingShopTotals(shops = []) {
           <th>商店</th>
           <th>入口數</th>
           <th>本月 Tokens</th>
-          <th>預估月費</th>
-          <th>建置費</th>
+          <th>本月應收 / 公益代付</th>
+          <th>建置費 / 公益免收</th>
         </tr>
       </thead>
       <tbody>
         ${shops.map((shop) => `
           <tr>
             <td class="wrap"><strong>${escHtml(shop.name || `商店 #${shop.id}`)}</strong><br><span class="subtle-note">管理帳號：${escHtml(shop.owner_username || 'admin')}</span></td>
-            <td>${formatTokenCount(shop.entry_count || 0)}<br><span class="subtle-note">啟用 ${formatTokenCount(shop.active_entry_count || 0)} 個</span></td>
+            <td>${formatTokenCount(shop.entry_count || 0)}<br><span class="subtle-note">啟用 ${formatTokenCount(shop.active_entry_count || 0)} 個｜公益 ${formatTokenCount(shop.public_good_entry_count || 0)} 個</span></td>
             <td><strong>${formatTokenCount(shop.total_tokens || 0)}</strong><br><span class="subtle-note">P ${formatTokenCount(shop.prompt_tokens || 0)} / C ${formatTokenCount(shop.completion_tokens || 0)}</span></td>
-            <td><strong>${formatCurrency(shop.estimated_amount || 0)}</strong></td>
-            <td><strong>待收 ${formatCurrency(shop.setup_fee_pending_amount || 0)}</strong><br><span class="subtle-note">已收 ${formatCurrency(shop.setup_fee_paid_amount || 0)}</span></td>
+            <td><strong>${formatCurrency(shop.estimated_amount || 0)}</strong><br><span class="subtle-note">公益代付 ${formatCurrency(shop.donated_amount || 0)}</span></td>
+            <td><strong>待收 ${formatCurrency(shop.setup_fee_pending_amount || 0)}</strong><br><span class="subtle-note">已收 ${formatCurrency(shop.setup_fee_paid_amount || 0)}｜免收 ${formatCurrency(shop.donated_setup_fee_amount || 0)}</span></td>
           </tr>
         `).join('')}
       </tbody>
@@ -515,8 +565,8 @@ function loadBillingDashboard() {
   const scopeHint = document.getElementById('billingScopeHint');
   if (scopeHint) {
     scopeHint.textContent = loginUser?.role === 'admin'
-      ? '目前為平台管理視角，可查看全部商家的用量與收費狀態。'
-      : `目前為 ${loginUser?.shop_name || '你的商家'} 視角，只顯示自己商家的入口資料。`;
+      ? '目前為平台管理視角，可查看全部商家的用量、收費狀態與公益代付數據。'
+      : `目前為 ${loginUser?.shop_name || '你的商家'} 視角，只顯示自己商家的入口資料與使用量。`;
   }
   setBillingLoadingState();
   return Promise.all([
@@ -1249,6 +1299,7 @@ function renderQuestChainList(chains) {
     return;
   }
   container.innerHTML = chains.map(q => {
+    const billingPolicy = normalizeQuestChainBillingPolicy(q);
     const modeTag = q.mode_type === 'board_game' ? '<span class="tag tag-green">大富翁</span>' : '<span class="tag tag-blue">劇情主線</span>';
     const accessMode = q.access_mode || 'public';
     const accessTag = accessMode === 'coupon'
@@ -1270,9 +1321,11 @@ function renderQuestChainList(chains) {
     const planName = q.plan_name || globalEntryPlansMap[String(q.plan_id)]?.name || (q.plan_id ? `方案 #${q.plan_id}` : '歷史入口');
     const taskLimit = q.task_limit ? `${q.task_limit} 關` : '未限制';
     const setupFee = formatCurrency(q.setup_fee || 0);
-    const billingTag = q.setup_fee_paid
-      ? '<span class="tag tag-green">建置費已收款</span>'
-      : '<span class="tag tag-amber">建置費待收</span>';
+    const billingTag = billingPolicy === 'public_good'
+      ? '<span class="tag tag-green">公益入口</span>'
+      : (q.setup_fee_paid
+        ? '<span class="tag tag-green">建置費已收款</span>'
+        : '<span class="tag tag-amber">建置費待收</span>');
     return `
       <div class="quest-card">
         <div style="min-width:0;">
@@ -1286,7 +1339,7 @@ function renderQuestChainList(chains) {
             <span class="tag tag-gray">🏪 ${escHtml(shopName)}</span>
             <span class="tag tag-gray">📦 ${escHtml(planName)}</span>
             <span class="tag tag-gray">📏 ${escHtml(taskLimit)}</span>
-            <span class="tag tag-gray">💰 ${escHtml(setupFee)}</span>
+            <span class="tag tag-gray">💰 ${billingPolicy === 'public_good' ? `${escHtml(setupFee)}（免收）` : escHtml(setupFee)}</span>
             ${billingTag}
             <span class="tag tag-gray">🤖 本月 ${Number(q.current_billing_month_tokens || 0).toLocaleString('zh-TW')} tokens</span>
           </div>
@@ -1328,6 +1381,7 @@ function editQuestChain(id) {
     task_limit: q.task_limit || '',
     setup_fee: q.setup_fee || 0,
     setup_fee_paid: q.setup_fee_paid,
+    billing_policy: normalizeQuestChainBillingPolicy(q),
     monthly_billing_enabled: q.monthly_billing_enabled !== false,
     is_active: q.is_active
   });
@@ -1477,8 +1531,12 @@ document.getElementById('questChainForm').addEventListener('submit', function (e
   fd.append('plan_id', form.plan_id.value);
   fd.append('task_limit', form.task_limit.value);
   fd.append('setup_fee', form.setup_fee.value);
-  fd.append('setup_fee_paid', form.setup_fee_paid.checked ? '1' : '0');
-  fd.append('monthly_billing_enabled', form.monthly_billing_enabled.checked ? '1' : '0');
+  const editingChain = id ? globalQuestChainsMap[String(id)] || null : null;
+  const billingPolicy = editingChain
+    ? normalizeQuestChainBillingPolicy(editingChain)
+    : (loginUser?.role === 'admin' ? 'public_good' : 'commercial');
+  fd.append('setup_fee_paid', billingPolicy === 'public_good' ? '0' : (form.setup_fee_paid.checked ? '1' : '0'));
+  fd.append('monthly_billing_enabled', billingPolicy === 'public_good' ? '1' : (form.monthly_billing_enabled.checked ? '1' : '0'));
   fd.append('title', form.title.value.trim());
   fd.append('description', form.description.value.trim());
   fd.append('short_description', form.short_description.value.trim());

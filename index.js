@@ -237,6 +237,7 @@ function sanitizeQuestChainRow(row) {
     lm_total_tokens: row.lm_total_tokens == null ? 0 : Number(row.lm_total_tokens),
     current_billing_month_tokens: row.current_billing_month_tokens == null ? 0 : Number(row.current_billing_month_tokens),
     setup_fee_paid: Boolean(row.setup_fee_paid),
+    billing_policy: normalizeBillingPolicy(row.billing_policy, row.created_by),
     monthly_billing_enabled: row.monthly_billing_enabled == null ? true : Boolean(row.monthly_billing_enabled),
     title: row.title || row.name || '',
     access_mode: normalizeAccessMode(row.access_mode),
@@ -279,7 +280,16 @@ function roundCurrencyValue(value) {
   return Math.round(numeric * 100) / 100;
 }
 
-function calculateEstimatedBillingAmount({
+function normalizeBillingPolicy(value, createdBy = null) {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (normalized === 'public_good') return 'public_good';
+  if (!normalized && typeof createdBy === 'string' && createdBy.trim().toLowerCase() === 'admin') {
+    return 'public_good';
+  }
+  return 'commercial';
+}
+
+function calculateBillingEquivalentAmount({
   monthlyBaseFee = 0,
   tokenPricePer1k = 0,
   totalTokens = 0,
@@ -291,6 +301,27 @@ function calculateEstimatedBillingAmount({
   const tokens = Number(totalTokens || 0);
   const amount = baseFee + ((tokens > 0 ? tokens : 0) / 1000) * per1k;
   return roundCurrencyValue(amount);
+}
+
+function calculateBillingAmounts({
+  billingPolicy = 'commercial',
+  monthlyBaseFee = 0,
+  tokenPricePer1k = 0,
+  totalTokens = 0,
+  monthlyBillingEnabled = true
+} = {}) {
+  const normalizedPolicy = normalizeBillingPolicy(billingPolicy);
+  const equivalentAmount = calculateBillingEquivalentAmount({
+    monthlyBaseFee,
+    tokenPricePer1k,
+    totalTokens,
+    monthlyBillingEnabled
+  });
+  return {
+    equivalent_amount: equivalentAmount,
+    estimated_amount: normalizedPolicy === 'public_good' ? 0 : equivalentAmount,
+    donated_amount: normalizedPolicy === 'public_good' ? equivalentAmount : 0
+  };
 }
 
 function sanitizeShopRow(row) {
@@ -1199,8 +1230,8 @@ async function recordLlmUsage(conn, task, userId, usage = {}, meta = {}) {
   if (shopId) {
     await conn.execute(
       `INSERT INTO llm_usage_monthly_summary
-        (shop_id, quest_chain_id, billing_month, prompt_tokens, completion_tokens, total_tokens, estimated_amount, is_invoiced)
-       VALUES (?, ?, ?, ?, ?, ?, 0, FALSE)
+        (shop_id, quest_chain_id, billing_month, prompt_tokens, completion_tokens, total_tokens, estimated_amount, donated_amount, is_invoiced)
+       VALUES (?, ?, ?, ?, ?, ?, 0, 0, FALSE)
        ON DUPLICATE KEY UPDATE
          prompt_tokens = prompt_tokens + VALUES(prompt_tokens),
          completion_tokens = completion_tokens + VALUES(completion_tokens),
@@ -1210,6 +1241,7 @@ async function recordLlmUsage(conn, task, userId, usage = {}, meta = {}) {
     const [summaryRows] = await conn.execute(
       `SELECT summary.total_tokens,
               qc.monthly_billing_enabled,
+              qc.billing_policy,
               ep.monthly_base_fee,
               ep.token_price_per_1k
        FROM llm_usage_monthly_summary summary
@@ -1221,7 +1253,8 @@ async function recordLlmUsage(conn, task, userId, usage = {}, meta = {}) {
     );
     const summary = summaryRows[0];
     if (summary) {
-      const estimatedAmount = calculateEstimatedBillingAmount({
+      const amounts = calculateBillingAmounts({
+        billingPolicy: summary.billing_policy,
         monthlyBaseFee: summary.monthly_base_fee,
         tokenPricePer1k: summary.token_price_per_1k,
         totalTokens: summary.total_tokens,
@@ -1229,9 +1262,9 @@ async function recordLlmUsage(conn, task, userId, usage = {}, meta = {}) {
       });
       await conn.execute(
         `UPDATE llm_usage_monthly_summary
-         SET estimated_amount = ?
+         SET estimated_amount = ?, donated_amount = ?
          WHERE shop_id = ? AND quest_chain_id = ? AND billing_month = ?`,
-        [estimatedAmount, shopId, Number(task.quest_chain_id || 0) || null, billingMonth]
+        [amounts.estimated_amount, amounts.donated_amount, shopId, Number(task.quest_chain_id || 0) || null, billingMonth]
       );
     }
   }
@@ -1838,30 +1871,29 @@ app.get('/api/billing/shops', authenticateToken, requireRole('admin', 'shop', 's
               s.owner_username,
               COUNT(DISTINCT qc.id) AS entry_count,
               SUM(CASE WHEN qc.is_active THEN 1 ELSE 0 END) AS active_entry_count,
+              SUM(CASE WHEN qc.billing_policy = 'public_good' THEN 1 ELSE 0 END) AS public_good_entry_count,
               COALESCE(SUM(summary.prompt_tokens), 0) AS prompt_tokens,
               COALESCE(SUM(summary.completion_tokens), 0) AS completion_tokens,
               COALESCE(SUM(summary.total_tokens), 0) AS total_tokens,
-              COALESCE(SUM(
-                CASE
-                  WHEN qc.monthly_billing_enabled THEN COALESCE(ep.monthly_base_fee, 0) + (COALESCE(summary.total_tokens, 0) / 1000) * COALESCE(ep.token_price_per_1k, 0)
-                  ELSE 0
-                END
-              ), 0) AS estimated_amount,
+              COALESCE(SUM(summary.estimated_amount), 0) AS estimated_amount,
+              COALESCE(SUM(summary.donated_amount), 0) AS donated_amount,
+              COALESCE(SUM(CASE WHEN qc.billing_policy = 'public_good' THEN COALESCE(qc.setup_fee, 0) ELSE 0 END), 0) AS donated_setup_fee_amount,
               COALESCE(setup.pending_amount, 0) AS setup_fee_pending_amount,
               COALESCE(setup.paid_amount, 0) AS setup_fee_paid_amount
        FROM shops s
        LEFT JOIN quest_chains qc ON qc.shop_id = s.id
-       LEFT JOIN entry_plans ep ON ep.id = qc.plan_id
        LEFT JOIN llm_usage_monthly_summary summary
               ON summary.shop_id = s.id
              AND summary.quest_chain_id = qc.id
              AND summary.billing_month = ?
        LEFT JOIN (
-         SELECT shop_id,
+         SELECT ebr.shop_id,
                 SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) AS pending_amount,
                 SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) AS paid_amount
-         FROM entry_billing_records
-         GROUP BY shop_id
+         FROM entry_billing_records ebr
+         LEFT JOIN quest_chains qc ON qc.id = ebr.quest_chain_id
+         WHERE COALESCE(qc.billing_policy, 'commercial') <> 'public_good'
+         GROUP BY ebr.shop_id
        ) setup ON setup.shop_id = s.id
        ${whereClause}
        GROUP BY s.id, s.name, s.owner_username, setup.pending_amount, setup.paid_amount
@@ -1877,10 +1909,13 @@ app.get('/api/billing/shops', authenticateToken, requireRole('admin', 'shop', 's
         owner_username: row.owner_username || null,
         entry_count: Number(row.entry_count || 0),
         active_entry_count: Number(row.active_entry_count || 0),
+        public_good_entry_count: Number(row.public_good_entry_count || 0),
         prompt_tokens: Number(row.prompt_tokens || 0),
         completion_tokens: Number(row.completion_tokens || 0),
         total_tokens: Number(row.total_tokens || 0),
         estimated_amount: roundCurrencyValue(row.estimated_amount || 0),
+        donated_amount: roundCurrencyValue(row.donated_amount || 0),
+        donated_setup_fee_amount: roundCurrencyValue(row.donated_setup_fee_amount || 0),
         setup_fee_pending_amount: roundCurrencyValue(row.setup_fee_pending_amount || 0),
         setup_fee_paid_amount: roundCurrencyValue(row.setup_fee_paid_amount || 0)
       }))
@@ -1993,20 +2028,17 @@ app.get('/api/billing/overview', authenticateToken, requireRole('admin', 'shop',
       `SELECT COUNT(*) AS entry_count,
               COUNT(DISTINCT qc.shop_id) AS shop_count,
               SUM(CASE WHEN qc.is_active THEN 1 ELSE 0 END) AS active_entry_count,
+              SUM(CASE WHEN qc.billing_policy = 'public_good' THEN 1 ELSE 0 END) AS public_good_entry_count,
               SUM(CASE WHEN qc.monthly_billing_enabled THEN 1 ELSE 0 END) AS monthly_enabled_entry_count,
               SUM(CASE WHEN summary.is_invoiced THEN 1 ELSE 0 END) AS invoiced_entry_count,
               SUM(CASE WHEN qc.monthly_billing_enabled AND COALESCE(summary.is_invoiced, FALSE) = FALSE THEN 1 ELSE 0 END) AS uninvoiced_entry_count,
               COALESCE(SUM(summary.prompt_tokens), 0) AS prompt_tokens,
               COALESCE(SUM(summary.completion_tokens), 0) AS completion_tokens,
               COALESCE(SUM(summary.total_tokens), 0) AS total_tokens,
-              COALESCE(SUM(
-                CASE
-                  WHEN qc.monthly_billing_enabled THEN COALESCE(ep.monthly_base_fee, 0) + (COALESCE(summary.total_tokens, 0) / 1000) * COALESCE(ep.token_price_per_1k, 0)
-                  ELSE 0
-                END
-              ), 0) AS estimated_amount
+              COALESCE(SUM(summary.estimated_amount), 0) AS estimated_amount,
+              COALESCE(SUM(summary.donated_amount), 0) AS donated_amount,
+              COALESCE(SUM(CASE WHEN qc.billing_policy = 'public_good' THEN COALESCE(qc.setup_fee, 0) ELSE 0 END), 0) AS donated_setup_fee_amount
        FROM quest_chains qc
-       LEFT JOIN entry_plans ep ON ep.id = qc.plan_id
        LEFT JOIN llm_usage_monthly_summary summary
               ON summary.quest_chain_id = qc.id
              AND summary.shop_id = qc.shop_id
@@ -2021,7 +2053,8 @@ app.get('/api/billing/overview', authenticateToken, requireRole('admin', 'shop',
               SUM(CASE WHEN ebr.status = 'paid' THEN 1 ELSE 0 END) AS paid_count,
               COALESCE(SUM(CASE WHEN ebr.status = 'paid' THEN ebr.amount ELSE 0 END), 0) AS paid_amount
        FROM entry_billing_records ebr
-       ${setupFilterClause}`,
+       LEFT JOIN quest_chains qc ON qc.id = ebr.quest_chain_id
+       ${setupFilterClause ? `${setupFilterClause} AND COALESCE(qc.billing_policy, 'commercial') <> 'public_good'` : "WHERE COALESCE(qc.billing_policy, 'commercial') <> 'public_good'"}`,
       setupFilterParams
     );
 
@@ -2034,6 +2067,7 @@ app.get('/api/billing/overview', authenticateToken, requireRole('admin', 'shop',
         entry_count: Number(overview.entry_count || 0),
         shop_count: Number(overview.shop_count || 0),
         active_entry_count: Number(overview.active_entry_count || 0),
+        public_good_entry_count: Number(overview.public_good_entry_count || 0),
         monthly_enabled_entry_count: Number(overview.monthly_enabled_entry_count || 0),
         invoiced_entry_count: Number(overview.invoiced_entry_count || 0),
         uninvoiced_entry_count: Number(overview.uninvoiced_entry_count || 0),
@@ -2041,6 +2075,8 @@ app.get('/api/billing/overview', authenticateToken, requireRole('admin', 'shop',
         completion_tokens: Number(overview.completion_tokens || 0),
         total_tokens: Number(overview.total_tokens || 0),
         estimated_amount: roundCurrencyValue(overview.estimated_amount || 0),
+        donated_amount: roundCurrencyValue(overview.donated_amount || 0),
+        donated_setup_fee_amount: roundCurrencyValue(overview.donated_setup_fee_amount || 0),
         setup_fee_pending_count: Number(setup.pending_count || 0),
         setup_fee_pending_amount: roundCurrencyValue(setup.pending_amount || 0),
         setup_fee_paid_count: Number(setup.paid_count || 0),
@@ -2076,6 +2112,7 @@ app.get('/api/billing/entries', authenticateToken, requireRole('admin', 'shop', 
               qc.task_limit,
               qc.setup_fee,
               qc.setup_fee_paid,
+              qc.billing_policy,
               qc.monthly_billing_enabled,
               qc.structure_locked_at,
               s.name AS shop_name,
@@ -2086,6 +2123,7 @@ app.get('/api/billing/entries', authenticateToken, requireRole('admin', 'shop', 
               COALESCE(summary.completion_tokens, 0) AS completion_tokens,
               COALESCE(summary.total_tokens, 0) AS total_tokens,
               COALESCE(summary.estimated_amount, 0) AS stored_estimated_amount,
+              COALESCE(summary.donated_amount, 0) AS stored_donated_amount,
               COALESCE(summary.is_invoiced, FALSE) AS is_invoiced
        FROM quest_chains qc
        LEFT JOIN shops s ON s.id = qc.shop_id
@@ -2100,7 +2138,8 @@ app.get('/api/billing/entries', authenticateToken, requireRole('admin', 'shop', 
     );
 
     const entries = rows.map((row) => {
-      const estimatedAmount = calculateEstimatedBillingAmount({
+      const amounts = calculateBillingAmounts({
+        billingPolicy: row.billing_policy,
         monthlyBaseFee: row.monthly_base_fee,
         tokenPricePer1k: row.token_price_per_1k,
         totalTokens: row.total_tokens,
@@ -2116,6 +2155,7 @@ app.get('/api/billing/entries', authenticateToken, requireRole('admin', 'shop', 
         task_limit: row.task_limit == null ? null : Number(row.task_limit),
         setup_fee: Number(row.setup_fee || 0),
         setup_fee_paid: Boolean(row.setup_fee_paid),
+        billing_policy: normalizeBillingPolicy(row.billing_policy),
         monthly_billing_enabled: row.monthly_billing_enabled == null ? true : Boolean(row.monthly_billing_enabled),
         structure_locked_at: row.structure_locked_at || null,
         prompt_tokens: Number(row.prompt_tokens || 0),
@@ -2123,8 +2163,11 @@ app.get('/api/billing/entries', authenticateToken, requireRole('admin', 'shop', 
         total_tokens: Number(row.total_tokens || 0),
         monthly_base_fee: Number(row.monthly_base_fee || 0),
         token_price_per_1k: Number(row.token_price_per_1k || 0),
-        estimated_amount: estimatedAmount,
+        estimated_amount: amounts.estimated_amount,
+        donated_amount: amounts.donated_amount,
+        donated_setup_fee_amount: normalizeBillingPolicy(row.billing_policy) === 'public_good' ? Number(row.setup_fee || 0) : 0,
         stored_estimated_amount: Number(row.stored_estimated_amount || 0),
+        stored_donated_amount: Number(row.stored_donated_amount || 0),
         is_invoiced: Boolean(row.is_invoiced)
       };
     });
@@ -2230,13 +2273,14 @@ app.get('/api/entry-billing-records', authenticateToken, requireRole('admin', 's
     const [rows] = await conn.execute(
       `SELECT ebr.*,
               qc.title AS quest_chain_title,
+              qc.billing_policy,
               s.name AS shop_name,
               ep.name AS plan_name
        FROM entry_billing_records ebr
        LEFT JOIN quest_chains qc ON qc.id = ebr.quest_chain_id
        LEFT JOIN shops s ON s.id = ebr.shop_id
        LEFT JOIN entry_plans ep ON ep.id = ebr.plan_id
-       ${whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : ''}
+       ${whereParts.length ? `WHERE ${whereParts.join(' AND ')} AND COALESCE(qc.billing_policy, 'commercial') <> 'public_good'` : "WHERE COALESCE(qc.billing_policy, 'commercial') <> 'public_good'"}
        ORDER BY ebr.created_at DESC, ebr.id DESC
        LIMIT ${limit}`,
       params
@@ -2367,6 +2411,7 @@ app.post('/api/quest-chains', staffOrAdminAuth, uploadImage.single('badge_image'
   if (!plan_id) return res.status(400).json({ success: false, message: '建立玩法入口時必須選擇入口方案' });
 
   const creator = req.user?.username || null;
+  const billingPolicy = req.user?.role === 'admin' ? 'public_good' : 'commercial';
   
   // 處理上傳的圖片
   let badge_image = null;
@@ -2396,6 +2441,9 @@ app.post('/api/quest-chains', staffOrAdminAuth, uploadImage.single('badge_image'
     const resolvedSetupFee = setup_fee != null && String(setup_fee).trim() !== ''
       ? Number(setup_fee)
       : Number(selectedPlan?.setup_fee || 0);
+    const resolvedMonthlyBillingEnabled = billingPolicy === 'public_good'
+      ? true
+      : (monthly_billing_enabled == null ? true : normalizeBoolean(monthly_billing_enabled));
     const questChainColumns = await getTableColumnSet(conn, 'quest_chains');
     const resolvedStructureLockedAt = normalizeBoolean(is_active)
       ? (normalizeNullableString(structure_locked_at) || new Date())
@@ -2412,8 +2460,9 @@ app.post('/api/quest-chains', staffOrAdminAuth, uploadImage.single('badge_image'
       plan_id: plan_id ? Number(plan_id) : null,
       task_limit: resolvedTaskLimit,
       setup_fee: resolvedSetupFee,
-      setup_fee_paid: normalizeBoolean(setup_fee_paid),
-      monthly_billing_enabled: monthly_billing_enabled == null ? true : normalizeBoolean(monthly_billing_enabled),
+      setup_fee_paid: billingPolicy === 'public_good' ? false : normalizeBoolean(setup_fee_paid),
+      billing_policy: billingPolicy,
+      monthly_billing_enabled: resolvedMonthlyBillingEnabled,
       structure_locked_at: resolvedStructureLockedAt,
       mode_type: normalizeNullableString(mode_type) || 'story_campaign',
       is_active: normalizeBoolean(is_active),
@@ -2432,7 +2481,7 @@ app.post('/api/quest-chains', staffOrAdminAuth, uploadImage.single('badge_image'
       Object.entries(questChainRecord).filter(([column]) => questChainColumns.has(column))
     );
     const [insertHeader] = await insertDynamicRecord(conn, 'quest_chains', filteredRecord);
-    if (resolvedShopId && (selectedPlan || resolvedSetupFee > 0)) {
+    if (billingPolicy !== 'public_good' && resolvedShopId && (selectedPlan || resolvedSetupFee > 0)) {
       await conn.execute(
         `INSERT INTO entry_billing_records
           (quest_chain_id, shop_id, plan_id, billing_type, amount, status, paid_at, note)
@@ -2483,6 +2532,7 @@ app.put('/api/quest-chains/:id', staffOrAdminAuth, uploadImage.single('badge_ima
 
     const questChainColumns = await getTableColumnSet(conn, 'quest_chains');
     const resolvedStructureLockedAt = chain.structure_locked_at || (normalizeBoolean(is_active) ? new Date() : null);
+    const normalizedBillingPolicy = normalizeBillingPolicy(chain.billing_policy, chain.created_by);
     const questChainRecord = {
       title,
       name: title,
@@ -2494,8 +2544,9 @@ app.put('/api/quest-chains/:id', staffOrAdminAuth, uploadImage.single('badge_ima
       plan_id: chain.plan_id || null,
       task_limit: chain.task_limit || null,
       setup_fee: chain.setup_fee || 0,
-      setup_fee_paid: chain.setup_fee_paid,
-      monthly_billing_enabled: chain.monthly_billing_enabled,
+      setup_fee_paid: normalizedBillingPolicy === 'public_good' ? false : chain.setup_fee_paid,
+      billing_policy: normalizedBillingPolicy,
+      monthly_billing_enabled: normalizedBillingPolicy === 'public_good' ? true : chain.monthly_billing_enabled,
       structure_locked_at: resolvedStructureLockedAt,
       mode_type: normalizeNullableString(mode_type) || 'story_campaign',
       is_active: normalizeBoolean(is_active),
