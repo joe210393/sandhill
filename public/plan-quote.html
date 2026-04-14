@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>沙丘平台方案報價頁</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" type="image/png" href="/images/mascot.png">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
+      background: linear-gradient(180deg, #eff6ff 0%, #f8fafc 35%, #ffffff 100%);
+      color: #0f172a;
+    }
+    .shell {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 22px 64px;
+    }
+    .hero {
+      background: linear-gradient(135deg, rgba(15,118,110,0.96), rgba(8,47,73,0.96));
+      color: white;
+      border-radius: 28px;
+      padding: 28px 30px;
+      box-shadow: 0 20px 48px rgba(15, 23, 42, 0.18);
+      margin-bottom: 20px;
+    }
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: 2rem;
+    }
+    .hero p {
+      margin: 0;
+      line-height: 1.8;
+      color: rgba(255,255,255,0.88);
+    }
+    .hero-meta {
+      margin-top: 14px;
+      font-size: 0.88rem;
+      color: rgba(255,255,255,0.78);
+    }
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 16px;
+      border-radius: 12px;
+      border: 1px solid #d1d5db;
+      text-decoration: none;
+      cursor: pointer;
+      font-weight: 600;
+      background: white;
+      color: #334155;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #0f766e, #14b8a6);
+      border-color: transparent;
+      color: white;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    }
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+    .grid-2 {
+      grid-template-columns: 340px minmax(0, 1fr);
+      align-items: start;
+    }
+    .panel {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #dbeafe;
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 14px 36px rgba(15, 23, 42, 0.06);
+    }
+    .panel h2, .panel h3 {
+      margin: 0 0 10px;
+      color: #0f172a;
+    }
+    .subtitle {
+      margin: 0 0 14px;
+      color: #64748b;
+      line-height: 1.7;
+      font-size: 0.92rem;
+    }
+    .form-grid {
+      display: grid;
+      gap: 12px;
+    }
+    .form-row {
+      display: grid;
+      gap: 6px;
+    }
+    .form-row label {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #334155;
+    }
+    .form-row input {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 12px 13px;
+      font-size: 0.95rem;
+      background: white;
+    }
+    .hint {
+      font-size: 0.8rem;
+      color: #64748b;
+      line-height: 1.6;
+    }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .metric {
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 14px;
+      background: linear-gradient(180deg, #ffffff, #f8fafc);
+    }
+    .metric-label {
+      font-size: 0.8rem;
+      color: #64748b;
+      margin-bottom: 6px;
+    }
+    .metric-value {
+      font-size: 1.08rem;
+      font-weight: 800;
+      color: #0f172a;
+    }
+    .recommend-card {
+      background: linear-gradient(135deg, #f8fafc, #eff6ff);
+      border: 1px solid #bfdbfe;
+      border-radius: 20px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .recommend-card strong {
+      color: #0f766e;
+    }
+    .compare-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .plan-card {
+      border: 1px solid #dbeafe;
+      border-radius: 18px;
+      padding: 18px;
+      background: white;
+    }
+    .plan-card h3 {
+      margin: 0 0 8px;
+      font-size: 1.02rem;
+    }
+    .plan-price {
+      font-size: 1.55rem;
+      font-weight: 900;
+      color: #0f766e;
+      margin-bottom: 10px;
+    }
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 5px 10px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      font-size: 0.8rem;
+      color: #334155;
+    }
+    .table-wrap {
+      overflow: auto;
+      border-radius: 18px;
+      border: 1px solid #dbeafe;
+      background: white;
+      margin-top: 16px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 12px 14px;
+      border-bottom: 1px solid #e2e8f0;
+      text-align: left;
+      vertical-align: top;
+      font-size: 0.9rem;
+    }
+    th {
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 0.84rem;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    .empty, .error {
+      border-radius: 18px;
+      padding: 18px;
+      text-align: center;
+      color: #64748b;
+      border: 1px dashed #cbd5e1;
+      background: rgba(255,255,255,0.8);
+    }
+    .error {
+      color: #b91c1c;
+      border-color: #fecaca;
+      background: #fef2f2;
+    }
+    .footer-note {
+      margin-top: 18px;
+      color: #64748b;
+      font-size: 0.84rem;
+      line-height: 1.7;
+    }
+    @media (max-width: 980px) {
+      .grid-2,
+      .metric-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    @media print {
+      body {
+        background: white;
+      }
+      .toolbar {
+        display: none;
+      }
+      .shell {
+        max-width: none;
+        padding: 0;
+      }
+      .panel, .hero {
+        box-shadow: none;
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="hero">
+      <h1>沙丘平台方案報價頁</h1>
+      <p>這一頁是給平台管理員做正式提案與報價使用。你可以輸入每人每關預期 token、每人入口劇情預期 token、預計參加人數，系統會直接幫你推估單人成本、整場活動成本與含建置費總額。</p>
+      <div class="hero-meta" id="quotePageMeta">載入中...</div>
+    </div>
+
+    <div class="toolbar">
+      <a class="btn" href="/staff-dashboard.html#plans">返回方案管理</a>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn" type="button" id="resetScenarioBtn">重設估算</button>
+        <button class="btn btn-primary" type="button" id="printQuoteBtn">列印 / 另存 PDF</button>
+      </div>
+    </div>
+
+    <div id="quotePageError" class="error" style="display:none;"></div>
+
+    <div class="grid grid-2">
+      <div class="panel">
+        <h2>估算條件</h2>
+        <p class="subtitle">先輸入這次要提案的預期使用量，右側會即時更新建議方案與費用推估。</p>
+        <div class="form-grid">
+          <div class="form-row">
+            <label for="scenarioTaskCount">預計實作關卡數</label>
+            <input id="scenarioTaskCount" type="number" min="1" value="10">
+            <div class="hint">系統會依這個數字判斷建議方案。若超過 10 關，會依每增加 10 關加 NT$3,000 的規則往上估。</div>
+          </div>
+          <div class="form-row">
+            <label for="scenarioTaskTokens">每人每關預期 tokens</label>
+            <input id="scenarioTaskTokens" type="number" min="0" step="1" value="700">
+            <div class="hint">例如每一關平均會向 LM 發送一次判定，含 prompt + completion 大約 700 tokens。</div>
+          </div>
+          <div class="form-row">
+            <label for="scenarioEntryTokens">每人劇情入口預期 tokens</label>
+            <input id="scenarioEntryTokens" type="number" min="0" step="1" value="300">
+            <div class="hint">例如進入遊戲時的劇情導引、開場對話、額外 AI 互動等，一次入口總共預估多少 tokens。</div>
+          </div>
+          <div class="form-row">
+            <label for="scenarioParticipants">預計參加人數</label>
+            <input id="scenarioParticipants" type="number" min="1" step="1" value="5000">
+            <div class="hint">你可以直接填 5000，看整體活動規模下的預估成本。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>情境試算</h2>
+        <p class="subtitle">以下會先用你目前輸入的關卡數推一個建議方案，再估單人 / 整體活動的 LM 成本。</p>
+        <div id="quoteRecommendation" class="recommend-card">載入方案資料中...</div>
+        <div id="quoteMetrics" class="metric-grid"></div>
+        <div class="footer-note" id="quoteFormulaNote"></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:18px;">
+      <h2>方案比較</h2>
+      <p class="subtitle">同一組估算條件下，直接比較不同方案的建置費與 LM 預估費用，方便拿給廠商做選擇。</p>
+      <div id="quotePlanCards" class="compare-grid">
+        <div class="empty">載入方案中...</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>方案</th>
+              <th>關卡上限</th>
+              <th>一次性建置費</th>
+              <th>每月基本費</th>
+              <th>LM 單價</th>
+              <th>每人總 tokens</th>
+              <th>整體 tokens</th>
+              <th>LM 預估費用</th>
+              <th>含建置費總額</th>
+            </tr>
+          </thead>
+          <tbody id="quotePlanTableBody">
+            <tr><td colspan="9" class="empty">載入方案中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="footer-note">
+        報價說明：一次性建置費只收一次；建置完成後可調整文案、圖片與提示素材，但核心關卡類型、GPS 結構與驗證規則會鎖定。每月 LM 費用依實際使用量計算，目前標準為每 1 萬 tokens = NT$10。
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/plan-quote.js"></script>
+</body>
+</html>

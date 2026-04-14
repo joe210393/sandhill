@@ -799,11 +799,11 @@
         <div class="view-header">
           <h2>方案管理</h2>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button class="btn-md btn-secondary-v2" onclick="downloadPlanQuotePdf()">下載 PDF 報價頁</button>
+            <a class="btn-md btn-secondary-v2" href="/plan-quote.html" target="_blank" rel="noopener" style="text-decoration:none; display:inline-flex; align-items:center;">開啟獨立報價頁</a>
             <button class="btn-md btn-primary-v2" onclick="openPlanDrawer()">+ 新增方案</button>
           </div>
         </div>
-        <p class="view-subtitle">僅限平台管理員。設定入口可用的關卡上限、一次性建置費、每月基本費與 LM 使用量單價，並整理成可直接提供廠商的報價頁。</p>
+        <p class="view-subtitle">僅限平台管理員。設定入口可用的關卡上限、一次性建置費、每月基本費與 LM 使用量單價。若要做廠商報價與情境估算，請從這裡開啟獨立報價頁。</p>
         <div id="planQuotePreview" style="display:grid; gap:12px; margin-bottom:16px;">
           <div class="empty-state"><div class="empty-state-icon">📄</div>載入方案報價預覽中...</div>
         </div>
