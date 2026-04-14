@@ -73,9 +73,9 @@ async function ensureDefaultPlans(conn) {
     )
   `);
   const plans = [
-    ['starter_10', '10 關方案', 10, 5000, 0, 0.1],
-    ['growth_20', '20 關方案', 20, 8000, 0, 0.1],
-    ['pro_30', '30 關方案', 30, 11000, 0, 0.1]
+    ['starter_10', '10 關方案', 10, 5000, 0, 1],
+    ['growth_20', '20 關方案', 20, 8000, 0, 1],
+    ['pro_30', '30 關方案', 30, 11000, 0, 1]
   ];
   for (const [code, name, taskLimit, setupFee, monthlyBaseFee, tokenPricePer1k] of plans) {
     await conn.query(

@@ -2209,39 +2209,59 @@ app.get('/api/billing/logs', authenticateToken, requireRole('admin', 'shop', 'st
               logs.success,
               logs.created_at,
               qc.title AS quest_chain_title,
+              qc.billing_policy,
+              qc.monthly_billing_enabled,
               t.name AS task_name,
               s.name AS shop_name,
-              u.username AS player_username
+              u.username AS player_username,
+              ep.token_price_per_1k,
+              ep.monthly_base_fee
        FROM llm_usage_logs logs
        LEFT JOIN quest_chains qc ON qc.id = logs.quest_chain_id
        LEFT JOIN tasks t ON t.id = logs.task_id
        LEFT JOIN shops s ON s.id = logs.shop_id
        LEFT JOIN users u ON u.id = logs.user_id
+       LEFT JOIN entry_plans ep ON ep.id = qc.plan_id
        ${whereClause}
        ORDER BY logs.created_at DESC, logs.id DESC
        LIMIT ${limit}`,
       queryParams
     );
 
-    const logs = rows.map((row) => ({
-      id: Number(row.id),
-      shop_id: row.shop_id == null ? null : Number(row.shop_id),
-      shop_name: row.shop_name || null,
-      quest_chain_id: row.quest_chain_id == null ? null : Number(row.quest_chain_id),
-      quest_chain_title: row.quest_chain_title || null,
-      task_id: row.task_id == null ? null : Number(row.task_id),
-      task_name: row.task_name || null,
-      user_id: row.user_id == null ? null : Number(row.user_id),
-      player_username: row.player_username || null,
-      provider: row.provider || null,
-      model: row.model || null,
-      request_type: row.request_type || 'unknown',
-      prompt_tokens: Number(row.prompt_tokens || 0),
-      completion_tokens: Number(row.completion_tokens || 0),
-      total_tokens: Number(row.total_tokens || 0),
-      success: row.success == null ? true : Boolean(row.success),
-      created_at: row.created_at
-    }));
+    const logs = rows.map((row) => {
+      const amounts = calculateBillingAmounts({
+        billingPolicy: row.billing_policy,
+        monthlyBaseFee: 0,
+        tokenPricePer1k: row.token_price_per_1k,
+        totalTokens: row.total_tokens,
+        monthlyBillingEnabled: row.monthly_billing_enabled
+      });
+      return {
+        id: Number(row.id),
+        shop_id: row.shop_id == null ? null : Number(row.shop_id),
+        shop_name: row.shop_name || null,
+        quest_chain_id: row.quest_chain_id == null ? null : Number(row.quest_chain_id),
+        quest_chain_title: row.quest_chain_title || null,
+        task_id: row.task_id == null ? null : Number(row.task_id),
+        task_name: row.task_name || null,
+        user_id: row.user_id == null ? null : Number(row.user_id),
+        player_username: row.player_username || null,
+        provider: row.provider || null,
+        model: row.model || null,
+        request_type: row.request_type || 'unknown',
+        prompt_tokens: Number(row.prompt_tokens || 0),
+        completion_tokens: Number(row.completion_tokens || 0),
+        total_tokens: Number(row.total_tokens || 0),
+        token_price_per_1k: Number(row.token_price_per_1k || 0),
+        monthly_base_fee: Number(row.monthly_base_fee || 0),
+        billing_policy: normalizeBillingPolicy(row.billing_policy),
+        monthly_billing_enabled: row.monthly_billing_enabled == null ? true : Boolean(row.monthly_billing_enabled),
+        estimated_amount: amounts.estimated_amount,
+        donated_amount: amounts.donated_amount,
+        success: row.success == null ? true : Boolean(row.success),
+        created_at: row.created_at
+      };
+    });
 
     res.json({ success: true, billing_month: billingMonth, logs });
   } catch (err) {

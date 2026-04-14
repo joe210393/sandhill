@@ -551,7 +551,7 @@
           <div class="panel-card-header">
             <div>
               <div class="panel-card-title">最近 LM 呼叫明細</div>
-              <div class="panel-card-subtitle">最近的 AI 判定請求，用來確認哪個入口、哪一關正在消耗 token。</div>
+              <div class="panel-card-subtitle">每列代表 1 位玩家在 1 關產生的 1 次 LM 呼叫，可直接看到玩家、關卡、tokens 與本次金額。</div>
             </div>
           </div>
           <div id="billingUsageLogsTable" class="data-table-wrap">
@@ -798,9 +798,15 @@
       <div id="view-plans" class="v2-view">
         <div class="view-header">
           <h2>方案管理</h2>
-          <button class="btn-md btn-primary-v2" onclick="openPlanDrawer()">+ 新增方案</button>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn-md btn-secondary-v2" onclick="downloadPlanQuotePdf()">下載 PDF 報價頁</button>
+            <button class="btn-md btn-primary-v2" onclick="openPlanDrawer()">+ 新增方案</button>
+          </div>
         </div>
-        <p class="view-subtitle">僅限平台管理員。設定入口可用的關卡上限、一次性建置費、每月基本費與 token 單價。</p>
+        <p class="view-subtitle">僅限平台管理員。設定入口可用的關卡上限、一次性建置費、每月基本費與 LM 使用量單價，並整理成可直接提供廠商的報價頁。</p>
+        <div id="planQuotePreview" style="display:grid; gap:12px; margin-bottom:16px;">
+          <div class="empty-state"><div class="empty-state-icon">📄</div>載入方案報價預覽中...</div>
+        </div>
         <div id="planListContainer" style="display:grid; gap:12px;">
           <div class="empty-state"><div class="empty-state-icon">📐</div>載入中...</div>
         </div>
@@ -1873,8 +1879,9 @@
               <input class="form-input" type="number" name="monthly_base_fee" min="0" step="0.01" required>
             </div>
             <div class="form-group">
-              <label class="form-label">每 1K tokens 單價</label>
+              <label class="form-label">每 1 萬 tokens 單價</label>
               <input class="form-input" type="number" name="token_price_per_1k" min="0" step="0.01" required>
+              <div class="form-hint">這裡用每 1 萬 tokens 的報價方式填寫，系統會自動換算成內部計價值。</div>
             </div>
           </div>
           <div class="form-group">

@@ -134,6 +134,16 @@ function formatCurrency(amount) {
   return `NT$${value.toLocaleString('zh-TW')}`;
 }
 
+function formatTokenPricingRule(tokenPricePer1k = 0) {
+  const perTenThousand = Number(tokenPricePer1k || 0) * 10;
+  return `每 1 萬 tokens ${formatCurrency(perTenThousand)}`;
+}
+
+function formatTokenPricingDetail(tokenPricePer1k = 0) {
+  const perTenThousand = Number(tokenPricePer1k || 0) * 10;
+  return `${formatTokenPricingRule(tokenPricePer1k)}｜等於每 1K tokens ${formatCurrency(tokenPricePer1k)}`;
+}
+
 function normalizeQuestChainBillingPolicy(chain = null) {
   if (!chain) return 'commercial';
   const policy = typeof chain.billing_policy === 'string' ? chain.billing_policy.trim().toLowerCase() : '';
@@ -424,7 +434,7 @@ function renderBillingEntries(entries = []) {
             </td>
             <td class="wrap">
               <div>${escHtml(entry.shop_name || '未指定商家')}</div>
-              <div class="subtle-note">${escHtml(entry.plan_name || '歷史方案')}｜基本月費 ${formatCurrency(entry.monthly_base_fee || 0)}｜每 1K tokens ${formatCurrency(entry.token_price_per_1k || 0)}</div>
+              <div class="subtle-note">${escHtml(entry.plan_name || '歷史方案')}｜基本月費 ${formatCurrency(entry.monthly_base_fee || 0)}｜${escHtml(formatTokenPricingRule(entry.token_price_per_1k || 0))}</div>
             </td>
             <td>
               <strong>${formatTokenCount(entry.total_tokens || 0)}</strong><br>
@@ -536,11 +546,13 @@ function renderBillingUsageLogs(logs = []) {
       <thead>
         <tr>
           <th>時間</th>
-          <th>入口 / 關卡</th>
-          <th>模型</th>
-          <th>請求類型</th>
-          <th>Tokens</th>
+          <th>商店</th>
           <th>玩家</th>
+          <th>入口 / 關卡</th>
+          <th>請求類型</th>
+          <th>模型</th>
+          <th>Tokens</th>
+          <th>本次金額</th>
           <th>結果</th>
         </tr>
       </thead>
@@ -548,17 +560,24 @@ function renderBillingUsageLogs(logs = []) {
         ${logs.map((log) => `
           <tr>
             <td>${escHtml(formatDateTime(log.created_at))}</td>
+            <td class="wrap">${escHtml(log.shop_name || '未指定商店')}</td>
+            <td>${escHtml(log.player_username || '匿名 / 系統')}</td>
             <td class="wrap">
               <strong>${escHtml(log.quest_chain_title || '未指定入口')}</strong><br>
               <span class="subtle-note">${escHtml(log.task_name || '未指定關卡')}</span>
             </td>
-            <td class="wrap">${escHtml(log.model || '未記錄模型')}</td>
             <td>${escHtml(log.request_type || 'unknown')}</td>
+            <td class="wrap">${escHtml(log.model || '未記錄模型')}</td>
             <td>
               <strong>${formatTokenCount(log.total_tokens || 0)}</strong><br>
               <span class="subtle-note">P ${formatTokenCount(log.prompt_tokens || 0)} / C ${formatTokenCount(log.completion_tokens || 0)}</span>
             </td>
-            <td>${escHtml(log.player_username || '匿名 / 系統')}</td>
+            <td>
+              <strong>${formatCurrency(log.estimated_amount || 0)}</strong><br>
+              <span class="subtle-note">${log.billing_policy === 'public_good'
+                ? `公益代付 ${formatCurrency(log.donated_amount || 0)}`
+                : escHtml(formatTokenPricingRule(log.token_price_per_1k || 0))}</span>
+            </td>
             <td><span class="tag ${log.success ? 'tag-green' : 'tag-red'}">${log.success ? '成功' : '失敗'}</span></td>
           </tr>
         `).join('')}
@@ -839,7 +858,7 @@ function loadBillingDashboard() {
     apiJson(`${API_BASE}/api/billing/shops?${params.toString()}`, { headers: withActorHeaders() }),
     apiJson(`${API_BASE}/api/billing/entries?${params.toString()}`, { headers: withActorHeaders() }),
     apiJson(`${API_BASE}/api/entry-billing-records?limit=20`, { headers: withActorHeaders() }),
-    apiJson(`${API_BASE}/api/billing/logs?${params.toString()}&limit=20`, { headers: withActorHeaders() }),
+    apiJson(`${API_BASE}/api/billing/logs?${params.toString()}&limit=100`, { headers: withActorHeaders() }),
     apiJson(`${API_BASE}/api/billing/daily?${params.toString()}`, { headers: withActorHeaders() })
   ])
     .then(([overviewData, shopsData, entriesData, setupData, logsData, dailyData]) => {
@@ -1749,7 +1768,7 @@ function renderPlanList(plans = []) {
           <span class="tag tag-gray">上限 ${formatTokenCount(plan.task_limit || 0)} 關</span>
           <span class="tag tag-gray">建置費 ${formatCurrency(plan.setup_fee || 0)}</span>
           <span class="tag tag-gray">月費 ${formatCurrency(plan.monthly_base_fee || 0)}</span>
-          <span class="tag tag-gray">1K tokens ${formatCurrency(plan.token_price_per_1k || 0)}</span>
+          <span class="tag tag-gray">${escHtml(formatTokenPricingRule(plan.token_price_per_1k || 0))}</span>
         </div>
       </div>
       <div class="quest-card-actions">
@@ -1764,7 +1783,193 @@ function loadPlanManagement() {
     headers: withActorHeaders()
   }).then((data) => {
     renderPlanList(data.plans || []);
+    renderPlanQuotePreview(data.plans || []);
   });
+}
+
+function getPrintablePlanQuoteHtml(plans = []) {
+  const sortedPlans = [...plans].sort((left, right) => Number(left.task_limit || 0) - Number(right.task_limit || 0));
+  const generatedAt = new Date().toLocaleString('zh-TW');
+  return `
+    <!DOCTYPE html>
+    <html lang="zh-Hant">
+    <head>
+      <meta charset="UTF-8">
+      <title>沙丘平台方案報價</title>
+      <style>
+        body { font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+        .sheet { max-width: 960px; margin: 0 auto; background: white; min-height: 100vh; padding: 40px 48px; box-sizing: border-box; }
+        .hero { border-radius: 24px; padding: 28px 30px; color: white; background: linear-gradient(135deg, #0f766e, #0f172a); }
+        .hero h1 { margin: 0 0 10px; font-size: 2rem; }
+        .hero p { margin: 0; line-height: 1.7; color: rgba(255,255,255,0.88); }
+        .meta { margin-top: 14px; font-size: 0.88rem; color: rgba(255,255,255,0.78); }
+        .section { margin-top: 28px; }
+        .section h2 { font-size: 1.2rem; margin: 0 0 14px; }
+        .panel { border: 1px solid #dbeafe; border-radius: 18px; padding: 18px 20px; background: linear-gradient(180deg, #ffffff, #f8fafc); }
+        .plan-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+        .plan-card { border: 1px solid #cbd5e1; border-radius: 18px; padding: 18px; background: white; }
+        .plan-card h3 { margin: 0 0 8px; font-size: 1.06rem; }
+        .price { font-size: 1.5rem; font-weight: 800; color: #0f766e; margin-bottom: 10px; }
+        .muted { color: #64748b; line-height: 1.7; }
+        .rule-list { display: grid; gap: 10px; }
+        .rule-item { border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px 14px; background: white; }
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 18px; overflow: hidden; }
+        th, td { border-bottom: 1px solid #e2e8f0; padding: 12px 14px; text-align: left; vertical-align: top; }
+        th { background: #eff6ff; color: #1e3a8a; font-size: 0.9rem; }
+        tr:last-child td { border-bottom: none; }
+        .footer-note { margin-top: 22px; color: #64748b; font-size: 0.85rem; line-height: 1.7; }
+        @media print {
+          body { background: white; }
+          .sheet { padding: 20px 24px; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="sheet">
+        <div class="hero">
+          <h1>沙丘平台 方案介紹與報價</h1>
+          <p>把環境教育、食農教育與場域體驗，從被動導覽轉成主動探索。廠商可用平台建立自己的入口、關卡與 AI 互動體驗，並依實際 LM 使用量按月計費。</p>
+          <div class="meta">匯出時間：${escHtml(generatedAt)}｜用途：廠商報價與方案說明</div>
+        </div>
+
+        <div class="section">
+          <h2>方案一覽</h2>
+          <div class="plan-grid">
+            ${sortedPlans.map((plan) => `
+              <div class="plan-card">
+                <h3>${escHtml(plan.name || `方案 #${plan.id}`)}</h3>
+                <div class="price">${formatCurrency(plan.setup_fee || 0)}</div>
+                <div class="muted">
+                  關卡上限：${escHtml(formatTokenCount(plan.task_limit || 0))} 關<br>
+                  每月基本費：${formatCurrency(plan.monthly_base_fee || 0)}<br>
+                  LM 使用量：${escHtml(formatTokenPricingRule(plan.token_price_per_1k || 0))}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>收費規則</h2>
+          <div class="rule-list">
+            <div class="rule-item"><strong>一次性建置費</strong><br><span class="muted">10 關 NT$5,000；每增加 10 關加 NT$3,000。不滿 10 關仍以 10 關方案計價。</span></div>
+            <div class="rule-item"><strong>每月 LM 費用</strong><br><span class="muted">依實際 LM 使用量計費，目前標準為每 1 萬 tokens = NT$10。</span></div>
+            <div class="rule-item"><strong>建置完成後可修改</strong><br><span class="muted">文字敘事、圖片素材、提示文案、成功/失敗訊息可持續調整。</span></div>
+            <div class="rule-item"><strong>建置完成後不可修改</strong><br><span class="muted">關卡類型、驗證方式、GPS 結構、核心玩法順序等會鎖定，避免已上線內容被改壞。</span></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>交付內容</h2>
+          <div class="two-col">
+            <div class="panel">
+              <strong>平台角色</strong>
+              <div class="muted">admin 為平台管理員；shop 為建置廠商；staff 為廠商員工並綁定在 shop 底下。各商店的入口、商品、coupon、使用量彼此獨立管理。</div>
+            </div>
+            <div class="panel">
+              <strong>數據與帳務</strong>
+              <div class="muted">平台可追蹤每日與每月的 LM tokens、入口用量、商店總帳，以及每位玩家在每一關實際消耗的 token 明細。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>報價明細表</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>方案</th>
+                <th>關卡上限</th>
+                <th>一次性建置費</th>
+                <th>每月基本費</th>
+                <th>LM 使用量費率</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${sortedPlans.map((plan) => `
+                <tr>
+                  <td>${escHtml(plan.name || `方案 #${plan.id}`)}</td>
+                  <td>${escHtml(formatTokenCount(plan.task_limit || 0))} 關</td>
+                  <td>${formatCurrency(plan.setup_fee || 0)}</td>
+                  <td>${formatCurrency(plan.monthly_base_fee || 0)}</td>
+                  <td>${escHtml(formatTokenPricingRule(plan.token_price_per_1k || 0))}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="footer-note">
+          備註：本頁為方案說明與報價用途。實際專案若有特殊場域需求、客製化關卡數或公益合作模式，可再另行討論。
+        </div>
+      </div>
+      <script>
+        window.onload = () => {
+          setTimeout(() => window.print(), 200);
+        };
+      </script>
+    </body>
+    </html>
+  `;
+}
+
+function renderPlanQuotePreview(plans = []) {
+  const container = document.getElementById('planQuotePreview');
+  if (!container) return;
+  const sortedPlans = [...plans].sort((left, right) => Number(left.task_limit || 0) - Number(right.task_limit || 0));
+  if (!sortedPlans.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📄</div>尚無方案資料，請先建立至少一筆方案。</div>';
+    return;
+  }
+  container.innerHTML = `
+    <div class="panel-card" style="border-style:dashed;">
+      <div class="panel-card-header">
+        <div>
+          <div class="panel-card-title">廠商報價頁預覽</div>
+          <div class="panel-card-subtitle">這一頁會用目前方案資料自動組成，可直接列印成 PDF 提供給廠商。</div>
+        </div>
+      </div>
+      <div style="display:grid; gap:16px;">
+        <div style="background:linear-gradient(135deg,#0f766e,#0f172a); color:white; border-radius:18px; padding:20px 22px;">
+          <div style="font-size:1.35rem; font-weight:800; margin-bottom:8px;">沙丘平台 方案介紹與報價</div>
+          <div style="line-height:1.8; color:rgba(255,255,255,0.88);">把教育內容帶回場域，讓學員走出去自己找答案。平台提供入口建置、AI 關卡、使用量追蹤與月結帳務。</div>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+          ${sortedPlans.map((plan) => `
+            <div style="background:white; border:1px solid #dbeafe; border-radius:16px; padding:16px;">
+              <div style="font-size:1.02rem; font-weight:700; color:#0f172a; margin-bottom:8px;">${escHtml(plan.name || `方案 #${plan.id}`)}</div>
+              <div style="font-size:1.4rem; font-weight:800; color:#0f766e; margin-bottom:8px;">${formatCurrency(plan.setup_fee || 0)}</div>
+              <div class="subtle-note">關卡上限 ${escHtml(formatTokenCount(plan.task_limit || 0))} 關</div>
+              <div class="subtle-note">每月基本費 ${formatCurrency(plan.monthly_base_fee || 0)}</div>
+              <div class="subtle-note">${escHtml(formatTokenPricingRule(plan.token_price_per_1k || 0))}</div>
+            </div>
+          `).join('')}
+        </div>
+        <div style="display:grid; gap:10px;">
+          <div class="locked-field"><div class="locked-field-label">一次性建置費</div><div class="locked-field-value">10 關 NT$5,000；每增加 10 關加 NT$3,000；不滿 10 關仍以 10 關計。</div></div>
+          <div class="locked-field"><div class="locked-field-label">每月 LM 使用量</div><div class="locked-field-value">每 1 萬 tokens = NT$10，可按商店、入口、玩家逐關明細追蹤。</div></div>
+          <div class="locked-field"><div class="locked-field-label">建置後可調整範圍</div><div class="locked-field-value">文字敘事、提示文案、圖片素材可修改；關卡類型、GPS 與核心驗證結構會鎖定。</div></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function downloadPlanQuotePdf() {
+  const plans = Object.values(globalEntryPlansMap);
+  if (!plans.length) {
+    showToast('目前沒有方案資料可匯出', 'error');
+    return;
+  }
+  const popup = window.open('', '_blank', 'noopener,noreferrer,width=1100,height=900');
+  if (!popup) {
+    showToast('無法開啟列印視窗，請確認瀏覽器未封鎖彈出視窗', 'error');
+    return;
+  }
+  popup.document.open();
+  popup.document.write(getPrintablePlanQuoteHtml(plans));
+  popup.document.close();
 }
 
 function openPlanDrawer(id = '') {
@@ -1775,7 +1980,7 @@ function openPlanDrawer(id = '') {
     task_limit: plan?.task_limit || '',
     setup_fee: plan?.setup_fee || 0,
     monthly_base_fee: plan?.monthly_base_fee || 0,
-    token_price_per_1k: plan?.token_price_per_1k || 0,
+    token_price_per_1k: Number(plan?.token_price_per_1k || 0) * 10,
     is_active: plan?.is_active !== false
   });
 }
@@ -4746,7 +4951,7 @@ document.getElementById('planForm')?.addEventListener('submit', function(e) {
     task_limit: Number(form.elements.task_limit.value || 0),
     setup_fee: Number(form.elements.setup_fee.value || 0),
     monthly_base_fee: Number(form.elements.monthly_base_fee.value || 0),
-    token_price_per_1k: Number(form.elements.token_price_per_1k.value || 0),
+    token_price_per_1k: Number(form.elements.token_price_per_1k.value || 0) / 10,
     is_active: form.elements.is_active.checked
   };
   if (!payload.name || !payload.task_limit) {

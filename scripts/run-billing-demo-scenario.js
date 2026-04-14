@@ -13,9 +13,9 @@ const OUTPUT_PATH = process.env.OUTPUT_PATH || path.resolve(__dirname, '../outpu
 const USER_COUNT = Math.max(1, Number(process.env.USER_COUNT || 2));
 
 const PRICING_PLANS = [
-  { code: 'starter_10', name: '10 關方案', task_limit: 10, setup_fee: 5000, monthly_base_fee: 0, token_price_per_1k: 0.1 },
-  { code: 'growth_20', name: '20 關方案', task_limit: 20, setup_fee: 8000, monthly_base_fee: 0, token_price_per_1k: 0.1 },
-  { code: 'pro_30', name: '30 關方案', task_limit: 30, setup_fee: 11000, monthly_base_fee: 0, token_price_per_1k: 0.1 }
+  { code: 'starter_10', name: '10 關方案', task_limit: 10, setup_fee: 5000, monthly_base_fee: 0, token_price_per_1k: 1 },
+  { code: 'growth_20', name: '20 關方案', task_limit: 20, setup_fee: 8000, monthly_base_fee: 0, token_price_per_1k: 1 },
+  { code: 'pro_30', name: '30 關方案', task_limit: 30, setup_fee: 11000, monthly_base_fee: 0, token_price_per_1k: 1 }
 ];
 
 const DEMO_SHOPS = [
@@ -537,7 +537,7 @@ async function main() {
     base_url: BASE_URL,
     pricing_standard: {
       setup_fee_rule: '10 關 5000，每增加 10 關 +3000；不滿 10 關以 10 關計',
-      token_rule: '每 10000 tokens = 1 元'
+      token_rule: '每 10000 tokens = 10 元'
     },
     seeded,
     simulation,
