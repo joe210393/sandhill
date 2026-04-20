@@ -1001,16 +1001,16 @@ async function assertQuestChainAccess(conn, actor, questChainId, { allowAdmin = 
 
 function isQuestChainStructureLocked(chain) {
   if (!chain) return false;
-  return Boolean(chain.structure_locked_at) || Boolean(chain.is_active);
+  return Boolean(chain.structure_locked_at);
 }
 
 function resolveQuestChainStructureLockedAt(chain) {
   if (!chain) return null;
-  return chain.structure_locked_at || (isQuestChainStructureLocked(chain) ? new Date() : null);
+  return chain.structure_locked_at || null;
 }
 
 function createStructureLockedError(scopeLabel = '此玩法入口') {
-  const err = new Error(`${scopeLabel}已發布，核心結構已鎖定；目前只能調整文案與素材`);
+  const err = new Error(`${scopeLabel}核心結構已鎖定；目前只能調整文案與素材`);
   err.statusCode = 409;
   err.code = 'STRUCTURE_LOCKED';
   return err;
@@ -2864,9 +2864,7 @@ app.post('/api/quest-chains', staffOrAdminAuth, uploadImage.single('badge_image'
       ? true
       : (monthly_billing_enabled == null ? true : normalizeBoolean(monthly_billing_enabled));
     const questChainColumns = await getTableColumnSet(conn, 'quest_chains');
-    const resolvedStructureLockedAt = normalizeBoolean(is_active)
-      ? (normalizeNullableString(structure_locked_at) || new Date())
-      : normalizeNullableString(structure_locked_at);
+    const resolvedStructureLockedAt = normalizeNullableString(structure_locked_at);
     const questChainRecord = {
       title,
       name: title,
@@ -2950,7 +2948,7 @@ app.put('/api/quest-chains/:id', staffOrAdminAuth, uploadImage.single('badge_ima
     }
 
     const questChainColumns = await getTableColumnSet(conn, 'quest_chains');
-    const resolvedStructureLockedAt = chain.structure_locked_at || (normalizeBoolean(is_active) ? new Date() : null);
+    const resolvedStructureLockedAt = chain.structure_locked_at || null;
     const normalizedBillingPolicy = normalizeBillingPolicy(chain.billing_policy, chain.created_by);
     const questChainRecord = {
       title,
@@ -2989,7 +2987,7 @@ app.put('/api/quest-chains/:id', staffOrAdminAuth, uploadImage.single('badge_ima
         return res.status(409).json({
           success: false,
           code: 'QUEST_CHAIN_STRUCTURE_LOCKED',
-          message: '此入口已發布，入口核心結構已鎖定；目前只能修改文案、素材與營運狀態',
+          message: '此入口核心結構已鎖定；目前只能修改文案、素材與營運狀態',
           locked_fields: changedFields
         });
       }
@@ -2999,6 +2997,63 @@ app.put('/api/quest-chains/:id', staffOrAdminAuth, uploadImage.single('badge_ima
   } catch (err) {
     console.error(err);
     res.status(err.statusCode || 500).json({ success: false, message: err.message || '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.patch('/api/quest-chains/:id/structure-lock', staffOrAdminAuth, async (req, res) => {
+  const { id } = req.params;
+  const desiredLocked = normalizeBoolean(req.body?.locked);
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const chain = await assertQuestChainAccess(conn, req.user, id);
+    if (!desiredLocked && req.user?.role !== 'admin') {
+      return res.status(403).json({ success: false, message: '只有 admin 可以解鎖入口結構' });
+    }
+
+    const nextLockedAt = desiredLocked ? (chain.structure_locked_at || new Date()) : null;
+    await conn.beginTransaction();
+
+    await updateDynamicRecord(conn, 'quest_chains', id, {
+      structure_locked_at: nextLockedAt
+    });
+
+    const taskColumns = await getTableColumnSet(conn, 'tasks');
+    const taskAssignments = [];
+    const taskParams = [];
+    if (taskColumns.has('structure_locked')) {
+      taskAssignments.push('structure_locked = ?');
+      taskParams.push(desiredLocked);
+    }
+    if (taskColumns.has('structure_locked_at')) {
+      taskAssignments.push('structure_locked_at = ?');
+      taskParams.push(nextLockedAt);
+    }
+    if (taskAssignments.length) {
+      taskParams.push(Number(id));
+      await conn.execute(
+        `UPDATE tasks
+            SET ${taskAssignments.join(', ')}
+          WHERE quest_chain_id = ?`,
+        taskParams
+      );
+    }
+
+    await conn.commit();
+    const updatedChain = await getQuestChainById(conn, id);
+    res.json({
+      success: true,
+      message: desiredLocked ? '入口核心結構已鎖定' : '入口核心結構已解鎖',
+      questChain: updatedChain
+    });
+  } catch (err) {
+    if (conn) {
+      try { await conn.rollback(); } catch (_) {}
+    }
+    console.error(err);
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '更新入口鎖定狀態失敗' });
   } finally {
     if (conn) conn.release();
   }
@@ -5144,7 +5199,7 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
         return res.status(409).json({
           success: false,
           code: 'TASK_STRUCTURE_LOCKED',
-          message: '此入口已發布，關卡核心結構已鎖定；目前只能修改文案與素材',
+          message: '此入口的關卡核心結構已鎖定；目前只能修改文案與素材',
           locked_fields: changedFields
         });
       }

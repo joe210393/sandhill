@@ -1700,7 +1700,8 @@ function renderQuestChainList(chains) {
     const statusTag = q.is_active
       ? '<span class="tag tag-green">已開放</span>'
       : '<span class="tag tag-red">未開放</span>';
-    const structureLockTag = isQuestChainStructureLockedClient(q)
+    const isLocked = isQuestChainStructureLockedClient(q);
+    const structureLockTag = isLocked
       ? '<span class="tag tag-red">結構已鎖定</span>'
       : '<span class="tag tag-blue">可編輯結構</span>';
     const shopName = q.shop_name || globalShopsMap[String(q.shop_id)]?.name || (q.shop_id ? `商家 #${q.shop_id}` : 'admin 公益共用');
@@ -1712,6 +1713,11 @@ function renderQuestChainList(chains) {
       : (q.setup_fee_paid
         ? '<span class="tag tag-green">建置費已收款</span>'
         : '<span class="tag tag-amber">建置費待收</span>');
+    const lockActionBtn = isLocked
+      ? (loginUser?.role === 'admin'
+        ? `<button class="btn-sm btn-secondary-v2" onclick="toggleQuestChainStructureLock('${q.id}', false)">admin 解鎖</button>`
+        : '')
+      : `<button class="btn-sm btn-secondary-v2" onclick="toggleQuestChainStructureLock('${q.id}', true)">鎖定結構</button>`;
     return `
       <div class="quest-card">
         <div style="min-width:0;">
@@ -1734,11 +1740,41 @@ function renderQuestChainList(chains) {
         <div class="quest-card-actions">
           <button class="btn-sm btn-secondary-v2" onclick="goToQuestDetail('${q.id}')">管理內容</button>
           <button class="btn-sm btn-secondary-v2" onclick="editQuestChain('${q.id}')">編輯</button>
-          ${isQuestChainStructureLockedClient(q) ? '' : `<button class="btn-sm btn-danger-v2" onclick="deleteQuestChain('${q.id}')">刪除</button>`}
+          ${lockActionBtn}
+          ${isLocked ? '' : `<button class="btn-sm btn-danger-v2" onclick="deleteQuestChain('${q.id}')">刪除</button>`}
         </div>
       </div>
     `;
   }).join('');
+}
+
+function toggleQuestChainStructureLock(id, locked) {
+  const q = globalQuestChainsMap[id];
+  if (!q) return;
+  const confirmMessage = locked
+    ? `確定要鎖定「${q.title}」的核心結構嗎？\n鎖定後將不能再修改題型、GPS、驗證方式、順序等結構設定。`
+    : `確定要解鎖「${q.title}」的核心結構嗎？\n解鎖後可以再次調整入口與關卡的核心結構。`;
+  if (!confirm(confirmMessage)) return;
+  fetch(`${API_BASE}/api/quest-chains/${id}/structure-lock`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...withActorHeaders() },
+    body: JSON.stringify({ locked })
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        showToast(d.message || (locked ? '結構已鎖定' : '結構已解鎖'));
+        loadQuestChains();
+        if (currentQuestChainId && String(currentQuestChainId) === String(id)) {
+          loadQuestChainDetail(id);
+        }
+      } else {
+        showToast(d.message || '更新失敗', 'error');
+      }
+    })
+    .catch(() => {
+      showToast('伺服器連線失敗', 'error');
+    });
 }
 
 function applyQuestChainSearch() {
@@ -2359,7 +2395,7 @@ const QUEST_CHAIN_FORM_LOCK_FIELD_NAMES = [
 
 function isQuestChainStructureLockedClient(chain) {
   if (!chain) return false;
-  return Boolean(chain.structure_locked_at) || Boolean(chain.is_active);
+  return Boolean(chain.structure_locked_at);
 }
 
 function applyQuestChainStructureLockUi(chain) {
@@ -2373,7 +2409,7 @@ function applyQuestChainStructureLockUi(chain) {
   if (banner) {
     if (currentQuestChainLocked) {
       banner.style.display = 'block';
-      banner.textContent = '這個入口已進入發布後維護階段，核心結構已鎖定。你仍可修改文案、提示與素材，但不能新增、刪除或更動題型、GPS、驗證方式、順序等結構設定。';
+      banner.textContent = '這個入口的核心結構已鎖定。你仍可修改文案、提示與素材，但不能新增、刪除或更動題型、GPS、驗證方式、順序等結構設定。';
     } else {
       banner.style.display = 'none';
       banner.textContent = '';
@@ -2411,7 +2447,7 @@ function applyQuestChainFormLockUi(chain = null) {
   if (banner) {
     if (currentQuestChainFormLocked) {
       banner.style.display = 'block';
-      banner.textContent = '這個入口已發布，入口核心結構已鎖定。你現在仍可調整標題、介紹、入口文案、封面素材、收款狀態與上下架狀態，但不能修改方案、模式、玩法規則與入口結構。';
+      banner.textContent = '這個入口的核心結構已鎖定。你現在仍可調整標題、介紹、入口文案、封面素材、收款狀態與上下架狀態，但不能修改方案、模式、玩法規則與入口結構。';
     } else {
       banner.style.display = 'none';
       banner.textContent = '';
@@ -2434,7 +2470,7 @@ function applyTaskStructureLockUi(task = null, chain = null) {
   if (banner) {
     if (locked) {
       banner.style.display = 'block';
-      banner.textContent = '這個入口已發布，關卡核心結構已鎖定。你現在只能修改文字敘事、提示、成功失敗文案、封面與素材，不能修改題型、GPS、驗證方式、順序、積分與通關規則。';
+      banner.textContent = '這個入口的關卡核心結構已鎖定。你現在只能修改文字敘事、提示、成功失敗文案、封面與素材，不能修改題型、GPS、驗證方式、順序、積分與通關規則。';
     } else {
       banner.style.display = 'none';
       banner.textContent = '';
