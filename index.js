@@ -74,14 +74,34 @@ const authLimiter = rateLimit({
 app.use('/api/login', authLimiter);
 app.use('/api/staff-login', authLimiter);
 
-// 設定圖片上傳目錄
-// 如果 /data/public/images 存在 (Zeabur 環境)，就使用該路徑
-// 否則使用本地 public/images
+// 設定圖片/音訊/影片上傳目錄
+// 正式環境優先使用可持久化掛載路徑，避免每次 redeploy 後素材遺失。
 const ZEABUR_UPLOAD_PATH = '/data/public/images';
-const UPLOAD_DIR = fs.existsSync(ZEABUR_UPLOAD_PATH) 
-  ? ZEABUR_UPLOAD_PATH 
-  : path.join(__dirname, 'public/images');
-  
+const LOCAL_UPLOAD_PATH = path.join(__dirname, 'public/images');
+
+function resolveUploadDir() {
+  const customUploadDir = normalizeNullableString(process.env.UPLOAD_DIR);
+  const candidateDirs = [
+    customUploadDir,
+    process.env.NODE_ENV === 'production' ? ZEABUR_UPLOAD_PATH : null,
+    fs.existsSync(ZEABUR_UPLOAD_PATH) ? ZEABUR_UPLOAD_PATH : null,
+    LOCAL_UPLOAD_PATH
+  ].filter(Boolean);
+
+  for (const candidate of candidateDirs) {
+    try {
+      fs.mkdirSync(candidate, { recursive: true });
+      fs.accessSync(candidate, fs.constants.W_OK);
+      return candidate;
+    } catch (err) {
+      console.warn(`⚠️ 無法使用上傳目錄 ${candidate}:`, err.message);
+    }
+  }
+
+  throw new Error('找不到可寫入的上傳目錄');
+}
+
+const UPLOAD_DIR = resolveUploadDir();
 console.log('📁 圖片儲存路徑:', UPLOAD_DIR);
 
 // CORS 設定 - 根據環境變數限制網域

@@ -359,6 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const gameShellObjective = document.getElementById('gameShellObjective');
         const gameShellVideoWrap = document.getElementById('gameShellVideoWrap');
         const gameShellVideo = document.getElementById('gameShellVideo');
+        const gameShellVideoError = document.getElementById('gameShellVideoError');
         const gameShellProgress = document.getElementById('gameShellProgress');
         const gameShellEntries = document.getElementById('gameShellEntries');
         const gameShellStartBtn = document.getElementById('gameShellStartBtn');
@@ -401,6 +402,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const taskIntroDescription = document.getElementById('taskIntroDescription');
         const taskIntroVideoWrap = document.getElementById('taskIntroVideoWrap');
         const taskIntroVideo = document.getElementById('taskIntroVideo');
+        const taskIntroVideoError = document.getElementById('taskIntroVideoError');
         const taskIntroClose = document.getElementById('taskIntroClose');
         const taskBgm = document.getElementById('taskBgm');
         const taskHudDock = document.getElementById('taskHudDock');
@@ -570,6 +572,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // ---------- 任務情境（AR-VIEW 整合：任務封面＋景點說明＋背景音樂）----------
+        function setTaskVideoErrorState(videoEl, errorEl, failed) {
+            if (!videoEl) return;
+            videoEl.classList.toggle('video-load-failed', failed);
+            videoEl.controls = !failed;
+            if (errorEl) {
+                errorEl.classList.toggle('hidden', !failed);
+            }
+        }
+
+        function bindTaskVideoStatus(videoEl, errorEl) {
+            if (!videoEl) return;
+            videoEl.addEventListener('loadedmetadata', () => {
+                setTaskVideoErrorState(videoEl, errorEl, false);
+            });
+            videoEl.addEventListener('canplay', () => {
+                setTaskVideoErrorState(videoEl, errorEl, false);
+            });
+            videoEl.addEventListener('error', () => {
+                setTaskVideoErrorState(videoEl, errorEl, true);
+            });
+        }
+
         function loadTaskBGM(task) {
             if (!taskBgm) return;
             const musicUrl = task?.bgm_url || task?.audio_url || null;
@@ -596,6 +620,7 @@ document.addEventListener('DOMContentLoaded', () => {
             taskIntroPanel?.querySelector('.task-intro-body')?.classList.toggle('has-video', hasVideo);
             if (gameShellVideoWrap && gameShellVideo) {
                 if (videoUrl) {
+                    setTaskVideoErrorState(gameShellVideo, gameShellVideoError, false);
                     gameShellVideo.src = videoUrl;
                     gameShellVideo.load();
                     gameShellVideoWrap.classList.remove('hidden');
@@ -603,10 +628,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     gameShellVideo.removeAttribute('src');
                     gameShellVideo.load();
                     gameShellVideoWrap.classList.add('hidden');
+                    setTaskVideoErrorState(gameShellVideo, gameShellVideoError, false);
                 }
             }
             if (taskIntroVideoWrap && taskIntroVideo) {
                 if (videoUrl) {
+                    setTaskVideoErrorState(taskIntroVideo, taskIntroVideoError, false);
                     taskIntroVideo.src = videoUrl;
                     taskIntroVideo.load();
                     taskIntroVideoWrap.classList.remove('hidden');
@@ -614,6 +641,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     taskIntroVideo.removeAttribute('src');
                     taskIntroVideo.load();
                     taskIntroVideoWrap.classList.add('hidden');
+                    setTaskVideoErrorState(taskIntroVideo, taskIntroVideoError, false);
                 }
             }
             if (!hasVideo) {
@@ -5422,6 +5450,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 openTaskIntroPanel();
             });
         }
+        bindTaskVideoStatus(gameShellVideo, gameShellVideoError);
+        bindTaskVideoStatus(taskIntroVideo, taskIntroVideoError);
         if (taskIntroClose && taskIntroPanel) {
             taskIntroClose.addEventListener('click', () => {
                 closeTaskIntroPanel();
