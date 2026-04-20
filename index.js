@@ -75,16 +75,20 @@ app.use('/api/login', authLimiter);
 app.use('/api/staff-login', authLimiter);
 
 // 設定圖片/音訊/影片上傳目錄
-// 正式環境優先使用可持久化掛載路徑，避免每次 redeploy 後素材遺失。
-const ZEABUR_UPLOAD_PATH = '/data/public/images';
+// 正式環境優先使用 Zeabur Volume 掛載路徑，避免每次 redeploy 後素材遺失。
+// 目前正式站 Volume 掛載點為 /public/images。
+const ZEABUR_VOLUME_UPLOAD_PATH = '/public/images';
+const ZEABUR_LEGACY_UPLOAD_PATH = '/data/public/images';
 const LOCAL_UPLOAD_PATH = path.join(__dirname, 'public/images');
 
 function resolveUploadDir() {
   const customUploadDir = normalizeNullableString(process.env.UPLOAD_DIR);
   const candidateDirs = [
     customUploadDir,
-    process.env.NODE_ENV === 'production' ? ZEABUR_UPLOAD_PATH : null,
-    fs.existsSync(ZEABUR_UPLOAD_PATH) ? ZEABUR_UPLOAD_PATH : null,
+    process.env.NODE_ENV === 'production' ? ZEABUR_VOLUME_UPLOAD_PATH : null,
+    process.env.NODE_ENV === 'production' ? ZEABUR_LEGACY_UPLOAD_PATH : null,
+    fs.existsSync(ZEABUR_VOLUME_UPLOAD_PATH) ? ZEABUR_VOLUME_UPLOAD_PATH : null,
+    fs.existsSync(ZEABUR_LEGACY_UPLOAD_PATH) ? ZEABUR_LEGACY_UPLOAD_PATH : null,
     LOCAL_UPLOAD_PATH
   ].filter(Boolean);
 
