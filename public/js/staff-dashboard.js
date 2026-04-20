@@ -107,6 +107,7 @@ const DRAWER_FORM_ID_MAP = {
 let currentQuestChainId = null;
 let currentQuestChainTitle = '';
 let currentQuestChainMode = '';
+let currentShopDetailId = '';
 
 // Drawer state
 let activeFormId = null;
@@ -1715,7 +1716,11 @@ function renderShopList(shops = []) {
   if (!container) return;
   if (!shops.length) {
     container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏪</div>尚無商店資料</div>';
+    renderShopDetailPanel(null);
     return;
+  }
+  if (!currentShopDetailId || !shops.some((shop) => String(shop.id) === String(currentShopDetailId))) {
+    currentShopDetailId = String(shops[0].id);
   }
   container.innerHTML = shops.map((shop) => `
     <div class="quest-card">
@@ -1747,20 +1752,80 @@ function renderShopList(shops = []) {
         </div>
       </div>
       <div class="quest-card-actions">
+        <button class="btn-sm btn-secondary-v2" onclick="showShopDetail('${shop.id}')">查看詳情</button>
         <button class="btn-sm btn-secondary-v2" onclick="focusShopBilling('${shop.id}')">看 LM 紀錄</button>
         <button class="btn-sm btn-secondary-v2" onclick="focusShopAssets('${shop.id}')">看素材庫</button>
         <button class="btn-sm btn-secondary-v2" onclick="openShopDrawer('${shop.id}')">編輯</button>
       </div>
     </div>
   `).join('');
+  renderShopDetailPanel(globalShopsMap[String(currentShopDetailId)] || shops[0]);
 }
 
 function loadShopManagement() {
   return apiJson(`${API_BASE}/api/shops`, {
     headers: withActorHeaders()
   }).then((data) => {
+    globalShopsMap = {};
+    (data.shops || []).forEach((shop) => {
+      globalShopsMap[String(shop.id)] = shop;
+    });
     renderShopList(data.shops || []);
   });
+}
+
+function renderShopDetailPanel(shop) {
+  const container = document.getElementById('shopDetailContainer');
+  if (!container) return;
+  if (!shop) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏪</div>選擇一間商店即可查看詳情摘要</div>';
+    return;
+  }
+  const shopName = shop.name || `商店 #${shop.id}`;
+  container.innerHTML = `
+    <div style="background:white; border:1px solid #dbeafe; border-radius:16px; padding:18px 20px; display:grid; gap:14px;">
+      <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start;">
+        <div>
+          <div style="font-size:0.82rem; color:#64748b; margin-bottom:4px;">商店詳情</div>
+          <div style="font-size:1.2rem; font-weight:800; color:#0f172a;">${escHtml(shopName)}</div>
+          <div style="font-size:0.9rem; color:#64748b; margin-top:6px;">帳號：${escHtml(shop.owner_username || '未建立')}｜建置者：${escHtml(shop.builder_username || 'admin')}</div>
+          <div style="font-size:0.9rem; color:#64748b; margin-top:4px;">聯絡人：${escHtml(shop.contact_name || '未填')}｜電話：${escHtml(shop.contact_phone || '未填')}｜Email：${escHtml(shop.contact_email || '未填')}</div>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn-sm btn-secondary-v2" onclick="focusShopBilling('${shop.id}')">看 LM 紀錄</button>
+          <button class="btn-sm btn-secondary-v2" onclick="focusShopAssets('${shop.id}')">看素材庫</button>
+          <button class="btn-sm btn-secondary-v2" onclick="openShopDrawer('${shop.id}')">編輯商店</button>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px;">
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px;">
+          <div class="subtle-note" style="margin-bottom:6px;">素材總量</div>
+          <div style="font-weight:800;">${formatBytes(shop.asset_total_bytes || 0)}</div>
+          <div style="font-size:0.82rem; color:#64748b; margin-top:4px;">共 ${formatTokenCount(shop.asset_total_files || 0)} 個素材</div>
+        </div>
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px;">
+          <div class="subtle-note" style="margin-bottom:6px;">素材組成</div>
+          <div style="font-weight:800;">模型 ${formatTokenCount(shop.asset_model_count || 0)}｜道具 ${formatTokenCount(shop.asset_item_count || 0)}</div>
+          <div style="font-size:0.82rem; color:#64748b; margin-top:4px;">音樂 ${formatTokenCount(shop.asset_bgm_count || 0)}｜影片 ${formatTokenCount(shop.asset_video_count || 0)}</div>
+        </div>
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px;">
+          <div class="subtle-note" style="margin-bottom:6px;">${escHtml(shop.billing_month || getDefaultBillingMonth())} LM Tokens</div>
+          <div style="font-weight:800;">${formatTokenCount(shop.billing_total_tokens || 0)}</div>
+          <div style="font-size:0.82rem; color:#64748b; margin-top:4px;">P ${formatTokenCount(shop.billing_prompt_tokens || 0)} / C ${formatTokenCount(shop.billing_completion_tokens || 0)}</div>
+        </div>
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px;">
+          <div class="subtle-note" style="margin-bottom:6px;">LM 金額摘要</div>
+          <div style="font-weight:800;">${shop.billing_donated_amount > 0 ? `公益代付 ${formatCurrency(shop.billing_donated_amount || 0)}` : `應收 ${formatCurrency(shop.billing_estimated_amount || 0)}`}</div>
+          <div style="font-size:0.82rem; color:#64748b; margin-top:4px;">入口 ${formatTokenCount(shop.quest_chain_count || 0)}｜員工 ${formatTokenCount(shop.staff_count || 0)}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function showShopDetail(shopId) {
+  currentShopDetailId = String(shopId || '');
+  renderShopDetailPanel(globalShopsMap[String(currentShopDetailId)] || null);
 }
 
 function focusShopAssets(shopId) {
