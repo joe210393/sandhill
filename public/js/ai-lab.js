@@ -640,6 +640,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!taskIntroPanel) return;
             exitFormalStoryIntroMode();
             taskIntroPanel.classList.remove('hidden');
+            document.body.classList.add('task-intro-open');
             if (autoPlay && taskIntroVideo && taskIntroPanel.classList.contains('has-video')) {
                 const playPromise = taskIntroVideo.play();
                 if (playPromise && typeof playPromise.catch === 'function') {
@@ -651,6 +652,7 @@ document.addEventListener('DOMContentLoaded', () => {
         function closeTaskIntroPanel({ pauseVideo = true } = {}) {
             if (!taskIntroPanel) return;
             taskIntroPanel.classList.add('hidden');
+            document.body.classList.remove('task-intro-open');
             if (pauseVideo) {
                 pauseTaskMedia();
             }

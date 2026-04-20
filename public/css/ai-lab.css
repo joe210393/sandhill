@@ -3704,3 +3704,8 @@ body.immersive-camera-mode .reticle-overlay {
     -webkit-backdrop-filter: blur(4px);
     min-height: 44px;
 }
+
+body.task-intro-open .tutorial-exit-btn {
+    opacity: 0;
+    pointer-events: none;
+}
