@@ -189,9 +189,9 @@
                     <div class="game-shell-block" id="gameShellObjectiveBlock">
                         <div class="game-shell-label">當前目標</div>
                         <div id="gameShellObjective" class="game-shell-objective">尚未選擇玩法</div>
-                        <div id="gameShellVideoWrap" class="hidden" style="margin-top:12px;">
-                            <div class="game-shell-label" style="margin-bottom:6px;">關卡影片</div>
-                            <video id="gameShellVideo" controls preload="metadata" style="width:100%; border-radius:12px; background:#0f172a;"></video>
+                        <div id="gameShellVideoWrap" class="task-video-wrap hidden">
+                            <div class="game-shell-label task-video-label">關卡影片</div>
+                            <video id="gameShellVideo" class="task-video-player" controls playsinline webkit-playsinline preload="metadata"></video>
                         </div>
                         <div style="margin-top:12px;">
                             <button id="gameShellStartBtn" class="board-action-btn primary" type="button">開始這一關</button>
@@ -325,8 +325,8 @@
                 <div class="task-intro-body">
                     <img id="taskIntroCover" class="task-intro-cover" src="" alt="">
                     <div id="taskIntroDescription" class="task-intro-description"></div>
-                    <div id="taskIntroVideoWrap" class="hidden" style="margin-top:12px;">
-                        <video id="taskIntroVideo" controls preload="metadata" style="width:100%; border-radius:12px; background:#0f172a;"></video>
+                    <div id="taskIntroVideoWrap" class="task-video-wrap hidden">
+                        <video id="taskIntroVideo" class="task-video-player task-video-player-intro" controls playsinline webkit-playsinline preload="metadata"></video>
                     </div>
                 </div>
             </div>

@@ -503,6 +503,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let currentStoryTasks = [];
         let currentStoryCompleted = false;
         let currentStoryCompletedTaskIds = new Set();
+        let lastAutoOpenedTaskVideoTaskId = null;
         let currentBoardMaps = [];
         let currentBoardTiles = [];
         let currentBoardMap = null;
@@ -588,6 +589,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function loadTaskVideo(task) {
             const videoUrl = task?.video_url || null;
+            const hasVideo = Boolean(videoUrl);
+            gameShellPanel?.classList.toggle('has-video', hasVideo);
+            taskIntroPanel?.classList.toggle('has-video', hasVideo);
+            taskIntroDescription?.classList.toggle('has-video', hasVideo);
+            taskIntroPanel?.querySelector('.task-intro-body')?.classList.toggle('has-video', hasVideo);
             if (gameShellVideoWrap && gameShellVideo) {
                 if (videoUrl) {
                     gameShellVideo.src = videoUrl;
@@ -610,6 +616,53 @@ document.addEventListener('DOMContentLoaded', () => {
                     taskIntroVideoWrap.classList.add('hidden');
                 }
             }
+            if (!hasVideo) {
+                lastAutoOpenedTaskVideoTaskId = null;
+            }
+        }
+
+        function isCompactViewport() {
+            return window.matchMedia('(max-width: 768px)').matches;
+        }
+
+        function pauseTaskMedia() {
+            [gameShellVideo, taskIntroVideo].forEach((mediaEl) => {
+                if (!mediaEl) return;
+                try {
+                    mediaEl.pause();
+                } catch (err) {
+                    console.warn('暫停任務影片失敗', err);
+                }
+            });
+        }
+
+        function openTaskIntroPanel({ autoPlay = false } = {}) {
+            if (!taskIntroPanel) return;
+            exitFormalStoryIntroMode();
+            taskIntroPanel.classList.remove('hidden');
+            if (autoPlay && taskIntroVideo && taskIntroPanel.classList.contains('has-video')) {
+                const playPromise = taskIntroVideo.play();
+                if (playPromise && typeof playPromise.catch === 'function') {
+                    playPromise.catch(() => {});
+                }
+            }
+        }
+
+        function closeTaskIntroPanel({ pauseVideo = true } = {}) {
+            if (!taskIntroPanel) return;
+            taskIntroPanel.classList.add('hidden');
+            if (pauseVideo) {
+                pauseTaskMedia();
+            }
+        }
+
+        function maybeAutoOpenTaskIntro(task) {
+            const taskVideoUrl = task?.video_url || null;
+            const taskKey = String(task?.id || '');
+            if (!taskVideoUrl || !taskKey || !isCompactViewport()) return;
+            if (lastAutoOpenedTaskVideoTaskId === taskKey && !taskIntroPanel?.classList.contains('hidden')) return;
+            lastAutoOpenedTaskVideoTaskId = taskKey;
+            openTaskIntroPanel();
         }
 
         function showTaskContext(task) {
@@ -637,6 +690,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 gameShellObjective.textContent = task.stage_intro || task.description || task.name || '請前往完成當前關卡';
             }
             renderHudSummary();
+            if (task?.video_url) {
+                maybeAutoOpenTaskIntro(task);
+            } else {
+                closeTaskIntroPanel();
+            }
             // 不自動彈出景點介紹：與 AR-VIEW 一致，進入後先看到相機畫面，由使用者自行點 📋 查看
         }
 
@@ -820,6 +878,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (taskHudToggle) taskHudToggle.setAttribute('aria-expanded', 'false');
             }
             renderTutorialModeUi();
+            if (shouldRevealFormalStoryShell && currentTask?.video_url) {
+                window.setTimeout(() => {
+                    maybeAutoOpenTaskIntro(currentTask);
+                }, 120);
+            }
             if (currentNpcDialogResolver) {
                 currentNpcDialogResolver();
                 currentNpcDialogResolver = null;
@@ -3528,6 +3591,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function startTaskInteraction() {
             closeTaskEncounter();
+            closeTaskIntroPanel();
             if (!currentTask) return;
             const tutorialMode = isCurrentQuestTutorialMode();
             const tutorialGuestMode = isTutorialGuestMode();
@@ -5353,13 +5417,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (taskIntroBtn && taskIntroPanel) {
             taskIntroBtn.addEventListener('click', () => {
-                exitFormalStoryIntroMode();
-                taskIntroPanel.classList.remove('hidden');
+                openTaskIntroPanel();
             });
         }
         if (taskIntroClose && taskIntroPanel) {
             taskIntroClose.addEventListener('click', () => {
-                taskIntroPanel.classList.add('hidden');
+                closeTaskIntroPanel();
             });
         }
         if (featureDockToggle && featureDockMenu) {
