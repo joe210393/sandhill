@@ -108,6 +108,18 @@ function resolveUploadDir() {
 const UPLOAD_DIR = resolveUploadDir();
 console.log('📁 圖片儲存路徑:', UPLOAD_DIR);
 
+function buildStaticAssetDirs() {
+  return [...new Set([
+    UPLOAD_DIR,
+    ZEABUR_VOLUME_UPLOAD_PATH,
+    ZEABUR_LEGACY_UPLOAD_PATH,
+    LOCAL_UPLOAD_PATH
+  ].filter(Boolean))];
+}
+
+const STATIC_ASSET_DIRS = buildStaticAssetDirs();
+console.log('🗂️ 靜態素材搜尋路徑:', STATIC_ASSET_DIRS.join(' -> '));
+
 // CORS 設定 - 根據環境變數限制網域
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim()).filter(Boolean)
@@ -146,9 +158,20 @@ app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json({ charset: 'utf-8' }));
 
-// 優先從 UPLOAD_DIR 提供圖片服務，這對於掛載的 Volume 很重要
-// 當請求 /images/xxx.jpg 時，會先去 UPLOAD_DIR 找
-app.use('/images', express.static(UPLOAD_DIR));
+// 優先從目前上傳目錄提供素材；若找不到，再回退到舊路徑，避免調整掛載點後舊素材瞬間失效。
+const imageStaticHandlers = STATIC_ASSET_DIRS.map((dir) => express.static(dir));
+app.use('/images', (req, res, next) => {
+  let index = 0;
+  const tryNextDir = () => {
+    const handler = imageStaticHandlers[index++];
+    if (!handler) return next();
+    handler(req, res, (err) => {
+      if (err) return next(err);
+      tryNextDir();
+    });
+  };
+  tryNextDir();
+});
 
 // 設定靜態檔案服務，並強制為 .glb/.gltf 設定正確的 MIME type
 app.use(express.static(path.join(__dirname, 'public'), {
