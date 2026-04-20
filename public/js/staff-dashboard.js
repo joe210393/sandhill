@@ -108,6 +108,7 @@ let currentQuestChainId = null;
 let currentQuestChainTitle = '';
 let currentQuestChainMode = '';
 let currentShopDetailId = '';
+const ADMIN_SHARED_SHOP_VALUE = '__admin__';
 
 // Drawer state
 let activeFormId = null;
@@ -176,23 +177,84 @@ function isPublicGoodQuestChain(chain = null) {
   return normalizeQuestChainBillingPolicy(chain) === 'public_good';
 }
 
-function populateQuestChainShopOptions() {
+function getQuestChainShopOptionItems() {
+  const items = Object.values(globalShopsMap)
+    .sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'zh-Hant'));
+  if (loginUser?.role === 'admin') {
+    return [
+      {
+        id: ADMIN_SHARED_SHOP_VALUE,
+        name: 'admin 公益共用',
+        keywords: 'admin 公益 平台 管理員 共用'
+      },
+      ...items
+    ];
+  }
+  return items;
+}
+
+function normalizeQuestChainShopSelectValue(rawValue = '') {
+  if (loginUser?.role === 'admin') {
+    return rawValue ? String(rawValue) : ADMIN_SHARED_SHOP_VALUE;
+  }
+  return rawValue ? String(rawValue) : (loginUser?.shop_id ? String(loginUser.shop_id) : '');
+}
+
+function getQuestChainShopDisplayName(shopValue = '') {
+  const normalizedValue = normalizeQuestChainShopSelectValue(shopValue);
+  if (normalizedValue === ADMIN_SHARED_SHOP_VALUE) return 'admin 公益共用';
+  return globalShopsMap[String(normalizedValue)]?.name || (normalizedValue ? `商家 #${normalizedValue}` : '未指定商家');
+}
+
+function populateQuestChainShopOptions(searchTerm = null) {
   const select = document.getElementById('questChainShopSelect');
+  const searchInput = document.getElementById('questChainShopSearchInput');
   if (!select) return;
   const isAdmin = loginUser?.role === 'admin';
   const actorShopId = loginUser?.shop_id ? String(loginUser.shop_id) : '';
-  const options = Object.values(globalShopsMap);
-  select.innerHTML = isAdmin
-    ? '<option value="">-- 請選擇商家 --</option>'
-    : '';
+  const currentValue = normalizeQuestChainShopSelectValue(select.value || actorShopId);
+  const effectiveSearch = searchTerm == null ? (searchInput?.value || '') : searchTerm;
+  const normalizedSearch = String(effectiveSearch || '').trim().toLowerCase();
+  let options = getQuestChainShopOptionItems();
+  if (searchInput) {
+    searchInput.disabled = !isAdmin;
+    if (searchTerm != null) searchInput.value = searchTerm;
+  }
+  if (normalizedSearch) {
+    options = options.filter((shop) => {
+      const haystack = [
+        shop.name,
+        shop.keywords,
+        shop.contact_name,
+        shop.contact_phone,
+        shop.contact_email,
+        shop.id
+      ].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(normalizedSearch);
+    });
+  }
+  select.innerHTML = '';
+  if (!options.length) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = '查無符合條件的商家';
+    option.disabled = true;
+    option.selected = true;
+    select.appendChild(option);
+    return;
+  }
   options.forEach((shop) => {
     const option = document.createElement('option');
     option.value = String(shop.id);
     option.textContent = shop.name || `商家 #${shop.id}`;
     select.appendChild(option);
   });
-  if (!isAdmin && actorShopId) {
+  if (options.some((shop) => String(shop.id) === currentValue)) {
+    select.value = currentValue;
+  } else if (!isAdmin && actorShopId) {
     select.value = actorShopId;
+  } else if (isAdmin) {
+    select.value = options[0] ? String(options[0].id) : ADMIN_SHARED_SHOP_VALUE;
   }
   const staffShopSelect = document.getElementById('staffShopSelect');
   if (staffShopSelect) {
@@ -245,6 +307,11 @@ function syncQuestChainCommercialFields() {
     ? normalizeQuestChainBillingPolicy(editingChain)
     : (loginUser?.role === 'admin' ? 'public_good' : 'commercial');
   const isPublicGood = billingPolicy === 'public_good';
+  const shopSearchInput = document.getElementById('questChainShopSearchInput');
+
+  if (loginUser?.role === 'admin' && shopSelect && !shopSelect.value) {
+    shopSelect.value = ADMIN_SHARED_SHOP_VALUE;
+  }
 
   if (selectedPlan) {
     taskLimitInput.value = selectedPlan.task_limit ?? '';
@@ -261,17 +328,24 @@ function syncQuestChainCommercialFields() {
 
   const lockCommercialFields = isEditing;
   shopSelect.disabled = loginUser.role !== 'admin' || lockCommercialFields;
+  if (shopSearchInput) {
+    shopSearchInput.disabled = loginUser.role !== 'admin' || lockCommercialFields;
+    if (shopSearchInput.disabled) {
+      shopSearchInput.value = getQuestChainShopDisplayName(shopSelect.value || '');
+    }
+  }
   planSelect.disabled = lockCommercialFields;
   if (setupFeePaidInput) {
-    setupFeePaidInput.disabled = isPublicGood;
-    if (isPublicGood) setupFeePaidInput.checked = false;
+    setupFeePaidInput.value = '0';
   }
   if (monthlyBillingInput) {
     monthlyBillingInput.disabled = isPublicGood;
     if (isPublicGood) monthlyBillingInput.checked = true;
   }
   if (setupFeePaidLabel) {
-    setupFeePaidLabel.textContent = isPublicGood ? '公益入口免收建置費' : '已完成建置費收款';
+    setupFeePaidLabel.textContent = isPublicGood
+      ? '公益入口免收建置費，建立後只統計 token 與公益代付值。'
+      : '商業入口建立後預設待收，請到「計費與 LM 用量」頁面管理收款。';
   }
   if (monthlyBillingLabel) {
     monthlyBillingLabel.textContent = isPublicGood ? '持續統計 LM tokens 與公益代付值' : '啟用每月 LM token 計費';
@@ -294,7 +368,7 @@ function syncQuestChainCommercialFields() {
   }
 
   if (summary) {
-    const shopText = selectedShop?.name || (shopSelect?.value ? `商家 #${shopSelect.value}` : '尚未指定商家');
+    const shopText = getQuestChainShopDisplayName(shopSelect?.value || '');
     const planText = selectedPlan?.name || (planSelect?.value ? `方案 #${planSelect.value}` : '尚未指定方案');
     const limitText = taskLimitInput?.value ? `${taskLimitInput.value} 關` : '未設定關卡上限';
     const feeText = formatCurrency(setupFeeInput?.value);
@@ -1255,6 +1329,9 @@ function openDrawer(title, formSectionId, data, opts = {}) {
   }
 
   if (activeFormId === 'questChainForm') {
+    const shopSearchInput = document.getElementById('questChainShopSearchInput');
+    if (shopSearchInput) shopSearchInput.value = '';
+    populateQuestChainShopOptions('');
     const shopSelect = form?.elements?.shop_id;
     if (shopSelect && loginUser?.role !== 'admin' && loginUser?.shop_id) {
       shopSelect.value = String(loginUser.shop_id);
@@ -1263,6 +1340,9 @@ function openDrawer(title, formSectionId, data, opts = {}) {
     const editingChain = form?.elements?.id?.value ? globalQuestChainsMap[String(form.elements.id.value)] || null : null;
     applyQuestChainFormLockUi(editingChain);
     setInlineMessage('questChainFormMsg', '');
+  } else if (activeFormId === 'taskForm') {
+    syncTaskVideoPreview(form?.elements?.video_url?.value || '');
+    setInlineMessage('taskFormMsg', '');
   } else if (activeFormId === 'shopForm') {
     setInlineMessage('shopFormMsg', '');
   } else if (activeFormId === 'planForm') {
@@ -1623,7 +1703,7 @@ function renderQuestChainList(chains) {
     const structureLockTag = isQuestChainStructureLockedClient(q)
       ? '<span class="tag tag-red">結構已鎖定</span>'
       : '<span class="tag tag-blue">可編輯結構</span>';
-    const shopName = q.shop_name || globalShopsMap[String(q.shop_id)]?.name || (q.shop_id ? `商家 #${q.shop_id}` : '未指定商家');
+    const shopName = q.shop_name || globalShopsMap[String(q.shop_id)]?.name || (q.shop_id ? `商家 #${q.shop_id}` : 'admin 公益共用');
     const planName = q.plan_name || globalEntryPlansMap[String(q.plan_id)]?.name || (q.plan_id ? `方案 #${q.plan_id}` : '歷史入口');
     const taskLimit = q.task_limit ? `${q.task_limit} 關` : '未限制';
     const setupFee = formatCurrency(q.setup_fee || 0);
@@ -2134,7 +2214,8 @@ document.getElementById('questChainForm').addEventListener('submit', function (e
   }
 
   const fd = new FormData();
-  fd.append('shop_id', form.shop_id.value);
+  const normalizedShopValue = form.shop_id.value === ADMIN_SHARED_SHOP_VALUE ? '' : form.shop_id.value;
+  fd.append('shop_id', normalizedShopValue);
   fd.append('plan_id', form.plan_id.value);
   fd.append('task_limit', form.task_limit.value);
   fd.append('setup_fee', form.setup_fee.value);
@@ -2142,7 +2223,7 @@ document.getElementById('questChainForm').addEventListener('submit', function (e
   const billingPolicy = editingChain
     ? normalizeQuestChainBillingPolicy(editingChain)
     : (loginUser?.role === 'admin' ? 'public_good' : 'commercial');
-  fd.append('setup_fee_paid', billingPolicy === 'public_good' ? '0' : (form.setup_fee_paid.checked ? '1' : '0'));
+  fd.append('setup_fee_paid', '0');
   fd.append('monthly_billing_enabled', billingPolicy === 'public_good' ? '1' : (form.monthly_billing_enabled.checked ? '1' : '0'));
   fd.append('title', form.title.value.trim());
   fd.append('description', form.description.value.trim());
@@ -2202,6 +2283,14 @@ if (qcBadgeInput) {
 const questChainShopSelect = document.getElementById('questChainShopSelect');
 if (questChainShopSelect) {
   questChainShopSelect.addEventListener('change', syncQuestChainCommercialFields);
+}
+
+const questChainShopSearchInput = document.getElementById('questChainShopSearchInput');
+if (questChainShopSearchInput) {
+  questChainShopSearchInput.addEventListener('input', function () {
+    populateQuestChainShopOptions(this.value);
+    syncQuestChainCommercialFields();
+  });
 }
 
 const questChainPlanSelect = document.getElementById('questChainPlanSelect');
@@ -3509,6 +3598,8 @@ function populateTaskFormForEdit(t) {
       form.elements.ar_order_image.value = t.ar_order_image || '';
       form.elements.ar_order_youtube.value = t.ar_order_youtube || '';
       form.elements.youtubeUrl.value = t.youtubeUrl || '';
+      if (form.elements.video_url) form.elements.video_url.value = t.video_url || '';
+      syncTaskVideoPreview(t.video_url || '');
       document.getElementById('taskArImageUrl').value = t.ar_image_url || '';
 
       // BGM
@@ -3740,6 +3831,7 @@ document.getElementById('taskForm').addEventListener('submit', async function (e
       description: form.description.value.trim(),
       photoUrl,
       youtubeUrl: form.youtubeUrl.value.trim() || null,
+      video_url: form.video_url?.value.trim() || null,
       ar_image_url: arImageUrl,
       ar_model_id: form.ar_model_id?.value || null,
       ar_order_model: form.ar_order_model.value || null,
@@ -3895,6 +3987,26 @@ if (taskBgmLibrarySelectEl) {
       inp.dispatchEvent(new Event('input', { bubbles: true }));
     }
     taskBgmLibrarySelectEl.value = '';
+  });
+}
+
+const taskVideoLibrarySelectEl = document.getElementById('taskVideoLibrarySelect');
+if (taskVideoLibrarySelectEl) {
+  taskVideoLibrarySelectEl.addEventListener('change', () => {
+    const value = taskVideoLibrarySelectEl.value.trim();
+    const input = document.getElementById('taskVideoUrlInput');
+    if (input) {
+      input.value = value;
+      syncTaskVideoPreview(value);
+    }
+    taskVideoLibrarySelectEl.value = '';
+  });
+}
+
+const taskVideoUrlInputEl = document.getElementById('taskVideoUrlInput');
+if (taskVideoUrlInputEl) {
+  taskVideoUrlInputEl.addEventListener('input', () => {
+    syncTaskVideoPreview(taskVideoUrlInputEl.value.trim());
   });
 }
 
@@ -4121,9 +4233,37 @@ function deleteModel(id) {
     });
 }
 
-function copyBgmAssetUrl(url) {
+function copyAssetUrl(url, successMessage = '已複製素材 URL') {
   if (!url) return;
-  navigator.clipboard.writeText(url).then(() => showToast('已複製音樂 URL')).catch(() => showToast('複製失敗', 'error'));
+  navigator.clipboard.writeText(url).then(() => showToast(successMessage)).catch(() => showToast('複製失敗', 'error'));
+}
+
+function syncTaskVideoPreview(url = '') {
+  const previewWrap = document.getElementById('taskVideoPreview');
+  const player = document.getElementById('taskVideoPreviewPlayer');
+  if (!previewWrap || !player) return;
+  const normalizedUrl = String(url || '').trim();
+  if (normalizedUrl) {
+    player.src = normalizedUrl;
+    previewWrap.style.display = 'block';
+    return;
+  }
+  player.removeAttribute('src');
+  player.load();
+  previewWrap.style.display = 'none';
+}
+
+function populateTaskVideoLibrarySelect() {
+  const sel = document.getElementById('taskVideoLibrarySelect');
+  if (!sel) return;
+  const assets = Object.values(globalVideoLibraryMap).sort((a, b) => b.id - a.id);
+  sel.innerHTML = '<option value="">— 從共用素材庫選擇影片 —</option>';
+  assets.forEach((video) => {
+    const opt = document.createElement('option');
+    opt.value = video.url;
+    opt.textContent = video.name;
+    sel.appendChild(opt);
+  });
 }
 
 function populateTaskBgmLibrarySelect() {
@@ -4152,7 +4292,7 @@ function renderBgmList(assets) {
       <div style="font-size:0.8rem; color:#64748b; margin-bottom:6px;">${loginUser?.role === 'admin' ? escHtml(b.shop_name || 'admin 公益共用') + '｜' : ''}${formatBytes(b.file_size || 0)}</div>
       <audio controls preload="none" src="${escHtml(b.url)}" style="width:100%; margin:8px 0;"></audio>
       <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-end;">
-        <button type="button" class="btn-sm btn-secondary-v2" onclick="copyBgmAssetUrl(${JSON.stringify(b.url)})" style="font-size:0.8rem;">複製 URL</button>
+        <button type="button" class="btn-sm btn-secondary-v2" onclick="copyAssetUrl(${JSON.stringify(b.url)}, '已複製音樂 URL')" style="font-size:0.8rem;">複製 URL</button>
         <button type="button" class="btn-sm btn-danger-v2" onclick="deleteBgmAsset(${b.id})" style="font-size:0.8rem;">刪除</button>
       </div>
     </div>
@@ -4172,7 +4312,7 @@ function renderVideoList(assets) {
       <div style="font-size:0.8rem; color:#64748b; margin-bottom:6px;">${loginUser?.role === 'admin' ? escHtml(video.shop_name || 'admin 公益共用') + '｜' : ''}${formatBytes(video.file_size || 0)}</div>
       <video controls preload="metadata" src="${escHtml(video.url)}" style="width:100%; margin:8px 0; border-radius:8px; background:#0f172a;"></video>
       <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-end;">
-        <button type="button" class="btn-sm btn-secondary-v2" onclick="copyBgmAssetUrl(${JSON.stringify(video.url)})" style="font-size:0.8rem;">複製 URL</button>
+        <button type="button" class="btn-sm btn-secondary-v2" onclick="copyAssetUrl(${JSON.stringify(video.url)}, '已複製影片 URL')" style="font-size:0.8rem;">複製 URL</button>
         <button type="button" class="btn-sm btn-danger-v2" onclick="deleteVideoAsset(${video.id})" style="font-size:0.8rem;">刪除</button>
       </div>
     </div>
@@ -4206,6 +4346,7 @@ function loadVideoAssets() {
       globalVideoLibraryMap = {};
       (data.assets || []).forEach(v => { globalVideoLibraryMap[v.id] = v; });
       renderVideoList(data.assets || []);
+      populateTaskVideoLibrarySelect();
     })
     .catch(() => {});
 }

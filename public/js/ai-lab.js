@@ -357,6 +357,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const gameShellTitle = document.getElementById('gameShellTitle');
         const gameShellSummary = document.getElementById('gameShellSummary');
         const gameShellObjective = document.getElementById('gameShellObjective');
+        const gameShellVideoWrap = document.getElementById('gameShellVideoWrap');
+        const gameShellVideo = document.getElementById('gameShellVideo');
         const gameShellProgress = document.getElementById('gameShellProgress');
         const gameShellEntries = document.getElementById('gameShellEntries');
         const gameShellStartBtn = document.getElementById('gameShellStartBtn');
@@ -397,6 +399,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const taskIntroTitle = document.getElementById('taskIntroTitle');
         const taskIntroCover = document.getElementById('taskIntroCover');
         const taskIntroDescription = document.getElementById('taskIntroDescription');
+        const taskIntroVideoWrap = document.getElementById('taskIntroVideoWrap');
+        const taskIntroVideo = document.getElementById('taskIntroVideo');
         const taskIntroClose = document.getElementById('taskIntroClose');
         const taskBgm = document.getElementById('taskBgm');
         const taskHudDock = document.getElementById('taskHudDock');
@@ -582,6 +586,32 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        function loadTaskVideo(task) {
+            const videoUrl = task?.video_url || null;
+            if (gameShellVideoWrap && gameShellVideo) {
+                if (videoUrl) {
+                    gameShellVideo.src = videoUrl;
+                    gameShellVideo.load();
+                    gameShellVideoWrap.classList.remove('hidden');
+                } else {
+                    gameShellVideo.removeAttribute('src');
+                    gameShellVideo.load();
+                    gameShellVideoWrap.classList.add('hidden');
+                }
+            }
+            if (taskIntroVideoWrap && taskIntroVideo) {
+                if (videoUrl) {
+                    taskIntroVideo.src = videoUrl;
+                    taskIntroVideo.load();
+                    taskIntroVideoWrap.classList.remove('hidden');
+                } else {
+                    taskIntroVideo.removeAttribute('src');
+                    taskIntroVideo.load();
+                    taskIntroVideoWrap.classList.add('hidden');
+                }
+            }
+        }
+
         function showTaskContext(task) {
             if (currentTask && task && currentTask.id !== task.id && photoCaptureModeActive) {
                 resetPhotoCaptureState();
@@ -598,6 +628,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (taskIntroDescription) {
                 taskIntroDescription.textContent = task.description || '';
             }
+            loadTaskVideo(task);
             if (taskIntroBtn) taskIntroBtn.classList.remove('hidden');
             if (taskTargetImg) {
                 taskTargetImg.src = task.ar_image_url || task.photoUrl || task.photo_url || '/images/mascot.png';

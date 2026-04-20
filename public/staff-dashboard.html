@@ -917,6 +917,7 @@
           <div class="grid-2">
             <div class="form-group">
               <label class="form-label">所屬商家</label>
+              <input class="form-input" type="text" id="questChainShopSearchInput" placeholder="搜尋商家名稱或輸入 admin" autocomplete="off">
               <select class="form-select" name="shop_id" id="questChainShopSelect" required>
                 <option value="">-- 請選擇商家 --</option>
               </select>
@@ -944,10 +945,11 @@
           </div>
           <div class="grid-2">
             <div class="form-group">
-              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                <input type="checkbox" name="setup_fee_paid" value="1" style="width:16px; height:16px;">
-                <span id="questChainSetupFeePaidLabel" style="font-size:0.9rem;">已完成建置費收款</span>
-              </label>
+              <input type="hidden" name="setup_fee_paid" value="0">
+              <div class="locked-field" style="margin-bottom:0;">
+                <div class="locked-field-label">建置費收款狀態</div>
+                <div class="locked-field-value" id="questChainSetupFeePaidLabel">商業入口建立後預設待收，請到計費頁管理收款。</div>
+              </div>
             </div>
             <div class="form-group">
               <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
@@ -1469,6 +1471,17 @@
               <input type="number" name="ar_order_youtube" min="1" placeholder="順序" style="width:60px; padding:4px; border:1px solid #d1d5db; border-radius:6px; font-size:0.85rem;">
             </div>
             <input class="form-input" type="text" name="youtubeUrl" placeholder="https://youtu.be/..." style="margin-top:6px;">
+          </div>
+
+          <div class="media-upload-item">
+            <label class="form-label">🎬 關卡影片</label>
+            <select class="form-select" id="taskVideoLibrarySelect" style="margin-top:8px;">
+              <option value="">— 從共用素材庫選擇影片 —</option>
+            </select>
+            <input class="form-input" type="text" name="video_url" id="taskVideoUrlInput" placeholder="或直接輸入影片 URL" style="margin-top:6px;">
+            <div id="taskVideoPreview" style="margin-top:6px; display:none;">
+              <video id="taskVideoPreviewPlayer" controls preload="metadata" style="width:100%; border-radius:8px; background:#0f172a;"></video>
+            </div>
           </div>
 
           <div class="media-upload-item">

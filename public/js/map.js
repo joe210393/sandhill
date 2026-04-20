@@ -746,7 +746,7 @@ function createTaskPopup(task) {
         ${timedInfo}
         <p class="task-description">${task.description}</p>
         ${task.photoUrl ? `<div class="task-image"><img src="${task.photoUrl}" alt="${task.name}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 10px 0;"></div>` : ''}
-        ${task.youtubeUrl ? `<div class="task-video-link"><a href="${task.youtubeUrl}" target="_blank" style="color: #007bff; text-decoration: none;">🎬 觀看相關影片</a></div>` : ''}
+        ${task.video_url ? `<div class="task-video-link"><a href="${task.video_url}" target="_blank" style="color: #007bff; text-decoration: none;">🎬 觀看關卡影片</a></div>` : (task.youtubeUrl ? `<div class="task-video-link"><a href="${task.youtubeUrl}" target="_blank" style="color: #007bff; text-decoration: none;">🎬 觀看相關影片</a></div>` : '')}
         ${distance ? `<div class="task-distance">📍 距離：${distance}</div>` : ''}
         <div class="task-actions">
           <a href="/task-detail.html?id=${task.id}" class="task-detail-btn">📖 關卡簡報</a>
@@ -846,7 +846,16 @@ function showTaskCard(taskId) {
           </ol>
         </div>
 
-        ${task.youtubeUrl ? `
+        ${task.video_url ? `
+          <div class="task-video">
+            <h4>關卡影片：</h4>
+            <div class="video-placeholder">
+              <video width="100%" height="200" controls preload="metadata" style="border-radius:8px; background:#0f172a;">
+                <source src="${task.video_url}">
+              </video>
+            </div>
+          </div>
+        ` : (task.youtubeUrl ? `
           <div class="task-video">
             <h4>相關影片：</h4>
             <div class="video-placeholder">
@@ -856,7 +865,7 @@ function showTaskCard(taskId) {
               </iframe>
             </div>
           </div>
-        ` : ''}
+        ` : '')}
 
         <div class="task-actions-modal">
           ${isStaffOrAdmin 

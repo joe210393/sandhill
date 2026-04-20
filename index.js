@@ -2845,7 +2845,7 @@ app.post('/api/quest-chains', staffOrAdminAuth, uploadImage.single('badge_image'
   try {
     conn = await pool.getConnection();
     const resolvedShopId = await resolveActorShopId(conn, req.user, shop_id);
-    if (!resolvedShopId) {
+    if (req.user?.role !== 'admin' && !resolvedShopId) {
       return res.status(400).json({ success: false, message: '建立玩法入口時必須指定 shop_id' });
     }
     let selectedPlan = null;
@@ -4635,7 +4635,7 @@ app.get('/api/user/inventory', authenticateToken, async (req, res) => {
 // 新增任務
 app.post('/api/tasks', staffOrAdminAuth, async (req, res) => {
   const { 
-    name, lat, lng, radius, description, photoUrl, youtubeUrl, ar_image_url, points, 
+    name, lat, lng, radius, description, photoUrl, youtubeUrl, video_url, ar_image_url, points, 
     task_type, options, correct_answer,
     submission_type, validation_mode, ai_config, pass_criteria, failure_message, success_message,
     max_attempts, location_required,
@@ -4729,6 +4729,7 @@ app.post('/api/tasks', staffOrAdminAuth, async (req, res) => {
       photoUrl,
       iconUrl: '/images/flag-red.png',
       youtubeUrl: youtubeUrl || null,
+      video_url: normalizeNullableString(video_url),
       ar_image_url: ar_image_url || null,
       points: pts,
       created_by: username,
@@ -4995,7 +4996,7 @@ app.get('/api/tasks/:id', async (req, res) => {
 app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
   const { id } = req.params;
   const { 
-    name, lat, lng, radius, description, photoUrl, youtubeUrl, ar_image_url, points, 
+    name, lat, lng, radius, description, photoUrl, youtubeUrl, video_url, ar_image_url, points, 
     task_type, options, correct_answer,
     submission_type, validation_mode, ai_config, pass_criteria, failure_message, success_message,
     max_attempts, location_required,
@@ -5091,6 +5092,7 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
       description,
       photoUrl,
       youtubeUrl: youtubeUrl || null,
+      video_url: normalizeNullableString(video_url),
       ar_image_url: ar_image_url || null,
       points: pts,
       shop_id: existingTask.shop_id || getActorShopId(req.user),
@@ -8653,6 +8655,11 @@ if (!SKIP_DB) {
         if (bgmCols.length === 0) {
             await conn.execute("ALTER TABLE tasks ADD COLUMN bgm_url VARCHAR(512) DEFAULT NULL");
             console.log('✅ 資料庫遷移: tasks 表已新增 bgm_url');
+        }
+        const [taskVideoCols] = await conn.execute("SHOW COLUMNS FROM tasks LIKE 'video_url'");
+        if (taskVideoCols.length === 0) {
+            await conn.execute("ALTER TABLE tasks ADD COLUMN video_url VARCHAR(512) DEFAULT NULL");
+            console.log('✅ 資料庫遷移: tasks 表已新增 video_url');
         }
 
         // 共用素材庫：背景音樂
