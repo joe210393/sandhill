@@ -625,6 +625,7 @@
             <button class="btn-md btn-primary-v2" id="btnAssetAdd" onclick="openDrawer('上傳模型', 'form-asset')">+ 上傳模型</button>
             <button class="btn-md btn-primary-v2" id="btnItemAdd" style="display:none;" onclick="openDrawer('新增道具', 'form-item')">+ 新增道具</button>
             <button class="btn-md btn-primary-v2" id="btnBgmAdd" style="display:none;" onclick="openDrawer('上傳背景音樂', 'form-bgm-asset')">+ 上傳背景音樂</button>
+            <button class="btn-md btn-primary-v2" id="btnVideoAdd" style="display:none;" onclick="openDrawer('上傳影片素材', 'form-video-asset')">+ 上傳影片</button>
             <button class="btn-md btn-primary-v2" id="btnNpcAdd" style="display:none;" onclick="openNpcDrawer(false)">+ 新增 NPC</button>
           </div>
         </div>
@@ -635,6 +636,7 @@
           <div class="asset-tab active" onclick="switchAssetTab('models', this)">🧊 3D 模型</div>
           <div class="asset-tab" onclick="switchAssetTab('items', this)">🎒 道具素材</div>
           <div class="asset-tab" onclick="switchAssetTab('bgm', this)">🎵 背景音樂</div>
+          <div class="asset-tab" onclick="switchAssetTab('videos', this)">🎬 影片素材</div>
           <div class="asset-tab" onclick="switchAssetTab('npc', this)">🎭 NPC 角色</div>
         </div>
         <div id="assetSection-models" class="asset-section active">
@@ -651,6 +653,12 @@
           <p class="view-subtitle">上傳的曲目會儲存在伺服器，可在編輯關卡時從「從共用素材庫選擇」套用。支援 MP3、WAV、OGG、M4A 等格式。</p>
           <div id="bgmListContainer" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:12px;">
             <div class="empty-state"><div class="empty-state-icon">🎵</div>載入中...</div>
+          </div>
+        </div>
+        <div id="assetSection-videos" class="asset-section">
+          <p class="view-subtitle">上傳的影片會儲存在伺服器，可作為教學、導覽或素材引用。支援 MP4、MOV、WebM、M4V、AVI 等格式。</p>
+          <div id="videoListContainer" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:12px;">
+            <div class="empty-state"><div class="empty-state-icon">🎬</div>載入中...</div>
           </div>
         </div>
         <div id="assetSection-npc" class="asset-section">
@@ -792,7 +800,7 @@
           <h2>商店管理</h2>
           <button class="btn-md btn-primary-v2" onclick="openShopDrawer()">+ 新增商店</button>
         </div>
-        <p class="view-subtitle">僅限平台管理員。可建立商店帳號、維護商店資料，並查看建置者與目前入口數。</p>
+        <p class="view-subtitle">僅限平台管理員。可建立商店帳號、維護商店資料，並在同一頁查看每間商店的素材庫概況與本月 LM 用量。</p>
         <div id="shopListContainer" style="display:grid; gap:12px;">
           <div class="empty-state"><div class="empty-state-icon">🏪</div>載入中...</div>
         </div>
@@ -1690,6 +1698,21 @@
             <div class="form-hint">單檔 100MB 以內；MP3、WAV、OGG、M4A 等</div>
           </div>
           <div id="bgmAssetFormMsg" style="color:#dc2626; font-size:0.88rem; min-height:20px; margin-top:8px;"></div>
+        </form>
+      </div>
+
+      <div id="form-video-asset" class="drawer-form-section" data-form-id="videoAssetForm">
+        <form id="videoAssetForm" class="v2-form">
+          <div class="form-group">
+            <label class="form-label">影片名稱</label>
+            <input class="form-input" type="text" name="name" required maxlength="255" placeholder="例如：場域介紹短片">
+          </div>
+          <div class="form-group">
+            <label class="form-label">影片檔案</label>
+            <input class="form-input" type="file" name="videoFile" accept=".mp4,.mov,.webm,.m4v,.avi,video/*" required>
+            <div style="font-size:0.82rem; color:#64748b; margin-top:6px;">支援 MP4 / MOV / WebM / M4V / AVI，單檔上限 200MB，會計入商店素材庫容量。</div>
+          </div>
+          <div id="videoAssetFormMsg" style="color:#dc2626; font-size:0.88rem; min-height:20px; margin-top:8px;"></div>
         </form>
       </div>
 

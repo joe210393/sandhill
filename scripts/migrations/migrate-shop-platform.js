@@ -192,6 +192,19 @@ async function migrate() {
     await ensureColumn(conn, 'items', 'file_size', 'BIGINT NOT NULL DEFAULT 0');
     await ensureColumn(conn, 'bgm_library', 'shop_id', 'INT NULL DEFAULT NULL');
     await ensureColumn(conn, 'bgm_library', 'file_size', 'BIGINT NOT NULL DEFAULT 0');
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS video_library (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        url VARCHAR(512) NOT NULL,
+        created_by VARCHAR(255) NULL,
+        shop_id INT NULL DEFAULT NULL,
+        file_size BIGINT NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await ensureColumn(conn, 'video_library', 'shop_id', 'INT NULL DEFAULT NULL');
+    await ensureColumn(conn, 'video_library', 'file_size', 'BIGINT NOT NULL DEFAULT 0');
     await ensureColumn(conn, 'products', 'shop_id', 'INT NULL AFTER created_by');
     await ensureColumn(conn, 'user_coupons', 'shop_id', 'INT NULL AFTER user_id');
     await ensureColumn(conn, 'product_redemptions', 'shop_id', 'INT NULL AFTER product_id');

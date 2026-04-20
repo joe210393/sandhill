@@ -331,6 +331,17 @@ function sanitizeShopRow(row) {
     id: row.id == null ? null : Number(row.id),
     staff_count: row.staff_count == null ? 0 : Number(row.staff_count),
     quest_chain_count: row.quest_chain_count == null ? 0 : Number(row.quest_chain_count),
+    asset_total_bytes: row.asset_total_bytes == null ? 0 : Number(row.asset_total_bytes),
+    asset_total_files: row.asset_total_files == null ? 0 : Number(row.asset_total_files),
+    asset_model_count: row.asset_model_count == null ? 0 : Number(row.asset_model_count),
+    asset_item_count: row.asset_item_count == null ? 0 : Number(row.asset_item_count),
+    asset_bgm_count: row.asset_bgm_count == null ? 0 : Number(row.asset_bgm_count),
+    asset_video_count: row.asset_video_count == null ? 0 : Number(row.asset_video_count),
+    billing_prompt_tokens: row.billing_prompt_tokens == null ? 0 : Number(row.billing_prompt_tokens),
+    billing_completion_tokens: row.billing_completion_tokens == null ? 0 : Number(row.billing_completion_tokens),
+    billing_total_tokens: row.billing_total_tokens == null ? 0 : Number(row.billing_total_tokens),
+    billing_estimated_amount: row.billing_estimated_amount == null ? 0 : Number(row.billing_estimated_amount),
+    billing_donated_amount: row.billing_donated_amount == null ? 0 : Number(row.billing_donated_amount),
     is_active: row.status ? row.status === 'active' : true
   };
 }
@@ -1042,21 +1053,29 @@ async function getSharedAssetStorageSummary(conn, { shopId = null } = {}) {
        FROM bgm_library${scopeSql}`,
     scopeParams
   );
+  const [[videoStats]] = await conn.execute(
+    `SELECT COUNT(*) AS asset_count, COALESCE(SUM(file_size), 0) AS total_bytes
+       FROM video_library${scopeSql}`,
+    scopeParams
+  );
 
   const modelCount = Number(modelStats?.asset_count || 0);
   const itemCount = Number(itemStats?.asset_count || 0);
   const bgmCount = Number(bgmStats?.asset_count || 0);
+  const videoCount = Number(videoStats?.asset_count || 0);
   const totalBytes =
     Number(modelStats?.total_bytes || 0) +
     Number(itemStats?.total_bytes || 0) +
-    Number(bgmStats?.total_bytes || 0);
+    Number(bgmStats?.total_bytes || 0) +
+    Number(videoStats?.total_bytes || 0);
 
   return {
-    total_files: modelCount + itemCount + bgmCount,
+    total_files: modelCount + itemCount + bgmCount + videoCount,
     total_bytes: totalBytes,
     model_count: modelCount,
     item_count: itemCount,
-    bgm_count: bgmCount
+    bgm_count: bgmCount,
+    video_count: videoCount
   };
 }
 
@@ -1068,14 +1087,16 @@ async function getSharedAssetStorageBreakdown(conn) {
            SUM(scoped.total_bytes) AS total_bytes,
            SUM(scoped.model_count) AS model_count,
            SUM(scoped.item_count) AS item_count,
-           SUM(scoped.bgm_count) AS bgm_count
+           SUM(scoped.bgm_count) AS bgm_count,
+           SUM(scoped.video_count) AS video_count
       FROM (
         SELECT shop_id,
                COUNT(*) AS asset_count,
                COALESCE(SUM(file_size), 0) AS total_bytes,
                COUNT(*) AS model_count,
                0 AS item_count,
-               0 AS bgm_count
+               0 AS bgm_count,
+               0 AS video_count
           FROM ar_models
          GROUP BY shop_id
         UNION ALL
@@ -1084,7 +1105,8 @@ async function getSharedAssetStorageBreakdown(conn) {
                COALESCE(SUM(file_size), 0) AS total_bytes,
                0 AS model_count,
                COUNT(*) AS item_count,
-               0 AS bgm_count
+               0 AS bgm_count,
+               0 AS video_count
           FROM items
          GROUP BY shop_id
         UNION ALL
@@ -1093,8 +1115,19 @@ async function getSharedAssetStorageBreakdown(conn) {
                COALESCE(SUM(file_size), 0) AS total_bytes,
                0 AS model_count,
                0 AS item_count,
-               COUNT(*) AS bgm_count
+               COUNT(*) AS bgm_count,
+               0 AS video_count
           FROM bgm_library
+         GROUP BY shop_id
+        UNION ALL
+        SELECT shop_id,
+               COUNT(*) AS asset_count,
+               COALESCE(SUM(file_size), 0) AS total_bytes,
+               0 AS model_count,
+               0 AS item_count,
+               0 AS bgm_count,
+               COUNT(*) AS video_count
+          FROM video_library
          GROUP BY shop_id
       ) scoped
       LEFT JOIN shops s ON s.id = scoped.shop_id
@@ -1109,7 +1142,8 @@ async function getSharedAssetStorageBreakdown(conn) {
     total_bytes: Number(row.total_bytes || 0),
     model_count: Number(row.model_count || 0),
     item_count: Number(row.item_count || 0),
-    bgm_count: Number(row.bgm_count || 0)
+    bgm_count: Number(row.bgm_count || 0),
+    video_count: Number(row.video_count || 0)
   }));
 }
 
@@ -1512,6 +1546,16 @@ const audioFileFilter = (req, file, cb) => {
   }
 };
 
+const videoFileFilter = (req, file, cb) => {
+  const allowedExtensions = ['.mp4', '.mov', '.webm', '.m4v', '.avi'];
+  const fileExtension = path.extname(file.originalname).toLowerCase();
+  if (allowedExtensions.includes(fileExtension)) {
+    cb(null, true);
+  } else {
+    cb(new Error('不支援的檔案類型。只允許 MP4, MOV, WebM, M4V, AVI。'), false);
+  }
+};
+
 // 一般圖片上傳配置（5MB 限制）- 用於用戶上傳照片答案、道具圖片、徽章圖片等
 const uploadImage = multer({
   storage: storage,
@@ -1540,6 +1584,15 @@ const uploadAudio = multer({
     files: 1
   },
   fileFilter: audioFileFilter
+});
+
+const uploadVideo = multer({
+  storage: storage,
+  limits: {
+    fileSize: 200 * 1024 * 1024,
+    files: 1
+  },
+  fileFilter: videoFileFilter
 });
 
 const uploadAiTaskImage = multer({
@@ -1971,17 +2024,82 @@ app.get('/api/shops', authenticateToken, requireRole('admin', 'shop', 'staff'), 
   try {
     conn = await pool.getConnection();
     const actorShopId = req.user?.role === 'admin' ? null : assertActorHasShopScope(req.user);
+    const billingMonth = getCurrentBillingMonth();
     const [rows] = await conn.execute(
       `SELECT s.*,
               owner.username AS owner_username,
               owner.created_by AS builder_username,
               (SELECT COUNT(*) FROM users staff WHERE staff.shop_id = s.id AND staff.role = 'staff') AS staff_count,
-              (SELECT COUNT(*) FROM quest_chains qc WHERE qc.shop_id = s.id) AS quest_chain_count
+              (SELECT COUNT(*) FROM quest_chains qc WHERE qc.shop_id = s.id) AS quest_chain_count,
+              COALESCE(asset_summary.total_bytes, 0) AS asset_total_bytes,
+              COALESCE(asset_summary.total_files, 0) AS asset_total_files,
+              COALESCE(asset_summary.model_count, 0) AS asset_model_count,
+              COALESCE(asset_summary.item_count, 0) AS asset_item_count,
+              COALESCE(asset_summary.bgm_count, 0) AS asset_bgm_count,
+              COALESCE(asset_summary.video_count, 0) AS asset_video_count,
+              COALESCE(billing_summary.prompt_tokens, 0) AS billing_prompt_tokens,
+              COALESCE(billing_summary.completion_tokens, 0) AS billing_completion_tokens,
+              COALESCE(billing_summary.total_tokens, 0) AS billing_total_tokens,
+              COALESCE(billing_summary.estimated_amount, 0) AS billing_estimated_amount,
+              COALESCE(billing_summary.donated_amount, 0) AS billing_donated_amount,
+              ? AS billing_month
        FROM shops s
        LEFT JOIN users owner ON owner.shop_id = s.id AND owner.role = 'shop'
+       LEFT JOIN (
+         SELECT scoped.shop_id,
+                SUM(scoped.asset_count) AS total_files,
+                SUM(scoped.total_bytes) AS total_bytes,
+                SUM(scoped.model_count) AS model_count,
+                SUM(scoped.item_count) AS item_count,
+                SUM(scoped.bgm_count) AS bgm_count,
+                SUM(scoped.video_count) AS video_count
+           FROM (
+             SELECT shop_id, COUNT(*) AS asset_count, COALESCE(SUM(file_size), 0) AS total_bytes,
+                    COUNT(*) AS model_count, 0 AS item_count, 0 AS bgm_count, 0 AS video_count
+               FROM ar_models
+              GROUP BY shop_id
+             UNION ALL
+             SELECT shop_id, COUNT(*) AS asset_count, COALESCE(SUM(file_size), 0) AS total_bytes,
+                    0 AS model_count, COUNT(*) AS item_count, 0 AS bgm_count, 0 AS video_count
+               FROM items
+              GROUP BY shop_id
+             UNION ALL
+             SELECT shop_id, COUNT(*) AS asset_count, COALESCE(SUM(file_size), 0) AS total_bytes,
+                    0 AS model_count, 0 AS item_count, COUNT(*) AS bgm_count, 0 AS video_count
+               FROM bgm_library
+              GROUP BY shop_id
+             UNION ALL
+             SELECT shop_id, COUNT(*) AS asset_count, COALESCE(SUM(file_size), 0) AS total_bytes,
+                    0 AS model_count, 0 AS item_count, 0 AS bgm_count, COUNT(*) AS video_count
+               FROM video_library
+              GROUP BY shop_id
+           ) scoped
+          GROUP BY scoped.shop_id
+       ) asset_summary ON asset_summary.shop_id = s.id
+       LEFT JOIN (
+         SELECT logs.shop_id,
+                COALESCE(SUM(logs.prompt_tokens), 0) AS prompt_tokens,
+                COALESCE(SUM(logs.completion_tokens), 0) AS completion_tokens,
+                COALESCE(SUM(logs.total_tokens), 0) AS total_tokens,
+                COALESCE(SUM(CASE
+                  WHEN COALESCE(qc.billing_policy, 'commercial') = 'public_good' THEN 0
+                  WHEN COALESCE(qc.monthly_billing_enabled, TRUE) THEN (logs.total_tokens / 1000) * COALESCE(ep.token_price_per_1k, 0)
+                  ELSE 0
+                END), 0) AS estimated_amount,
+                COALESCE(SUM(CASE
+                  WHEN COALESCE(qc.billing_policy, 'commercial') = 'public_good'
+                    THEN (logs.total_tokens / 1000) * COALESCE(ep.token_price_per_1k, 0)
+                  ELSE 0
+                END), 0) AS donated_amount
+           FROM llm_usage_logs logs
+           LEFT JOIN quest_chains qc ON qc.id = logs.quest_chain_id
+           LEFT JOIN entry_plans ep ON ep.id = qc.plan_id
+          WHERE DATE_FORMAT(logs.created_at, '%Y-%m') = ?
+          GROUP BY logs.shop_id
+       ) billing_summary ON billing_summary.shop_id = s.id
        WHERE (? = 'admin' OR s.id = ?)
        ORDER BY s.created_at DESC, s.id DESC`,
-      [req.user?.role || '', actorShopId]
+      [billingMonth, billingMonth, req.user?.role || '', actorShopId]
     );
     res.json({ success: true, shops: rows.map((row) => sanitizeShopRow(row)) });
   } catch (err) {
@@ -3997,8 +4115,11 @@ app.get('/api/ar-models', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const scopeSql = req.user?.role === 'admin' ? '' : 'WHERE m.shop_id = ?';
-    const params = req.user?.role === 'admin' ? [] : [getActorShopId(req.user)];
+    const scopedShopId = req.user?.role === 'admin'
+      ? (req.query.shop_id ? await resolveActorShopId(conn, req.user, req.query.shop_id) : null)
+      : getActorShopId(req.user);
+    const scopeSql = scopedShopId == null ? '' : 'WHERE m.shop_id = ?';
+    const params = scopedShopId == null ? [] : [scopedShopId];
     const [rows] = await conn.execute(
       `SELECT m.*, s.name AS shop_name
          FROM ar_models m
@@ -4050,7 +4171,9 @@ app.get('/api/assets/storage-summary', staffOrAdminAuth, async (req, res) => {
   try {
     conn = await pool.getConnection();
     const isAdmin = req.user?.role === 'admin';
-    const shopId = isAdmin ? null : getActorShopId(req.user);
+    const shopId = isAdmin
+      ? (req.query.shop_id ? await resolveActorShopId(conn, req.user, req.query.shop_id) : null)
+      : getActorShopId(req.user);
     const summary = await getSharedAssetStorageSummary(conn, { shopId });
     const limitBytes = isAdmin ? null : SHOP_SHARED_ASSET_LIMIT_BYTES;
     const remainingBytes = isAdmin ? null : Math.max(limitBytes - Number(summary.total_bytes || 0), 0);
@@ -4073,7 +4196,9 @@ app.get('/api/assets/storage-summary', staffOrAdminAuth, async (req, res) => {
       scope: {
         role: req.user?.role || null,
         shop_id: shopId,
-        shop_name: req.user?.shop_name || null
+        shop_name: shopId
+          ? (await ensureShopExists(conn, shopId)).name
+          : (req.user?.shop_name || null)
       },
       shop_breakdown: shopBreakdown
     });
@@ -4090,8 +4215,11 @@ app.get('/api/bgm-assets', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const scopeSql = req.user?.role === 'admin' ? '' : 'WHERE b.shop_id = ?';
-    const params = req.user?.role === 'admin' ? [] : [getActorShopId(req.user)];
+    const scopedShopId = req.user?.role === 'admin'
+      ? (req.query.shop_id ? await resolveActorShopId(conn, req.user, req.query.shop_id) : null)
+      : getActorShopId(req.user);
+    const scopeSql = scopedShopId == null ? '' : 'WHERE b.shop_id = ?';
+    const params = scopedShopId == null ? [] : [scopedShopId];
     const [rows] = await conn.execute(
       `SELECT b.id, b.name, b.url, b.created_by, b.created_at, b.shop_id, b.file_size, s.name AS shop_name
          FROM bgm_library b
@@ -4101,6 +4229,91 @@ app.get('/api/bgm-assets', staffOrAdminAuth, async (req, res) => {
       params
     );
     res.json({ success: true, assets: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.get('/api/video-assets', staffOrAdminAuth, async (req, res) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const scopedShopId = req.user?.role === 'admin'
+      ? (req.query.shop_id ? await resolveActorShopId(conn, req.user, req.query.shop_id) : null)
+      : getActorShopId(req.user);
+    const scopeSql = scopedShopId == null ? '' : 'WHERE v.shop_id = ?';
+    const params = scopedShopId == null ? [] : [scopedShopId];
+    const [rows] = await conn.execute(
+      `SELECT v.id, v.name, v.url, v.created_by, v.created_at, v.shop_id, v.file_size, s.name AS shop_name
+         FROM video_library v
+         LEFT JOIN shops s ON s.id = v.shop_id
+         ${scopeSql}
+        ORDER BY v.id DESC`,
+      params
+    );
+    res.json({ success: true, assets: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.post('/api/video-assets', staffOrAdminAuth, uploadVideo.single('video'), async (req, res) => {
+  const name = (req.body.name || '').trim();
+  if (!name) {
+    return res.status(400).json({ success: false, message: '請填寫影片名稱' });
+  }
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: '請選擇影片檔' });
+  }
+  const url = '/images/' + req.file.filename;
+  const createdBy = req.user?.username || null;
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    await assertSharedAssetStorageAvailable(conn, req.user, req.file.size, '影片素材');
+    const shopId = req.user?.role === 'admin' ? null : getActorShopId(req.user);
+    const [result] = await conn.execute(
+      'INSERT INTO video_library (name, url, created_by, shop_id, file_size) VALUES (?, ?, ?, ?, ?)',
+      [name, url, createdBy, shopId, req.file.size || 0]
+    );
+    res.json({
+      success: true,
+      message: '影片已加入素材庫',
+      id: result.insertId,
+      url
+    });
+  } catch (err) {
+    cleanupUploadedFile(req.file);
+    console.error(err);
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.delete('/api/video-assets/:id', staffOrAdminAuth, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ success: false, message: '無效的 ID' });
+  }
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [rows] = await conn.execute('SELECT shop_id FROM video_library WHERE id = ?', [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: '找不到此素材' });
+    }
+    if (!actorCanAccessShop(req.user, rows[0].shop_id)) {
+      return res.status(403).json({ success: false, message: '無權限刪除此素材' });
+    }
+    await conn.execute('DELETE FROM video_library WHERE id = ?', [id]);
+    res.json({ success: true, message: '已刪除' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: '伺服器錯誤' });
@@ -4211,8 +4424,11 @@ app.get('/api/items', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const scopeSql = req.user?.role === 'admin' ? '' : 'WHERE i.shop_id = ?';
-    const params = req.user?.role === 'admin' ? [] : [getActorShopId(req.user)];
+    const scopedShopId = req.user?.role === 'admin'
+      ? (req.query.shop_id ? await resolveActorShopId(conn, req.user, req.query.shop_id) : null)
+      : getActorShopId(req.user);
+    const scopeSql = scopedShopId == null ? '' : 'WHERE i.shop_id = ?';
+    const params = scopedShopId == null ? [] : [scopedShopId];
     const [rows] = await conn.execute(
       `SELECT i.*, s.name AS shop_name
          FROM items i
@@ -8462,6 +8678,19 @@ if (!SKIP_DB) {
             await conn.execute("ALTER TABLE bgm_library ADD COLUMN file_size BIGINT NOT NULL DEFAULT 0");
             console.log('✅ 資料庫遷移: bgm_library 表已新增 file_size');
         }
+
+        await conn.execute(`
+          CREATE TABLE IF NOT EXISTS video_library (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            url VARCHAR(512) NOT NULL,
+            created_by VARCHAR(255),
+            shop_id INT DEFAULT NULL,
+            file_size BIGINT NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+        console.log('✅ 資料庫遷移: video_library 表已建立');
 
         // 5b. 優惠券（現場核銷 / POS）
         await conn.execute(`

@@ -77,7 +77,10 @@ let globalBoardMaps = [];
 let globalModelsMap = {};
 let globalItemsMap = {};
 let globalBgmLibraryMap = {};
+let globalVideoLibraryMap = {};
 let currentAssetStorageOverview = null;
+let currentAssetShopFilter = '';
+let currentAssetShopName = '';
 let currentStructureMap = null;
 let currentStructureSelection = null;
 let taskWizardStep = 1;
@@ -91,6 +94,7 @@ const DRAWER_FORM_ID_MAP = {
   'form-tile': 'tileForm',
   'form-item': 'itemForm',
   'form-bgm-asset': 'bgmAssetForm',
+  'form-video-asset': 'videoAssetForm',
   'form-asset': 'assetForm',
   'form-npc': 'npcForm',
   'form-product': 'productForm',
@@ -1723,12 +1727,28 @@ function renderShopList(shops = []) {
           <span class="tag tag-gray">商店帳號 ${escHtml(shop.owner_username || '未建立')}</span>
           <span class="tag tag-gray">員工 ${formatTokenCount(shop.staff_count || 0)} 人</span>
           <span class="tag tag-gray">入口 ${formatTokenCount(shop.quest_chain_count || 0)} 個</span>
+          <span class="tag tag-gray">素材 ${formatBytes(shop.asset_total_bytes || 0)}</span>
+          <span class="tag tag-gray">本月 LM ${formatTokenCount(shop.billing_total_tokens || 0)} tokens</span>
         </div>
         <div style="font-size:0.84rem; color:#64748b; margin-top:8px;">
           ${escHtml(shop.contact_name || '未填聯絡人')}｜${escHtml(shop.contact_phone || '未填電話')}｜${escHtml(shop.contact_email || '未填 Email')}
         </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin-top:12px;">
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px;">
+            <div class="subtle-note" style="margin-bottom:6px;">素材庫概況</div>
+            <div style="font-weight:700;">${formatBytes(shop.asset_total_bytes || 0)}</div>
+            <div style="font-size:0.82rem; color:#64748b; margin-top:4px;">模型 ${formatTokenCount(shop.asset_model_count || 0)}｜道具 ${formatTokenCount(shop.asset_item_count || 0)}｜音樂 ${formatTokenCount(shop.asset_bgm_count || 0)}｜影片 ${formatTokenCount(shop.asset_video_count || 0)}</div>
+          </div>
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px;">
+            <div class="subtle-note" style="margin-bottom:6px;">${escHtml(shop.billing_month || getDefaultBillingMonth())} LM 用量</div>
+            <div style="font-weight:700;">${formatTokenCount(shop.billing_total_tokens || 0)} tokens</div>
+            <div style="font-size:0.82rem; color:#64748b; margin-top:4px;">P ${formatTokenCount(shop.billing_prompt_tokens || 0)} / C ${formatTokenCount(shop.billing_completion_tokens || 0)}｜${shop.billing_donated_amount > 0 ? `公益代付 ${formatCurrency(shop.billing_donated_amount || 0)}` : `應收 ${formatCurrency(shop.billing_estimated_amount || 0)}`}</div>
+          </div>
+        </div>
       </div>
       <div class="quest-card-actions">
+        <button class="btn-sm btn-secondary-v2" onclick="focusShopBilling('${shop.id}')">看 LM 紀錄</button>
+        <button class="btn-sm btn-secondary-v2" onclick="focusShopAssets('${shop.id}')">看素材庫</button>
         <button class="btn-sm btn-secondary-v2" onclick="openShopDrawer('${shop.id}')">編輯</button>
       </div>
     </div>
@@ -1741,6 +1761,41 @@ function loadShopManagement() {
   }).then((data) => {
     renderShopList(data.shops || []);
   });
+}
+
+function focusShopAssets(shopId) {
+  const shop = globalShopsMap[String(shopId)] || null;
+  currentAssetShopFilter = shopId ? String(shopId) : '';
+  currentAssetShopName = shop?.name || '';
+  switchView('view-assets');
+  showToast(shop ? `已切換到 ${shop.name} 的素材庫視角` : '已切換到素材庫');
+  loadAssetStorageOverview();
+  loadARModels();
+  loadItems();
+  loadBgmAssets();
+  loadVideoAssets();
+}
+
+function resetAssetLibraryScope() {
+  currentAssetShopFilter = '';
+  currentAssetShopName = '';
+  loadAssetStorageOverview();
+  loadARModels();
+  loadItems();
+  loadBgmAssets();
+  loadVideoAssets();
+  showToast('已切換回全平台素材庫');
+}
+
+function focusShopBilling(shopId) {
+  const shop = globalShopsMap[String(shopId)] || null;
+  switchView('view-billing');
+  currentBillingDailyScope = `shop:${shopId}`;
+  setTimeout(() => {
+    const scopeSelect = document.getElementById('billingDailyScopeSelect');
+    if (scopeSelect) scopeSelect.value = currentBillingDailyScope;
+    if (shop) showToast(`已切換到 ${shop.name} 的 LM 用量視角`);
+  }, 150);
 }
 
 function openShopDrawer(id = '') {
@@ -3841,6 +3896,14 @@ function renderAssetStorageOverview(data = null) {
   const usageLabel = summary.unlimited
     ? 'admin 不受空間限制'
     : `剩餘 ${formatBytes(summary.remaining_bytes)}，已使用 ${Number(summary.usage_percent || 0).toFixed(1)}%`;
+  const filterBanner = loginUser?.role === 'admin' && currentAssetShopFilter
+    ? `
+      <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:12px 14px; display:flex; justify-content:space-between; gap:12px; align-items:center;">
+        <div style="color:#1d4ed8;">目前只顯示 <strong>${escHtml(currentAssetShopName || scope?.shop_name || `商店 #${currentAssetShopFilter}`)}</strong> 的素材庫內容。</div>
+        <button type="button" class="btn-sm btn-secondary-v2" onclick="resetAssetLibraryScope()">顯示全部素材</button>
+      </div>
+    `
+    : '';
 
   const summaryCards = [
     ['目前範圍', scopeLabel],
@@ -3848,7 +3911,8 @@ function renderAssetStorageOverview(data = null) {
     ['空間規則', limitLabel],
     ['模型數', `${Number(summary.model_count || 0).toLocaleString('zh-TW')} 個`],
     ['道具數', `${Number(summary.item_count || 0).toLocaleString('zh-TW')} 個`],
-    ['背景音樂', `${Number(summary.bgm_count || 0).toLocaleString('zh-TW')} 首`]
+    ['背景音樂', `${Number(summary.bgm_count || 0).toLocaleString('zh-TW')} 首`],
+    ['影片素材', `${Number(summary.video_count || 0).toLocaleString('zh-TW')} 部`]
   ];
 
   let adminBreakdownHtml = '';
@@ -3867,6 +3931,7 @@ function renderAssetStorageOverview(data = null) {
                   <th>模型</th>
                   <th>道具</th>
                   <th>背景音樂</th>
+                  <th>影片</th>
                 </tr>
               </thead>
               <tbody>
@@ -3878,6 +3943,7 @@ function renderAssetStorageOverview(data = null) {
                     <td>${Number(row.model_count || 0).toLocaleString('zh-TW')}</td>
                     <td>${Number(row.item_count || 0).toLocaleString('zh-TW')}</td>
                     <td>${Number(row.bgm_count || 0).toLocaleString('zh-TW')}</td>
+                    <td>${Number(row.video_count || 0).toLocaleString('zh-TW')}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -3890,6 +3956,7 @@ function renderAssetStorageOverview(data = null) {
 
   container.innerHTML = `
     <div style="display:grid; gap:12px;">
+      ${filterBanner}
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
         ${summaryCards.map(([label, value]) => `
           <div style="background:white; border:1px solid #e2e8f0; border-radius:12px; padding:14px;">
@@ -3907,7 +3974,9 @@ function renderAssetStorageOverview(data = null) {
 }
 
 function loadAssetStorageOverview() {
-  return fetch(`${API_BASE}/api/assets/storage-summary`)
+  const qs = new URLSearchParams();
+  if (currentAssetShopFilter) qs.set('shop_id', currentAssetShopFilter);
+  return fetch(`${API_BASE}/api/assets/storage-summary${qs.toString() ? `?${qs.toString()}` : ''}`)
     .then(r => r.json())
     .then(data => {
       if (!data.success) return;
@@ -3921,7 +3990,9 @@ function loadAssetStorageOverview() {
 
 // ── Load AR Models ────────────────────────────────────────────
 function loadARModels() {
-  return fetch(`${API_BASE}/api/ar-models`)
+  const qs = new URLSearchParams();
+  if (currentAssetShopFilter) qs.set('shop_id', currentAssetShopFilter);
+  return fetch(`${API_BASE}/api/ar-models${qs.toString() ? `?${qs.toString()}` : ''}`)
     .then(r => r.json())
     .then(data => {
       if (!data.success) return;
@@ -4023,6 +4094,57 @@ function renderBgmList(assets) {
   `).join('');
 }
 
+function renderVideoList(assets) {
+  const container = document.getElementById('videoListContainer');
+  if (!container) return;
+  if (!assets.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎬</div>尚無影片素材，點右上角上傳</div>';
+    return;
+  }
+  container.innerHTML = assets.map((video) => `
+    <div style="background:white; padding:14px; border-radius:10px; border:1px solid #e2e8f0;">
+      <div style="font-weight:600; margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escHtml(video.name)}</div>
+      <div style="font-size:0.8rem; color:#64748b; margin-bottom:6px;">${loginUser?.role === 'admin' ? escHtml(video.shop_name || 'admin 公益共用') + '｜' : ''}${formatBytes(video.file_size || 0)}</div>
+      <video controls preload="metadata" src="${escHtml(video.url)}" style="width:100%; margin:8px 0; border-radius:8px; background:#0f172a;"></video>
+      <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-end;">
+        <button type="button" class="btn-sm btn-secondary-v2" onclick="copyBgmAssetUrl(${JSON.stringify(video.url)})" style="font-size:0.8rem;">複製 URL</button>
+        <button type="button" class="btn-sm btn-danger-v2" onclick="deleteVideoAsset(${video.id})" style="font-size:0.8rem;">刪除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function deleteVideoAsset(id) {
+  if (!confirm('確定從素材庫移除此影片？')) return;
+  fetch(`${API_BASE}/api/video-assets/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-username': loginUser.username },
+    credentials: 'include'
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) { showToast('已刪除'); loadVideoAssets(); loadAssetStorageOverview(); }
+      else showToast(d.message || '刪除失敗', 'error');
+    });
+}
+
+function loadVideoAssets() {
+  const qs = new URLSearchParams();
+  if (currentAssetShopFilter) qs.set('shop_id', currentAssetShopFilter);
+  return fetch(`${API_BASE}/api/video-assets${qs.toString() ? `?${qs.toString()}` : ''}`, {
+    headers: { 'x-username': loginUser.username },
+    credentials: 'include'
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) return;
+      globalVideoLibraryMap = {};
+      (data.assets || []).forEach(v => { globalVideoLibraryMap[v.id] = v; });
+      renderVideoList(data.assets || []);
+    })
+    .catch(() => {});
+}
+
 function deleteBgmAsset(id) {
   if (!confirm('確定從素材庫移除此音樂？（若關卡仍使用此 URL，請先改關卡設定）')) return;
   fetch(`${API_BASE}/api/bgm-assets/${id}`, {
@@ -4038,7 +4160,9 @@ function deleteBgmAsset(id) {
 }
 
 function loadBgmAssets() {
-  return fetch(`${API_BASE}/api/bgm-assets`, {
+  const qs = new URLSearchParams();
+  if (currentAssetShopFilter) qs.set('shop_id', currentAssetShopFilter);
+  return fetch(`${API_BASE}/api/bgm-assets${qs.toString() ? `?${qs.toString()}` : ''}`, {
     headers: { 'x-username': loginUser.username },
     credentials: 'include'
   })
@@ -4082,6 +4206,42 @@ document.getElementById('bgmAssetForm').addEventListener('submit', function (e) 
         msg.textContent = '';
         form.reset();
         loadBgmAssets();
+        loadAssetStorageOverview();
+      } else {
+        msg.textContent = d.message || '上傳失敗';
+      }
+    })
+    .catch(() => { msg.textContent = '連線失敗'; });
+});
+
+document.getElementById('videoAssetForm').addEventListener('submit', function (e) {
+  e.preventDefault();
+  const form = this;
+  const msg = document.getElementById('videoAssetFormMsg');
+  const fileInput = form.querySelector('input[type="file"][name="videoFile"]');
+  const file = fileInput?.files?.[0];
+  if (!file) {
+    msg.textContent = '請選擇影片檔';
+    return;
+  }
+  msg.textContent = '上傳中...';
+  const fd = new FormData();
+  fd.append('name', form.name.value.trim());
+  fd.append('video', file);
+  fetch(`${API_BASE}/api/video-assets`, {
+    method: 'POST',
+    headers: { 'x-username': loginUser.username },
+    credentials: 'include',
+    body: fd
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        showToast('影片已加入素材庫');
+        closeDrawer();
+        msg.textContent = '';
+        form.reset();
+        loadVideoAssets();
         loadAssetStorageOverview();
       } else {
         msg.textContent = d.message || '上傳失敗';
@@ -4170,7 +4330,9 @@ if (itemImageInput) {
 
 // ── Load Items ────────────────────────────────────────────────
 function loadItems() {
-  return fetch(`${API_BASE}/api/items`)
+  const qs = new URLSearchParams();
+  if (currentAssetShopFilter) qs.set('shop_id', currentAssetShopFilter);
+  return fetch(`${API_BASE}/api/items${qs.toString() ? `?${qs.toString()}` : ''}`)
     .then(r => r.json())
     .then(data => {
       if (!data.success) return;
@@ -4255,8 +4417,12 @@ function switchAssetTab(tab, el) {
   document.getElementById('btnAssetAdd').style.display = tab === 'models' ? 'inline-flex' : 'none';
   document.getElementById('btnItemAdd').style.display = tab === 'items' ? 'inline-flex' : 'none';
   const btnBgm = document.getElementById('btnBgmAdd');
+  const btnVideo = document.getElementById('btnVideoAdd');
   if (btnBgm) {
     btnBgm.style.display = tab === 'bgm' && ['admin', 'shop', 'staff'].includes(loginUser.role) ? 'inline-flex' : 'none';
+  }
+  if (btnVideo) {
+    btnVideo.style.display = tab === 'videos' && ['admin', 'shop', 'staff'].includes(loginUser.role) ? 'inline-flex' : 'none';
   }
   const btnNpc = document.getElementById('btnNpcAdd');
   if (btnNpc) {
@@ -4264,6 +4430,7 @@ function switchAssetTab(tab, el) {
   }
   if (tab === 'npc') loadNpcs();
   if (tab === 'bgm') loadBgmAssets();
+  if (tab === 'videos') loadVideoAssets();
   loadAssetStorageOverview();
 }
 
@@ -4499,7 +4666,7 @@ async function bootstrapSession() {
     const role = loginUser?.role || '';
     const initLoads = [];
     if (['admin', 'shop', 'staff'].includes(role)) {
-      initLoads.push(loadShops(), loadEntryPlans(), loadQuestChains(), loadItems(), loadARModels(), loadBgmAssets(), loadAssetStorageOverview());
+      initLoads.push(loadShops(), loadEntryPlans(), loadQuestChains(), loadItems(), loadARModels(), loadBgmAssets(), loadVideoAssets(), loadAssetStorageOverview());
       if (role === 'admin' || role === 'shop') {
         initLoads.push(loadProducts());
       }
