@@ -77,6 +77,7 @@ let globalBoardMaps = [];
 let globalModelsMap = {};
 let globalItemsMap = {};
 let globalBgmLibraryMap = {};
+let currentAssetStorageOverview = null;
 let currentStructureMap = null;
 let currentStructureSelection = null;
 let taskWizardStep = 1;
@@ -137,6 +138,20 @@ function formatCurrency(amount) {
 function formatTokenPricingRule(tokenPricePer1k = 0) {
   const perTenThousand = Number(tokenPricePer1k || 0) * 10;
   return `每 1 萬 tokens ${formatCurrency(perTenThousand)}`;
+}
+
+function formatBytes(bytes = 0) {
+  const value = Number(bytes || 0);
+  if (!Number.isFinite(value) || value <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let size = value;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+  const digits = size >= 100 || unitIndex === 0 ? 0 : size >= 10 ? 1 : 2;
+  return `${size.toFixed(digits)} ${units[unitIndex]}`;
 }
 
 function formatTokenPricingDetail(tokenPricePer1k = 0) {
@@ -3807,6 +3822,103 @@ function deleteTask(taskId) {
     });
 }
 
+function renderAssetStorageOverview(data = null) {
+  const container = document.getElementById('assetStorageSummary');
+  if (!container) return;
+  if (!data?.summary) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🗂️</div>尚無素材庫使用量資料</div>';
+    return;
+  }
+
+  const { summary, scope, shop_breakdown: shopBreakdown = [] } = data;
+  const isAdmin = loginUser?.role === 'admin';
+  const scopeLabel = isAdmin
+    ? '平台管理員視角'
+    : `${scope?.shop_name || '我的商店'} 專屬素材庫`;
+  const limitLabel = summary.unlimited
+    ? '無限制'
+    : `${formatBytes(summary.total_bytes)} / ${formatBytes(summary.limit_bytes)}`;
+  const usageLabel = summary.unlimited
+    ? 'admin 不受空間限制'
+    : `剩餘 ${formatBytes(summary.remaining_bytes)}，已使用 ${Number(summary.usage_percent || 0).toFixed(1)}%`;
+
+  const summaryCards = [
+    ['目前範圍', scopeLabel],
+    ['素材總量', formatBytes(summary.total_bytes)],
+    ['空間規則', limitLabel],
+    ['模型數', `${Number(summary.model_count || 0).toLocaleString('zh-TW')} 個`],
+    ['道具數', `${Number(summary.item_count || 0).toLocaleString('zh-TW')} 個`],
+    ['背景音樂', `${Number(summary.bgm_count || 0).toLocaleString('zh-TW')} 首`]
+  ];
+
+  let adminBreakdownHtml = '';
+  if (isAdmin) {
+    adminBreakdownHtml = `
+      <div style="background:white; border:1px solid #e2e8f0; border-radius:12px; padding:14px;">
+        <div style="font-weight:700; margin-bottom:8px;">各商店素材庫用量</div>
+        ${shopBreakdown.length ? `
+          <div style="overflow:auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>範圍</th>
+                  <th>總空間</th>
+                  <th>總檔案</th>
+                  <th>模型</th>
+                  <th>道具</th>
+                  <th>背景音樂</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${shopBreakdown.map((row) => `
+                  <tr>
+                    <td>${escHtml(row.shop_name || (row.shop_id == null ? 'admin 公益共用' : `商店 #${row.shop_id}`))}</td>
+                    <td><strong>${formatBytes(row.total_bytes || 0)}</strong></td>
+                    <td>${Number(row.total_files || 0).toLocaleString('zh-TW')}</td>
+                    <td>${Number(row.model_count || 0).toLocaleString('zh-TW')}</td>
+                    <td>${Number(row.item_count || 0).toLocaleString('zh-TW')}</td>
+                    <td>${Number(row.bgm_count || 0).toLocaleString('zh-TW')}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : '<div class="subtle-note">目前尚無素材資料。</div>'}
+      </div>
+    `;
+  }
+
+  container.innerHTML = `
+    <div style="display:grid; gap:12px;">
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
+        ${summaryCards.map(([label, value]) => `
+          <div style="background:white; border:1px solid #e2e8f0; border-radius:12px; padding:14px;">
+            <div class="subtle-note" style="margin-bottom:6px;">${escHtml(label)}</div>
+            <div style="font-weight:800; color:#0f172a;">${escHtml(value)}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div style="background:${summary.unlimited ? '#eff6ff' : '#fffbeb'}; border:1px solid ${summary.unlimited ? '#bfdbfe' : '#fde68a'}; border-radius:12px; padding:14px; color:${summary.unlimited ? '#1d4ed8' : '#92400e'};">
+        ${escHtml(usageLabel)}
+      </div>
+      ${adminBreakdownHtml}
+    </div>
+  `;
+}
+
+function loadAssetStorageOverview() {
+  return fetch(`${API_BASE}/api/assets/storage-summary`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) return;
+      currentAssetStorageOverview = data;
+      renderAssetStorageOverview(data);
+    })
+    .catch(() => {
+      renderAssetStorageOverview(null);
+    });
+}
+
 // ── Load AR Models ────────────────────────────────────────────
 function loadARModels() {
   return fetch(`${API_BASE}/api/ar-models`)
@@ -3852,6 +3964,7 @@ function renderModelList(models) {
         <div style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escHtml(m.name)}</div>
       </div>
       <div style="font-size:0.8rem; color:#64748b;">Scale: ${m.scale || 1.0}</div>
+      <div style="font-size:0.8rem; color:#64748b; margin-top:4px;">${loginUser?.role === 'admin' ? escHtml(m.shop_name || 'admin 公益共用') + '｜' : ''}${formatBytes(m.file_size || 0)}</div>
       <div style="display:flex; gap:6px; justify-content:flex-end; margin-top:8px;">
         <a href="${escHtml(m.url)}" target="_blank" class="btn-sm btn-secondary-v2" style="text-decoration:none; font-size:0.8rem;">下載</a>
         <button class="btn-sm btn-danger-v2" onclick="deleteModel('${m.id}')" style="font-size:0.8rem;">刪除</button>
@@ -3867,7 +3980,7 @@ function deleteModel(id) {
   })
     .then(r => r.json())
     .then(d => {
-      if (d.success) { showToast('模型已刪除'); loadARModels(); }
+      if (d.success) { showToast('模型已刪除'); loadARModels(); loadAssetStorageOverview(); }
       else showToast(d.message || '刪除失敗', 'error');
     });
 }
@@ -3900,6 +4013,7 @@ function renderBgmList(assets) {
   container.innerHTML = assets.map(b => `
     <div style="background:white; padding:14px; border-radius:10px; border:1px solid #e2e8f0;">
       <div style="font-weight:600; margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escHtml(b.name)}</div>
+      <div style="font-size:0.8rem; color:#64748b; margin-bottom:6px;">${loginUser?.role === 'admin' ? escHtml(b.shop_name || 'admin 公益共用') + '｜' : ''}${formatBytes(b.file_size || 0)}</div>
       <audio controls preload="none" src="${escHtml(b.url)}" style="width:100%; margin:8px 0;"></audio>
       <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-end;">
         <button type="button" class="btn-sm btn-secondary-v2" onclick="copyBgmAssetUrl(${JSON.stringify(b.url)})" style="font-size:0.8rem;">複製 URL</button>
@@ -3918,13 +4032,12 @@ function deleteBgmAsset(id) {
   })
     .then(r => r.json())
     .then(d => {
-      if (d.success) { showToast('已刪除'); loadBgmAssets(); }
+      if (d.success) { showToast('已刪除'); loadBgmAssets(); loadAssetStorageOverview(); }
       else showToast(d.message || '刪除失敗', 'error');
     });
 }
 
 function loadBgmAssets() {
-  if (loginUser.role !== 'admin') return Promise.resolve();
   return fetch(`${API_BASE}/api/bgm-assets`, {
     headers: { 'x-username': loginUser.username },
     credentials: 'include'
@@ -3969,6 +4082,7 @@ document.getElementById('bgmAssetForm').addEventListener('submit', function (e) 
         msg.textContent = '';
         form.reset();
         loadBgmAssets();
+        loadAssetStorageOverview();
       } else {
         msg.textContent = d.message || '上傳失敗';
       }
@@ -3998,6 +4112,7 @@ document.getElementById('assetForm').addEventListener('submit', function (e) {
         closeDrawer();
         msg.textContent = '';
         loadARModels();
+        loadAssetStorageOverview();
       } else { msg.textContent = d.message || '上傳失敗'; }
     })
     .catch(() => { msg.textContent = '上傳失敗'; });
@@ -4033,6 +4148,7 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
         showToast(id ? '道具更新成功' : '道具新增成功');
         closeDrawer();
         loadItems();
+        loadAssetStorageOverview();
       } else { msgEl.textContent = d.message || '操作失敗'; }
     })
     .catch(() => { msgEl.textContent = '伺服器連線失敗'; });
@@ -4091,6 +4207,7 @@ function renderItemList(items) {
         <div style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escHtml(item.name)}</div>
       </div>
       <div style="font-size:0.82rem; color:#64748b; margin-bottom:8px;">${escHtml(item.description || '無描述')}</div>
+      <div style="font-size:0.8rem; color:#64748b; margin-bottom:8px;">${loginUser?.role === 'admin' ? escHtml(item.shop_name || 'admin 公益共用') + '｜' : ''}${formatBytes(item.file_size || 0)}</div>
       <div style="display:flex; gap:6px; justify-content:flex-end;">
         <button class="btn-sm btn-secondary-v2" onclick="editItem('${item.id}')" style="font-size:0.8rem;">編輯</button>
         <button class="btn-sm btn-danger-v2" onclick="deleteItem('${item.id}')" style="font-size:0.8rem;">刪除</button>
@@ -4122,7 +4239,7 @@ function deleteItem(id) {
   })
     .then(r => r.json())
     .then(d => {
-      if (d.success) { showToast('道具已刪除'); loadItems(); }
+      if (d.success) { showToast('道具已刪除'); loadItems(); loadAssetStorageOverview(); }
       else showToast(d.message || '刪除失敗', 'error');
     });
 }
@@ -4139,7 +4256,7 @@ function switchAssetTab(tab, el) {
   document.getElementById('btnItemAdd').style.display = tab === 'items' ? 'inline-flex' : 'none';
   const btnBgm = document.getElementById('btnBgmAdd');
   if (btnBgm) {
-    btnBgm.style.display = tab === 'bgm' && loginUser.role === 'admin' ? 'inline-flex' : 'none';
+    btnBgm.style.display = tab === 'bgm' && ['admin', 'shop', 'staff'].includes(loginUser.role) ? 'inline-flex' : 'none';
   }
   const btnNpc = document.getElementById('btnNpcAdd');
   if (btnNpc) {
@@ -4147,6 +4264,7 @@ function switchAssetTab(tab, el) {
   }
   if (tab === 'npc') loadNpcs();
   if (tab === 'bgm') loadBgmAssets();
+  loadAssetStorageOverview();
 }
 
 let globalNpcs = [];
@@ -4381,7 +4499,7 @@ async function bootstrapSession() {
     const role = loginUser?.role || '';
     const initLoads = [];
     if (['admin', 'shop', 'staff'].includes(role)) {
-      initLoads.push(loadShops(), loadEntryPlans(), loadQuestChains(), loadItems(), loadARModels(), loadBgmAssets());
+      initLoads.push(loadShops(), loadEntryPlans(), loadQuestChains(), loadItems(), loadARModels(), loadBgmAssets(), loadAssetStorageOverview());
       if (role === 'admin' || role === 'shop') {
         initLoads.push(loadProducts());
       }

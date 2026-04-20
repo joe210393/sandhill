@@ -186,6 +186,12 @@ async function migrate() {
     await ensureColumn(conn, 'tasks', 'shop_id', 'INT NULL AFTER created_by');
     await ensureColumn(conn, 'tasks', 'structure_locked', 'BOOLEAN DEFAULT FALSE AFTER shop_id');
     await ensureColumn(conn, 'tasks', 'structure_locked_at', 'TIMESTAMP NULL AFTER structure_locked');
+    await ensureColumn(conn, 'ar_models', 'shop_id', 'INT NULL DEFAULT NULL');
+    await ensureColumn(conn, 'ar_models', 'file_size', 'BIGINT NOT NULL DEFAULT 0');
+    await ensureColumn(conn, 'items', 'shop_id', 'INT NULL DEFAULT NULL');
+    await ensureColumn(conn, 'items', 'file_size', 'BIGINT NOT NULL DEFAULT 0');
+    await ensureColumn(conn, 'bgm_library', 'shop_id', 'INT NULL DEFAULT NULL');
+    await ensureColumn(conn, 'bgm_library', 'file_size', 'BIGINT NOT NULL DEFAULT 0');
     await ensureColumn(conn, 'products', 'shop_id', 'INT NULL AFTER created_by');
     await ensureColumn(conn, 'user_coupons', 'shop_id', 'INT NULL AFTER user_id');
     await ensureColumn(conn, 'product_redemptions', 'shop_id', 'INT NULL AFTER product_id');

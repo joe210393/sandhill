@@ -920,6 +920,8 @@ function actorHasShopScope(actor) {
   return actor?.role === 'shop' || actor?.role === 'staff';
 }
 
+const SHOP_SHARED_ASSET_LIMIT_BYTES = 500 * 1024 * 1024;
+
 function getActorShopId(actor) {
   return actor?.shop_id == null ? null : Number(actor.shop_id);
 }
@@ -1001,6 +1003,143 @@ function createStructureLockedError(scopeLabel = '此玩法入口') {
   err.statusCode = 409;
   err.code = 'STRUCTURE_LOCKED';
   return err;
+}
+
+function cleanupUploadedFile(file) {
+  if (!file?.path) return;
+  fs.unlink(file.path, () => {});
+}
+
+function buildBytesLabel(bytes) {
+  const value = Number(bytes || 0);
+  if (!Number.isFinite(value) || value <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let size = value;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+  const digits = size >= 100 || unitIndex === 0 ? 0 : size >= 10 ? 1 : 2;
+  return `${size.toFixed(digits)} ${units[unitIndex]}`;
+}
+
+async function getSharedAssetStorageSummary(conn, { shopId = null } = {}) {
+  const scopeSql = shopId == null ? '' : ' WHERE shop_id = ?';
+  const scopeParams = shopId == null ? [] : [shopId];
+  const [[modelStats]] = await conn.execute(
+    `SELECT COUNT(*) AS asset_count, COALESCE(SUM(file_size), 0) AS total_bytes
+       FROM ar_models${scopeSql}`,
+    scopeParams
+  );
+  const [[itemStats]] = await conn.execute(
+    `SELECT COUNT(*) AS asset_count, COALESCE(SUM(file_size), 0) AS total_bytes
+       FROM items${scopeSql}`,
+    scopeParams
+  );
+  const [[bgmStats]] = await conn.execute(
+    `SELECT COUNT(*) AS asset_count, COALESCE(SUM(file_size), 0) AS total_bytes
+       FROM bgm_library${scopeSql}`,
+    scopeParams
+  );
+
+  const modelCount = Number(modelStats?.asset_count || 0);
+  const itemCount = Number(itemStats?.asset_count || 0);
+  const bgmCount = Number(bgmStats?.asset_count || 0);
+  const totalBytes =
+    Number(modelStats?.total_bytes || 0) +
+    Number(itemStats?.total_bytes || 0) +
+    Number(bgmStats?.total_bytes || 0);
+
+  return {
+    total_files: modelCount + itemCount + bgmCount,
+    total_bytes: totalBytes,
+    model_count: modelCount,
+    item_count: itemCount,
+    bgm_count: bgmCount
+  };
+}
+
+async function getSharedAssetStorageBreakdown(conn) {
+  const [rows] = await conn.execute(`
+    SELECT scoped.shop_id,
+           COALESCE(s.name, 'admin 公益共用') AS shop_name,
+           SUM(scoped.asset_count) AS total_files,
+           SUM(scoped.total_bytes) AS total_bytes,
+           SUM(scoped.model_count) AS model_count,
+           SUM(scoped.item_count) AS item_count,
+           SUM(scoped.bgm_count) AS bgm_count
+      FROM (
+        SELECT shop_id,
+               COUNT(*) AS asset_count,
+               COALESCE(SUM(file_size), 0) AS total_bytes,
+               COUNT(*) AS model_count,
+               0 AS item_count,
+               0 AS bgm_count
+          FROM ar_models
+         GROUP BY shop_id
+        UNION ALL
+        SELECT shop_id,
+               COUNT(*) AS asset_count,
+               COALESCE(SUM(file_size), 0) AS total_bytes,
+               0 AS model_count,
+               COUNT(*) AS item_count,
+               0 AS bgm_count
+          FROM items
+         GROUP BY shop_id
+        UNION ALL
+        SELECT shop_id,
+               COUNT(*) AS asset_count,
+               COALESCE(SUM(file_size), 0) AS total_bytes,
+               0 AS model_count,
+               0 AS item_count,
+               COUNT(*) AS bgm_count
+          FROM bgm_library
+         GROUP BY shop_id
+      ) scoped
+      LEFT JOIN shops s ON s.id = scoped.shop_id
+     GROUP BY scoped.shop_id, s.name
+     ORDER BY total_bytes DESC, total_files DESC
+  `);
+
+  return rows.map((row) => ({
+    shop_id: row.shop_id == null ? null : Number(row.shop_id),
+    shop_name: row.shop_name || (row.shop_id == null ? 'admin 公益共用' : `商店 #${row.shop_id}`),
+    total_files: Number(row.total_files || 0),
+    total_bytes: Number(row.total_bytes || 0),
+    model_count: Number(row.model_count || 0),
+    item_count: Number(row.item_count || 0),
+    bgm_count: Number(row.bgm_count || 0)
+  }));
+}
+
+async function assertSharedAssetStorageAvailable(conn, actor, incomingBytes, scopeLabel = '素材') {
+  if (actor?.role === 'admin') {
+    return {
+      total_bytes: 0,
+      remaining_bytes: null,
+      limit_bytes: null,
+      unlimited: true
+    };
+  }
+  const shopId = assertActorHasShopScope(actor);
+  const summary = await getSharedAssetStorageSummary(conn, { shopId });
+  const limitBytes = SHOP_SHARED_ASSET_LIMIT_BYTES;
+  const nextBytes = Number(summary.total_bytes || 0) + Number(incomingBytes || 0);
+  if (nextBytes > limitBytes) {
+    const err = new Error(
+      `${scopeLabel}上傳後會超出商店素材庫 500MB 上限，目前已使用 ${buildBytesLabel(summary.total_bytes)}，本次檔案 ${buildBytesLabel(incomingBytes)}。`
+    );
+    err.statusCode = 400;
+    err.code = 'ASSET_STORAGE_LIMIT_EXCEEDED';
+    throw err;
+  }
+  return {
+    ...summary,
+    remaining_bytes: Math.max(limitBytes - nextBytes, 0),
+    limit_bytes: limitBytes,
+    unlimited: false
+  };
 }
 
 async function assertQuestChainStructureUnlocked(conn, actor, questChainId, scopeLabel = '此玩法入口') {
@@ -3854,11 +3993,20 @@ app.delete('/api/quest-chains/:id', staffOrAdminAuth, async (req, res) => {
 // ===== 3D 模型庫管理 API =====
 
 // 取得所有模型
-app.get('/api/ar-models', async (req, res) => {
+app.get('/api/ar-models', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const [rows] = await conn.execute('SELECT * FROM ar_models ORDER BY id DESC');
+    const scopeSql = req.user?.role === 'admin' ? '' : 'WHERE m.shop_id = ?';
+    const params = req.user?.role === 'admin' ? [] : [getActorShopId(req.user)];
+    const [rows] = await conn.execute(
+      `SELECT m.*, s.name AS shop_name
+         FROM ar_models m
+         LEFT JOIN shops s ON s.id = m.shop_id
+         ${scopeSql}
+        ORDER BY m.id DESC`,
+      params
+    );
     res.json({ success: true, models: rows });
   } catch (err) {
     console.error(err);
@@ -3881,11 +4029,54 @@ app.post('/api/ar-models', staffOrAdminAuth, uploadModel.single('model'), async 
   let conn;
   try {
     conn = await pool.getConnection();
+    await assertSharedAssetStorageAvailable(conn, req.user, req.file.size, '模型素材');
+    const shopId = req.user?.role === 'admin' ? null : getActorShopId(req.user);
     await conn.execute(
-      'INSERT INTO ar_models (name, url, scale, created_by) VALUES (?, ?, ?, ?)',
-      [name, modelUrl, modelScale, username]
+      'INSERT INTO ar_models (name, url, scale, created_by, shop_id, file_size) VALUES (?, ?, ?, ?, ?, ?)',
+      [name, modelUrl, modelScale, username, shopId, req.file.size || 0]
     );
     res.json({ success: true, message: '模型上傳成功' });
+  } catch (err) {
+    cleanupUploadedFile(req.file);
+    console.error(err);
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.get('/api/assets/storage-summary', staffOrAdminAuth, async (req, res) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const isAdmin = req.user?.role === 'admin';
+    const shopId = isAdmin ? null : getActorShopId(req.user);
+    const summary = await getSharedAssetStorageSummary(conn, { shopId });
+    const limitBytes = isAdmin ? null : SHOP_SHARED_ASSET_LIMIT_BYTES;
+    const remainingBytes = isAdmin ? null : Math.max(limitBytes - Number(summary.total_bytes || 0), 0);
+    const usagePercent = isAdmin || !limitBytes
+      ? null
+      : Math.min(100, Math.round((Number(summary.total_bytes || 0) / limitBytes) * 1000) / 10);
+    const shopBreakdown = isAdmin ? await getSharedAssetStorageBreakdown(conn) : [];
+    res.json({
+      success: true,
+      summary: {
+        ...summary,
+        total_bytes_label: buildBytesLabel(summary.total_bytes),
+        remaining_bytes: remainingBytes,
+        remaining_bytes_label: remainingBytes == null ? '無上限' : buildBytesLabel(remainingBytes),
+        limit_bytes: limitBytes,
+        limit_bytes_label: limitBytes == null ? '無上限' : buildBytesLabel(limitBytes),
+        unlimited: isAdmin,
+        usage_percent: usagePercent
+      },
+      scope: {
+        role: req.user?.role || null,
+        shop_id: shopId,
+        shop_name: req.user?.shop_name || null
+      },
+      shop_breakdown: shopBreakdown
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: '伺服器錯誤' });
@@ -3894,13 +4085,20 @@ app.post('/api/ar-models', staffOrAdminAuth, uploadModel.single('model'), async 
   }
 });
 
-// ===== 共用素材庫：背景音樂（僅 admin）=====
-app.get('/api/bgm-assets', adminAuth, async (req, res) => {
+// ===== 共用素材庫：背景音樂 =====
+app.get('/api/bgm-assets', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
+    const scopeSql = req.user?.role === 'admin' ? '' : 'WHERE b.shop_id = ?';
+    const params = req.user?.role === 'admin' ? [] : [getActorShopId(req.user)];
     const [rows] = await conn.execute(
-      'SELECT id, name, url, created_by, created_at FROM bgm_library ORDER BY id DESC'
+      `SELECT b.id, b.name, b.url, b.created_by, b.created_at, b.shop_id, b.file_size, s.name AS shop_name
+         FROM bgm_library b
+         LEFT JOIN shops s ON s.id = b.shop_id
+         ${scopeSql}
+        ORDER BY b.id DESC`,
+      params
     );
     res.json({ success: true, assets: rows });
   } catch (err) {
@@ -3911,7 +4109,7 @@ app.get('/api/bgm-assets', adminAuth, async (req, res) => {
   }
 });
 
-app.post('/api/bgm-assets', adminAuth, uploadAudio.single('audio'), async (req, res) => {
+app.post('/api/bgm-assets', staffOrAdminAuth, uploadAudio.single('audio'), async (req, res) => {
   const name = (req.body.name || '').trim();
   if (!name) {
     return res.status(400).json({ success: false, message: '請填寫音樂名稱' });
@@ -3924,9 +4122,11 @@ app.post('/api/bgm-assets', adminAuth, uploadAudio.single('audio'), async (req, 
   let conn;
   try {
     conn = await pool.getConnection();
+    await assertSharedAssetStorageAvailable(conn, req.user, req.file.size, '背景音樂素材');
+    const shopId = req.user?.role === 'admin' ? null : getActorShopId(req.user);
     const [result] = await conn.execute(
-      'INSERT INTO bgm_library (name, url, created_by) VALUES (?, ?, ?)',
-      [name, url, createdBy]
+      'INSERT INTO bgm_library (name, url, created_by, shop_id, file_size) VALUES (?, ?, ?, ?, ?)',
+      [name, url, createdBy, shopId, req.file.size || 0]
     );
     res.json({
       success: true,
@@ -3935,14 +4135,15 @@ app.post('/api/bgm-assets', adminAuth, uploadAudio.single('audio'), async (req, 
       url
     });
   } catch (err) {
+    cleanupUploadedFile(req.file);
     console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '伺服器錯誤' });
   } finally {
     if (conn) conn.release();
   }
 });
 
-app.delete('/api/bgm-assets/:id', adminAuth, async (req, res) => {
+app.delete('/api/bgm-assets/:id', staffOrAdminAuth, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (!Number.isFinite(id)) {
     return res.status(400).json({ success: false, message: '無效的 ID' });
@@ -3950,9 +4151,12 @@ app.delete('/api/bgm-assets/:id', adminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const [rows] = await conn.execute('SELECT url FROM bgm_library WHERE id = ?', [id]);
+    const [rows] = await conn.execute('SELECT url, shop_id FROM bgm_library WHERE id = ?', [id]);
     if (rows.length === 0) {
       return res.status(404).json({ success: false, message: '找不到此素材' });
+    }
+    if (!actorCanAccessShop(req.user, rows[0].shop_id)) {
+      return res.status(403).json({ success: false, message: '無權限刪除此素材' });
     }
     const url = rows[0].url;
     const [tasks] = await conn.execute('SELECT id FROM tasks WHERE bgm_url = ? LIMIT 1', [url]);
@@ -3975,6 +4179,13 @@ app.delete('/api/ar-models/:id', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
+    const [models] = await conn.execute('SELECT id, shop_id FROM ar_models WHERE id = ? LIMIT 1', [id]);
+    if (!models.length) {
+      return res.status(404).json({ success: false, message: '找不到此模型' });
+    }
+    if (!actorCanAccessShop(req.user, models[0].shop_id)) {
+      return res.status(403).json({ success: false, message: '無權限刪除此模型' });
+    }
     
     // 檢查是否有任務引用
     const [tasks] = await conn.execute('SELECT id FROM tasks WHERE ar_model_id = ?', [id]);
@@ -3996,11 +4207,20 @@ app.delete('/api/ar-models/:id', staffOrAdminAuth, async (req, res) => {
 // ===== 道具系統 (Item System) API =====
 
 // 取得所有道具
-app.get('/api/items', async (req, res) => {
+app.get('/api/items', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const [rows] = await conn.execute('SELECT * FROM items ORDER BY id DESC');
+    const scopeSql = req.user?.role === 'admin' ? '' : 'WHERE i.shop_id = ?';
+    const params = req.user?.role === 'admin' ? [] : [getActorShopId(req.user)];
+    const [rows] = await conn.execute(
+      `SELECT i.*, s.name AS shop_name
+         FROM items i
+         LEFT JOIN shops s ON s.id = i.shop_id
+         ${scopeSql}
+        ORDER BY i.id DESC`,
+      params
+    );
     res.json({ success: true, items: rows });
   } catch (err) {
     console.error(err);
@@ -4025,14 +4245,19 @@ app.post('/api/items', staffOrAdminAuth, uploadImage.single('image'), async (req
   let conn;
   try {
     conn = await pool.getConnection();
+    if (req.file) {
+      await assertSharedAssetStorageAvailable(conn, req.user, req.file.size, '道具素材');
+    }
+    const shopId = req.user?.role === 'admin' ? null : getActorShopId(req.user);
     await conn.execute(
-      'INSERT INTO items (name, description, image_url, model_url) VALUES (?, ?, ?, ?)',
-      [name, description || '', image_url, model_url || null]
+      'INSERT INTO items (name, description, image_url, model_url, shop_id, file_size) VALUES (?, ?, ?, ?, ?, ?)',
+      [name, description || '', image_url, model_url || null, shopId, req.file?.size || 0]
     );
     res.json({ success: true, message: '道具新增成功' });
   } catch (err) {
+    cleanupUploadedFile(req.file);
     console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '伺服器錯誤' });
   } finally {
     if (conn) conn.release();
   }
@@ -4047,13 +4272,25 @@ app.put('/api/items/:id', staffOrAdminAuth, uploadImage.single('image'), async (
   let conn;
   try {
     conn = await pool.getConnection();
+    const [rows] = await conn.execute('SELECT id, shop_id, file_size FROM items WHERE id = ? LIMIT 1', [id]);
+    if (!rows.length) {
+      return res.status(404).json({ success: false, message: '找不到此道具' });
+    }
+    const existingItem = rows[0];
+    if (!actorCanAccessShop(req.user, existingItem.shop_id)) {
+      return res.status(403).json({ success: false, message: '無權限編輯此道具' });
+    }
     
     // 如果有上傳新圖片就更新，否則保留原圖
     let sql, params;
     if (req.file) {
+      const deltaBytes = Math.max(Number(req.file.size || 0) - Number(existingItem.file_size || 0), 0);
+      if (deltaBytes > 0) {
+        await assertSharedAssetStorageAvailable(conn, req.user, deltaBytes, '道具素材');
+      }
       const image_url = '/images/' + req.file.filename;
-      sql = 'UPDATE items SET name = ?, description = ?, image_url = ?, model_url = ? WHERE id = ?';
-      params = [name, description || '', image_url, model_url || null, id];
+      sql = 'UPDATE items SET name = ?, description = ?, image_url = ?, model_url = ?, file_size = ? WHERE id = ?';
+      params = [name, description || '', image_url, model_url || null, req.file.size || 0, id];
     } else if (req.body.image_url) {
       sql = 'UPDATE items SET name = ?, description = ?, image_url = ?, model_url = ? WHERE id = ?';
       params = [name, description || '', req.body.image_url, model_url || null, id];
@@ -4065,8 +4302,9 @@ app.put('/api/items/:id', staffOrAdminAuth, uploadImage.single('image'), async (
     await conn.execute(sql, params);
     res.json({ success: true, message: '道具更新成功' });
   } catch (err) {
+    cleanupUploadedFile(req.file);
     console.error(err);
-    res.status(500).json({ success: false, message: '伺服器錯誤' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || '伺服器錯誤' });
   } finally {
     if (conn) conn.release();
   }
@@ -4078,6 +4316,13 @@ app.delete('/api/items/:id', staffOrAdminAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
+    const [items] = await conn.execute('SELECT id, shop_id FROM items WHERE id = ? LIMIT 1', [id]);
+    if (!items.length) {
+      return res.status(404).json({ success: false, message: '找不到此道具' });
+    }
+    if (!actorCanAccessShop(req.user, items[0].shop_id)) {
+      return res.status(403).json({ success: false, message: '無權限刪除此道具' });
+    }
     
     // 檢查是否有任務使用了此道具
     const [tasks] = await conn.execute(
@@ -8122,9 +8367,22 @@ if (!SKIP_DB) {
             type VARCHAR(50) DEFAULT 'general',
             scale FLOAT DEFAULT 1.0,
             created_by VARCHAR(255),
+            shop_id INT DEFAULT NULL,
+            file_size BIGINT NOT NULL DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
           )
         `);
+
+        const [arModelShopCols] = await conn.execute("SHOW COLUMNS FROM ar_models LIKE 'shop_id'");
+        if (arModelShopCols.length === 0) {
+            await conn.execute("ALTER TABLE ar_models ADD COLUMN shop_id INT DEFAULT NULL");
+            console.log('✅ 資料庫遷移: ar_models 表已新增 shop_id');
+        }
+        const [arModelSizeCols] = await conn.execute("SHOW COLUMNS FROM ar_models LIKE 'file_size'");
+        if (arModelSizeCols.length === 0) {
+            await conn.execute("ALTER TABLE ar_models ADD COLUMN file_size BIGINT NOT NULL DEFAULT 0");
+            console.log('✅ 資料庫遷移: ar_models 表已新增 file_size');
+        }
 
         // 2. 修改 tasks 表
         const [taskCols] = await conn.execute("SHOW COLUMNS FROM tasks LIKE 'ar_model_id'");
@@ -8138,6 +8396,16 @@ if (!SKIP_DB) {
         if (itemCols.length === 0) {
             await conn.execute("ALTER TABLE items ADD COLUMN model_url VARCHAR(512) DEFAULT NULL");
             console.log('✅ 資料庫遷移: items 表已新增 model_url');
+        }
+        const [itemShopCols] = await conn.execute("SHOW COLUMNS FROM items LIKE 'shop_id'");
+        if (itemShopCols.length === 0) {
+            await conn.execute("ALTER TABLE items ADD COLUMN shop_id INT DEFAULT NULL");
+            console.log('✅ 資料庫遷移: items 表已新增 shop_id');
+        }
+        const [itemSizeCols] = await conn.execute("SHOW COLUMNS FROM items LIKE 'file_size'");
+        if (itemSizeCols.length === 0) {
+            await conn.execute("ALTER TABLE items ADD COLUMN file_size BIGINT NOT NULL DEFAULT 0");
+            console.log('✅ 資料庫遷移: items 表已新增 file_size');
         }
 
         // 4. 修改 products 表 - 添加 is_active 欄位
@@ -8178,10 +8446,22 @@ if (!SKIP_DB) {
             name VARCHAR(255) NOT NULL,
             url VARCHAR(512) NOT NULL,
             created_by VARCHAR(255),
+            shop_id INT DEFAULT NULL,
+            file_size BIGINT NOT NULL DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
           )
         `);
         console.log('✅ 資料庫遷移: bgm_library 表已建立');
+        const [bgmShopCols] = await conn.execute("SHOW COLUMNS FROM bgm_library LIKE 'shop_id'");
+        if (bgmShopCols.length === 0) {
+            await conn.execute("ALTER TABLE bgm_library ADD COLUMN shop_id INT DEFAULT NULL");
+            console.log('✅ 資料庫遷移: bgm_library 表已新增 shop_id');
+        }
+        const [bgmSizeCols] = await conn.execute("SHOW COLUMNS FROM bgm_library LIKE 'file_size'");
+        if (bgmSizeCols.length === 0) {
+            await conn.execute("ALTER TABLE bgm_library ADD COLUMN file_size BIGINT NOT NULL DEFAULT 0");
+            console.log('✅ 資料庫遷移: bgm_library 表已新增 file_size');
+        }
 
         // 5b. 優惠券（現場核銷 / POS）
         await conn.execute(`
