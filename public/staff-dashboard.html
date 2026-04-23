@@ -1032,10 +1032,10 @@
           </div>
           <div class="form-group">
             <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-              <input type="checkbox" name="is_active" value="1" checked style="width:16px; height:16px;">
-              <span style="font-size:0.9rem;">建立後立即開放入口</span>
+              <input type="checkbox" name="is_active" value="1" style="width:16px; height:16px;">
+              <span style="font-size:0.9rem;">正式發布入口（發布後自動鎖定核心結構）</span>
             </label>
-            <div class="form-hint">若先取消勾選，代表先以草稿方式建置。入口開放後仍可繼續調整結構，等關卡確認完成後再手動鎖定；admin 也可後續解鎖。</div>
+            <div class="form-hint">不勾選時為測試草稿，只能從後台預覽（admin / shop / staff）。正式發布後若要改核心結構，需由 admin 解鎖。</div>
           </div>
           <div id="questChainFormMsg" class="inline-form-msg"></div>
         </form>
@@ -1254,7 +1254,7 @@
 
           <hr class="section-divider">
           <div class="section-title">場域與目標</div>
-          <div class="form-hint" style="margin-top:-8px; margin-bottom:12px;">經緯度請貼入十進位格式（如 24.678, 121.760），可用 Google Maps 右鍵複製。</div>
+          <div class="form-hint" style="margin-top:-8px; margin-bottom:12px;">經緯度請貼入十進位格式（如 24.678, 121.760）。只有開啟 GPS 位置限制時，才需要填寫緯度、經度與觸發半徑。</div>
 
           <div class="form-group">
             <label class="form-label">關卡名稱</label>

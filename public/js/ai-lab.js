@@ -2244,7 +2244,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        async function loadStoryShell(questChainId) {
+        async function loadStoryShell(questChainId, previewMode = false) {
             Swal.fire({
                 title: '正在載入劇情內容...',
                 allowOutsideClick: false,
@@ -2254,8 +2254,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             try {
+                const contentParams = new URLSearchParams();
+                if (previewMode) contentParams.set('preview', '1');
+                const contentApi = `/api/quest-chains/${questChainId}/public-content${contentParams.toString() ? `?${contentParams.toString()}` : ''}`;
                 const [contentRes, progressMap] = await Promise.all([
-                    fetch(`/api/quest-chains/${questChainId}/public-content`),
+                    fetch(contentApi),
                     fetchQuestProgressMap()
                 ]);
                 const contentData = await contentRes.json();
@@ -2423,7 +2426,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                 } else {
-                    await loadStoryShell(questChainId);
+                    await loadStoryShell(questChainId, previewMode);
                 }
                 
                 if (isCurrentQuestTutorialMode()) {
@@ -5802,7 +5805,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderTutorialModeUi();
                 if (pendingStoryReloadAfterCompletion && currentQuestChainId) {
                     pendingStoryReloadAfterCompletion = false;
-                    await loadStoryShell(currentQuestChainId);
+                    const previewMode = new URLSearchParams(window.location.search).get('preview') === '1';
+                    await loadStoryShell(currentQuestChainId, previewMode);
                     
                     if (currentStoryCompleted) {
                         showStorySummaryPage();

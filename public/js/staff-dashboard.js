@@ -547,7 +547,7 @@ function renderBillingEntries(entries = []) {
                 : (entry.setup_fee_paid ? '已收款' : '待收款')}</span>
             </td>
             <td>
-              <span class="tag ${entry.is_active ? 'tag-green' : 'tag-red'}">${entry.is_active ? '已開放' : '草稿 / 停用'}</span>
+              <span class="tag ${entry.is_active ? 'tag-green' : 'tag-red'}">${entry.is_active ? '已正式發布' : '測試草稿 / 停用'}</span>
               <span class="tag ${entry.billing_policy === 'public_good' ? 'tag-green' : (entry.is_invoiced ? 'tag-blue' : 'tag-amber')}">${entry.billing_policy === 'public_good' ? '公益免計費' : (entry.is_invoiced ? '已開帳' : '待開帳')}</span>
             </td>
           </tr>
@@ -1184,7 +1184,7 @@ function syncDrawerFooter() {
   } else if (activeFormId === 'tileForm') {
     note.textContent = '大富翁格子會直接歸屬在目前這張棋盤底下。';
   } else if (activeFormId === 'questChainForm') {
-    note.textContent = '玩法入口建立後，底下的關卡與棋盤都會獨立歸屬在這個入口。';
+    note.textContent = '入口未發布前僅能後台預覽；勾選正式發布後會自動鎖定核心結構。';
   } else {
     note.textContent = '';
   }
@@ -1213,7 +1213,6 @@ function validateTaskWizardStep(step) {
     const lat = form?.elements?.lat?.value?.trim() || '';
     const lng = form?.elements?.lng?.value?.trim() || '';
     const radius = form?.elements?.radius?.value?.trim() || '';
-    const hasAnyLocationValue = Boolean(lat || lng || radius);
     const hasAllLocationValues = Boolean(lat && lng && radius);
 
     if (gpsRequired && !hasAllLocationValues) {
@@ -1227,16 +1226,6 @@ function validateTaskWizardStep(step) {
       return false;
     }
 
-    if (!gpsRequired && hasAnyLocationValue && !hasAllLocationValues) {
-      const target = !lat ? form.elements.lat : (!lng ? form.elements.lng : form.elements.radius);
-      if (target) {
-        target.setCustomValidity('若要保留座標資料，請完整填寫緯度、經度與觸發半徑；否則請全部留空。');
-        target.reportValidity();
-        target.setCustomValidity('');
-      }
-      scrollToFirstInvalid(stepEl);
-      return false;
-    }
   }
   const inputs = Array.from(stepEl.querySelectorAll('input, select, textarea')).filter((el) => {
     if (el.disabled) return false;
@@ -1548,7 +1537,7 @@ function syncTaskLocationRequirementUi() {
   if (hint) {
     hint.textContent = gpsRequired
       ? '已啟用 GPS 位置限制：玩家必須到這組座標半徑內，才有辦法接取任務。'
-      : '未啟用 GPS 位置限制：任何地方都可以開啟任務；下方座標可作為參考資料保留。';
+      : '未啟用 GPS 位置限制：任何地方都可以開啟任務；經緯度與半徑可留空，不會阻擋儲存。';
   }
 }
 
@@ -1698,8 +1687,8 @@ function renderQuestChainList(chains) {
         ? '<span class="tag tag-red">Demo 模式</span>'
         : '<span class="tag tag-gray">正式模式</span>';
     const statusTag = q.is_active
-      ? '<span class="tag tag-green">已開放</span>'
-      : '<span class="tag tag-red">未開放</span>';
+      ? '<span class="tag tag-green">已正式發布</span>'
+      : '<span class="tag tag-red">測試草稿</span>';
     const isLocked = isQuestChainStructureLockedClient(q);
     const structureLockTag = isLocked
       ? '<span class="tag tag-red">結構已鎖定</span>'
@@ -2447,7 +2436,7 @@ function applyQuestChainFormLockUi(chain = null) {
   if (banner) {
     if (currentQuestChainFormLocked) {
       banner.style.display = 'block';
-      banner.textContent = '這個入口的核心結構已鎖定。你現在仍可調整標題、介紹、入口文案、封面素材、收款狀態與上下架狀態，但不能修改方案、模式、玩法規則與入口結構。';
+      banner.textContent = '這個入口的核心結構已鎖定。你現在仍可調整標題、介紹、入口文案、封面素材、收款狀態與上下架狀態，但不能修改方案、模式、玩法規則與入口結構。若要改核心設定，請由 admin 先解鎖。';
     } else {
       banner.style.display = 'none';
       banner.textContent = '';

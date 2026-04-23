@@ -1056,6 +1056,23 @@ function resolveQuestChainStructureLockedAt(chain) {
   return chain.structure_locked_at || null;
 }
 
+function isPrivilegedPreviewActor(actor) {
+  return ['admin', 'shop', 'staff'].includes(actor?.role);
+}
+
+function resolveQuestPreviewContext(req, questChain = null) {
+  const previewRequested = normalizeBoolean(req?.query?.preview ?? req?.body?.preview);
+  const optionalUser = getOptionalTokenUser(req);
+  const canPreviewByRole = previewRequested && isPrivilegedPreviewActor(optionalUser);
+  if (!canPreviewByRole) {
+    return { previewRequested, optionalUser, canPreviewUnpublished: false, deniedByShopScope: false };
+  }
+  if (questChain && optionalUser?.role !== 'admin' && !actorCanAccessShop(optionalUser, questChain.shop_id)) {
+    return { previewRequested, optionalUser, canPreviewUnpublished: false, deniedByShopScope: true };
+  }
+  return { previewRequested, optionalUser, canPreviewUnpublished: true, deniedByShopScope: false };
+}
+
 function createStructureLockedError(scopeLabel = '此玩法入口') {
   const err = new Error(`${scopeLabel}核心結構已鎖定；目前只能調整文案與素材`);
   err.statusCode = 409;
@@ -2911,7 +2928,9 @@ app.post('/api/quest-chains', staffOrAdminAuth, uploadImage.single('badge_image'
       ? true
       : (monthly_billing_enabled == null ? true : normalizeBoolean(monthly_billing_enabled));
     const questChainColumns = await getTableColumnSet(conn, 'quest_chains');
-    const resolvedStructureLockedAt = normalizeNullableString(structure_locked_at);
+    const publishNow = normalizeBoolean(is_active);
+    const explicitStructureLockedAt = normalizeNullableString(structure_locked_at);
+    const resolvedStructureLockedAt = publishNow ? (explicitStructureLockedAt || new Date()) : null;
     const questChainRecord = {
       title,
       name: title,
@@ -2929,7 +2948,7 @@ app.post('/api/quest-chains', staffOrAdminAuth, uploadImage.single('badge_image'
       monthly_billing_enabled: resolvedMonthlyBillingEnabled,
       structure_locked_at: resolvedStructureLockedAt,
       mode_type: normalizeNullableString(mode_type) || 'story_campaign',
-      is_active: normalizeBoolean(is_active),
+      is_active: publishNow,
       cover_image: badge_image || null,
       short_description: normalizeNullableString(short_description),
       entry_order: entry_order ? Number(entry_order) : 0,
@@ -2986,6 +3005,8 @@ app.put('/api/quest-chains/:id', staffOrAdminAuth, uploadImage.single('badge_ima
     conn = await pool.getConnection();
     const chain = await assertQuestChainAccess(conn, req.user, id);
     const chainLockActive = isQuestChainStructureLocked(chain);
+    const publishNow = normalizeBoolean(is_active);
+    const shouldAutoLock = publishNow && !chain.structure_locked_at;
 
     let badge_image = chain.badge_image || chain.cover_image || null;
     if (req.file) {
@@ -2995,7 +3016,7 @@ app.put('/api/quest-chains/:id', staffOrAdminAuth, uploadImage.single('badge_ima
     }
 
     const questChainColumns = await getTableColumnSet(conn, 'quest_chains');
-    const resolvedStructureLockedAt = chain.structure_locked_at || null;
+    const resolvedStructureLockedAt = chain.structure_locked_at || (shouldAutoLock ? new Date() : null);
     const normalizedBillingPolicy = normalizeBillingPolicy(chain.billing_policy, chain.created_by);
     const questChainRecord = {
       title,
@@ -3013,7 +3034,7 @@ app.put('/api/quest-chains/:id', staffOrAdminAuth, uploadImage.single('badge_ima
       monthly_billing_enabled: normalizedBillingPolicy === 'public_good' ? true : chain.monthly_billing_enabled,
       structure_locked_at: resolvedStructureLockedAt,
       mode_type: normalizeNullableString(mode_type) || 'story_campaign',
-      is_active: normalizeBoolean(is_active),
+      is_active: publishNow,
       cover_image: badge_image || null,
       short_description: normalizeNullableString(short_description),
       entry_order: entry_order ? Number(entry_order) : 0,
@@ -3040,6 +3061,28 @@ app.put('/api/quest-chains/:id', staffOrAdminAuth, uploadImage.single('badge_ima
       }
     }
     await updateDynamicRecord(conn, 'quest_chains', id, filteredRecord);
+    if (shouldAutoLock) {
+      const taskColumns = await getTableColumnSet(conn, 'tasks');
+      const taskAssignments = [];
+      const taskParams = [];
+      if (taskColumns.has('structure_locked')) {
+        taskAssignments.push('structure_locked = ?');
+        taskParams.push(true);
+      }
+      if (taskColumns.has('structure_locked_at')) {
+        taskAssignments.push('structure_locked_at = ?');
+        taskParams.push(resolvedStructureLockedAt);
+      }
+      if (taskAssignments.length) {
+        taskParams.push(Number(id));
+        await conn.execute(
+          `UPDATE tasks
+              SET ${taskAssignments.join(', ')}
+            WHERE quest_chain_id = ?`,
+          taskParams
+        );
+      }
+    }
     res.json({ success: true, message: '玩法入口更新成功' });
   } catch (err) {
     console.error(err);
@@ -3162,12 +3205,64 @@ app.get('/api/game-entries', async (req, res) => {
   }
 });
 
+// 舊版相容：ai-lab 摘要頁會用到
+app.get('/api/quest-chains/public-entries', async (req, res) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const optionalUser = getOptionalTokenUser(req);
+    const userId = optionalUser?.username ? await getUserIdByUsername(conn, optionalUser.username) : null;
+    const questChainColumns = await getTableColumnSet(conn, 'quest_chains');
+    const hasModeType = questChainColumns.has('mode_type');
+    const hasIsActive = questChainColumns.has('is_active');
+    const query = hasModeType
+      ? `SELECT * FROM quest_chains ${hasIsActive ? 'WHERE is_active = TRUE' : ''} ORDER BY entry_order ASC, id ASC`
+      : 'SELECT * FROM quest_chains ORDER BY id ASC';
+    const [rows] = await conn.execute(query);
+    const couponQuestChainIds = new Set();
+    if (userId) {
+      const couponColumns = await getTableColumnSet(conn, 'user_coupons');
+      if (couponColumns.has('quest_chain_id')) {
+        const statusExpr = couponColumns.has('status') ? "AND (status IS NULL OR status = 'active')" : '';
+        const expiryExpr = couponColumns.has('expiry_date') ? 'AND (expiry_date IS NULL OR expiry_date >= CURDATE())' : '';
+        const [couponRows] = await conn.execute(
+          `SELECT quest_chain_id
+             FROM user_coupons
+            WHERE user_id = ?
+              AND quest_chain_id IS NOT NULL
+              ${statusExpr}
+              ${expiryExpr}`,
+          [userId]
+        );
+        couponRows.forEach((row) => {
+          if (row.quest_chain_id != null) couponQuestChainIds.add(Number(row.quest_chain_id));
+        });
+      }
+    }
+    const entries = rows.map((row) => {
+      const entry = sanitizeQuestChainRow(row);
+      const requiresCoupon = entry.access_mode === 'coupon';
+      const hasCouponAccess = requiresCoupon ? couponQuestChainIds.has(Number(entry.id)) : true;
+      return {
+        ...entry,
+        has_coupon_access: hasCouponAccess,
+        is_accessible: requiresCoupon ? hasCouponAccess : true
+      };
+    });
+    res.json({ success: true, entries });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '伺服器錯誤' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
 app.get('/api/quest-chains/:id/public-content', async (req, res) => {
   const { id } = req.params;
   let conn;
   try {
     conn = await pool.getConnection();
-    const optionalUser = getOptionalTokenUser(req);
     const questChainColumns = await getTableColumnSet(conn, 'quest_chains');
     const taskColumns = await getTableColumnSet(conn, 'tasks');
     const titleExpr = questChainColumns.has('title') ? 'COALESCE(title, name)' : 'name';
@@ -3176,8 +3271,19 @@ app.get('/api/quest-chains/:id/public-content', async (req, res) => {
       return res.status(404).json({ success: false, message: '找不到此劇情' });
     }
     const questChain = sanitizeQuestChainRow({ ...chains[0], title: chains[0].resolved_title });
-    if (questChain.access_mode === 'coupon') {
-      const userId = optionalUser?.username ? await getUserIdByUsername(conn, optionalUser.username) : null;
+    const previewContext = resolveQuestPreviewContext(req, questChain);
+    if (previewContext.deniedByShopScope) {
+      return res.status(403).json({ success: false, message: '無權限預覽其他商家的玩法入口' });
+    }
+    if (!questChain.is_active && !previewContext.canPreviewUnpublished) {
+      return res.status(403).json({
+        success: false,
+        code: 'ENTRY_NOT_PUBLISHED',
+        message: '此入口尚未正式發布，僅限後台預覽'
+      });
+    }
+    if (questChain.access_mode === 'coupon' && !previewContext.canPreviewUnpublished) {
+      const userId = previewContext.optionalUser?.username ? await getUserIdByUsername(conn, previewContext.optionalUser.username) : null;
       const allowed = await hasQuestChainCouponAccess(conn, userId, Number(id));
       if (!allowed) {
         return res.status(403).json({
@@ -3353,9 +3459,6 @@ app.get('/api/quest-chains/:id/structure-map', staffOrAdminAuth, async (req, res
 app.get('/api/board-maps/by-quest-chain/:questChainId', async (req, res) => {
   const { questChainId } = req.params;
   const requestedBoardMapId = Number(req.query.boardMapId || 0);
-  const previewMode = req.query.preview === '1';
-  const previewUser = getOptionalTokenUser(req);
-  const canPreviewInactive = previewMode && ['admin', 'shop', 'staff'].includes(previewUser?.role);
   let conn;
   try {
     conn = await pool.getConnection();
@@ -3371,11 +3474,20 @@ app.get('/api/board-maps/by-quest-chain/:questChainId', async (req, res) => {
       return res.status(404).json({ success: false, message: '找不到對應的玩法入口' });
     }
     const sanitizedQuestChain = sanitizeQuestChainRow(questChain);
-    if (previewMode && previewUser?.role !== 'admin' && !actorCanAccessShop(previewUser, sanitizedQuestChain.shop_id)) {
+    const previewContext = resolveQuestPreviewContext(req, sanitizedQuestChain);
+    const canPreviewInactive = previewContext.canPreviewUnpublished;
+    if (previewContext.deniedByShopScope) {
       return res.status(403).json({ success: false, message: '無權限預覽其他商家的玩法入口' });
     }
+    if (!sanitizedQuestChain.is_active && !canPreviewInactive) {
+      return res.status(403).json({
+        success: false,
+        code: 'ENTRY_NOT_PUBLISHED',
+        message: '此入口尚未正式發布，僅限後台預覽'
+      });
+    }
     if (sanitizedQuestChain.access_mode === 'coupon' && !canPreviewInactive) {
-      const userId = previewUser?.username ? await getUserIdByUsername(conn, previewUser.username) : null;
+      const userId = previewContext.optionalUser?.username ? await getUserIdByUsername(conn, previewContext.optionalUser.username) : null;
       const allowed = await hasQuestChainCouponAccess(conn, userId, Number(questChainId));
       if (!allowed) {
         return res.status(403).json({
@@ -3866,7 +3978,41 @@ app.post('/api/board/session/start', authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, message: '使用者不存在' });
     }
 
-    const canPreviewInactive = Boolean(preview) && ['admin', 'shop', 'staff'].includes(req.user?.role);
+    const [chainRows] = await conn.execute(
+      `SELECT id, shop_id, access_mode, is_active
+       FROM quest_chains
+       WHERE id = ?
+       LIMIT 1`,
+      [questChainId]
+    );
+    if (!chainRows.length) {
+      return res.status(404).json({ success: false, message: '找不到對應的玩法入口' });
+    }
+    const sanitizedQuestChain = sanitizeQuestChainRow(chainRows[0]);
+    const previewRequested = normalizeBoolean(preview);
+    const canPreviewInactive = previewRequested
+      && isPrivilegedPreviewActor(req.user)
+      && (req.user.role === 'admin' || actorCanAccessShop(req.user, sanitizedQuestChain.shop_id));
+    if (previewRequested && !canPreviewInactive) {
+      return res.status(403).json({ success: false, message: '無權限預覽其他商家的玩法入口' });
+    }
+    if (!sanitizedQuestChain.is_active && !canPreviewInactive) {
+      return res.status(403).json({
+        success: false,
+        code: 'ENTRY_NOT_PUBLISHED',
+        message: '此入口尚未正式發布，僅限後台預覽'
+      });
+    }
+    if (sanitizedQuestChain.access_mode === 'coupon' && !canPreviewInactive) {
+      const allowed = await hasQuestChainCouponAccess(conn, userId, Number(questChainId));
+      if (!allowed) {
+        return res.status(403).json({
+          success: false,
+          code: 'COUPON_REQUIRED',
+          message: '此入口需專屬 Coupon 才能遊玩'
+        });
+      }
+    }
     const mapSql = boardMapId
       ? 'SELECT * FROM board_maps WHERE quest_chain_id = ? AND id = ? AND (? = TRUE OR is_active = TRUE) ORDER BY id ASC LIMIT 1'
       : 'SELECT * FROM board_maps WHERE quest_chain_id = ? AND (? = TRUE OR is_active = TRUE) ORDER BY id ASC LIMIT 1';
@@ -4759,7 +4905,6 @@ app.post('/api/tasks', staffOrAdminAuth, async (req, res) => {
   console.log('[POST /api/tasks] Received:', req.body);
 
   const requiresGps = normalizeBoolean(location_required) || task_type === 'location';
-  const hasAnyLocationValue = [lat, lng, radius].some((value) => value !== undefined && value !== null && String(value).trim() !== '');
   const hasAllLocationValues = [lat, lng, radius].every((value) => value !== undefined && value !== null && String(value).trim() !== '');
 
   if (!name || !description || !photoUrl) {
@@ -4767,9 +4912,6 @@ app.post('/api/tasks', staffOrAdminAuth, async (req, res) => {
   }
   if (requiresGps && !hasAllLocationValues) {
     return res.status(400).json({ success: false, message: '啟用 GPS 位置限制時，必須填寫緯度、經度與觸發半徑。' });
-  }
-  if (!requiresGps && hasAnyLocationValue && !hasAllLocationValues) {
-    return res.status(400).json({ success: false, message: '若要保留座標資料，請完整填寫緯度、經度與觸發半徑。' });
   }
 
   let conn;
@@ -4819,14 +4961,17 @@ app.post('/api/tasks', staffOrAdminAuth, async (req, res) => {
     const orderModel = ar_order_model ? Number(ar_order_model) : null;
     const orderImage = ar_order_image ? Number(ar_order_image) : null;
     const orderYoutube = ar_order_youtube ? Number(ar_order_youtube) : null;
+    const resolvedLat = hasAllLocationValues ? normalizeNullableString(lat) : '0';
+    const resolvedLng = hasAllLocationValues ? normalizeNullableString(lng) : '0';
+    const resolvedRadius = hasAllLocationValues ? normalizeNullableString(radius) : '0';
 
     const bgmUrlValue = bgm_url || null;
     const taskColumns = await getTableColumnSet(conn, 'tasks');
     const taskRecord = {
       name,
-      lat: hasAllLocationValues ? normalizeNullableString(lat) : null,
-      lng: hasAllLocationValues ? normalizeNullableString(lng) : null,
-      radius: hasAllLocationValues ? normalizeNullableString(radius) : null,
+      lat: resolvedLat,
+      lng: resolvedLng,
+      radius: resolvedRadius,
       description,
       photoUrl,
       iconUrl: '/images/flag-red.png',
@@ -5130,7 +5275,6 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
     }
 
     const requiresGps = normalizeBoolean(location_required) || task_type === 'location';
-    const hasAnyLocationValue = [lat, lng, radius].some((value) => value !== undefined && value !== null && String(value).trim() !== '');
     const hasAllLocationValues = [lat, lng, radius].every((value) => value !== undefined && value !== null && String(value).trim() !== '');
 
     if (!name || !description || !photoUrl) {
@@ -5138,9 +5282,6 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
     }
     if (requiresGps && !hasAllLocationValues) {
       return res.status(400).json({ success: false, message: '啟用 GPS 位置限制時，必須填寫緯度、經度與觸發半徑。' });
-    }
-    if (!requiresGps && hasAnyLocationValue && !hasAllLocationValues) {
-      return res.status(400).json({ success: false, message: '若要保留座標資料，請完整填寫緯度、經度與觸發半徑。' });
     }
     let targetQuestChain = null;
     if (qId) {
@@ -5178,14 +5319,20 @@ app.put('/api/tasks/:id', staffOrAdminAuth, async (req, res) => {
     const orderModel = ar_order_model ? Number(ar_order_model) : null;
     const orderImage = ar_order_image ? Number(ar_order_image) : null;
     const orderYoutube = ar_order_youtube ? Number(ar_order_youtube) : null;
+    const fallbackLat = normalizeNullableString(existingTask.lat) || '0';
+    const fallbackLng = normalizeNullableString(existingTask.lng) || '0';
+    const fallbackRadius = normalizeNullableString(existingTask.radius) || '0';
+    const resolvedLat = hasAllLocationValues ? normalizeNullableString(lat) : fallbackLat;
+    const resolvedLng = hasAllLocationValues ? normalizeNullableString(lng) : fallbackLng;
+    const resolvedRadius = hasAllLocationValues ? normalizeNullableString(radius) : fallbackRadius;
     const bgmUrlValue = bgm_url || null;
 
     const taskColumns = await getTableColumnSet(conn, 'tasks');
     const taskRecord = {
       name,
-      lat: hasAllLocationValues ? normalizeNullableString(lat) : null,
-      lng: hasAllLocationValues ? normalizeNullableString(lng) : null,
-      radius: hasAllLocationValues ? normalizeNullableString(radius) : null,
+      lat: resolvedLat,
+      lng: resolvedLng,
+      radius: resolvedRadius,
       description,
       photoUrl,
       youtubeUrl: youtubeUrl || null,
