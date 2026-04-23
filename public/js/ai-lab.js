@@ -594,6 +594,27 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        function handleTaskIntroVideoEnded() {
+            if (!taskIntroVideo) return;
+            if (document.fullscreenElement === taskIntroVideo && typeof document.exitFullscreen === 'function') {
+                document.exitFullscreen().catch(() => {});
+            }
+            if (typeof taskIntroVideo.webkitExitFullscreen === 'function' && taskIntroVideo.webkitDisplayingFullscreen) {
+                try {
+                    taskIntroVideo.webkitExitFullscreen();
+                } catch (err) {
+                    console.warn('離開 iOS 全螢幕失敗', err);
+                }
+            }
+            closeTaskIntroPanel({ pauseVideo: false });
+            try {
+                taskIntroVideo.pause();
+                taskIntroVideo.currentTime = 0;
+            } catch (err) {
+                console.warn('重置景點影片狀態失敗', err);
+            }
+        }
+
         function loadTaskBGM(task) {
             if (!taskBgm) return;
             const musicUrl = task?.bgm_url || task?.audio_url || null;
@@ -5452,6 +5473,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         bindTaskVideoStatus(gameShellVideo, gameShellVideoError);
         bindTaskVideoStatus(taskIntroVideo, taskIntroVideoError);
+        if (gameShellVideo) {
+            gameShellVideo.addEventListener('ended', () => {
+                try {
+                    gameShellVideo.currentTime = 0;
+                } catch (err) {
+                    console.warn('重置關卡影片狀態失敗', err);
+                }
+            });
+        }
+        if (taskIntroVideo) {
+            taskIntroVideo.addEventListener('ended', handleTaskIntroVideoEnded);
+        }
         if (taskIntroClose && taskIntroPanel) {
             taskIntroClose.addEventListener('click', () => {
                 closeTaskIntroPanel();
