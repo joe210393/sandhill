@@ -5740,7 +5740,7 @@ app.patch('/api/user-tasks/:id/answer', authenticateToken, async (req, res) => {
 
     // 1. 取得任務資訊
     const [rows] = await conn.execute(`
-      SELECT ut.*, t.task_type, t.correct_answer, t.points, t.name as task_name, ut.user_id, ut.task_id, t.quest_chain_id, t.quest_order,
+      SELECT ut.*, t.task_type, t.options, t.correct_answer, t.points, t.name as task_name, ut.user_id, ut.task_id, t.quest_chain_id, t.quest_order,
              t.validation_mode, t.ai_config, t.pass_criteria, t.failure_message, t.success_message,
              qc.game_rules, qc.content_blueprint
       FROM user_tasks ut
@@ -5778,6 +5778,50 @@ app.patch('/api/user-tasks/:id/answer', authenticateToken, async (req, res) => {
     let questChainReward = null; // 移到外層宣告
     const runtimeFlags = getQuestChainRuntimeFlags(userTask);
     let aiTextEvaluation = null;
+    const normalizeAnswerForCompare = (value) => String(value ?? '').trim().toLowerCase();
+    const toAsciiUpper = (char) => {
+      if (!char) return '';
+      const code = char.charCodeAt(0);
+      if (code >= 0xFF21 && code <= 0xFF3A) {
+        return String.fromCharCode(code - 0xFEE0);
+      }
+      return char.toUpperCase();
+    };
+    const extractChoiceKey = (value) => {
+      const raw = String(value ?? '').trim();
+      if (!raw) return '';
+      const normalized = raw.replace(/^[\(\[（【「\s]+/, '');
+      const first = toAsciiUpper(normalized.charAt(0));
+      return /^[A-D]$/.test(first) ? first : '';
+    };
+    const readChoiceText = (option) => {
+      if (typeof option === 'string') return option.trim();
+      if (!option || typeof option !== 'object') return '';
+      return String(option.value ?? option.label ?? option.text ?? option.title ?? option.name ?? '').trim();
+    };
+    const resolveOptionByKey = (options, key) => {
+      if (!key || !Array.isArray(options)) return '';
+      const indexed = options[key.charCodeAt(0) - 65];
+      return readChoiceText(indexed);
+    };
+    const isMultipleChoiceAnswerMatch = (submittedAnswer, correctAnswer, rawOptions) => {
+      const submitted = String(submittedAnswer ?? '').trim();
+      const correct = String(correctAnswer ?? '').trim();
+      if (!submitted || !correct) return false;
+      if (normalizeAnswerForCompare(submitted) === normalizeAnswerForCompare(correct)) return true;
+
+      const submittedKey = extractChoiceKey(submitted);
+      const correctKey = extractChoiceKey(correct);
+      if (submittedKey && correctKey && submittedKey === correctKey) return true;
+
+      const options = parseJsonField(rawOptions, []);
+      const correctFromKey = resolveOptionByKey(options, correctKey);
+      const submittedFromKey = resolveOptionByKey(options, submittedKey);
+
+      if (correctFromKey && normalizeAnswerForCompare(submitted) === normalizeAnswerForCompare(correctFromKey)) return true;
+      if (submittedFromKey && normalizeAnswerForCompare(submittedFromKey) === normalizeAnswerForCompare(correct)) return true;
+      return false;
+    };
 
     // 2. 檢查是否為自動驗證題型且答案正確
     if (runtimeFlags.demoAutoPass) {
@@ -5801,7 +5845,12 @@ app.patch('/api/user-tasks/:id/answer', authenticateToken, async (req, res) => {
         // 地理圍欄任務：只要前端送出請求，即視為完成
         isCompleted = true;
         message = '📍 打卡成功！';
-      } else if (userTask.correct_answer && answer.trim().toLowerCase() === userTask.correct_answer.trim().toLowerCase()) {
+      } else if (userTask.task_type === 'multiple_choice'
+        && isMultipleChoiceAnswerMatch(answer, userTask.correct_answer, userTask.options)) {
+        isCompleted = true;
+        message = '答對了！任務完成！';
+      } else if (userTask.correct_answer
+        && normalizeAnswerForCompare(answer) === normalizeAnswerForCompare(userTask.correct_answer)) {
         isCompleted = true;
         message = '答對了！任務完成！';
       } else {

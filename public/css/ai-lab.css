@@ -1589,6 +1589,29 @@ body.formal-story-capture-clean #taskIntroPanel {
     justify-content: space-between;
     padding: 14px 16px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: rgba(20, 20, 20, 0.97);
+}
+
+.task-intro-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.task-intro-skip-btn {
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    background: rgba(0, 0, 0, 0.42);
+    color: #fff;
+    border-radius: 999px;
+    min-height: 38px;
+    padding: 0 14px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.02em;
 }
 .task-intro-title {
     margin: 0;
@@ -1737,6 +1760,16 @@ body.formal-story-capture-clean #taskIntroPanel {
 
     .task-intro-panel.has-video .task-intro-header {
         padding-top: calc(14px + env(safe-area-inset-top, 0px));
+    }
+
+    .task-intro-panel.has-video .task-intro-header-actions {
+        gap: 8px;
+    }
+
+    .task-intro-panel.has-video .task-intro-skip-btn {
+        min-height: 36px;
+        font-size: 12px;
+        padding: 0 12px;
     }
 
     .task-intro-panel.has-video .task-intro-body {

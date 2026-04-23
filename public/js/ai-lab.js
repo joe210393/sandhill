@@ -403,6 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const taskIntroVideoWrap = document.getElementById('taskIntroVideoWrap');
         const taskIntroVideo = document.getElementById('taskIntroVideo');
         const taskIntroVideoError = document.getElementById('taskIntroVideoError');
+        const taskIntroSkip = document.getElementById('taskIntroSkip');
         const taskIntroClose = document.getElementById('taskIntroClose');
         const taskBgm = document.getElementById('taskBgm');
         const taskHudDock = document.getElementById('taskHudDock');
@@ -523,6 +524,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let formalStoryIntroMode = false;
         let tutorialFlowStarted = false;
         let tutorialIntroTaskId = null;
+        let taskIntroVideoLoadTimer = null;
         let targetLat = null;
         let targetLng = null;
         let navigationWatchId = null;
@@ -581,15 +583,34 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        function clearTaskIntroVideoLoadTimeout() {
+            if (!taskIntroVideoLoadTimer) return;
+            clearTimeout(taskIntroVideoLoadTimer);
+            taskIntroVideoLoadTimer = null;
+        }
+
+        function scheduleTaskIntroVideoLoadTimeout(videoEl, errorEl) {
+            clearTaskIntroVideoLoadTimeout();
+            if (!videoEl || !errorEl) return;
+            taskIntroVideoLoadTimer = window.setTimeout(() => {
+                if (videoEl.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) return;
+                errorEl.textContent = '影片載入較慢，現場網路不穩時可先按「略過影片」繼續遊戲。';
+                setTaskVideoErrorState(videoEl, errorEl, true);
+            }, 8000);
+        }
+
         function bindTaskVideoStatus(videoEl, errorEl) {
             if (!videoEl) return;
             videoEl.addEventListener('loadedmetadata', () => {
+                clearTaskIntroVideoLoadTimeout();
                 setTaskVideoErrorState(videoEl, errorEl, false);
             });
             videoEl.addEventListener('canplay', () => {
+                clearTaskIntroVideoLoadTimeout();
                 setTaskVideoErrorState(videoEl, errorEl, false);
             });
             videoEl.addEventListener('error', () => {
+                clearTaskIntroVideoLoadTimeout();
                 setTaskVideoErrorState(videoEl, errorEl, true);
             });
         }
@@ -639,6 +660,9 @@ document.addEventListener('DOMContentLoaded', () => {
             taskIntroPanel?.classList.toggle('has-video', hasVideo);
             taskIntroDescription?.classList.toggle('has-video', hasVideo);
             taskIntroPanel?.querySelector('.task-intro-body')?.classList.toggle('has-video', hasVideo);
+            if (taskIntroSkip) {
+                taskIntroSkip.classList.toggle('hidden', !hasVideo);
+            }
             if (gameShellVideoWrap && gameShellVideo) {
                 if (videoUrl) {
                     setTaskVideoErrorState(gameShellVideo, gameShellVideoError, false);
@@ -655,10 +679,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (taskIntroVideoWrap && taskIntroVideo) {
                 if (videoUrl) {
                     setTaskVideoErrorState(taskIntroVideo, taskIntroVideoError, false);
+                    if (taskIntroVideoError) {
+                        taskIntroVideoError.textContent = '影片素材目前無法載入，請通知工作人員重新上傳影片。';
+                    }
                     taskIntroVideo.src = videoUrl;
                     taskIntroVideo.load();
+                    scheduleTaskIntroVideoLoadTimeout(taskIntroVideo, taskIntroVideoError);
                     taskIntroVideoWrap.classList.remove('hidden');
                 } else {
+                    clearTaskIntroVideoLoadTimeout();
                     taskIntroVideo.removeAttribute('src');
                     taskIntroVideo.load();
                     taskIntroVideoWrap.classList.add('hidden');
@@ -700,6 +729,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function closeTaskIntroPanel({ pauseVideo = true } = {}) {
             if (!taskIntroPanel) return;
+            clearTaskIntroVideoLoadTimeout();
             taskIntroPanel.classList.add('hidden');
             document.body.classList.remove('task-intro-open');
             if (pauseVideo) {
@@ -3041,6 +3071,43 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        function normalizeChoiceOption(rawOption, index) {
+            const fallbackKey = String.fromCharCode(65 + index);
+            if (typeof rawOption === 'string') {
+                const text = rawOption.trim();
+                return text ? { key: fallbackKey, label: text, value: text } : null;
+            }
+            if (!rawOption || typeof rawOption !== 'object') return null;
+            const labelCandidate = rawOption.label ?? rawOption.text ?? rawOption.title ?? rawOption.name ?? rawOption.value;
+            const valueCandidate = rawOption.value ?? rawOption.answer ?? labelCandidate;
+            const label = String(labelCandidate || '').trim();
+            const value = String(valueCandidate || '').trim();
+            if (!label && !value) return null;
+            const key = String(rawOption.key || rawOption.option || fallbackKey).trim().toUpperCase();
+            return {
+                key: key || fallbackKey,
+                label: label || value,
+                value: value || label
+            };
+        }
+
+        function buildTaskChoiceOptions(task) {
+            let options = [];
+            if (Array.isArray(task?.options)) {
+                options = task.options;
+            } else if (typeof task?.options === 'string') {
+                try {
+                    const parsed = JSON.parse(task.options || '[]');
+                    if (Array.isArray(parsed)) options = parsed;
+                } catch (err) {
+                    options = [];
+                }
+            }
+            return options
+                .map((opt, idx) => normalizeChoiceOption(opt, idx))
+                .filter(Boolean);
+        }
+
         function showAnswerModal(task) {
             if (!answerModal || !task) return;
             closeTaskEncounter();
@@ -3068,16 +3135,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (task.task_type === 'multiple_choice') {
                 const choicesDiv = document.createElement('div');
                 choicesDiv.className = 'answer-choices';
-                let choices = [];
-                if (Array.isArray(task.options)) choices = task.options;
-                else if (typeof task.options === 'string') {
-                    try { choices = JSON.parse(task.options || '[]'); } catch (e) { choices = []; }
-                }
+                const choices = buildTaskChoiceOptions(task);
                 choices.forEach((choice) => {
                     const node = document.createElement('div');
                     node.className = 'answer-choice';
-                    node.textContent = choice;
-                    node.dataset.value = choice;
+                    node.textContent = choice.label;
+                    node.dataset.value = choice.value;
+                    node.dataset.choiceKey = choice.key;
                     node.onclick = () => {
                         choicesDiv.querySelectorAll('.answer-choice').forEach((c) => c.classList.remove('selected'));
                         node.classList.add('selected');
@@ -3085,6 +3149,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     };
                     choicesDiv.appendChild(node);
                 });
+                if (!choices.length) {
+                    const emptyHint = document.createElement('div');
+                    emptyHint.className = 'answer-message';
+                    emptyHint.textContent = '此關卡沒有可用選項，請通知工作人員檢查題目設定。';
+                    choicesDiv.appendChild(emptyHint);
+                }
                 answerInputContainer.appendChild(choicesDiv);
             } else if (task.task_type === 'photo') {
                 const group = document.createElement('div');
@@ -3342,7 +3412,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
                     return;
                 }
-                answer = selected.dataset.value;
+                answer = selected.dataset.value || selected.dataset.choiceKey || selected.textContent || '';
+                answer = String(answer).trim();
+                if (!answer) {
+                    answerMessage.textContent = '❌ 選項資料異常，請重新選擇一次';
+                    if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
+                    return;
+                }
                 if (tutorialPassMode) {
                     answerModal.classList.add('hidden');
                     tutorialFlowStarted = false;
@@ -3497,12 +3573,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         setImmersiveCameraMode(true);
                         renderTutorialModeUi();
                     }
-                    await showNpcDialog({
+                    btnAnswerSubmit.disabled = false;
+                    showNpcDialog({
                         speakerKey: 'rescue',
                         mood: '規則未通過',
-                        text: `這一題還沒有通過。\n\n海羽提醒：${failText}`
+                        text: `這一題還沒有通過。\n\n海羽提醒：${failText}`,
+                        autoCloseMs: 2200,
+                        blocking: false
                     });
-                    btnAnswerSubmit.disabled = false;
                 }
             }
         }
@@ -5487,6 +5565,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (taskIntroClose && taskIntroPanel) {
             taskIntroClose.addEventListener('click', () => {
+                closeTaskIntroPanel();
+            });
+        }
+        if (taskIntroSkip && taskIntroPanel) {
+            taskIntroSkip.addEventListener('click', () => {
                 closeTaskIntroPanel();
             });
         }
