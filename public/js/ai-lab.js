@@ -1405,7 +1405,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 gameShellToggle.textContent = shouldHideTutorialChrome ? '教學' : '任務';
             }
 
-            const shouldShowExitBtn = currentEntryMode === 'story_campaign' || currentEntryMode === 'board_game';
+            const shouldShowExitBtn = (currentEntryMode === 'story_campaign' || currentEntryMode === 'board_game') && isPhotoCapture;
             let exitBtn = document.getElementById('shellExitBtn');
             if (shouldShowExitBtn && !exitBtn) {
                 exitBtn = document.createElement('button');
@@ -1421,7 +1421,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.location.href = '/index.html';
                     }
                 });
-                document.body.appendChild(exitBtn);
+                (cameraContainer || document.body).appendChild(exitBtn);
             }
             if (shouldShowExitBtn && exitBtn) {
                 exitBtn.textContent = isCurrentQuestTutorialMode()
@@ -3490,8 +3490,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            if (!currentUserTaskId) await fetchCurrentUserTaskId();
-            if (!currentUserTaskId) await createCurrentUserTaskRecord();
+            try {
+                if (!currentUserTaskId) await fetchCurrentUserTaskId();
+                if (!currentUserTaskId) await createCurrentUserTaskRecord();
+            } catch (err) {
+                const message = err?.message || '無法建立關卡紀錄，請稍後再試';
+                answerMessage.textContent = `❌ ${message}`;
+                if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
+                return;
+            }
             if (!currentUserTaskId) {
                 answerMessage.textContent = '❌ 無法建立關卡紀錄，請重新整理後再試';
                 if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
@@ -5715,7 +5722,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btnAnswerSubmit.addEventListener('click', () => {
                 submitTaskAnswer().catch((err) => {
                     console.error('提交任務答案失敗', err);
-                    answerMessage.textContent = '❌ 送出失敗';
+                    answerMessage.textContent = `❌ ${err?.message || '送出失敗'}`;
                     btnAnswerSubmit.disabled = false;
                 });
             });

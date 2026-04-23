@@ -5012,11 +5012,6 @@ app.post('/api/user-tasks', authenticateToken, async (req, res) => {
     if (users.length === 0) return res.status(400).json({ success: false, message: '找不到使用者' });
     
     const user = users[0];
-    // 阻擋管理員或工作人員接取任務
-    if (user.role === 'admin' || user.role === 'shop' || user.role === 'staff') {
-      return res.status(403).json({ success: false, message: '管理員或工作人員無法接取任務' });
-    }
-
     const userId = user.id;
     // 檢查是否已經有進行中
     const [inProgress] = await conn.execute('SELECT id FROM user_tasks WHERE user_id = ? AND task_id = ? AND status = "進行中"', [userId, task_id]);

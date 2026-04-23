@@ -3738,9 +3738,9 @@ body.immersive-camera-mode .reticle-overlay {
 
 .tutorial-exit-btn {
     position: fixed;
-    top: 12px;
+    top: calc(10px + env(safe-area-inset-top, 0px));
     right: 12px;
-    z-index: 48;
+    z-index: var(--z-capture-bar);
     padding: 6px 14px;
     background: rgba(0, 0, 0, 0.5);
     color: #fff;
@@ -3751,6 +3751,13 @@ body.immersive-camera-mode .reticle-overlay {
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     min-height: 44px;
+    display: none;
+}
+
+body.immersive-camera-mode .tutorial-exit-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 body.task-intro-open .tutorial-exit-btn {
