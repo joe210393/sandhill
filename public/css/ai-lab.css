@@ -3764,3 +3764,350 @@ body.task-intro-open .tutorial-exit-btn {
     opacity: 0;
     pointer-events: none;
 }
+
+/* ===== Mobile UX Refresh (2026-04) =====
+   目標：避免資訊卡互相覆蓋，讓單手操作更穩定。 */
+@media (max-width: 900px) {
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .ui-layer {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: calc(6px + env(safe-area-inset-top, 0px)) 10px calc(152px + env(safe-area-inset-bottom, 0px));
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .header,
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .top-controls,
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-shell-panel,
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-hud,
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .board-status-card {
+        position: relative !important;
+        top: auto !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        transform: none !important;
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: none !important;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .header {
+        order: 1;
+        justify-content: flex-start;
+        padding: 0 !important;
+        z-index: var(--z-panel);
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .status-pill {
+        padding: 5px 12px;
+        border-radius: 999px;
+        font-size: 11px;
+        background: rgba(0, 0, 0, 0.46);
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .top-controls {
+        order: 2;
+        width: 100% !important;
+        pointer-events: none;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .location-bar {
+        width: 100%;
+        font-size: 11px;
+        border-radius: 12px;
+        text-align: center;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-shell-panel {
+        order: 3;
+        z-index: var(--z-panel);
+        padding: 12px 12px 10px !important;
+        border-radius: 18px;
+        background: rgba(7, 12, 20, 0.78);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3);
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-shell-top {
+        align-items: center;
+        gap: 8px;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-shell-mode {
+        font-size: 10px;
+        padding: 4px 8px;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-shell-title {
+        margin-top: 6px;
+        font-size: 1.02rem;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-shell-toggle {
+        min-height: 42px;
+        padding: 7px 12px;
+        font-size: 13px;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-shell-summary {
+        margin-top: 8px;
+        font-size: 12px;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-shell-body {
+        margin-top: 10px;
+        gap: 8px;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-shell-block {
+        border-radius: 14px;
+        padding: 9px 10px;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-hud {
+        order: 4;
+        z-index: var(--z-hud);
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+        pointer-events: auto;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .hud-chip {
+        min-width: 0 !important;
+        width: 100%;
+        padding: 8px 8px;
+        border-radius: 13px;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .hud-label {
+        margin-bottom: 3px;
+        font-size: 9px;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .hud-chip strong {
+        font-size: 13px;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .board-status-card {
+        order: 5;
+        z-index: var(--z-hud);
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        min-width: 0 !important;
+        padding: 10px;
+        border-radius: 14px;
+        pointer-events: auto;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .board-status-row {
+        display: grid;
+        gap: 4px;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .board-status-row.wide {
+        grid-column: 1 / -1;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .board-status-row strong {
+        font-size: 13px;
+    }
+
+    .task-hud-dock {
+        position: fixed;
+        top: auto !important;
+        right: 12px !important;
+        bottom: calc(238px + env(safe-area-inset-bottom, 0px));
+        z-index: var(--z-hud);
+        gap: 8px;
+    }
+
+    .task-hud-toggle {
+        min-width: 94px;
+        min-height: 44px;
+        height: 44px;
+        border-radius: 14px;
+        padding: 0 12px;
+    }
+
+    .task-status-box {
+        width: min(78vw, 286px);
+        max-height: 36vh;
+        overflow-y: auto;
+    }
+
+    .mini-map-wrap {
+        position: fixed;
+        right: 12px;
+        bottom: calc(124px + env(safe-area-inset-bottom, 0px));
+        z-index: var(--z-map);
+        align-items: flex-end;
+        gap: 8px;
+    }
+
+    .mini-map {
+        width: 132px;
+        height: 132px;
+        border-radius: 14px;
+        opacity: 0.96;
+    }
+
+    .mini-map-toggle,
+    .mini-map-refresh {
+        width: 48px;
+        height: 48px;
+        padding: 0;
+        border-radius: 14px;
+        font-size: 20px;
+        display: grid;
+        place-items: center;
+    }
+
+    .location-info {
+        max-width: 132px;
+        font-size: 10px;
+        padding: 4px 6px;
+        border-radius: 9px;
+    }
+
+    .feature-dock {
+        position: fixed !important;
+        top: auto !important;
+        left: 12px !important;
+        right: auto !important;
+        bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+        z-index: var(--z-dock);
+        align-items: flex-end;
+        gap: 8px;
+    }
+
+    .feature-dock-controls {
+        gap: 8px;
+    }
+
+    .feature-dock-menu {
+        position: absolute;
+        left: 0;
+        bottom: 58px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: 48vh;
+        overflow-y: auto;
+        padding: 10px;
+        border-radius: 18px;
+        background: rgba(8, 14, 28, 0.88);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: 0 18px 34px rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(14px);
+    }
+
+    .icon-btn,
+    .feature-dock-toggle {
+        width: 50px;
+        height: 50px;
+        border-radius: 16px;
+        font-size: 20px;
+        background: rgba(8, 14, 28, 0.78);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        box-shadow: 0 10px 22px rgba(0, 0, 0, 0.24);
+    }
+
+    .feature-drawer-panel {
+        position: fixed;
+        left: 10px;
+        right: 10px;
+        bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+        min-width: 0;
+        z-index: var(--z-tutorial-drawer);
+    }
+
+    .dock-panel {
+        max-height: 46vh;
+        overflow-y: auto;
+        border-radius: 16px;
+        padding: 11px;
+    }
+
+    .floating-mic-btn {
+        position: fixed;
+        right: 12px;
+        bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+        width: 64px;
+        height: 64px;
+        border-radius: 20px;
+        z-index: var(--z-mic);
+    }
+
+    .voice-panel {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        width: auto;
+        bottom: calc(94px + env(safe-area-inset-bottom, 0px));
+        max-height: 52vh;
+        overflow-y: auto;
+        z-index: var(--z-voice);
+    }
+
+    .answer-toast {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        width: auto;
+        bottom: calc(98px + env(safe-area-inset-bottom, 0px));
+        z-index: var(--z-toast);
+    }
+
+    .query-transit {
+        bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+    }
+
+    body.ux-dock-menu-open .mini-map-wrap,
+    body.ux-dock-menu-open .task-hud-dock {
+        opacity: 0.34;
+        pointer-events: none;
+    }
+
+    body.ux-drawer-open .game-shell-panel,
+    body.ux-drawer-open .game-hud,
+    body.ux-drawer-open .board-status-card {
+        opacity: 0.36;
+        pointer-events: none;
+    }
+
+    body.ux-taskhud-open .game-hud,
+    body.ux-taskhud-open .board-status-card {
+        opacity: 0.6;
+    }
+
+    body.ux-voice-open .mini-map-wrap,
+    body.ux-voice-open .task-hud-dock {
+        display: none !important;
+    }
+
+    body.ux-toast-open .feature-drawer-panel {
+        display: none !important;
+    }
+}
+
+@media (max-width: 390px) {
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-hud {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .hud-chip strong {
+        font-size: 12px;
+    }
+
+    .mini-map {
+        width: 120px;
+        height: 120px;
+    }
+
+    .task-hud-dock {
+        bottom: calc(220px + env(safe-area-inset-bottom, 0px));
+    }
+}

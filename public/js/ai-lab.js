@@ -313,6 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const userPromptInput = document.getElementById('userPrompt');
         const modeBtns = document.querySelectorAll('.mode-btn');
         const uiLayer = document.querySelector('.ui-layer');
+        const gameHud = document.querySelector('.game-hud');
         let langSelect = document.getElementById('langSelect');
         const zoomControl = document.getElementById('zoomControl');
         const zoomValue = document.getElementById('zoomValue');
@@ -550,6 +551,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             reticleRadius = Math.floor(0.35 * Math.min(canvas.width, canvas.height));
             updateReticlePosition();
+            syncCompactUxState();
         }
 
         // 單手框選：更新取景框位置與大小
@@ -656,6 +658,7 @@ document.addEventListener('DOMContentLoaded', () => {
         function loadTaskVideo(task) {
             const videoUrl = task?.video_url || null;
             const hasVideo = Boolean(videoUrl);
+            const coverUrl = task?.photoUrl || task?.photo_url || '';
             gameShellPanel?.classList.toggle('has-video', hasVideo);
             taskIntroPanel?.classList.toggle('has-video', hasVideo);
             taskIntroDescription?.classList.toggle('has-video', hasVideo);
@@ -666,11 +669,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (gameShellVideoWrap && gameShellVideo) {
                 if (videoUrl) {
                     setTaskVideoErrorState(gameShellVideo, gameShellVideoError, false);
+                    gameShellVideo.preload = 'none';
+                    gameShellVideo.poster = coverUrl || '';
                     gameShellVideo.src = videoUrl;
                     gameShellVideo.load();
                     gameShellVideoWrap.classList.remove('hidden');
                 } else {
                     gameShellVideo.removeAttribute('src');
+                    gameShellVideo.removeAttribute('poster');
                     gameShellVideo.load();
                     gameShellVideoWrap.classList.add('hidden');
                     setTaskVideoErrorState(gameShellVideo, gameShellVideoError, false);
@@ -682,6 +688,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (taskIntroVideoError) {
                         taskIntroVideoError.textContent = '影片素材目前無法載入，請通知工作人員重新上傳影片。';
                     }
+                    taskIntroVideo.preload = 'auto';
+                    taskIntroVideo.poster = coverUrl || '';
                     taskIntroVideo.src = videoUrl;
                     taskIntroVideo.load();
                     scheduleTaskIntroVideoLoadTimeout(taskIntroVideo, taskIntroVideoError);
@@ -689,6 +697,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     clearTaskIntroVideoLoadTimeout();
                     taskIntroVideo.removeAttribute('src');
+                    taskIntroVideo.removeAttribute('poster');
                     taskIntroVideo.load();
                     taskIntroVideoWrap.classList.add('hidden');
                     setTaskVideoErrorState(taskIntroVideo, taskIntroVideoError, false);
@@ -701,6 +710,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function isCompactViewport() {
             return window.matchMedia('(max-width: 768px)').matches;
+        }
+
+        function syncCompactUxState() {
+            const compact = isCompactViewport();
+            document.body.classList.toggle('compact-ux', compact);
+
+            const dockMenuOpen = Boolean(featureDockMenu && !featureDockMenu.classList.contains('hidden'));
+            const drawerOpen = Boolean(featureDrawerPanel && !featureDrawerPanel.classList.contains('hidden'));
+            const taskHudOpen = Boolean(taskStatusBox && !taskStatusBox.classList.contains('hidden'));
+            const voiceOpen = Boolean(voicePanel && !voicePanel.classList.contains('hidden'));
+            const toastOpen = Boolean(answerToast && !answerToast.classList.contains('hidden'));
+
+            document.body.classList.toggle('ux-dock-menu-open', compact && dockMenuOpen);
+            document.body.classList.toggle('ux-drawer-open', compact && drawerOpen);
+            document.body.classList.toggle('ux-taskhud-open', compact && taskHudOpen);
+            document.body.classList.toggle('ux-voice-open', compact && voiceOpen);
+            document.body.classList.toggle('ux-toast-open', compact && toastOpen);
         }
 
         function pauseTaskMedia() {
@@ -1337,7 +1363,7 @@ document.addEventListener('DOMContentLoaded', () => {
             featureDock?.classList.toggle('tutorial-hidden', isTutorialStory);
             selectionInstruction?.classList.toggle('tutorial-hidden', isTutorialStory);
             floatingMicBtn?.classList.toggle('tutorial-hidden', shouldHideTutorialChrome);
-            document.querySelector('.game-hud')?.classList.toggle('tutorial-hidden', isTutorialStory);
+            gameHud?.classList.toggle('tutorial-hidden', isTutorialStory);
             document.querySelector('.game-shell-board-status')?.classList.toggle('tutorial-hidden', isTutorialBoard);
             document.querySelector('.mini-selection-toolbar')?.classList.toggle('tutorial-hidden', shouldHideTutorialChrome);
             document.body.classList.toggle('tutorial-board-clean', isTutorialBoard);
@@ -1432,6 +1458,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (!shouldShowExitBtn && exitBtn) {
                 exitBtn.remove();
             }
+            syncCompactUxState();
         }
 
         function getBoardTileMeta(tile) {
@@ -2627,6 +2654,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (dockZoomPanel) dockZoomPanel.classList.add('hidden');
             if (dockHudPanel) dockHudPanel.classList.add('hidden');
             if (dockBoardPanel) dockBoardPanel.classList.add('hidden');
+            syncCompactUxState();
         }
 
         function toggleDockPanel(panelName) {
@@ -2645,6 +2673,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 featureDrawerPanel.classList.remove('hidden');
                 panel.classList.remove('hidden');
             }
+            syncCompactUxState();
         }
 
         function renderTaskMetrics(distanceMeters = lastTaskDistance, bearing = lastTaskBearing) {
@@ -3982,10 +4011,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (voiceUser && userText !== undefined) voiceUser.textContent = userText || '—';
             if (voiceAi && aiText !== undefined) voiceAi.textContent = aiText || '—';
             if (voiceStatus && statusText !== undefined) voiceStatus.textContent = statusText;
+            syncCompactUxState();
         }
 
         function openVoicePanel() {
             if (voicePanel) voicePanel.classList.remove('hidden');
+            syncCompactUxState();
         }
 
         function setVoiceButtonsRecordingState(active) {
@@ -4000,6 +4031,7 @@ document.addEventListener('DOMContentLoaded', () => {
         function closeVoicePanel() {
             stopVoiceRecognition();
             if (voicePanel) voicePanel.classList.add('hidden');
+            syncCompactUxState();
         }
 
         function extractReplyText(rawText) {
@@ -4076,15 +4108,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!answerToast || !answerToastText) return;
             answerToastText.textContent = text || '';
             answerToast.classList.remove('hidden');
+            syncCompactUxState();
             if (answerToastTimer) clearTimeout(answerToastTimer);
             answerToastTimer = setTimeout(() => {
                 answerToast.classList.add('hidden');
+                syncCompactUxState();
             }, 12000);
         }
 
         function hideAnswerToast() {
             if (answerToastTimer) clearTimeout(answerToastTimer);
             if (answerToast) answerToast.classList.add('hidden');
+            syncCompactUxState();
         }
 
         function collapseResultPanel() {
@@ -4370,8 +4405,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            // Body class 更新 (CSS特效用)
-            document.body.className = `mode-${mode}`;
+            // Body class 更新 (CSS特效用)；保留其他狀態 class
+            document.body.classList.remove('mode-free', 'mode-mission');
+            document.body.classList.add(`mode-${mode}`);
+            syncCompactUxState();
 
             const script = getActiveScript();
             applyScript(script, showIntro);
@@ -5592,6 +5629,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     closeDockPanels();
                 }
                 featureDockToggle.textContent = willOpen ? '×' : '☰';
+                syncCompactUxState();
             });
         }
         if (gameShellToggle && gameShellPanel) {
@@ -5612,6 +5650,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const willOpen = taskStatusBox.classList.contains('hidden');
                 taskStatusBox.classList.toggle('hidden');
                 taskHudToggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+                syncCompactUxState();
             });
         }
         if (dockModeBtn) {

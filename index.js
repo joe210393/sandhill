@@ -8,6 +8,7 @@ const cookieParser = require('cookie-parser');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const webpush = require('web-push');
@@ -119,6 +120,8 @@ function buildStaticAssetDirs() {
 
 const STATIC_ASSET_DIRS = buildStaticAssetDirs();
 console.log('🗂️ 靜態素材搜尋路徑:', STATIC_ASSET_DIRS.join(' -> '));
+const VIDEO_ASSET_EXTENSIONS = new Set(['.mp4', '.mov', '.webm', '.m4v', '.avi']);
+const MODEL_ASSET_EXTENSIONS = new Set(['.glb', '.gltf']);
 
 // CORS 設定 - 根據環境變數限制網域
 const allowedOrigins = process.env.ALLOWED_ORIGINS
@@ -159,7 +162,25 @@ app.use(cookieParser());
 app.use(express.json({ charset: 'utf-8' }));
 
 // 優先從目前上傳目錄提供素材；若找不到，再回退到舊路徑，避免調整掛載點後舊素材瞬間失效。
-const imageStaticHandlers = STATIC_ASSET_DIRS.map((dir) => express.static(dir));
+// 影片會補上更友善的串流與快取 header，減少手機端等待時間。
+const imageStaticHandlers = STATIC_ASSET_DIRS.map((dir) => express.static(dir, {
+  setHeaders: (res, filePath) => {
+    const ext = path.extname(filePath).toLowerCase();
+    if (MODEL_ASSET_EXTENSIONS.has(ext)) {
+      if (ext === '.glb') res.setHeader('Content-Type', 'model/gltf-binary');
+      if (ext === '.gltf') res.setHeader('Content-Type', 'model/gltf+json');
+      res.setHeader('Cache-Control', 'public, max-age=604800');
+      return;
+    }
+    if (VIDEO_ASSET_EXTENSIONS.has(ext)) {
+      // 保留 byte-range，讓手機可以先播再載。
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+      return;
+    }
+    res.setHeader('Cache-Control', 'public, max-age=604800');
+  }
+}));
 app.use('/images', (req, res, next) => {
   let index = 0;
   const tryNextDir = () => {
@@ -1658,6 +1679,168 @@ const uploadVideo = multer({
   },
   fileFilter: videoFileFilter
 });
+
+let ffmpegBinaryReadyPromise = null;
+
+function shouldOptimizeVideoOnUpload() {
+  const raw = String(process.env.VIDEO_OPTIMIZE_ON_UPLOAD || '').trim().toLowerCase();
+  if (!raw) return true;
+  return ['1', 'true', 'yes', 'on'].includes(raw);
+}
+
+function getVideoOptimizationMinBytes() {
+  const raw = Number(process.env.VIDEO_OPTIMIZE_MIN_BYTES || 8 * 1024 * 1024);
+  if (!Number.isFinite(raw) || raw < 0) return 8 * 1024 * 1024;
+  return raw;
+}
+
+function getVideoOptimizationTimeoutMs() {
+  const raw = Number(process.env.VIDEO_OPTIMIZE_TIMEOUT_MS || 12 * 60 * 1000);
+  if (!Number.isFinite(raw) || raw < 60_000) return 12 * 60 * 1000;
+  return raw;
+}
+
+function isVideoAssetPath(fileName = '') {
+  const ext = path.extname(String(fileName || '')).toLowerCase();
+  return VIDEO_ASSET_EXTENSIONS.has(ext);
+}
+
+function runBinaryCommand(binary, args = [], { timeoutMs = 120_000 } = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(binary, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stderr = '';
+    let stdout = '';
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        try { child.kill('SIGKILL'); } catch (_) {}
+        reject(new Error(`${binary} 執行逾時`));
+      }
+    }, timeoutMs);
+
+    child.stdout?.on('data', (chunk) => { stdout += String(chunk || ''); });
+    child.stderr?.on('data', (chunk) => { stderr += String(chunk || ''); });
+
+    child.on('error', (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(err);
+    });
+
+    child.on('close', (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (code === 0) {
+        resolve({ stdout, stderr });
+      } else {
+        reject(new Error(`${binary} 失敗 (code=${code}): ${stderr.slice(-500)}`));
+      }
+    });
+  });
+}
+
+async function canUseFfmpegBinary() {
+  if (!ffmpegBinaryReadyPromise) {
+    ffmpegBinaryReadyPromise = runBinaryCommand('ffmpeg', ['-version'], { timeoutMs: 15_000 })
+      .then(() => true)
+      .catch((err) => {
+        console.warn('⚠️ ffmpeg 不可用，影片將跳過自動最佳化:', err.message);
+        return false;
+      });
+  }
+  return ffmpegBinaryReadyPromise;
+}
+
+async function optimizeUploadedVideoForStreaming(file) {
+  if (!file?.path || !file?.filename || !shouldOptimizeVideoOnUpload() || !isVideoAssetPath(file.filename)) {
+    return { optimized: false, originalSize: Number(file?.size || 0), finalSize: Number(file?.size || 0), reason: 'skip' };
+  }
+
+  const originalSize = Number(file.size || 0);
+  const optimizeMinBytes = getVideoOptimizationMinBytes();
+  const extension = path.extname(file.filename).toLowerCase();
+  const shouldTranscode = extension !== '.mp4' || originalSize >= optimizeMinBytes;
+  if (!shouldTranscode) {
+    return { optimized: false, originalSize, finalSize: originalSize, reason: 'small_mp4' };
+  }
+
+  const ffmpegReady = await canUseFfmpegBinary();
+  if (!ffmpegReady) {
+    return { optimized: false, originalSize, finalSize: originalSize, reason: 'ffmpeg_unavailable' };
+  }
+
+  const dirname = path.dirname(file.path);
+  const basename = path.basename(file.filename, path.extname(file.filename));
+  const optimizedFilename = `${basename}-web.mp4`;
+  const optimizedPath = path.join(dirname, optimizedFilename);
+  const vfExpr = "scale='if(gt(iw,1280),1280,iw)':-2:flags=lanczos,fps='min(30,fps)'";
+
+  try {
+    await runBinaryCommand(
+      'ffmpeg',
+      [
+        '-y',
+        '-i', file.path,
+        '-map_metadata', '-1',
+        '-movflags', '+faststart',
+        '-pix_fmt', 'yuv420p',
+        '-vf', vfExpr,
+        '-c:v', 'libx264',
+        '-preset', process.env.VIDEO_OPTIMIZE_PRESET || 'veryfast',
+        '-crf', process.env.VIDEO_OPTIMIZE_CRF || '28',
+        '-maxrate', process.env.VIDEO_OPTIMIZE_MAXRATE || '2200k',
+        '-bufsize', process.env.VIDEO_OPTIMIZE_BUFSIZE || '4400k',
+        '-c:a', 'aac',
+        '-b:a', process.env.VIDEO_OPTIMIZE_AUDIO_BITRATE || '96k',
+        '-ac', '2',
+        '-ar', '44100',
+        optimizedPath
+      ],
+      { timeoutMs: getVideoOptimizationTimeoutMs() }
+    );
+
+    const optimizedStat = await fs.promises.stat(optimizedPath);
+    if (!optimizedStat.size) {
+      throw new Error('最佳化輸出檔為空');
+    }
+
+    const keepOptimized = extension !== '.mp4' || optimizedStat.size <= originalSize;
+    if (!keepOptimized) {
+      await fs.promises.unlink(optimizedPath).catch(() => {});
+      return {
+        optimized: false,
+        originalSize,
+        finalSize: originalSize,
+        reason: 'optimized_file_larger'
+      };
+    }
+
+    await fs.promises.unlink(file.path).catch(() => {});
+    file.path = optimizedPath;
+    file.filename = optimizedFilename;
+    file.size = optimizedStat.size;
+    file.mimetype = 'video/mp4';
+
+    return {
+      optimized: true,
+      originalSize,
+      finalSize: optimizedStat.size,
+      reason: 'ok'
+    };
+  } catch (err) {
+    await fs.promises.unlink(optimizedPath).catch(() => {});
+    console.warn('⚠️ 影片最佳化失敗，改用原始檔案:', err.message);
+    return {
+      optimized: false,
+      originalSize,
+      finalSize: originalSize,
+      reason: 'ffmpeg_failed'
+    };
+  }
+}
 
 const uploadAiTaskImage = multer({
   storage: multer.memoryStorage(),
@@ -4519,10 +4702,11 @@ app.post('/api/video-assets', staffOrAdminAuth, uploadVideo.single('video'), asy
   if (!req.file) {
     return res.status(400).json({ success: false, message: '請選擇影片檔' });
   }
-  const url = '/images/' + req.file.filename;
   const createdBy = req.user?.username || null;
   let conn;
   try {
+    const optimization = await optimizeUploadedVideoForStreaming(req.file);
+    const url = '/images/' + req.file.filename;
     conn = await pool.getConnection();
     await assertSharedAssetStorageAvailable(conn, req.user, req.file.size, '影片素材');
     const shopId = req.user?.role === 'admin' ? null : getActorShopId(req.user);
@@ -4532,9 +4716,14 @@ app.post('/api/video-assets', staffOrAdminAuth, uploadVideo.single('video'), asy
     );
     res.json({
       success: true,
-      message: '影片已加入素材庫',
+      message: optimization.optimized ? '影片已加入素材庫（已最佳化）' : '影片已加入素材庫',
       id: result.insertId,
-      url
+      url,
+      optimization: {
+        optimized: optimization.optimized,
+        original_size: optimization.originalSize,
+        final_size: optimization.finalSize
+      }
     });
   } catch (err) {
     cleanupUploadedFile(req.file);

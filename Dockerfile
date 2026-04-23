@@ -4,6 +4,9 @@ LABEL "language"="nodejs"
 
 WORKDIR /app
 
+# 影片上傳後自動最佳化（轉碼/壓縮）依賴 ffmpeg
+RUN apk add --no-cache ffmpeg
+
 # 複製 package.json 和 lock 文件
 COPY package*.json ./
 
