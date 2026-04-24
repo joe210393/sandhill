@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#000">
     <title>沙丘｜海底探索艙</title>
     <link rel="icon" type="image/png" href="/images/mascot.png" />
-    <link rel="stylesheet" href="css/ai-lab.css?v=32">
+    <link rel="stylesheet" href="css/ai-lab.css?v=33">
     <link rel="stylesheet" href="css/mode-switch.css?v=2">
     <link
         rel="stylesheet"
@@ -192,6 +192,16 @@
                         <div id="gameShellVideoWrap" class="task-video-wrap hidden">
                             <div class="game-shell-label task-video-label">關卡影片</div>
                             <video id="gameShellVideo" class="task-video-player" controls playsinline webkit-playsinline preload="none"></video>
+                            <iframe
+                                id="gameShellVideoFrame"
+                                class="task-video-embed hidden"
+                                title="關卡影片 YouTube 播放器"
+                                src="about:blank"
+                                loading="lazy"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                referrerpolicy="strict-origin-when-cross-origin"
+                                allowfullscreen
+                            ></iframe>
                             <div id="gameShellVideoError" class="task-video-error hidden">影片素材目前無法載入，請通知工作人員重新上傳影片。</div>
                         </div>
                         <div style="margin-top:12px;">
@@ -331,6 +341,16 @@
                     <div id="taskIntroDescription" class="task-intro-description"></div>
                     <div id="taskIntroVideoWrap" class="task-video-wrap hidden">
                         <video id="taskIntroVideo" class="task-video-player task-video-player-intro" controls playsinline webkit-playsinline preload="auto"></video>
+                        <iframe
+                            id="taskIntroVideoFrame"
+                            class="task-video-embed task-video-embed-intro hidden"
+                            title="景點介紹 YouTube 播放器"
+                            src="about:blank"
+                            loading="lazy"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            referrerpolicy="strict-origin-when-cross-origin"
+                            allowfullscreen
+                        ></iframe>
                         <div id="taskIntroVideoError" class="task-video-error hidden">影片素材目前無法載入，請通知工作人員重新上傳影片。</div>
                     </div>
                 </div>
@@ -533,6 +553,6 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
         crossorigin=""></script>
-    <script src="js/ai-lab.js?v=38"></script>
+    <script src="js/ai-lab.js?v=39"></script>
 </body>
 </html>

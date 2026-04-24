@@ -361,6 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const gameShellObjective = document.getElementById('gameShellObjective');
         const gameShellVideoWrap = document.getElementById('gameShellVideoWrap');
         const gameShellVideo = document.getElementById('gameShellVideo');
+        const gameShellVideoFrame = document.getElementById('gameShellVideoFrame');
         const gameShellVideoError = document.getElementById('gameShellVideoError');
         const gameShellProgress = document.getElementById('gameShellProgress');
         const gameShellEntries = document.getElementById('gameShellEntries');
@@ -404,6 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const taskIntroDescription = document.getElementById('taskIntroDescription');
         const taskIntroVideoWrap = document.getElementById('taskIntroVideoWrap');
         const taskIntroVideo = document.getElementById('taskIntroVideo');
+        const taskIntroVideoFrame = document.getElementById('taskIntroVideoFrame');
         const taskIntroVideoError = document.getElementById('taskIntroVideoError');
         const taskIntroSkip = document.getElementById('taskIntroSkip');
         const taskIntroClose = document.getElementById('taskIntroClose');
@@ -586,6 +588,71 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        function parseYouTubeStartSeconds(rawValue) {
+            if (!rawValue) return null;
+            if (/^\d+$/.test(String(rawValue))) return Number(rawValue);
+            const match = String(rawValue).match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i);
+            if (!match) return null;
+            const hours = Number(match[1] || 0);
+            const minutes = Number(match[2] || 0);
+            const seconds = Number(match[3] || 0);
+            const total = (hours * 3600) + (minutes * 60) + seconds;
+            return total > 0 ? total : null;
+        }
+
+        function toYouTubeEmbedUrl(rawUrl) {
+            if (!rawUrl) return null;
+            try {
+                const parsed = new URL(rawUrl, window.location.origin);
+                const host = parsed.hostname.replace(/^www\./, '').toLowerCase();
+                let videoId = '';
+                if (host === 'youtu.be') {
+                    videoId = parsed.pathname.split('/').filter(Boolean)[0] || '';
+                } else if (host.endsWith('youtube.com') || host.endsWith('youtube-nocookie.com')) {
+                    if (parsed.pathname === '/watch') {
+                        videoId = parsed.searchParams.get('v') || '';
+                    } else if (parsed.pathname.startsWith('/embed/')) {
+                        videoId = parsed.pathname.split('/')[2] || '';
+                    } else if (parsed.pathname.startsWith('/shorts/')) {
+                        videoId = parsed.pathname.split('/')[2] || '';
+                    }
+                }
+                if (!videoId) return null;
+                const embed = new URL(`https://www.youtube.com/embed/${encodeURIComponent(videoId)}`);
+                embed.searchParams.set('playsinline', '1');
+                embed.searchParams.set('rel', '0');
+                embed.searchParams.set('modestbranding', '1');
+                embed.searchParams.set('enablejsapi', '1');
+                const start = parseYouTubeStartSeconds(parsed.searchParams.get('t') || parsed.searchParams.get('start'));
+                if (start) embed.searchParams.set('start', String(start));
+                return embed.toString();
+            } catch (err) {
+                return null;
+            }
+        }
+
+        function setYouTubeFrameSource(frameEl, embedUrl) {
+            if (!frameEl) return;
+            if (embedUrl) {
+                frameEl.src = embedUrl;
+                frameEl.classList.remove('hidden');
+            } else {
+                frameEl.src = 'about:blank';
+                frameEl.classList.add('hidden');
+            }
+        }
+
+        function pauseYouTubeFrame(frameEl) {
+            try {
+                frameEl?.contentWindow?.postMessage(
+                    JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }),
+                    '*'
+                );
+            } catch (err) {
+                console.warn('暫停 YouTube 影片失敗', err);
+            }
+        }
+
         function clearTaskIntroVideoLoadTimeout() {
             if (!taskIntroVideoLoadTimer) return;
             clearTimeout(taskIntroVideoLoadTimer);
@@ -671,8 +738,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        function getTaskVideoUrl(task) {
+            return String(task?.video_url || task?.youtubeUrl || task?.youtube_url || '').trim() || null;
+        }
+
         function loadTaskVideo(task) {
-            const videoUrl = task?.video_url || null;
+            const videoUrl = getTaskVideoUrl(task);
+            const youtubeEmbedUrl = toYouTubeEmbedUrl(videoUrl);
+            const isYouTubeVideo = Boolean(youtubeEmbedUrl);
             const hasVideo = Boolean(videoUrl);
             const coverUrl = task?.photoUrl || task?.photo_url || '';
             gameShellPanel?.classList.toggle('has-video', hasVideo);
@@ -685,15 +758,32 @@ document.addEventListener('DOMContentLoaded', () => {
             if (gameShellVideoWrap && gameShellVideo) {
                 if (videoUrl) {
                     setTaskVideoErrorState(gameShellVideo, gameShellVideoError, false);
-                    gameShellVideo.preload = 'none';
-                    gameShellVideo.poster = coverUrl || '';
-                    gameShellVideo.src = videoUrl;
-                    gameShellVideo.load();
+                    if (isYouTubeVideo) {
+                        try {
+                            gameShellVideo.pause();
+                        } catch (err) {
+                            console.warn('暫停內建影片失敗', err);
+                        }
+                        gameShellVideo.removeAttribute('src');
+                        gameShellVideo.removeAttribute('poster');
+                        gameShellVideo.load();
+                        gameShellVideo.classList.add('hidden');
+                        setYouTubeFrameSource(gameShellVideoFrame, youtubeEmbedUrl);
+                    } else {
+                        setYouTubeFrameSource(gameShellVideoFrame, null);
+                        gameShellVideo.classList.remove('hidden');
+                        gameShellVideo.preload = 'none';
+                        gameShellVideo.poster = coverUrl || '';
+                        gameShellVideo.src = videoUrl;
+                        gameShellVideo.load();
+                    }
                     gameShellVideoWrap.classList.remove('hidden');
                 } else {
+                    setYouTubeFrameSource(gameShellVideoFrame, null);
                     gameShellVideo.removeAttribute('src');
                     gameShellVideo.removeAttribute('poster');
                     gameShellVideo.load();
+                    gameShellVideo.classList.remove('hidden');
                     gameShellVideoWrap.classList.add('hidden');
                     setTaskVideoErrorState(gameShellVideo, gameShellVideoError, false);
                 }
@@ -702,19 +792,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (videoUrl) {
                     setTaskVideoErrorState(taskIntroVideo, taskIntroVideoError, false);
                     if (taskIntroVideoError) {
-                        taskIntroVideoError.textContent = '影片素材目前無法載入，請通知工作人員重新上傳影片。';
+                        taskIntroVideoError.textContent = isYouTubeVideo
+                            ? 'YouTube 影片目前無法載入，請確認連結與網路狀態。'
+                            : '影片素材目前無法載入，請通知工作人員重新上傳影片。';
                     }
-                    taskIntroVideo.preload = 'auto';
-                    taskIntroVideo.poster = coverUrl || '';
-                    taskIntroVideo.src = videoUrl;
-                    taskIntroVideo.load();
-                    scheduleTaskIntroVideoLoadTimeout(taskIntroVideo, taskIntroVideoError);
+                    if (isYouTubeVideo) {
+                        clearTaskIntroVideoLoadTimeout();
+                        try {
+                            taskIntroVideo.pause();
+                        } catch (err) {
+                            console.warn('暫停景點影片失敗', err);
+                        }
+                        taskIntroVideo.removeAttribute('src');
+                        taskIntroVideo.removeAttribute('poster');
+                        taskIntroVideo.load();
+                        taskIntroVideo.classList.add('hidden');
+                        setYouTubeFrameSource(taskIntroVideoFrame, youtubeEmbedUrl);
+                    } else {
+                        setYouTubeFrameSource(taskIntroVideoFrame, null);
+                        taskIntroVideo.classList.remove('hidden');
+                        taskIntroVideo.preload = 'auto';
+                        taskIntroVideo.poster = coverUrl || '';
+                        taskIntroVideo.src = videoUrl;
+                        taskIntroVideo.load();
+                        scheduleTaskIntroVideoLoadTimeout(taskIntroVideo, taskIntroVideoError);
+                    }
                     taskIntroVideoWrap.classList.remove('hidden');
                 } else {
                     clearTaskIntroVideoLoadTimeout();
+                    setYouTubeFrameSource(taskIntroVideoFrame, null);
                     taskIntroVideo.removeAttribute('src');
                     taskIntroVideo.removeAttribute('poster');
                     taskIntroVideo.load();
+                    taskIntroVideo.classList.remove('hidden');
                     taskIntroVideoWrap.classList.add('hidden');
                     setTaskVideoErrorState(taskIntroVideo, taskIntroVideoError, false);
                 }
@@ -754,6 +864,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.warn('暫停任務影片失敗', err);
                 }
             });
+            pauseYouTubeFrame(gameShellVideoFrame);
+            pauseYouTubeFrame(taskIntroVideoFrame);
         }
 
         function openTaskIntroPanel({ autoPlay = false } = {}) {
@@ -780,7 +892,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function maybeAutoOpenTaskIntro(task) {
-            const taskVideoUrl = task?.video_url || null;
+            const taskVideoUrl = getTaskVideoUrl(task);
             const taskKey = String(task?.id || '');
             if (!taskVideoUrl || !taskKey || !isCompactViewport()) return;
             if (lastAutoOpenedTaskVideoTaskId === taskKey && !taskIntroPanel?.classList.contains('hidden')) return;
@@ -814,7 +926,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             tryAutoPlayTaskBgm(0, { force: true });
             renderHudSummary();
-            if (task?.video_url) {
+            if (getTaskVideoUrl(task)) {
                 maybeAutoOpenTaskIntro(task);
             } else {
                 closeTaskIntroPanel();
@@ -1002,7 +1114,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (taskHudToggle) taskHudToggle.setAttribute('aria-expanded', 'false');
             }
             renderTutorialModeUi();
-            if (shouldRevealFormalStoryShell && currentTask?.video_url) {
+            if (shouldRevealFormalStoryShell && getTaskVideoUrl(currentTask)) {
                 window.setTimeout(() => {
                     maybeAutoOpenTaskIntro(currentTask);
                 }, 120);
