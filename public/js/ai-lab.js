@@ -643,15 +643,30 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!taskBgm) return;
             const musicUrl = task?.bgm_url || task?.audio_url || null;
             if (musicUrl) {
+                try {
+                    taskBgm.pause();
+                    taskBgm.currentTime = 0;
+                } catch (err) {
+                    console.warn('重置任務背景音樂失敗', err);
+                }
                 taskBgm.src = musicUrl;
                 taskBgm.load();
                 taskBgm.volume = 0.5;
+                bgmAutoStarted = false;
                 if (taskBgmBtn) {
                     taskBgmBtn.classList.remove('hidden');
                     taskBgmBtn.title = '任務背景音樂';
+                    taskBgmBtn.textContent = '🎵';
                 }
             } else {
+                try {
+                    taskBgm.pause();
+                    taskBgm.currentTime = 0;
+                } catch (err) {
+                    console.warn('停止任務背景音樂失敗', err);
+                }
                 taskBgm.src = '';
+                bgmAutoStarted = false;
                 if (taskBgmBtn) taskBgmBtn.classList.add('hidden');
             }
         }
@@ -797,6 +812,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (gameShellObjective) {
                 gameShellObjective.textContent = task.stage_intro || task.description || task.name || '請前往完成當前關卡';
             }
+            tryAutoPlayTaskBgm(0, { force: true });
             renderHudSummary();
             if (task?.video_url) {
                 maybeAutoOpenTaskIntro(task);
@@ -2827,10 +2843,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         }
 
-        function tryAutoPlayTaskBgm(distanceMeters) {
+        function tryAutoPlayTaskBgm(distanceMeters, { force = false } = {}) {
             if (!taskBgm || !taskBgm.src || bgmAutoStarted) return;
             const triggerDistance = Math.max(8, currentTask?.radius || 30);
-            if (distanceMeters > triggerDistance) return;
+            if (!force && distanceMeters > triggerDistance) return;
             taskBgm.play().then(() => {
                 bgmAutoStarted = true;
                 if (taskBgmBtn) taskBgmBtn.textContent = '🔊';
@@ -3144,6 +3160,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 .filter(Boolean);
         }
 
+        const ANSWER_SUBMIT_LABEL_IDLE = btnAnswerSubmit?.textContent?.trim() || '送出答案';
+
+        function setAnswerChoicePendingState(isPending) {
+            const choiceNodes = document.querySelectorAll('.answer-choice');
+            choiceNodes.forEach((node) => {
+                node.classList.toggle('pending', isPending);
+                if (isPending) node.setAttribute('aria-disabled', 'true');
+                else node.removeAttribute('aria-disabled');
+            });
+        }
+
+        function setAnswerSubmitLoadingState(isLoading, pendingLabel = '系統確認中...') {
+            if (!btnAnswerSubmit) return;
+            btnAnswerSubmit.classList.toggle('is-loading', isLoading);
+            btnAnswerSubmit.textContent = isLoading ? pendingLabel : ANSWER_SUBMIT_LABEL_IDLE;
+        }
+
+        function resetAnswerSubmitUi() {
+            setAnswerChoicePendingState(false);
+            setAnswerSubmitLoadingState(false);
+        }
+
         function showAnswerModal(task) {
             if (!answerModal || !task) return;
             closeTaskEncounter();
@@ -3163,6 +3201,7 @@ document.addEventListener('DOMContentLoaded', () => {
             answerTaskDescription.textContent = descriptionParts.join('\n\n');
             answerInputContainer.innerHTML = '';
             answerMessage.textContent = '';
+            resetAnswerSubmitUi();
             btnAnswerSubmit.disabled = true;
             capturedPhotos.length = 0;
             currentAnswerPhotoDataUrl = null;
@@ -3259,6 +3298,7 @@ document.addEventListener('DOMContentLoaded', () => {
         async function submitTaskAnswer() {
             if (!currentTask) return;
             if (btnAnswerSubmit) btnAnswerSubmit.disabled = true;
+            setAnswerSubmitLoadingState(true, '系統確認中...');
             let answer = '';
             const photoInput = document.getElementById('answerPhotoInput');
             const hasPhotoField = Boolean(photoInput);
@@ -3270,200 +3310,246 @@ document.addEventListener('DOMContentLoaded', () => {
             const tutorialPassMode = isCurrentQuestDemoMode() || isCurrentQuestTutorialMode();
             const tutorialGuestMode = isTutorialGuestMode();
 
-            if (currentTask.task_type === 'photo') {
-                if (!hasPhotoDraft && !photoInput?.files?.[0]) {
-                    answerMessage.textContent = isPhotoTaskCaptureActive() ? '❌ 請先拍下一張畫面' : '❌ 請先選擇一張照片';
-                    if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
-                    return;
-                }
-                if (isAiPhotoTask) {
-                    const fd = new FormData();
-                    if (hasPhotoDraft) {
-                        const draftBlob = await dataUrlToBlob(currentAnswerPhotoDataUrl);
-                        fd.append('image', draftBlob, 'reticle-capture.jpg');
-                    } else {
-                        fd.append('image', photoInput.files[0]);
-                    }
-                    answerMessage.textContent = tutorialPassMode ? '⏳ 正在整理教學判定...' : '⏳ AI 判定中...';
-                    if (typeof showQueryTransit === 'function') {
-                        showQueryTransit(tutorialPassMode ? '教學模式判定中，請稍候...' : '潮汐裁判・鯨語正在仔細檢查你的照片...');
-                    }
-                    let aiData;
-                    try {
-                        aiData = await requestJson(`${tutorialPassMode ? `/api/tutorial/ai-tasks/${currentTask.id}/submit` : `/api/ai-tasks/${currentTask.id}/submit`}`, {
-                            method: 'POST',
-                            body: fd
-                        }, '送出 AI 圖片判定');
-                    } catch (err) {
-                        if (typeof hideQueryTransit === 'function') hideQueryTransit();
-                        answerMessage.textContent = `❌ ${err.message}`;
-                        await showNpcDialog({
-                            speakerKey: 'rescue',
-                            mood: '連線中斷',
-                            text: `海羽偵測到探索艙目前沒有成功送出這張照片。\n\n${err.message}\n\n先確認網路或重新整理後再試一次。`
-                        });
-                        btnAnswerSubmit.disabled = false;
+            try {
+                if (currentTask.task_type === 'photo') {
+                    if (!hasPhotoDraft && !photoInput?.files?.[0]) {
+                        answerMessage.textContent = isPhotoTaskCaptureActive() ? '❌ 請先拍下一張畫面' : '❌ 請先選擇一張照片';
+                        if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
                         return;
                     }
-                    if (typeof hideQueryTransit === 'function') hideQueryTransit();
-                    const judgeSummary = normalizeUiText(aiData.reason, '') || normalizeUiText(aiData.message, 'AI 已完成判定。');
-                    const retrySummary = normalizeUiText(aiData.retry_advice, '');
-                    answerMessage.textContent = judgeSummary ? `🤖 ${judgeSummary}` : '🤖 AI 已完成判定';
-                    if (aiData.success && aiData.passed) {
-                        currentUserTaskId = aiData.user_task_id || currentUserTaskId;
-                        resetPhotoCaptureState();
-                        answerModal.classList.add('hidden');
-                        tutorialFlowStarted = false;
-                        renderTutorialModeUi();
-                        const successText = tutorialPassMode
-                            ? `鯨語已經看完你上傳的畫面。\n\n${judgeSummary}\n\n教學模式先替你放行，讓你可以把整段流程順順走完。`
-                            : `${judgeSummary}${retrySummary ? `\n\n補充：${retrySummary}` : ''}`;
-                        const storyJudgeAutoClose = tutorialPassMode ? null : (currentEntryMode === 'board_game' ? 2800 : null);
-                        if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
-                            await completeBoardTurn(true, {
-                                speakerKey: 'judge',
-                                mood: tutorialPassMode ? '教學判定' : 'AI 通關',
-                                text: successText,
-                                autoCloseMs: tutorialPassMode ? null : 2800
-                            });
+                    if (isAiPhotoTask) {
+                        const fd = new FormData();
+                        if (hasPhotoDraft) {
+                            const draftBlob = await dataUrlToBlob(currentAnswerPhotoDataUrl);
+                            fd.append('image', draftBlob, 'reticle-capture.jpg');
                         } else {
-                            if (tutorialGuestMode) {
-                                completeTutorialGuestTask(currentTask);
-                            }
-                            await showNpcDialog({
-                                speakerKey: 'judge',
-                                mood: tutorialPassMode ? '教學判定' : 'AI 通關',
-                                text: successText,
-                                buttonLabel: tutorialPassMode ? '我知道了' : null,
-                                autoCloseMs: storyJudgeAutoClose,
-                                blocking: tutorialPassMode
-                            });
+                            fd.append('image', photoInput.files[0]);
                         }
-                        scheduleStoryReloadAfterCompletion();
-                        const tutorialCompletionText = judgeSummary
-                            ? `🤖 鯨語判定：${judgeSummary}\n✅ 教學模式已完成這一步`
-                            : '✅ 教學模式已完成這一步';
-                        showCompletionModal(aiData.earnedItemName ? `🎁 獲得：${aiData.earnedItemName}` : (tutorialPassMode ? tutorialCompletionText : (aiData.message || '✅ AI 驗證通過')));
-                    } else {
-                        document.body.classList.remove('shake-error');
-                        void document.body.offsetWidth;
-                        document.body.classList.add('shake-error');
-                        setTimeout(() => document.body.classList.remove('shake-error'), 500);
-
-                        const failText = judgeSummary || retrySummary || 'AI 驗證未通過，請再試一次';
-                        const tutorialWrongTargetText = tutorialPassMode
-                            ? `鯨語看完這張照片後說：\n\n${judgeSummary || '不是這個喔。'}\n\n因為現在是教學模式，所以海羽還是先讓你往下走，正式關卡時就需要拍到指定物件才會通過。`
-                            : null;
-                        if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
+                        answerMessage.textContent = tutorialPassMode ? '⏳ 正在整理教學判定...' : '⏳ AI 判定中...';
+                        if (typeof showQueryTransit === 'function') {
+                            showQueryTransit(tutorialPassMode ? '教學模式判定中，請稍候...' : '潮汐裁判・鯨語正在仔細檢查你的照片...');
+                        }
+                        let aiData;
+                        try {
+                            aiData = await requestJson(`${tutorialPassMode ? `/api/tutorial/ai-tasks/${currentTask.id}/submit` : `/api/ai-tasks/${currentTask.id}/submit`}`, {
+                                method: 'POST',
+                                body: fd
+                            }, '送出 AI 圖片判定');
+                        } catch (err) {
+                            if (typeof hideQueryTransit === 'function') hideQueryTransit();
+                            answerMessage.textContent = `❌ ${err.message}`;
+                            await showNpcDialog({
+                                speakerKey: 'rescue',
+                                mood: '連線中斷',
+                                text: `海羽偵測到探索艙目前沒有成功送出這張照片。\n\n${err.message}\n\n先確認網路或重新整理後再試一次。`
+                            });
+                            btnAnswerSubmit.disabled = false;
+                            return;
+                        }
+                        if (typeof hideQueryTransit === 'function') hideQueryTransit();
+                        const judgeSummary = normalizeUiText(aiData.reason, '') || normalizeUiText(aiData.message, 'AI 已完成判定。');
+                        const retrySummary = normalizeUiText(aiData.retry_advice, '');
+                        answerMessage.textContent = judgeSummary ? `🤖 ${judgeSummary}` : '🤖 AI 已完成判定';
+                        if (aiData.success && aiData.passed) {
+                            currentUserTaskId = aiData.user_task_id || currentUserTaskId;
                             resetPhotoCaptureState();
                             answerModal.classList.add('hidden');
-                            if (tutorialPassMode) {
+                            tutorialFlowStarted = false;
+                            renderTutorialModeUi();
+                            const successText = tutorialPassMode
+                                ? `鯨語已經看完你上傳的畫面。\n\n${judgeSummary}\n\n教學模式先替你放行，讓你可以把整段流程順順走完。`
+                                : `${judgeSummary}${retrySummary ? `\n\n補充：${retrySummary}` : ''}`;
+                            const storyJudgeAutoClose = tutorialPassMode ? null : (currentEntryMode === 'board_game' ? 2800 : null);
+                            if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
                                 await completeBoardTurn(true, {
                                     speakerKey: 'judge',
-                                    mood: '教學判定',
-                                    text: tutorialWrongTargetText,
-                                    autoCloseMs: null,
-                                    buttonLabel: '我知道了',
-                                    blocking: true
+                                    mood: tutorialPassMode ? '教學判定' : 'AI 通關',
+                                    text: successText,
+                                    autoCloseMs: tutorialPassMode ? null : 2800
                                 });
                             } else {
-                                await completeBoardTurn(false, {
-                                    speakerKey: 'judge',
-                                    mood: '未通過',
-                                    text: retrySummary
-                                        ? `${judgeSummary || '這次還沒通過。'}\n\n海羽建議：${retrySummary}`
-                                        : failText,
-                                    autoCloseMs: 2800
-                                });
-                            }
-                        } else {
-                            if (tutorialPassMode) {
-                                answerMessage.textContent = `🤖 ${judgeSummary || '不是這個喔，但教學模式會先放行'}`;
-                                resetPhotoCaptureState();
-                                answerModal.classList.add('hidden');
-                                tutorialFlowStarted = false;
-                                renderTutorialModeUi();
                                 if (tutorialGuestMode) {
                                     completeTutorialGuestTask(currentTask);
                                 }
                                 await showNpcDialog({
                                     speakerKey: 'judge',
-                                    mood: '教學判定',
-                                    text: tutorialWrongTargetText,
-                                    buttonLabel: '我知道了',
-                                    blocking: true
+                                    mood: tutorialPassMode ? '教學判定' : 'AI 通關',
+                                    text: successText,
+                                    buttonLabel: tutorialPassMode ? '我知道了' : null,
+                                    autoCloseMs: storyJudgeAutoClose,
+                                    blocking: tutorialPassMode
                                 });
-                                scheduleStoryReloadAfterCompletion();
-                                showCompletionModal(aiData.earnedItemName ? `🎁 獲得：${aiData.earnedItemName}` : '✅ 教學模式已完成這一步');
+                            }
+                            scheduleStoryReloadAfterCompletion();
+                            const tutorialCompletionText = judgeSummary
+                                ? `🤖 鯨語判定：${judgeSummary}\n✅ 教學模式已完成這一步`
+                                : '✅ 教學模式已完成這一步';
+                            showCompletionModal(aiData.earnedItemName ? `🎁 獲得：${aiData.earnedItemName}` : (tutorialPassMode ? tutorialCompletionText : (aiData.message || '✅ AI 驗證通過')));
+                        } else {
+                            document.body.classList.remove('shake-error');
+                            void document.body.offsetWidth;
+                            document.body.classList.add('shake-error');
+                            setTimeout(() => document.body.classList.remove('shake-error'), 500);
+
+                            const failText = judgeSummary || retrySummary || 'AI 驗證未通過，請再試一次';
+                            const tutorialWrongTargetText = tutorialPassMode
+                                ? `鯨語看完這張照片後說：\n\n${judgeSummary || '不是這個喔。'}\n\n因為現在是教學模式，所以海羽還是先讓你往下走，正式關卡時就需要拍到指定物件才會通過。`
+                                : null;
+                            if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
+                                resetPhotoCaptureState();
+                                answerModal.classList.add('hidden');
+                                if (tutorialPassMode) {
+                                    await completeBoardTurn(true, {
+                                        speakerKey: 'judge',
+                                        mood: '教學判定',
+                                        text: tutorialWrongTargetText,
+                                        autoCloseMs: null,
+                                        buttonLabel: '我知道了',
+                                        blocking: true
+                                    });
+                                } else {
+                                    await completeBoardTurn(false, {
+                                        speakerKey: 'judge',
+                                        mood: '未通過',
+                                        text: retrySummary
+                                            ? `${judgeSummary || '這次還沒通過。'}\n\n海羽建議：${retrySummary}`
+                                            : failText,
+                                        autoCloseMs: 2800
+                                    });
+                                }
                             } else {
-                                answerMessage.textContent = `❌ ${failText}`;
-                                photoCaptureModeActive = true;
-                                setImmersiveCameraMode(true);
-                                renderTutorialModeUi();
-                                await showNpcDialog({
-                                    speakerKey: 'rescue',
-                                    mood: '裁定未通過',
-                                    text: retrySummary
-                                        ? `鯨語的裁定是：${judgeSummary || '這次還沒通過。'}\n\n海羽補充：${retrySummary}`
-                                        : `鯨語的裁定是：${failText}\n\n海羽建議你再整理一下畫面，重新挑戰。`,
-                                    buttonLabel: '重新挑戰'
-                                });
-                                btnAnswerSubmit.disabled = false;
+                                if (tutorialPassMode) {
+                                    answerMessage.textContent = `🤖 ${judgeSummary || '不是這個喔，但教學模式會先放行'}`;
+                                    resetPhotoCaptureState();
+                                    answerModal.classList.add('hidden');
+                                    tutorialFlowStarted = false;
+                                    renderTutorialModeUi();
+                                    if (tutorialGuestMode) {
+                                        completeTutorialGuestTask(currentTask);
+                                    }
+                                    await showNpcDialog({
+                                        speakerKey: 'judge',
+                                        mood: '教學判定',
+                                        text: tutorialWrongTargetText,
+                                        buttonLabel: '我知道了',
+                                        blocking: true
+                                    });
+                                    scheduleStoryReloadAfterCompletion();
+                                    showCompletionModal(aiData.earnedItemName ? `🎁 獲得：${aiData.earnedItemName}` : '✅ 教學模式已完成這一步');
+                                } else {
+                                    answerMessage.textContent = `❌ ${failText}`;
+                                    photoCaptureModeActive = true;
+                                    setImmersiveCameraMode(true);
+                                    renderTutorialModeUi();
+                                    await showNpcDialog({
+                                        speakerKey: 'rescue',
+                                        mood: '裁定未通過',
+                                        text: retrySummary
+                                            ? `鯨語的裁定是：${judgeSummary || '這次還沒通過。'}\n\n海羽補充：${retrySummary}`
+                                            : `鯨語的裁定是：${failText}\n\n海羽建議你再整理一下畫面，重新挑戰。`,
+                                        buttonLabel: '重新挑戰'
+                                    });
+                                    btnAnswerSubmit.disabled = false;
+                                }
                             }
                         }
+                        return;
                     }
-                    return;
-                }
-                const fd = new FormData();
-                if (hasPhotoDraft) {
-                    const draftBlob = await dataUrlToBlob(currentAnswerPhotoDataUrl);
-                    fd.append('photo', draftBlob, 'reticle-capture.jpg');
-                } else {
-                    fd.append('photo', photoInput.files[0]);
-                }
-                answerMessage.textContent = '📤 上傳照片中...';
-                if (typeof showQueryTransit === 'function') {
-                    showQueryTransit('正在將照片上傳至探索艙資料庫...');
-                }
-                let uploadData;
-                try {
-                    uploadData = await requestJson('/api/upload', { method: 'POST', body: fd }, '上傳照片');
-                } catch (err) {
+                    const fd = new FormData();
+                    if (hasPhotoDraft) {
+                        const draftBlob = await dataUrlToBlob(currentAnswerPhotoDataUrl);
+                        fd.append('photo', draftBlob, 'reticle-capture.jpg');
+                    } else {
+                        fd.append('photo', photoInput.files[0]);
+                    }
+                    answerMessage.textContent = '📤 上傳照片中...';
+                    if (typeof showQueryTransit === 'function') {
+                        showQueryTransit('正在將照片上傳至探索艙資料庫...');
+                    }
+                    let uploadData;
+                    try {
+                        uploadData = await requestJson('/api/upload', { method: 'POST', body: fd }, '上傳照片');
+                    } catch (err) {
+                        if (typeof hideQueryTransit === 'function') hideQueryTransit();
+                        answerMessage.textContent = `❌ ${err.message}`;
+                        btnAnswerSubmit.disabled = false;
+                        return;
+                    }
                     if (typeof hideQueryTransit === 'function') hideQueryTransit();
-                    answerMessage.textContent = `❌ ${err.message}`;
-                    btnAnswerSubmit.disabled = false;
-                    return;
+                    if (!uploadData.success) {
+                        answerMessage.textContent = '❌ 上傳失敗';
+                        if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
+                        return;
+                    }
+                    answer = uploadData.url;
+                } else if (hasChoiceField) {
+                    const selected = document.querySelector('.answer-choice.selected');
+                    if (!selected) {
+                        answerMessage.textContent = '❌ 請選擇一個答案';
+                        if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
+                        return;
+                    }
+                    answer = selected.dataset.value || selected.dataset.choiceKey || selected.textContent || '';
+                    answer = String(answer).trim();
+                    if (!answer) {
+                        answerMessage.textContent = '❌ 選項資料異常，請重新選擇一次';
+                        if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
+                        return;
+                    }
+                    if (!tutorialPassMode) {
+                        setAnswerChoicePendingState(true);
+                        answerMessage.textContent = '✅ 已送出答案，系統正在確認中...';
+                    }
+                    if (tutorialPassMode) {
+                        answerModal.classList.add('hidden');
+                        tutorialFlowStarted = false;
+                        renderTutorialModeUi();
+                        if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
+                            await completeBoardTurn(true, {
+                                speakerKey: 'lore',
+                                mood: '教學選擇',
+                                text: `潮聲已記住你的選擇：「${answer}」。\n\n教學模式先替你通過這一格，讓你把完整流程走完。`,
+                                autoCloseMs: 2400
+                            });
+                        } else {
+                            if (tutorialGuestMode) {
+                                completeTutorialGuestTask(currentTask);
+                            } else if (getLoginUser()) {
+                                await completeTutorialLoggedInTask(currentTask, answer);
+                            }
+                            await showNpcDialog({
+                                speakerKey: 'lore',
+                                mood: '教學選擇',
+                                text: `潮聲已記住你的選擇：「${answer}」。\n\n教學模式先替你通過這一關，讓你把完整流程走完。`,
+                                buttonLabel: '繼續前進'
+                            });
+                            scheduleStoryReloadAfterCompletion();
+                        }
+                        showCompletionModal('✅ 教學模式已完成這一步');
+                        if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
+                        return;
+                    }
+                } else {
+                    answer = textInput?.value?.trim() || '';
+                    if (!answer) {
+                        answerMessage.textContent = '❌ 請輸入答案';
+                        if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
+                        return;
+                    }
                 }
-                if (typeof hideQueryTransit === 'function') hideQueryTransit();
-                if (!uploadData.success) {
-                    answerMessage.textContent = '❌ 上傳失敗';
-                    if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
-                    return;
-                }
-                answer = uploadData.url;
-            } else if (hasChoiceField) {
-                const selected = document.querySelector('.answer-choice.selected');
-                if (!selected) {
-                    answerMessage.textContent = '❌ 請選擇一個答案';
-                    if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
-                    return;
-                }
-                answer = selected.dataset.value || selected.dataset.choiceKey || selected.textContent || '';
-                answer = String(answer).trim();
-                if (!answer) {
-                    answerMessage.textContent = '❌ 選項資料異常，請重新選擇一次';
-                    if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
-                    return;
-                }
+
                 if (tutorialPassMode) {
+                    if (currentTask.task_type === 'photo') {
+                        resetPhotoCaptureState();
+                    }
                     answerModal.classList.add('hidden');
                     tutorialFlowStarted = false;
                     renderTutorialModeUi();
                     if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
                         await completeBoardTurn(true, {
-                            speakerKey: 'lore',
-                            mood: '教學選擇',
-                            text: `潮聲已記住你的選擇：「${answer}」。\n\n教學模式先替你通過這一格，讓你把完整流程走完。`,
+                            speakerKey: currentTask.task_type === 'number' ? 'judge' : 'lore',
+                            mood: '教學模式通關',
+                            text: `沙丘已記錄你的操作：「${answer || '已提交'}」。\n\n教學模式先替你通過這一步，讓你繼續往下走。`,
                             autoCloseMs: 2400
                         });
                     } else {
@@ -3473,9 +3559,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             await completeTutorialLoggedInTask(currentTask, answer);
                         }
                         await showNpcDialog({
-                            speakerKey: 'lore',
-                            mood: '教學選擇',
-                            text: `潮聲已記住你的選擇：「${answer}」。\n\n教學模式先替你通過這一關，讓你把完整流程走完。`,
+                            speakerKey: 'judge',
+                            mood: '教學模式通關',
+                            text: `沙丘已記錄你的操作：「${answer || '已提交'}」。\n\n教學模式先替你通過這一步，讓你繼續往下走。`,
                             buttonLabel: '繼續前進'
                         });
                         scheduleStoryReloadAfterCompletion();
@@ -3484,147 +3570,109 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
                     return;
                 }
-            } else {
-                answer = textInput?.value?.trim() || '';
-                if (!answer) {
-                    answerMessage.textContent = '❌ 請輸入答案';
+
+                try {
+                    if (!currentUserTaskId) await fetchCurrentUserTaskId();
+                    if (!currentUserTaskId) await createCurrentUserTaskRecord();
+                } catch (err) {
+                    const message = err?.message || '無法建立關卡紀錄，請稍後再試';
+                    answerMessage.textContent = `❌ ${message}`;
                     if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
                     return;
                 }
-            }
-
-            if (tutorialPassMode) {
-                if (currentTask.task_type === 'photo') {
-                    resetPhotoCaptureState();
-                }
-                answerModal.classList.add('hidden');
-                tutorialFlowStarted = false;
-                renderTutorialModeUi();
-                if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
-                    await completeBoardTurn(true, {
-                        speakerKey: currentTask.task_type === 'number' ? 'judge' : 'lore',
-                        mood: '教學模式通關',
-                        text: `沙丘已記錄你的操作：「${answer || '已提交'}」。\n\n教學模式先替你通過這一步，讓你繼續往下走。`,
-                        autoCloseMs: 2400
-                    });
-                } else {
-                    if (tutorialGuestMode) {
-                        completeTutorialGuestTask(currentTask);
-                    } else if (getLoginUser()) {
-                        await completeTutorialLoggedInTask(currentTask, answer);
-                    }
-                    await showNpcDialog({
-                        speakerKey: 'judge',
-                        mood: '教學模式通關',
-                        text: `沙丘已記錄你的操作：「${answer || '已提交'}」。\n\n教學模式先替你通過這一步，讓你繼續往下走。`,
-                        buttonLabel: '繼續前進'
-                    });
-                    scheduleStoryReloadAfterCompletion();
-                }
-                showCompletionModal('✅ 教學模式已完成這一步');
-                if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
-                return;
-            }
-
-            try {
-                if (!currentUserTaskId) await fetchCurrentUserTaskId();
-                if (!currentUserTaskId) await createCurrentUserTaskRecord();
-            } catch (err) {
-                const message = err?.message || '無法建立關卡紀錄，請稍後再試';
-                answerMessage.textContent = `❌ ${message}`;
-                if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
-                return;
-            }
-            if (!currentUserTaskId) {
-                answerMessage.textContent = '❌ 無法建立關卡紀錄，請重新整理後再試';
-                if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
-                return;
-            }
-            btnAnswerSubmit.disabled = true;
-            answerMessage.textContent = '⏳ 驗證中...';
-            let data;
-            if (typeof showQueryTransit === 'function') {
-                showQueryTransit('正在將結果送回沙丘...');
-            }
-            try {
-                data = await requestJson(`/api/user-tasks/${currentUserTaskId}/answer`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ answer })
-                }, '送出答案');
-            } catch (err) {
-                if (typeof hideQueryTransit === 'function') hideQueryTransit();
-                answerMessage.textContent = `❌ ${err.message}`;
-                await showNpcDialog({
-                    speakerKey: 'rescue',
-                    mood: '送出失敗',
-                    text: `海羽沒能把這份答案成功送進探索艙。\n\n${err.message}\n\n請稍後再試一次。`
-                });
-                btnAnswerSubmit.disabled = false;
-                return;
-            }
-            if (typeof hideQueryTransit === 'function') hideQueryTransit();
-            if (data.success && (data.isCompleted || (data.message && data.message.includes('已完成')))) {
-                if (currentTask.task_type === 'photo') {
-                    resetPhotoCaptureState();
-                }
-                answerModal.classList.add('hidden');
-                tutorialFlowStarted = false;
-                renderTutorialModeUi();
-                const judgeText = normalizeUiText(data.message, '這一關已完成，下一段劇情正在展開。');
-                if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
-                    await completeBoardTurn(true, {
-                        speakerKey: 'judge',
-                        mood: '規則通關',
-                        text: judgeText,
-                        autoCloseMs: 2200
-                    });
-                } else {
-                    await showNpcDialog({
-                        speakerKey: 'judge',
-                        mood: isCurrentQuestTutorialMode() ? '教學模式通關' : (isCurrentQuestDemoMode() ? '體驗模式通關' : '規則通關'),
-                        text: judgeText,
-                        autoCloseMs: 2200
-                    });
-                }
-                    scheduleStoryReloadAfterCompletion();
-                    showCompletionModal(data.earnedItemName ? `🎁 獲得：${data.earnedItemName}` : '✅ 任務已完成');
+                if (!currentUserTaskId) {
+                    answerMessage.textContent = '❌ 無法建立關卡紀錄，請重新整理後再試';
                     if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
-            } else {
-                document.body.classList.remove('shake-error');
-                void document.body.offsetWidth;
-                document.body.classList.add('shake-error');
-                setTimeout(() => document.body.classList.remove('shake-error'), 500);
-
-                const failText = data.message || '答案錯誤，請重試';
-                if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
+                    return;
+                }
+                btnAnswerSubmit.disabled = true;
+                answerMessage.textContent = hasChoiceField ? '✅ 已送出答案，資料確認中...' : '⏳ 驗證中...';
+                let data;
+                if (typeof showQueryTransit === 'function') {
+                    showQueryTransit(hasChoiceField ? '已收到你的答案，正在確認是否通關...' : '正在將結果送回沙丘...');
+                }
+                try {
+                    data = await requestJson(`/api/user-tasks/${currentUserTaskId}/answer`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ answer })
+                    }, '送出答案');
+                } catch (err) {
+                    if (typeof hideQueryTransit === 'function') hideQueryTransit();
+                    answerMessage.textContent = `❌ ${err.message}`;
+                    await showNpcDialog({
+                        speakerKey: 'rescue',
+                        mood: '送出失敗',
+                        text: `海羽沒能把這份答案成功送進探索艙。\n\n${err.message}\n\n請稍後再試一次。`
+                    });
+                    btnAnswerSubmit.disabled = false;
+                    return;
+                }
+                if (typeof hideQueryTransit === 'function') hideQueryTransit();
+                if (data.success && (data.isCompleted || (data.message && data.message.includes('已完成')))) {
                     if (currentTask.task_type === 'photo') {
                         resetPhotoCaptureState();
                     }
                     answerModal.classList.add('hidden');
-                    await completeBoardTurn(false, {
-                        speakerKey: 'rescue',
-                        mood: '規則未通過',
-                        text: `${failText}，這一步會依棋盤規則回退後重新展開。`,
-                        autoCloseMs: 2400
-                    });
-                    if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
-                } else {
-                    answerMessage.textContent = '❌ ' + failText;
-                    if (currentTask.task_type === 'photo') {
-                        photoCaptureModeActive = true;
-                        setImmersiveCameraMode(true);
-                        renderTutorialModeUi();
+                    tutorialFlowStarted = false;
+                    renderTutorialModeUi();
+                    const judgeText = normalizeUiText(data.message, '這一關已完成，下一段劇情正在展開。');
+                    if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
+                        await completeBoardTurn(true, {
+                            speakerKey: 'judge',
+                            mood: '規則通關',
+                            text: judgeText,
+                            autoCloseMs: 2200
+                        });
+                    } else {
+                        await showNpcDialog({
+                            speakerKey: 'judge',
+                            mood: isCurrentQuestTutorialMode() ? '教學模式通關' : (isCurrentQuestDemoMode() ? '體驗模式通關' : '規則通關'),
+                            text: judgeText,
+                            autoCloseMs: 2200
+                        });
                     }
-                    btnAnswerSubmit.disabled = false;
-                    showNpcDialog({
-                        speakerKey: 'rescue',
-                        mood: '規則未通過',
-                        text: `這一題還沒有通過。\n\n海羽提醒：${failText}`,
-                        autoCloseMs: 2200,
-                        blocking: false
-                    });
+                        scheduleStoryReloadAfterCompletion();
+                        showCompletionModal(data.earnedItemName ? `🎁 獲得：${data.earnedItemName}` : '✅ 任務已完成');
+                        if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
+                } else {
+                    document.body.classList.remove('shake-error');
+                    void document.body.offsetWidth;
+                    document.body.classList.add('shake-error');
+                    setTimeout(() => document.body.classList.remove('shake-error'), 500);
+
+                    const failText = data.message || '答案錯誤，請重試';
+                    if (currentEntryMode === 'board_game' && currentBoardRun?.pendingTargetTile) {
+                        if (currentTask.task_type === 'photo') {
+                            resetPhotoCaptureState();
+                        }
+                        answerModal.classList.add('hidden');
+                        await completeBoardTurn(false, {
+                            speakerKey: 'rescue',
+                            mood: '規則未通過',
+                            text: `${failText}，這一步會依棋盤規則回退後重新展開。`,
+                            autoCloseMs: 2400
+                        });
+                        if (btnAnswerSubmit) btnAnswerSubmit.disabled = false;
+                    } else {
+                        answerMessage.textContent = '❌ ' + failText;
+                        if (currentTask.task_type === 'photo') {
+                            photoCaptureModeActive = true;
+                            setImmersiveCameraMode(true);
+                            renderTutorialModeUi();
+                        }
+                        btnAnswerSubmit.disabled = false;
+                        showNpcDialog({
+                            speakerKey: 'rescue',
+                            mood: '規則未通過',
+                            text: `這一題還沒有通過。\n\n海羽提醒：${failText}`,
+                            autoCloseMs: 2200,
+                            blocking: false
+                        });
+                    }
                 }
+            } finally {
+                resetAnswerSubmitUi();
             }
         }
 
@@ -5603,10 +5651,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (taskBgmBtn && taskBgm) {
             taskBgmBtn.addEventListener('click', () => {
                 if (taskBgm.paused) {
-                    taskBgm.play().catch(() => {});
-                    taskBgmBtn.textContent = '🔊';
+                    taskBgm.play().then(() => {
+                        bgmAutoStarted = true;
+                        taskBgmBtn.textContent = '🔊';
+                    }).catch(() => {});
                 } else {
                     taskBgm.pause();
+                    bgmAutoStarted = true;
                     taskBgmBtn.textContent = '🎵';
                 }
             });
@@ -5781,6 +5832,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnAnswerCancel) {
             btnAnswerCancel.addEventListener('click', () => {
                 answerModal.classList.add('hidden');
+                resetAnswerSubmitUi();
                 resetPhotoCaptureState();
                 renderTutorialModeUi();
             });
@@ -5790,6 +5842,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 submitTaskAnswer().catch((err) => {
                     console.error('提交任務答案失敗', err);
                     answerMessage.textContent = `❌ ${err?.message || '送出失敗'}`;
+                    resetAnswerSubmitUi();
                     btnAnswerSubmit.disabled = false;
                 });
             });
@@ -5883,9 +5936,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('deviceorientationabsolute', handleOrientationEvent, true);
         window.addEventListener('pointerdown', async () => {
             await ensureOrientationPermission();
-            if (taskReached) {
-                tryAutoPlayTaskBgm(0);
-            }
+            tryAutoPlayTaskBgm(0, { force: true });
         });
 
         const AI_THINKING_STAGES = {

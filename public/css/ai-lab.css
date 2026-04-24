@@ -377,6 +377,19 @@ body.tutorial-story-clean #taskEncounterModal {
     box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.5);
 }
 
+.answer-choice.pending {
+    opacity: 0.68;
+    cursor: wait;
+    pointer-events: none;
+    border-color: rgba(255, 255, 255, 0.28);
+    filter: saturate(0.72);
+}
+
+#btnAnswerSubmit.is-loading {
+    opacity: 0.9;
+    cursor: wait;
+}
+
 .wheels {
     display: flex;
     justify-content: center;
