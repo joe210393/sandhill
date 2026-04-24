@@ -5036,7 +5036,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (resultPanel.style.display === 'flex') return;
             const pos = getPos(e);
             if (selectionMode === 'reticle') {
-                if (isGuidedReticleLockMode() || isPhotoTaskCaptureActive()) {
+                if (isGuidedReticleLockMode()) {
                     tapStart = null;
                     return;
                 }
@@ -5058,7 +5058,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function moveDraw(e) {
             if (selectionMode === 'reticle') {
-                if (isGuidedReticleLockMode() || isPhotoTaskCaptureActive()) return;
+                if (isGuidedReticleLockMode()) return;
                 if (tapStart) {
                     const pos = getPos(e);
                     const dx = pos.x - tapStart.x, dy = pos.y - tapStart.y;
@@ -5076,7 +5076,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function endDraw(e) {
             if (selectionMode === 'reticle') {
-                if (isGuidedReticleLockMode() || isPhotoTaskCaptureActive()) {
+                if (isGuidedReticleLockMode()) {
                     tapStart = null;
                     return;
                 }

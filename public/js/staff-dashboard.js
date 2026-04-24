@@ -1738,33 +1738,31 @@ function renderQuestChainList(chains) {
   }).join('');
 }
 
-function toggleQuestChainStructureLock(id, locked) {
+async function toggleQuestChainStructureLock(id, locked) {
   const q = globalQuestChainsMap[id];
   if (!q) return;
   const confirmMessage = locked
     ? `確定要鎖定「${q.title}」的核心結構嗎？\n鎖定後將不能再修改題型、GPS、驗證方式、順序等結構設定。`
     : `確定要解鎖「${q.title}」的核心結構嗎？\n解鎖後可以再次調整入口與關卡的核心結構。`;
   if (!confirm(confirmMessage)) return;
-  fetch(`${API_BASE}/api/quest-chains/${id}/structure-lock`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...withActorHeaders() },
-    body: JSON.stringify({ locked })
-  })
-    .then(r => r.json())
-    .then(d => {
-      if (d.success) {
-        showToast(d.message || (locked ? '結構已鎖定' : '結構已解鎖'));
-        loadQuestChains();
-        if (currentQuestChainId && String(currentQuestChainId) === String(id)) {
-          loadQuestChainDetail(id);
-        }
-      } else {
-        showToast(d.message || '更新失敗', 'error');
-      }
-    })
-    .catch(() => {
-      showToast('伺服器連線失敗', 'error');
+  try {
+    const d = await apiJson(`${API_BASE}/api/quest-chains/${id}/structure-lock`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...withActorHeaders() },
+      body: JSON.stringify({ locked })
     });
+    if (!d.success) {
+      showToast(d.message || '更新失敗', 'error');
+      return;
+    }
+    showToast(d.message || (locked ? '結構已鎖定' : '結構已解鎖'));
+    await loadQuestChains();
+    if (currentQuestChainId && String(currentQuestChainId) === String(id)) {
+      goToQuestDetail(id);
+    }
+  } catch (err) {
+    showToast(err?.message || '伺服器連線失敗', 'error');
+  }
 }
 
 function applyQuestChainSearch() {
