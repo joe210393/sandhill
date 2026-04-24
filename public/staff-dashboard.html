@@ -462,7 +462,7 @@
         </div>
         <p class="view-subtitle">管理首頁顯示的劇本與大富翁入口。點擊「管理內容」可進入查看綁定的關卡。</p>
         <div style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; align-items:center;">
-          <input type="search" id="questChainSearchInput" class="form-input" placeholder="搜尋入口標題、商家、方案…" style="max-width:320px;" autocomplete="off">
+          <input type="search" id="questChainSearchInput" class="form-input" placeholder="搜尋入口標題、商家、方案…" style="max-width:320px;" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" name="quest_chain_keyword">
           <button type="button" class="btn-sm btn-primary-v2" onclick="applyQuestChainSearch()">搜尋</button>
           <button type="button" class="btn-sm btn-secondary-v2" onclick="resetQuestChainSearch()">清除</button>
         </div>
@@ -1960,7 +1960,7 @@
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 
-  <script src="/js/staff-dashboard.js?v=20260424a"></script>
+  <script src="/js/staff-dashboard.js?v=20260424b"></script>
   <script>
     window.loginUser = JSON.parse(localStorage.getItem('loginUser') || 'null');
   </script>

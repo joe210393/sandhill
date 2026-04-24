@@ -1783,8 +1783,17 @@ function ensureQuestChainSearchStartsBlank() {
   if (questChainSearchBootstrapped) return;
   questChainSearchBootstrapped = true;
   currentQuestChainSearchTerm = '';
-  const input = document.getElementById('questChainSearchInput');
-  if (input) input.value = '';
+  const clearInput = () => {
+    const input = document.getElementById('questChainSearchInput');
+    if (!input) return;
+    if (document.activeElement === input) return;
+    input.value = '';
+    input.setAttribute('value', '');
+  };
+  clearInput();
+  requestAnimationFrame(clearInput);
+  setTimeout(clearInput, 180);
+  setTimeout(clearInput, 600);
 }
 
 function editQuestChain(id) {
@@ -5540,9 +5549,10 @@ if (userSearchInputEl) {
 
 const questChainSearchInputEl = document.getElementById('questChainSearchInput');
 if (questChainSearchInputEl) {
-  questChainSearchInputEl.addEventListener('input', () => {
-    currentQuestChainSearchTerm = questChainSearchInputEl.value.trim();
-    renderQuestChainList(filterQuestChains(Object.values(globalQuestChainsMap)));
+  questChainSearchInputEl.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    applyQuestChainSearch();
   });
 }
 
