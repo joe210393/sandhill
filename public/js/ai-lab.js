@@ -623,6 +623,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 embed.searchParams.set('rel', '0');
                 embed.searchParams.set('modestbranding', '1');
                 embed.searchParams.set('enablejsapi', '1');
+                if (/^https?:$/i.test(window.location.protocol)) {
+                    embed.searchParams.set('origin', window.location.origin);
+                }
                 const start = parseYouTubeStartSeconds(parsed.searchParams.get('t') || parsed.searchParams.get('start'));
                 if (start) embed.searchParams.set('start', String(start));
                 return embed.toString();

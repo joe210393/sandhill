@@ -54,7 +54,8 @@ app.set('trust proxy', 1);
 // 安全性設定
 app.use(helmet({
   contentSecurityPolicy: false, // AR.js 需要較寬鬆的 CSP
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
 }));
 
 // 全局限流
@@ -211,6 +212,8 @@ app.use(express.static(path.join(__dirname, 'public'), {
 
 // 設置響應字符集
 app.use((req, res, next) => {
+  // YouTube Embed（Error 153）需要可辨識的來源資訊，避免代理層覆蓋成 no-referrer / same-origin。
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   // 對於 API 路由，設置正確的字符集
   if (req.path.startsWith('/api/')) {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
