@@ -1506,10 +1506,7 @@ function setupTaskTypeToggle() {
     mcDiv.style.display = sel.value === 'multiple_choice' ? 'block' : 'none';
     saDiv.style.display = (sel.value === 'number' || sel.value === 'keyword') ? 'block' : 'none';
     if (validationSel) {
-      if (sel.value === 'qa' && validationSel.value === 'auto') validationSel.value = 'ai_text_check';
-      else if (sel.value === 'photo' && validationSel.value === 'auto') validationSel.value = 'ai_rule_check';
-      else if (sel.value === 'keyword' && validationSel.value === 'auto') validationSel.value = 'keyword';
-      else if (['multiple_choice', 'number', 'location'].includes(sel.value) && ['ai_text_check', 'ai_rule_check'].includes(validationSel.value)) validationSel.value = 'auto';
+      validationSel.value = normalizeValidationModeForTaskType(sel.value, validationSel.value);
       validationSel.dispatchEvent(new Event('change'));
     }
   });
@@ -1560,8 +1557,33 @@ const validationModeMeta = {
   ai_reference_match: { helper: '比對玩家照片與任務封面圖是否為同一地點。', label: '比對主題', placeholder: 'treasure_spot', showCount: false, showScore: false }
 };
 
+function normalizeValidationModeForTaskType(taskType = 'qa', validationMode = 'auto') {
+  const type = String(taskType || 'qa');
+  const mode = String(validationMode || 'auto');
+  const isImageAiMode = IMAGE_AI_VALIDATION_MODES.includes(mode);
+
+  if (type === 'photo') {
+    return (mode === 'auto' || !isImageAiMode) ? 'ai_rule_check' : mode;
+  }
+
+  if (type === 'qa') {
+    return mode === 'ai_text_check' ? mode : 'ai_text_check';
+  }
+
+  if (type === 'keyword') {
+    return mode === 'keyword' ? mode : 'keyword';
+  }
+
+  if (['multiple_choice', 'number', 'location'].includes(type)) {
+    return 'auto';
+  }
+
+  return 'auto';
+}
+
 function setupValidationModeToggle() {
   const sel = document.getElementById('validationModeSelect');
+  const typeSel = document.getElementById('taskTypeSelect');
   const fields = document.getElementById('aiConfigFields');
   const helper = document.getElementById('aiModeHelper');
   const labelEl = document.getElementById('aiTargetLabelLabel');
@@ -1571,6 +1593,10 @@ function setupValidationModeToggle() {
   if (!sel || !fields) return;
 
   const update = () => {
+    const normalizedMode = normalizeValidationModeForTaskType(typeSel?.value || 'qa', sel.value);
+    if (sel.value !== normalizedMode) {
+      sel.value = normalizedMode;
+    }
     const isAi = sel.value.startsWith('ai_');
     fields.style.display = isAi ? 'block' : 'none';
     if (!isAi) return;
@@ -1596,9 +1622,7 @@ applyBlueprint('story_ai_identify', false);
 // ── AI Payload Builder ────────────────────────────────────────
 function buildAiTaskPayload(form) {
   const requestedTaskType = form.task_type?.value || 'qa';
-  let validation_mode = form.validation_mode?.value || 'auto';
-  if (validation_mode === 'auto' && requestedTaskType === 'qa') validation_mode = 'ai_text_check';
-  if (validation_mode === 'auto' && requestedTaskType === 'photo') validation_mode = 'ai_rule_check';
+  let validation_mode = normalizeValidationModeForTaskType(requestedTaskType, form.validation_mode?.value || 'auto');
   const isAi = validation_mode.startsWith('ai_');
   const isImageAi = IMAGE_AI_VALIDATION_MODES.includes(validation_mode);
   const targetLabel = form.ai_target_label?.value.trim() || null;
@@ -3703,7 +3727,7 @@ function populateTaskFormForEdit(t) {
       const normalizedValidationMode = t.validation_mode === 'manual'
         ? (t.task_type === 'photo' ? 'ai_rule_check' : (t.task_type === 'qa' ? 'ai_text_check' : 'auto'))
         : (t.validation_mode || 'auto');
-      valSel.value = normalizedValidationMode;
+      valSel.value = normalizeValidationModeForTaskType(t.task_type || 'qa', normalizedValidationMode);
       valSel.dispatchEvent(new Event('change'));
 
       // AI fields
@@ -3794,7 +3818,7 @@ document.getElementById('taskForm').addEventListener('submit', async function (e
   msgEl.textContent = '';
 
   const aiPayload = buildAiTaskPayload(form);
-  const task_type = IMAGE_AI_VALIDATION_MODES.includes(aiPayload.validation_mode) ? 'photo' : form.elements.task_type.value;
+  const task_type = form.elements.task_type.value;
 
   // Validate
   if (!validateAiPayload(form, aiPayload, msgEl)) return;
