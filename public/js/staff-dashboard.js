@@ -113,6 +113,7 @@ const ADMIN_SHARED_SHOP_VALUE = '__admin__';
 // Drawer state
 let activeFormId = null;
 let currentQuestChainSearchTerm = '';
+let questChainSearchBootstrapped = false;
 
 // ── Utilities ─────────────────────────────────────────────────
 function showToast(msg, type = 'success') {
@@ -1776,6 +1777,14 @@ function resetQuestChainSearch() {
   const input = document.getElementById('questChainSearchInput');
   if (input) input.value = '';
   renderQuestChainList(Object.values(globalQuestChainsMap));
+}
+
+function ensureQuestChainSearchStartsBlank() {
+  if (questChainSearchBootstrapped) return;
+  questChainSearchBootstrapped = true;
+  currentQuestChainSearchTerm = '';
+  const input = document.getElementById('questChainSearchInput');
+  if (input) input.value = '';
 }
 
 function editQuestChain(id) {
@@ -4890,6 +4899,7 @@ async function bootstrapSession() {
     loginUser = data.user;
     window.loginUser = data.user;
     localStorage.setItem('loginUser', JSON.stringify(data.user));
+    ensureQuestChainSearchStartsBlank();
     hydrateLoginHeader();
     applySidebarRBAC();
     selectInitialStaffView();
