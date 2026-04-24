@@ -273,6 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const cameraCaptureBar = document.getElementById('cameraCaptureBar');
         const cameraModeTaskBtn = document.getElementById('cameraModeTaskBtn');
         const cameraModeSceneBtn = document.getElementById('cameraModeSceneBtn');
+        const cameraTaskReopenBtn = document.getElementById('cameraTaskReopenBtn');
         const shutterBtn = document.getElementById('shutterBtn');
         const cameraFlash = document.getElementById('cameraFlash');
         const photoBasket = document.getElementById('photoBasket');
@@ -1152,6 +1153,9 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.classList.toggle('immersive-camera-mode', Boolean(active));
             if (cameraCaptureBar) {
                 cameraCaptureBar.classList.toggle('hidden', !active);
+            }
+            if (cameraTaskReopenBtn) {
+                cameraTaskReopenBtn.classList.toggle('hidden', !active);
             }
             if (!active) {
                 photoBasket?.classList.add('hidden');
@@ -3757,6 +3761,22 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        function reopenTaskFromCaptureMode() {
+            if (!currentTask) return;
+            if (photoCaptureModeActive) {
+                photoCaptureModeActive = false;
+                tutorialBoardPhotoCaptureArmed = false;
+                setImmersiveCameraMode(false);
+                renderTutorialModeUi();
+            }
+            if (gameShellPanel) {
+                gameShellPanel.classList.remove('collapsed');
+            }
+            if (currentEntryMode === 'board_game') {
+                openTaskEncounter();
+            }
+        }
+
         async function startTaskInteraction() {
             closeTaskEncounter();
             closeTaskIntroPanel();
@@ -5618,6 +5638,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (taskIntroSkip && taskIntroPanel) {
             taskIntroSkip.addEventListener('click', () => {
                 closeTaskIntroPanel();
+            });
+        }
+        if (cameraTaskReopenBtn) {
+            cameraTaskReopenBtn.addEventListener('click', () => {
+                reopenTaskFromCaptureMode();
             });
         }
         if (featureDockToggle && featureDockMenu) {

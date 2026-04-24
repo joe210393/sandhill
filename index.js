@@ -836,7 +836,8 @@ function prepareTaskValidationSettings(body = {}) {
     min_confidence: rawPassCriteria.min_confidence === undefined || rawPassCriteria.min_confidence === null || rawPassCriteria.min_confidence === ''
       ? null
       : Number(rawPassCriteria.min_confidence),
-    all_rules_must_pass: normalizeBoolean(rawPassCriteria.all_rules_must_pass)
+    all_rules_must_pass: normalizeBoolean(rawPassCriteria.all_rules_must_pass),
+    strict_label_match: normalizeBoolean(rawPassCriteria.strict_label_match)
   };
 
   if (!aiConfig.user_prompt) {
@@ -7716,7 +7717,12 @@ function normalizeAiTaskResult(task, aiResult) {
 
   if (task.validation_mode === 'ai_identify' && passCriteria.target_label) {
     const targetLabel = normalizeLabel(passCriteria.target_label);
-    if (targetLabel) passed = normalizeLabel(label) === targetLabel;
+    const strictLabelMatch = normalizeBoolean(passCriteria.strict_label_match);
+    // ai_identify 預設尊重 LM 的 passed（再搭配信心門檻），
+    // 只有明確啟用 strict_label_match 才做完全字串比對。
+    if (strictLabelMatch && targetLabel) {
+      passed = normalizeLabel(label) === targetLabel;
+    }
   }
 
   if (task.validation_mode === 'ai_score' && Number.isFinite(score) && Number.isFinite(Number(passCriteria.min_score))) {

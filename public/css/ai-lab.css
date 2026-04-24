@@ -2450,6 +2450,18 @@ body.formal-story-capture-clean #taskIntroPanel {
     box-shadow: 0 10px 20px rgba(255, 160, 40, 0.24);
 }
 
+.camera-task-reopen-btn {
+    border: none;
+    border-radius: 999px;
+    padding: 10px 16px;
+    background: rgba(8, 14, 28, 0.72);
+    color: rgba(255,255,255,0.92);
+    font-size: 13px;
+    font-weight: 700;
+    border: 1px solid rgba(255,255,255,0.18);
+    backdrop-filter: blur(14px);
+}
+
 .shutter-btn {
     position: relative;
     width: 84px;
@@ -2610,18 +2622,7 @@ body.immersive-camera-mode #taskEncounterModal {
 }
 
 body.immersive-camera-mode .selection-instruction {
-    bottom: calc(132px + env(safe-area-inset-bottom, 0px));
-    width: min(92vw, 360px);
-    padding: 14px 16px;
-    border-radius: 18px;
-    background: rgba(8, 14, 28, 0.72);
-    border: 1px solid rgba(255,255,255,0.08);
-    backdrop-filter: blur(12px);
-}
-
-body.immersive-camera-mode .selection-instruction .instruction-text {
-    font-size: 15px;
-    line-height: 1.5;
+    display: none !important;
 }
 
 body.immersive-camera-mode .reticle-overlay {
