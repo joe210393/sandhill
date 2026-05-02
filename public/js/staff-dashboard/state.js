@@ -51,6 +51,11 @@
     constants
   };
 
+  // Classic view scripts (forms.js, quest-chains.js, …) expect these as bare globals — not only via StaffDashboardState.constants.
+  global.ADMIN_SHARED_SHOP_VALUE = constants.ADMIN_SHARED_SHOP_VALUE;
+  global.TASK_WIZARD_TOTAL_STEPS = constants.TASK_WIZARD_TOTAL_STEPS;
+  global.DRAWER_FORM_ID_MAP = constants.DRAWER_FORM_ID_MAP;
+
   Object.keys(state).forEach((key) => {
     if (Object.prototype.hasOwnProperty.call(global, key)) return;
     Object.defineProperty(global, key, {
