@@ -1,6 +1,7 @@
-// Loaded after form-utils.js + staff-dashboard.js in staff-dashboard.html.
-const staffFormUtils = window.StaffDashboardFormUtils;
-const staffDrawer = window.StaffDashboardDrawer;
+// Names must differ from staff-dashboard.js: classic scripts share one global lexical scope;
+// redeclaring `const staffFormUtils` / `const staffDrawer` here throws SyntaxError and prevents syncDrawerFooter from being defined.
+const sdFormUtils = window.StaffDashboardFormUtils;
+const sdDrawer = window.StaffDashboardDrawer;
 
 function normalizeQuestChainBillingPolicy(chain = null) {
   if (!chain) return 'commercial';
@@ -224,11 +225,11 @@ const drawerTitle = document.getElementById('drawerTitle');
 overlay.addEventListener('click', closeDrawer);
 
 function getTaskWizardStepElement(step) {
-  return staffDrawer.getTaskWizardStepElement(step);
+  return sdDrawer.getTaskWizardStepElement(step);
 }
 
 function resolveActiveForm() {
-  return staffDrawer.resolveActiveForm({
+  return sdDrawer.resolveActiveForm({
     drawer,
     formIdMap: DRAWER_FORM_ID_MAP,
     setActiveFormId: (value) => { activeFormId = value; }
@@ -236,11 +237,11 @@ function resolveActiveForm() {
 }
 
 function scrollToFirstInvalid(scope) {
-  staffDrawer.scrollToFirstInvalid(scope);
+  sdDrawer.scrollToFirstInvalid(scope);
 }
 
 function syncDrawerFooter() {
-  staffDrawer.syncDrawerFooter({
+  sdDrawer.syncDrawerFooter({
     drawer,
     formIdMap: DRAWER_FORM_ID_MAP,
     activeFormId,
@@ -251,7 +252,7 @@ function syncDrawerFooter() {
 }
 
 function syncTaskWizardUI() {
-  staffDrawer.syncTaskWizardUI({
+  sdDrawer.syncTaskWizardUI({
     taskWizardStep,
     totalSteps: TASK_WIZARD_TOTAL_STEPS,
     syncDrawerFooter
@@ -260,7 +261,7 @@ function syncTaskWizardUI() {
 
 function goTaskWizardStep(direction) {
   if (activeFormId !== 'taskForm') return;
-  if (direction > 0 && !staffDrawer.validateTaskWizardStep(taskWizardStep)) return;
+  if (direction > 0 && !sdDrawer.validateTaskWizardStep(taskWizardStep)) return;
   taskWizardStep = Math.min(TASK_WIZARD_TOTAL_STEPS, Math.max(1, taskWizardStep + direction));
   syncTaskWizardUI();
 }
@@ -271,7 +272,7 @@ function resetTaskWizard() {
 }
 
 function openDrawer(title, formSectionId, data, opts = {}) {
-  staffDrawer.openDrawer({
+  sdDrawer.openDrawer({
     title,
     formSectionId,
     data,
@@ -309,7 +310,7 @@ function openDrawer(title, formSectionId, data, opts = {}) {
 }
 
 function closeDrawer() {
-  staffDrawer.closeDrawer({
+  sdDrawer.closeDrawer({
     drawer,
     overlay,
     setActiveFormId: (value) => { activeFormId = value; },
@@ -319,7 +320,7 @@ function closeDrawer() {
 }
 
 function submitActiveForm() {
-  staffDrawer.submitActiveForm({
+  sdDrawer.submitActiveForm({
     activeFormId,
     taskWizardStep,
     totalSteps: TASK_WIZARD_TOTAL_STEPS,
@@ -345,7 +346,7 @@ function fillForm(form, data) {
   });
 }
 
-const IMAGE_AI_VALIDATION_MODES = staffFormUtils.IMAGE_AI_VALIDATION_MODES;
+const IMAGE_AI_VALIDATION_MODES = sdFormUtils.IMAGE_AI_VALIDATION_MODES;
 
 // ── Blueprint System ──────────────────────────────────────────
 const blueprintConfigs = {
@@ -518,7 +519,7 @@ const validationModeMeta = {
 };
 
 function normalizeValidationModeForTaskType(taskType = 'qa', validationMode = 'auto') {
-  return staffFormUtils.normalizeValidationModeForTaskType(taskType, validationMode);
+  return sdFormUtils.normalizeValidationModeForTaskType(taskType, validationMode);
 }
 
 function setupValidationModeToggle() {
@@ -561,10 +562,10 @@ applyBlueprint('story_ai_identify', false);
 
 // ── AI Payload Builder ────────────────────────────────────────
 function buildAiTaskPayload(form) {
-  return staffFormUtils.buildAiTaskPayload(form);
+  return sdFormUtils.buildAiTaskPayload(form);
 }
 
 function validateAiPayload(form, payload, msgEl) {
-  return staffFormUtils.validateAiPayload(payload, msgEl);
+  return sdFormUtils.validateAiPayload(payload, msgEl);
 }
 

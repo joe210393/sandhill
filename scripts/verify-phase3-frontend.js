@@ -138,7 +138,12 @@ assert.ok(staffFormUtilsJs.includes('global.StaffDashboardFormUtils'), 'form-uti
 assert.ok(staffNavigationJs.includes('global.StaffDashboardNavigation'), 'navigation.js must expose StaffDashboardNavigation');
 assert.ok(staffDrawerJs.includes('global.StaffDashboardDrawer'), 'drawer-controller.js must expose StaffDashboardDrawer');
 assert.ok(billingViewJs.includes('global.loadBillingDashboard = loadBillingDashboard'), 'billing view must expose loadBillingDashboard for inline handlers');
-assert.ok(formsViewJs.includes('const staffDrawer = window.StaffDashboardDrawer'), 'forms view must bind staffDrawer from window (not staff-dashboard.js closure)');
+assert.ok(
+  formsViewJs.includes('const sdDrawer = window.StaffDashboardDrawer')
+    && formsViewJs.includes('const sdFormUtils = window.StaffDashboardFormUtils'),
+  'forms view must bind sdDrawer/sdFormUtils (names must not duplicate staff-dashboard.js const staffDrawer/staffFormUtils in shared global lexical scope)'
+);
+assert.ok(!formsViewJs.includes('const staffFormUtils ='), 'forms.js must not redeclare const staffFormUtils (conflicts with staff-dashboard.js in same page)');
 
 const forbiddenStaffDefinitions = [
   'function apiJson(',
