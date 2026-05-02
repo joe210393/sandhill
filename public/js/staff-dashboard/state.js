@@ -23,6 +23,8 @@
     currentShopDetailId: '',
     activeFormId: null,
     currentQuestChainSearchTerm: '',
+    /** 'all' | 'published' | 'draft' | 'locked' — 玩法入口列表狀態篩選（與搜尋字串疊加） */
+    questChainStatusFilter: 'all',
     questChainSearchBootstrapped: false
   };
 

@@ -1,6 +1,6 @@
 # Sandhill 架構備忘錄
 
-最後更新：2026-05-02（ai-lab 第十三輪：端對端本機驗證 + 修 `window.SandhillAssistant` latent ReferenceError + 接上 `AiLabAssistant` controller + 移除 `cameraFlash` orphan UI，主檔 1635 行）
+最後更新：2026-05-02（staff-dashboard「玩法入口管理」列表：狀態篩選列 + 精簡卡片／主要「管理內容」+ ⋯ 次要操作，邏輯集中在 `views/quest-chains.js` + `state.js`，薄入口不擴張）
 
 ## 修改守則
 
@@ -75,7 +75,7 @@ Phase 5 已完成第一輪高信心刪除；以下是仍需後續拆分或確認
 
 - `src/app.js` 約 496 行，已移除重複 helper 實作，主要負責 app 組裝、route 註冊與少量相容接線；root `index.js` 已是薄入口。
 - `public/js/ai-lab.js` 約 1682 行；語音、照片、任務媒體、玩家任務流程、劇情/棋盤 shell、棋盤動畫、棋盤 session、教學進度、事件接線、語言/LM、視覺問答、GPS watch / 裝置方位 / 任務 BGM 觸發、共享 runtime state、nearby task 資料流、自由探索 analyze-flow、相機 share/download (photo-share) 都已拆成獨立模組。`task-submit.js` 內部也已按 `submitPhotoAnswer / submitChoiceAnswer / submitTextAnswer` 三條子流程切分，並抽出 `dispatchAnswerViaApi / handleChoiceTutorialPassThrough / handleGenericTutorialPassThrough / triggerShakeError` 四個共享 helper。下一輪重點在 repository layer 與視覺回歸 smoke，不得再新增大型業務流程到主檔。
-- `public/js/staff-dashboard.js` 已縮到約 66 行，現為薄入口；剩餘複雜度集中在 `public/js/staff-dashboard/views/`，尤其 `quest-chains.js`、`tasks.js`、`board-maps.js`。
+- `public/js/staff-dashboard.js` 已縮到約 66 行，現為薄入口；剩餘複雜度集中在 `public/js/staff-dashboard/views/`，尤其 `quest-chains.js`、`tasks.js`、`board-maps.js`。玩法入口列表 UI（篩選、`applyQuestChainListFilters`）只放在 `quest-chains.js`，狀態 `questChainStatusFilter` 在 `state.js`，勿回塞 `staff-dashboard.js`。
 - `public/css/ai-lab/`：已將原本 4k+ 行的巨型樣式表，依功能域分拆為 core、camera、hud、board、tasks 等獨立 CSS 檔案。
 - `public/staff-dashboard-old.html`、`public/staff-dashboard-v2.html`、`public/admin-users.html`、`public/admin-user-tasks.html`、`public/redeem-tasks.html`、`public/role-management.html` 目前是 redirect shim；確認流量後可保留極薄 redirect 或移除 shim。舊 JS 已刪除，不得恢復載入。
 - `package.json` 已移除不存在的 `scripts/rag/*` 指令，並以 `scripts/verify-legacy-boundaries.js` 防止回流。

@@ -626,74 +626,111 @@ function loadQuestChains() {
       }
 
       refreshCouponQuestChainOptions();
-      renderQuestChainList(filterQuestChains(data.questChains));
+      renderQuestChainList(applyQuestChainListFilters(data.questChains));
     });
+}
+
+/** 搜尋（billing.js `filterQuestChains`）＋狀態篩選（全部／已發布／草稿／結構已鎖） */
+function applyQuestChainListFilters(chains = []) {
+  const base = filterQuestChains(Array.isArray(chains) ? chains : []);
+  const f = questChainStatusFilter || 'all';
+  if (f === 'published') return base.filter((q) => q.is_active);
+  if (f === 'draft') return base.filter((q) => !q.is_active);
+  if (f === 'locked') return base.filter((q) => isQuestChainStructureLockedClient(q));
+  return base;
 }
 
 function renderQuestChainList(chains) {
   const container = document.getElementById('questChainListContainer');
+  if (!container) return;
+  const totalLoaded = Object.keys(globalQuestChainsMap).length;
   if (!chains.length) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div>${currentQuestChainSearchTerm ? '找不到符合搜尋條件的入口' : '目前沒有玩法入口，點右上角新增'}</div>`;
+    let msg = '目前沒有玩法入口，點右上角「新增入口」';
+    if (totalLoaded > 0) {
+      if (String(currentQuestChainSearchTerm || '').trim()) {
+        msg = '找不到符合搜尋條件的入口';
+      } else if ((questChainStatusFilter || 'all') !== 'all') {
+        msg = '此篩選下沒有入口，請切換篩選或清除搜尋';
+      }
+    }
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div>${msg}</div>`;
     return;
   }
-  container.innerHTML = chains.map(q => {
+  container.innerHTML = chains.map((q) => {
     const billingPolicy = normalizeQuestChainBillingPolicy(q);
-    const modeTag = q.mode_type === 'board_game' ? '<span class="tag tag-green">大富翁</span>' : '<span class="tag tag-blue">劇情主線</span>';
     const accessMode = q.access_mode || 'public';
-    const accessTag = accessMode === 'coupon'
-      ? '<span class="tag tag-red">需 Coupon</span>'
-      : '<span class="tag tag-green">公開入口</span>';
     const experienceMode = q.experience_mode || 'formal';
-    const experienceTag = experienceMode === 'tutorial'
-      ? '<span class="tag tag-amber">教學模式</span>'
-      : experienceMode === 'demo'
-        ? '<span class="tag tag-red">Demo 模式</span>'
-        : '<span class="tag tag-gray">正式模式</span>';
-    const statusTag = q.is_active
-      ? '<span class="tag tag-green">已正式發布</span>'
-      : '<span class="tag tag-red">測試草稿</span>';
     const isLocked = isQuestChainStructureLockedClient(q);
-    const structureLockTag = isLocked
-      ? '<span class="tag tag-red">結構已鎖定</span>'
-      : '<span class="tag tag-blue">可編輯結構</span>';
     const shopName = q.shop_name || globalShopsMap[String(q.shop_id)]?.name || (q.shop_id ? `商家 #${q.shop_id}` : 'admin 公益共用');
     const planName = q.plan_name || globalEntryPlansMap[String(q.plan_id)]?.name || (q.plan_id ? `方案 #${q.plan_id}` : '歷史入口');
     const taskLimit = q.task_limit ? `${q.task_limit} 關` : '未限制';
     const setupFee = formatCurrency(q.setup_fee || 0);
-    const billingTag = billingPolicy === 'public_good'
-      ? '<span class="tag tag-green">公益入口</span>'
-      : (q.setup_fee_paid
-        ? '<span class="tag tag-green">建置費已收款</span>'
-        : '<span class="tag tag-amber">建置費待收</span>');
-    const lockActionBtn = isLocked
-      ? (loginUser?.role === 'admin'
-        ? `<button class="btn-sm btn-secondary-v2" onclick="toggleQuestChainStructureLock('${q.id}', false)">admin 解鎖</button>`
-        : '')
-      : `<button class="btn-sm btn-secondary-v2" onclick="toggleQuestChainStructureLock('${q.id}', true)">鎖定結構</button>`;
+    const tokens = Number(q.current_billing_month_tokens || 0).toLocaleString('zh-TW');
+
+    const modeTag = q.mode_type === 'board_game'
+      ? `<span class="tag tag-green">大富翁</span>${q.play_style ? `<span class="tag tag-gray">${escHtml(boardPlayStyleLabels[q.play_style] || q.play_style)}</span>` : ''}`
+      : '<span class="tag tag-blue">劇情主線</span>';
+    const statusTag = q.is_active
+      ? '<span class="tag tag-green">已發布</span>'
+      : '<span class="tag tag-red">草稿</span>';
+    const lockBadge = isLocked
+      ? '<span class="tag tag-red" title="核心結構已鎖定">🔒 結構鎖</span>'
+      : '';
+
+    const metaParts = [
+      `🏪 ${escHtml(shopName)}`,
+      `📦 ${escHtml(planName)}`,
+      escHtml(taskLimit),
+      `${Number(q.chain_points || 0)} 分`,
+      `LM ${tokens} tokens`
+    ];
+    if (q.entry_scene_label) {
+      metaParts.splice(1, 0, `場景 ${escHtml(q.entry_scene_label)}`);
+    }
+    if (accessMode === 'coupon') metaParts.push('需 Coupon');
+    if (experienceMode === 'tutorial') metaParts.push('教學');
+    else if (experienceMode === 'demo') metaParts.push('Demo');
+
+    const billingLabel = billingPolicy === 'public_good'
+      ? `公益 · 建置 ${escHtml(setupFee)}（免收）`
+      : `${escHtml(setupFee)} · ${q.setup_fee_paid ? '建置費已收' : '建置費待收'}`;
+    metaParts.push(billingLabel);
+
+    const metaLine = metaParts.join(' · ');
+
+    let lockMenuBtn = '';
+    if (!isLocked) {
+      lockMenuBtn = `<button type="button" class="btn-sm btn-secondary-v2" onclick="toggleQuestChainStructureLock('${q.id}', true)">鎖定結構</button>`;
+    } else if (loginUser?.role === 'admin') {
+      lockMenuBtn = `<button type="button" class="btn-sm btn-secondary-v2" onclick="toggleQuestChainStructureLock('${q.id}', false)">admin 解鎖結構</button>`;
+    }
+
+    const deleteMenuBtn = isLocked
+      ? ''
+      : `<button type="button" class="btn-sm btn-danger-v2" onclick="deleteQuestChain('${q.id}')">刪除入口</button>`;
+
+    const descOneLine = q.short_description
+      ? `<div style="font-size:0.85rem;color:#64748b;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(q.short_description)}">${escHtml(q.short_description)}</div>`
+      : '';
+
     return `
-      <div class="quest-card">
-        <div style="min-width:0;">
+      <div class="quest-card qc-entry-card">
+        <div style="min-width:0;flex:1;">
           <div class="quest-card-title">${escHtml(q.title)}</div>
-          <div class="quest-card-meta">
-            ${modeTag} ${accessTag} ${experienceTag} ${statusTag}
-            ${structureLockTag}
-            ${q.entry_scene_label ? `<span class="tag tag-gray">${escHtml(q.entry_scene_label)}</span>` : ''}
-            <span class="tag tag-amber">🏆 ${q.chain_points || 0} 分</span>
-            ${q.play_style ? `<span class="tag tag-gray">🎲 ${escHtml(q.play_style)}</span>` : ''}
-            <span class="tag tag-gray">🏪 ${escHtml(shopName)}</span>
-            <span class="tag tag-gray">📦 ${escHtml(planName)}</span>
-            <span class="tag tag-gray">📏 ${escHtml(taskLimit)}</span>
-            <span class="tag tag-gray">💰 ${billingPolicy === 'public_good' ? `${escHtml(setupFee)}（免收）` : escHtml(setupFee)}</span>
-            ${billingTag}
-            <span class="tag tag-gray">🤖 本月 ${Number(q.current_billing_month_tokens || 0).toLocaleString('zh-TW')} tokens</span>
-          </div>
-          ${q.short_description ? `<div style="font-size:0.85rem; color:#64748b; margin-top:6px;">${escHtml(q.short_description)}</div>` : ''}
+          <div class="quest-card-meta qc-entry-badges">${modeTag} ${statusTag} ${lockBadge}</div>
+          <div class="qc-entry-meta-line">${metaLine}</div>
+          ${descOneLine}
         </div>
-        <div class="quest-card-actions">
-          <button class="btn-sm btn-secondary-v2" onclick="goToQuestDetail('${q.id}')">管理內容</button>
-          <button class="btn-sm btn-secondary-v2" onclick="editQuestChain('${q.id}')">編輯</button>
-          ${lockActionBtn}
-          ${isLocked ? '' : `<button class="btn-sm btn-danger-v2" onclick="deleteQuestChain('${q.id}')">刪除</button>`}
+        <div class="quest-card-actions qc-entry-actions">
+          <button type="button" class="btn-md btn-primary-v2" onclick="goToQuestDetail('${q.id}')">管理內容</button>
+          <details class="qc-more">
+            <summary class="btn-sm btn-secondary-v2 qc-more-summary" aria-label="更多操作">⋯</summary>
+            <div class="qc-more-body">
+              <button type="button" class="btn-sm btn-secondary-v2" onclick="editQuestChain('${q.id}')">編輯設定</button>
+              ${lockMenuBtn}
+              ${deleteMenuBtn}
+            </div>
+          </details>
         </div>
       </div>
     `;
@@ -729,14 +766,14 @@ async function toggleQuestChainStructureLock(id, locked) {
 
 function applyQuestChainSearch() {
   currentQuestChainSearchTerm = document.getElementById('questChainSearchInput')?.value.trim() || '';
-  renderQuestChainList(filterQuestChains(Object.values(globalQuestChainsMap)));
+  renderQuestChainList(applyQuestChainListFilters(Object.values(globalQuestChainsMap)));
 }
 
 function resetQuestChainSearch() {
   currentQuestChainSearchTerm = '';
   const input = document.getElementById('questChainSearchInput');
   if (input) input.value = '';
-  renderQuestChainList(Object.values(globalQuestChainsMap));
+  renderQuestChainList(applyQuestChainListFilters(Object.values(globalQuestChainsMap)));
 }
 
 function ensureQuestChainSearchStartsBlank() {
@@ -1202,4 +1239,32 @@ function openPlanDrawer(id = '') {
     is_active: plan?.is_active !== false
   });
 }
+
+function syncQuestChainFilterTabUi() {
+  const root = document.getElementById('questChainFilterTabs');
+  if (!root) return;
+  const cur = questChainStatusFilter || 'all';
+  root.querySelectorAll('[data-qc-filter]').forEach((btn) => {
+    const v = btn.getAttribute('data-qc-filter') || 'all';
+    const active = v === cur;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+}
+
+(function wireQuestChainFilterTabs() {
+  const root = document.getElementById('questChainFilterTabs');
+  if (!root || root.dataset.wired === '1') return;
+  root.dataset.wired = '1';
+  root.addEventListener('click', (e) => {
+    const btn = e.target && e.target.closest && e.target.closest('[data-qc-filter]');
+    if (!btn) return;
+    const next = btn.getAttribute('data-qc-filter') || 'all';
+    if (next === (questChainStatusFilter || 'all')) return;
+    questChainStatusFilter = next;
+    syncQuestChainFilterTabUi();
+    renderQuestChainList(applyQuestChainListFilters(Object.values(globalQuestChainsMap)));
+  });
+  syncQuestChainFilterTabUi();
+})();
 

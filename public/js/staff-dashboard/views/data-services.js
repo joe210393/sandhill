@@ -9,7 +9,7 @@ function loadShops() {
     populateQuestChainShopOptions();
     syncQuestChainCommercialFields();
     if (Object.keys(globalQuestChainsMap).length) {
-      renderQuestChainList(filterQuestChains(Object.values(globalQuestChainsMap)));
+      renderQuestChainList(applyQuestChainListFilters(Object.values(globalQuestChainsMap)));
     }
     renderShopList(Object.values(globalShopsMap));
   });
@@ -27,7 +27,7 @@ function loadEntryPlans() {
     populateQuestChainPlanOptions();
     syncQuestChainCommercialFields();
     if (Object.keys(globalQuestChainsMap).length) {
-      renderQuestChainList(filterQuestChains(Object.values(globalQuestChainsMap)));
+      renderQuestChainList(applyQuestChainListFilters(Object.values(globalQuestChainsMap)));
     }
     renderPlanList(Object.values(globalEntryPlansMap));
   });
