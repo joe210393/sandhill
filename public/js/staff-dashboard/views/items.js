@@ -130,7 +130,7 @@ function hydrateLoginHeader() {
 
 async function bootstrapSession() {
   try {
-    staffDrawer.initializeTaskWizardDOM();
+    window.StaffDashboardDrawer?.initializeTaskWizardDOM?.();
     syncDrawerFooter();
     const billingMonthInput = document.getElementById('billingMonthInput');
     if (billingMonthInput && !billingMonthInput.value) {
@@ -159,7 +159,7 @@ async function bootstrapSession() {
     ensureQuestChainSearchStartsBlank();
     hydrateLoginHeader();
     applySidebarRBAC();
-    selectInitialStaffView();
+    window.selectInitialStaffView?.();
 
     const role = loginUser?.role || '';
     const initLoads = [];

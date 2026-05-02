@@ -64,3 +64,9 @@ function ensureRewardShopIframe() {
 }
 
 staffNavigation.wireSidebarNavigation({ switchView });
+
+// View modules load after this file; inline handlers / hashchange must resolve from window.
+window.switchView = switchView;
+window.selectInitialStaffView = selectInitialStaffView;
+window.ensureRewardShopIframe = ensureRewardShopIframe;
+window.wireLatLngPaste = wireLatLngPaste;

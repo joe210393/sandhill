@@ -1,5 +1,6 @@
-// Loaded after form-utils.js in staff-dashboard.html (same surface as staff-dashboard.js used to bind).
+// Loaded after form-utils.js + staff-dashboard.js in staff-dashboard.html.
 const staffFormUtils = window.StaffDashboardFormUtils;
+const staffDrawer = window.StaffDashboardDrawer;
 
 function normalizeQuestChainBillingPolicy(chain = null) {
   if (!chain) return 'commercial';

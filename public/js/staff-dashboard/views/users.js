@@ -18,7 +18,7 @@ if (questChainSearchInputEl) {
 
 window.addEventListener('hashchange', () => {
   applySidebarRBAC();
-  selectInitialStaffView();
+  window.selectInitialStaffView?.();
 });
 
 

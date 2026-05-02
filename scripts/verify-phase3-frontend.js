@@ -90,6 +90,9 @@ const formUtilsScriptIndex = staffHtml.indexOf('/js/staff-dashboard/form-utils.j
 const navigationScriptIndex = staffHtml.indexOf('/js/staff-dashboard/navigation.js');
 const drawerScriptIndex = staffHtml.indexOf('/js/staff-dashboard/drawer-controller.js');
 const billingScriptIndex = staffHtml.indexOf('/js/staff-dashboard/views/billing.js');
+const formsScriptIndex = staffHtml.indexOf('/js/staff-dashboard/views/forms.js');
+const questChainsScriptIndex = staffHtml.indexOf('/js/staff-dashboard/views/quest-chains.js');
+const initScriptIndex = staffHtml.indexOf('/js/staff-dashboard/views/init.js');
 const dashboardScriptIndex = staffHtml.indexOf('/js/staff-dashboard.js');
 
 assert.ok(apiScriptIndex > -1, 'staff dashboard must load shared api.js');
@@ -108,7 +111,13 @@ assert.ok(stateScriptIndex < dashboardScriptIndex, 'staff-dashboard/state.js mus
 assert.ok(formUtilsScriptIndex < dashboardScriptIndex, 'staff-dashboard/form-utils.js must load before staff-dashboard.js');
 assert.ok(navigationScriptIndex < dashboardScriptIndex, 'staff-dashboard/navigation.js must load before staff-dashboard.js');
 assert.ok(drawerScriptIndex < dashboardScriptIndex, 'staff-dashboard/drawer-controller.js must load before staff-dashboard.js');
-assert.ok(billingScriptIndex < dashboardScriptIndex, 'staff-dashboard/views/billing.js must load before staff-dashboard.js');
+assert.ok(dashboardScriptIndex < billingScriptIndex, 'staff-dashboard.js shell must load before views/billing.js (global apiJson/staffDrawer/switchView)');
+assert.ok(formsScriptIndex > -1, 'staff dashboard must load views/forms.js');
+assert.ok(questChainsScriptIndex > -1, 'staff dashboard must load views/quest-chains.js');
+assert.ok(initScriptIndex > -1, 'staff dashboard must load views/init.js');
+assert.ok(dashboardScriptIndex < formsScriptIndex, 'staff-dashboard.js must load before views/forms.js');
+assert.ok(dashboardScriptIndex < questChainsScriptIndex, 'staff-dashboard.js must load before views/quest-chains.js');
+assert.ok(dashboardScriptIndex < initScriptIndex, 'staff-dashboard.js must load before views/init.js');
 assert.ok(stateScriptIndex < billingScriptIndex, 'staff-dashboard/state.js must load before billing view');
 assert.ok(stateScriptIndex < formUtilsScriptIndex, 'staff-dashboard/state.js must load before form-utils.js');
 assert.ok(formUtilsScriptIndex < navigationScriptIndex, 'staff-dashboard/form-utils.js must load before navigation.js');
@@ -121,12 +130,15 @@ assert.ok(staffJs.includes('window.StaffDashboardState.state'), 'staff dashboard
 assert.ok(staffJs.includes('window.StaffDashboardFormUtils'), 'staff dashboard must use extracted form utilities');
 assert.ok(staffJs.includes('window.StaffDashboardNavigation'), 'staff dashboard must use extracted navigation controller');
 assert.ok(staffJs.includes('window.StaffDashboardDrawer'), 'staff dashboard must use extracted drawer controller');
+assert.ok(staffJs.includes('window.switchView = switchView'), 'staff-dashboard.js must expose switchView on window for view modules / hash routing');
+assert.ok(staffJs.includes('window.selectInitialStaffView = selectInitialStaffView'), 'staff-dashboard.js must expose selectInitialStaffView on window');
 assert.ok(!staffJs.includes('with (staffDashboardState)'), 'staff dashboard must not hide global handlers inside a with block');
 assert.ok(staffStateJs.includes('Object.defineProperty(global, key'), 'state.js must expose state-backed globals for inline handlers');
 assert.ok(staffFormUtilsJs.includes('global.StaffDashboardFormUtils'), 'form-utils.js must expose StaffDashboardFormUtils');
 assert.ok(staffNavigationJs.includes('global.StaffDashboardNavigation'), 'navigation.js must expose StaffDashboardNavigation');
 assert.ok(staffDrawerJs.includes('global.StaffDashboardDrawer'), 'drawer-controller.js must expose StaffDashboardDrawer');
 assert.ok(billingViewJs.includes('global.loadBillingDashboard = loadBillingDashboard'), 'billing view must expose loadBillingDashboard for inline handlers');
+assert.ok(formsViewJs.includes('const staffDrawer = window.StaffDashboardDrawer'), 'forms view must bind staffDrawer from window (not staff-dashboard.js closure)');
 
 const forbiddenStaffDefinitions = [
   'function apiJson(',
