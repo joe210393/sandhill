@@ -1,0 +1,33 @@
+{
+  "lastUpdated": "2026-05-01",
+  "groups": {
+    "identity": {
+      "label": "Identity",
+      "tables": ["users", "shops"]
+    },
+    "content": {
+      "label": "Content",
+      "tables": ["quest_chains", "tasks", "board_maps", "board_tiles", "game_npcs"]
+    },
+    "player_progress": {
+      "label": "Player Progress",
+      "tables": ["user_tasks", "task_attempts", "user_quests", "user_badges", "user_game_sessions"]
+    },
+    "rewards": {
+      "label": "Rewards",
+      "tables": ["items", "user_inventory", "products", "redemptions", "product_redemptions", "point_transactions", "user_coupons"]
+    },
+    "assets": {
+      "label": "Assets",
+      "tables": ["ar_models", "bgm_library", "video_library"]
+    },
+    "billing_lm": {
+      "label": "Billing / LM",
+      "tables": ["entry_plans", "entry_billing_records", "llm_usage_logs", "llm_usage_monthly_summary"]
+    },
+    "notifications": {
+      "label": "Notifications",
+      "tables": ["push_subscriptions"]
+    }
+  }
+}

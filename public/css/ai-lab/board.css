@@ -1,0 +1,745 @@
+
+
+body.tutorial-board-clean #taskHudDock,
+body.tutorial-board-clean #taskGuideArrow,
+body.tutorial-board-clean #taskTargetObj,
+body.tutorial-board-clean #taskEncounterModal,
+body.tutorial-story-clean #taskHudDock,
+body.tutorial-story-clean #taskGuideArrow,
+body.tutorial-story-clean #taskTargetObj,
+body.tutorial-story-clean #taskEncounterModal {
+    display: none !important;
+}
+
+.task-encounter-modal,
+.answer-modal,
+.lock-overlay,
+.completion-modal,
+.dice-overlay,
+.board-card-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-dice);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.85);
+    pointer-events: auto;
+}
+
+.task-encounter-modal.hidden,
+.answer-modal.hidden,
+.lock-overlay.hidden,
+.completion-modal.hidden,
+.dice-overlay.hidden,
+.board-card-overlay.hidden {
+    display: none !important;
+}
+
+.dice-overlay-card {
+    width: min(260px, 76vw);
+    border-radius: 24px;
+    padding: 22px 18px;
+    background: linear-gradient(180deg, rgba(10, 18, 32, 0.98), rgba(28, 48, 80, 0.94));
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+    color: #fff;
+    display: grid;
+    gap: 12px;
+    justify-items: center;
+}
+
+.dice-overlay-label {
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.68);
+}
+
+.dice-cube {
+    width: 96px;
+    height: 96px;
+    border-radius: 24px;
+    display: grid;
+    place-items: center;
+    font-size: 3rem;
+    font-weight: 900;
+    background: linear-gradient(145deg, #fff5d6, #ffd76a);
+    color: #1e293b;
+    box-shadow: inset 0 2px 0 rgba(255,255,255,0.7), 0 12px 30px rgba(0,0,0,0.3);
+}
+
+.dice-cube.rolling {
+        animation: sandhillDiceRoll 0.4s cubic-bezier(.2,.8,.2,1);
+    }
+
+.dice-overlay-text {
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.board-card-shell {
+    width: min(440px, 90vw);
+    border-radius: 28px;
+    padding: 22px 20px 26px;
+    background: linear-gradient(180deg, rgba(8, 14, 28, 0.98), rgba(20, 34, 56, 0.94));
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+    color: #fff;
+    text-align: center;
+}
+
+.board-card-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 96px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff3c0;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+}
+
+.board-card-title {
+    margin-top: 14px;
+    font-size: 24px;
+    font-weight: 800;
+}
+
+.board-card-subtitle {
+    margin-top: 8px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.76);
+}
+
+.slot-machine {
+    margin: 20px auto 0;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+.slot-machine.hidden,
+.fortune-wheel-wrap.hidden {
+    display: none !important;
+}
+
+.slot-reel {
+    width: 84px;
+    height: 92px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 42px;
+    overflow: hidden;
+}
+
+.slot-reel span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.slot-reel.spinning span {
+    animation: slotBounce 0.16s linear infinite;
+}
+
+.fortune-wheel-wrap {
+    margin: 18px auto 0;
+    width: 220px;
+    height: 220px;
+}
+
+.fortune-wheel {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    border-radius: 50%;
+    border: 8px solid rgba(255,255,255,0.12);
+    background: conic-gradient(
+        from 0deg,
+        rgba(255, 209, 102, 0.96) 0deg 90deg,
+        rgba(72, 187, 120, 0.96) 90deg 180deg,
+        rgba(96, 165, 250, 0.96) 180deg 270deg,
+        rgba(244, 114, 182, 0.96) 270deg 360deg
+    );
+    box-shadow: 0 16px 40px rgba(0,0,0,0.28);
+    transition: transform 2s cubic-bezier(.18,.89,.32,1.18);
+}
+
+.fortune-wheel::before {
+    content: '';
+    position: absolute;
+    top: -17px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 12px solid transparent;
+    border-right: 12px solid transparent;
+    border-bottom: 22px solid #fff4d3;
+}
+
+.fortune-wheel-center {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    background: rgba(7, 12, 20, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+body.tutorial-board-clean .game-shell-panel {
+    position: fixed;
+    left: 50%;
+    right: auto;
+    top: auto;
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    width: auto;
+    max-width: none;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    z-index: 46;
+    pointer-events: none;
+}
+
+body.tutorial-board-clean .game-shell-top,
+body.tutorial-board-clean .game-shell-summary,
+body.tutorial-board-clean #gameShellProgressBlock,
+body.tutorial-board-clean #gameShellEntriesBlock,
+body.tutorial-board-clean #gameShellObjectiveBlock .game-shell-label,
+body.tutorial-board-clean #gameShellObjective {
+    display: none !important;
+}
+
+body.tutorial-board-clean .game-shell-body,
+body.tutorial-board-clean #gameShellObjectiveBlock {
+    padding: 0;
+    margin: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+body.tutorial-board-clean #gameShellStartBtn {
+    pointer-events: auto;
+    width: 78px;
+    height: 78px;
+    min-width: 78px;
+    border-radius: 50%;
+    padding: 0;
+    font-size: 0;
+    line-height: 0;
+    background: linear-gradient(180deg, rgba(246,188,73,0.96), rgba(207,132,16,0.96));
+    border: 2px solid rgba(255,255,255,0.3);
+    box-shadow: 0 18px 32px rgba(0,0,0,0.28);
+}
+
+body.tutorial-board-clean #gameShellStartBtn::before {
+    content: "🎲";
+    font-size: 30px;
+    line-height: 1;
+}
+
+body.tutorial-board-clean #gameShellStartBtn:disabled {
+    background: rgba(120, 129, 150, 0.36);
+    border-color: rgba(255,255,255,0.12);
+    box-shadow: none;
+    opacity: 0.72;
+}
+
+body.tutorial-board-clean #gameShellStartBtn:disabled::before {
+    filter: grayscale(1);
+}
+
+body.tutorial-board-clean .game-hud {
+    display: flex !important;
+    position: absolute;
+    top: 90px;
+    right: 12px;
+    gap: 8px;
+    flex-direction: column;
+    align-items: flex-end;
+    z-index: 38;
+}
+
+body.tutorial-board-clean .game-hud.tutorial-hidden {
+    display: flex !important;
+}
+
+body.tutorial-board-clean .game-hud .hud-chip:nth-child(1),
+body.tutorial-board-clean .game-hud .hud-chip:nth-child(2) {
+    display: none !important;
+}
+
+body.tutorial-board-clean .game-hud .hud-chip {
+    min-width: 52px;
+    width: 52px;
+    padding: 8px 6px;
+    border-radius: 18px;
+    background: rgba(8, 14, 28, 0.34);
+    border: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+    display: grid;
+    place-items: center;
+    gap: 3px;
+}
+
+body.tutorial-board-clean .game-hud .hud-chip .hud-label {
+    font-size: 0;
+    line-height: 0;
+}
+
+body.tutorial-board-clean .game-hud .hud-chip:nth-child(3) .hud-label::before {
+    content: '🏆';
+    font-size: 18px;
+    line-height: 1;
+}
+
+body.tutorial-board-clean .game-hud .hud-chip:nth-child(4) .hud-label::before {
+    content: '🎖️';
+    font-size: 18px;
+    line-height: 1;
+}
+
+body.tutorial-board-clean .game-hud .hud-chip strong {
+    font-size: 11px;
+    line-height: 1;
+    color: rgba(255,255,255,0.94);
+}
+
+body.tutorial-board-clean .feature-dock {
+    display: flex !important;
+    left: auto;
+    right: 14px;
+    bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+    top: auto;
+    justify-content: flex-end;
+    align-items: flex-end;
+    gap: 0;
+    z-index: 46;
+}
+
+body.tutorial-board-clean .feature-dock-menu {
+    display: flex !important;
+    flex-direction: row;
+    gap: 0;
+    padding: 0;
+    border-radius: 999px;
+    background: transparent;
+    border: none;
+    backdrop-filter: none;
+    box-shadow: none;
+}
+
+body.tutorial-board-clean .feature-dock-menu.hidden {
+    display: none !important;
+}
+
+body.tutorial-board-clean .feature-dock-toggle {
+    display: none !important;
+}
+
+body.tutorial-board-clean .feature-dock-menu #gameShellBtn,
+body.tutorial-board-clean .feature-dock-menu #hudPanelBtn,
+body.tutorial-board-clean .feature-dock-menu #boardPanelBtn {
+    width: 54px;
+    height: 54px;
+    font-size: 24px;
+    border-radius: 50%;
+    background: rgba(8, 14, 28, 0.48);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+}
+
+body.tutorial-board-clean .feature-dock-menu #gameShellBtn,
+body.tutorial-board-clean .feature-dock-menu #hudPanelBtn {
+    display: none !important;
+}
+
+body.tutorial-board-clean .feature-drawer-panel {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: calc(170px + env(safe-area-inset-bottom, 0px));
+    min-width: 0;
+    z-index: 47;
+    pointer-events: auto;
+}
+
+body.tutorial-board-clean .feature-drawer-panel .dock-panel {
+    max-height: 48vh;
+    overflow-y: auto;
+    border-radius: 28px;
+    background: rgba(8, 14, 28, 0.18);
+    border: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(8px);
+    box-shadow: none;
+}
+
+body.tutorial-board-clean #dockBoardPanel .dock-panel-title,
+body.tutorial-board-clean #dockBoardPanel .board-map-selector-wrap,
+body.tutorial-board-clean #dockBoardPanel .board-panel-status,
+body.tutorial-board-clean #dockBoardPanel .board-panel-meta,
+body.tutorial-board-clean #dockBoardPanel .board-panel-action,
+body.tutorial-board-clean #dockBoardPanel .board-panel-controls {
+    display: none !important;
+}
+
+body.tutorial-board-clean #dockBoardPanel {
+    padding: 12px 10px 8px;
+}
+
+body.tutorial-board-clean #boardPanelTrack {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+}
+
+body.tutorial-board-clean #boardPanelTrack .board-track-chip {
+    min-height: auto;
+    width: 86px;
+    padding: 0;
+    gap: 6px;
+    border-radius: 22px;
+    background: transparent;
+    border: none;
+    backdrop-filter: none;
+    box-shadow: none;
+    overflow: visible;
+}
+
+body.tutorial-board-clean #boardPanelTrack .board-track-chip::after {
+    content: "›";
+    position: absolute;
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(255,255,255,0.42);
+    font-size: 20px;
+    font-weight: 700;
+}
+
+body.tutorial-board-clean #boardPanelTrack .board-track-chip:last-child::after {
+    display: none;
+}
+
+body.tutorial-board-clean #boardPanelTrack .board-track-chip .tile-name {
+    order: 1;
+    font-size: 10px;
+    line-height: 1.2;
+    color: rgba(255,255,255,0.82);
+}
+
+body.tutorial-board-clean #boardPanelTrack .board-track-chip .tile-index {
+    order: 2;
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 28px;
+    line-height: 1;
+    background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.14);
+    box-shadow: 0 12px 20px rgba(0,0,0,0.18);
+    color: rgba(255,255,255,0.62);
+}
+
+body.tutorial-board-clean #boardPanelTrack .board-track-chip .tile-meta {
+    order: 3;
+    font-size: 10px;
+    line-height: 1.15;
+    color: rgba(255,255,255,0.7);
+}
+
+body.tutorial-board-clean #boardPanelTrack .board-track-chip.current .tile-index,
+body.tutorial-board-clean #boardPanelTrack .board-track-chip.pending .tile-index {
+    background: rgba(248, 183, 52, 0.96);
+    border-color: rgba(255,255,255,0.28);
+    color: rgba(24,18,10,0.95);
+    box-shadow: 0 14px 26px rgba(167, 99, 11, 0.3);
+}
+
+body.tutorial-board-clean #boardPanelTrack .board-track-chip.current .tile-name,
+body.tutorial-board-clean #boardPanelTrack .board-track-chip.pending .tile-name,
+body.tutorial-board-clean #boardPanelTrack .board-track-chip.current .tile-meta,
+body.tutorial-board-clean #boardPanelTrack .board-track-chip.pending .tile-meta {
+    color: rgba(255,255,255,0.96);
+}
+
+body.tutorial-board-clean #boardPanelTrack .board-track-chip.start .tile-index {
+    box-shadow: 0 0 0 2px rgba(65, 205, 138, 0.28), 0 12px 20px rgba(0,0,0,0.18);
+}
+
+body.tutorial-board-clean #boardPanelTrack .board-track-chip.finish .tile-index {
+    box-shadow: 0 0 0 2px rgba(95, 168, 255, 0.3), 0 12px 20px rgba(0,0,0,0.18);
+}
+
+body.tutorial-board-clean.immersive-camera-mode .selection-instruction {
+    display: block !important;
+    bottom: calc(132px + env(safe-area-inset-bottom, 0px));
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: none;
+    background: rgba(8, 14, 28, 0.68);
+    backdrop-filter: blur(10px);
+}
+
+body.tutorial-board-clean.immersive-camera-mode .reticle-overlay,
+body.tutorial-story-clean.immersive-camera-mode .reticle-overlay {
+    transition: none;
+    pointer-events: none;
+}
+
+body.tutorial-board-clean.immersive-camera-mode #drawingCanvas,
+body.tutorial-story-clean.immersive-camera-mode #drawingCanvas {
+    touch-action: none;
+}
+
+body.tutorial-board-clean.immersive-camera-mode .selection-instruction .instruction-text {
+    display: block !important;
+}
+
+body.tutorial-board-clean .game-shell-summary {
+    opacity: 0.82;
+}
+
+body.tutorial-board-clean .game-shell-block {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.board-panel-track {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
+    gap: 10px;
+}
+
+.board-track-chip {
+    position: relative;
+    min-height: 74px;
+    border-radius: 24px;
+    background: rgba(14, 24, 38, 0.42);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 6px;
+    font-size: 11px;
+    line-height: 1.15;
+    text-align: center;
+    backdrop-filter: blur(10px);
+    cursor: pointer;
+    transition: transform 0.12s ease-out, background 0.12s ease-out, border-color 0.12s ease-out;
+}
+
+.board-track-chip:hover,
+.board-track-chip:active {
+    transform: translateY(-1px) scale(0.98);
+}
+
+.board-track-chip .tile-index {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: rgba(255,255,255,0.18);
+    color: #fff;
+    font-weight: 900;
+    font-size: 12px;
+}
+
+.board-track-chip .tile-meta {
+    font-size: 10px;
+    color: rgba(255,255,255,0.72);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.board-track-chip .tile-name {
+    max-width: 100%;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.board-track-chip.current {
+    background: rgba(14, 116, 144, 0.92);
+    border-color: rgba(103, 232, 249, 0.45);
+    color: #ecfeff;
+    box-shadow: 0 10px 20px rgba(8, 145, 178, 0.24);
+}
+
+.board-track-chip.pending {
+    background: rgba(180, 83, 9, 0.92);
+    border-color: rgba(253, 186, 116, 0.5);
+    color: #fff7ed;
+    box-shadow: 0 10px 20px rgba(180, 83, 9, 0.24);
+}
+
+.board-track-chip.start .tile-meta::after {
+    content: '｜起點';
+}
+
+.board-track-chip.finish .tile-meta::after {
+    content: '｜終點';
+}
+
+.floating-dice-btn {
+    background: linear-gradient(135deg, #ffd166 0%, #ff9f1c 100%);
+    color: #1c1405;
+    border-color: transparent;
+    box-shadow: 0 4px 12px rgba(255, 159, 28, 0.4);
+    animation: pulseDice 2s infinite;
+}
+
+.floating-dice-btn.hidden {
+    display: none !important;
+}
+
+.board-status-card {
+    position: absolute;
+    top: 62px;
+    left: 14px;
+    z-index: 24;
+    display: grid;
+    gap: 8px;
+    min-width: min(42vw, 240px);
+    padding: 12px;
+    border-radius: 18px;
+    background: rgba(6, 16, 30, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(14px);
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+    pointer-events: none;
+}
+
+.board-status-card.hidden {
+    display: none;
+}
+
+.board-status-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.board-status-row.wide {
+    display: grid;
+    gap: 6px;
+}
+
+.board-status-label {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.board-status-row strong {
+    font-size: 14px;
+    color: #fff;
+}
+
+.hud-panel-block,
+.board-panel-block {
+    display: grid;
+    gap: 8px;
+}
+
+.hud-panel-block + .hud-panel-block,
+.board-panel-block + .board-panel-block {
+    margin-top: 12px;
+}
+
+.board-map-selector-wrap {
+    display: grid;
+    gap: 10px;
+}
+
+.board-map-selector {
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    padding: 10px 12px;
+    font-size: 14px;
+}
+
+.board-map-selector option {
+    color: #0f172a;
+}
+
+.board-panel-actions {
+    display: grid;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.board-action-btn {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.board-action-btn.primary {
+    background: linear-gradient(135deg, #ffd166 0%, #ff9f1c 100%);
+    color: #1c1405;
+    border-color: transparent;
+}
+
+.board-action-btn.secondary {
+    background: rgba(59, 130, 246, 0.24);
+}
+
+.board-action-btn.ghost {
+    background: rgba(239, 68, 68, 0.18);
+}
+
+.board-action-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.slot-placeholder {
+    font-size: 18px;
+    font-weight: 600;
+    color: #ccc;
+}

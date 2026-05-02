@@ -7,7 +7,18 @@
     <meta name="theme-color" content="#000">
     <title>沙丘｜海底探索艙</title>
     <link rel="icon" type="image/png" href="/images/mascot.png" />
-    <link rel="stylesheet" href="css/ai-lab.css?v=33">
+    <link rel="stylesheet" href="css/ai-lab/core.css">
+    <link rel="stylesheet" href="css/ai-lab/camera.css">
+    <link rel="stylesheet" href="css/ai-lab/hud.css">
+    <link rel="stylesheet" href="css/ai-lab/board.css">
+    <link rel="stylesheet" href="css/ai-lab/tasks.css">
+    <link rel="stylesheet" href="css/ai-lab/mini-map.css">
+    <link rel="stylesheet" href="css/ai-lab/assistant.css">
+    <link rel="stylesheet" href="css/ai-lab/voice.css">
+    <link rel="stylesheet" href="css/ai-lab/result.css">
+    <link rel="stylesheet" href="css/ai-lab/director.css">
+    <link rel="stylesheet" href="css/ai-lab/animations.css">
+    <link rel="stylesheet" href="css/ai-lab/responsive.css">
     <link rel="stylesheet" href="css/mode-switch.css?v=2">
     <link
         rel="stylesheet"
@@ -37,8 +48,6 @@
                 <span class="reticle-capture-text">點圓框拍照</span>
             </button>
         </div>
-
-        <div id="cameraFlash" class="camera-flash hidden" aria-hidden="true"></div>
 
         <!-- AR-VIEW 整合：任務導航狀態、箭頭與可點擊任務物件 -->
         <div id="taskHudDock" class="task-hud-dock hidden">
@@ -242,7 +251,6 @@
                     <button id="taskIntroBtn" class="icon-btn hidden" type="button" title="景點介紹" aria-label="景點介紹">📋</button>
                     <button id="dockModeBtn" class="icon-btn" type="button" title="模式" aria-label="模式">🧭</button>
                     <button id="dockLangBtn" class="icon-btn" type="button" title="語言" aria-label="語言">語</button>
-                    <button id="dockZoomBtn" class="icon-btn" type="button" title="縮放" aria-label="縮放">🔍</button>
                     <button id="micBtn" class="icon-btn" type="button" title="語音聊天" aria-label="語音聊天">🎤</button>
                     <button id="captureBtn" class="icon-btn" type="button" title="儲存整張照片" aria-label="儲存照片">📸</button>
                     <button id="switchCameraBtn" class="icon-btn" type="button" aria-label="切換前後鏡頭">↻</button>
@@ -263,15 +271,6 @@
                                 <option value="ja">日本語</option>
                                 <option value="ko">한국어</option>
                             </select>
-                        </div>
-                    </div>
-                    <div id="dockZoomPanel" class="dock-panel hidden">
-                        <div id="zoomControl" class="zoom-control hidden">
-                            <button class="zoom-btn" data-zoom="1">1x</button>
-                            <button class="zoom-btn" data-zoom="2">2x</button>
-                            <button class="zoom-btn" data-zoom="5">5x</button>
-                            <button class="zoom-btn" data-zoom="10">10x</button>
-                            <span id="zoomValue">1.0x</span>
                         </div>
                     </div>
                     <div id="dockHudPanel" class="dock-panel hidden">
@@ -553,6 +552,42 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
         crossorigin=""></script>
-    <script src="js/ai-lab.js?v=40"></script>
+    <script src="/js/ai-lab/network.js?v=20260430a"></script>
+    <script src="/js/ai-lab/media.js?v=20260430a"></script>
+    <script src="/js/ai-lab/runtime-state.js"></script>
+    <script src="/js/ai-lab/task-rules.js?v=20260430a"></script>
+    <script src="/js/ai-lab/board-utils.js?v=20260430a"></script>
+    <script src="/js/ai-lab/board-renderer.js?v=20260430a"></script>
+    <script src="/js/ai-lab/board-animations.js"></script>
+    <script src="/js/ai-lab/board-session.js"></script>
+    <script src="/js/ai-lab/geo.js?v=20260430a"></script>
+    <script src="/js/ai-lab/geo-watch.js?v=20260501a"></script>
+    <script src="/js/ai-lab/mini-map-ui.js?v=20260430a"></script>
+    <script src="/js/ai-lab/nearby-tasks.js"></script>
+    <script src="/js/ai-lab/task-utils.js"></script>
+    <script src="/js/ai-lab/quest-context.js"></script>
+    <script src="/js/ai-lab/tutorial-progress.js"></script>
+    <script src="/js/ai-lab/camera-manager.js"></script>
+    <script src="/js/ai-lab/hud-manager.js"></script>
+    <script src="/js/ai-lab/task-media.js"></script>
+    <script src="/js/ai-lab/task-submit.js"></script>
+    <script src="/js/ai-lab/task-flow.js"></script>
+    <script src="/js/ai-lab/story-shell.js"></script>
+    <script src="/js/ai-lab/event-bindings.js"></script>
+    <script src="/js/ai-lab/camera-capture.js?v=20260430a"></script>
+    <script src="/js/ai-lab/photo-capture-utils.js"></script>
+    <script src="/js/ai-lab/answer-ui.js?v=20260430a"></script>
+    <script src="/js/ai-lab/query-ui.js"></script>
+    <script src="/js/ai-lab/voice-chat.js"></script>
+    <script src="/js/ai-lab/photo-workflow.js"></script>
+    <script src="/js/ai-lab/prompts.js?v=20260430a"></script>
+    <script src="/js/ai-lab/language.js"></script>
+    <script src="/js/ai-lab/thinking.js?v=20260430a"></script>
+    <script src="/js/ai-lab/vision-client.js?v=20260430a"></script>
+    <script src="/js/ai-lab/vision-question.js"></script>
+    <script src="/js/ai-lab/analyze-flow.js?v=20260502a"></script>
+    <script src="/js/ai-lab/photo-share.js?v=20260502a"></script>
+    <script src="/js/ai-lab/assistant.js?v=20260502a"></script>
+    <script src="js/ai-lab.js?v=46"></script>
 </body>
 </html>

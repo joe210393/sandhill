@@ -6,7 +6,11 @@ node_modules/
 *.log
 .playwright-cli/
 .tmp_*
+*.refactored
+*.tmp
 coverage/
+output/
+public/images/[0-9]*-*
 .vscode/
 .venv/
 .venv-*/

@@ -102,7 +102,7 @@ self.addEventListener('push', function(event) {
     icon: data.icon || '/images/mascot.png',
     badge: data.badge || '/images/flag-red.png',
     vibrate: [100, 50, 100],
-    tag: data.tag || 'gps-task-notification',
+    tag: data.tag || 'sandhill-notification',
     requireInteraction: false,
     data: {
       url: data.url || '/map.html',

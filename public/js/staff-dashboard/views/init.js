@@ -1,0 +1,2 @@
+// ── Init: Load everything ─────────────────────────────────────
+bootstrapSession();

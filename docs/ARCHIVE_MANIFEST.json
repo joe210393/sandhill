@@ -1,0 +1,101 @@
+{
+  "lastUpdated": "2026-05-01",
+  "purpose": "Phase 4 archive ownership and deletion-readiness manifest. Active runtime code must not depend on these paths.",
+  "batches": [
+    {
+      "key": "delete-ready-legacy-gps-task",
+      "status": "deleted",
+      "deletedAt": "2026-05-01",
+      "reason": "Old GPS-TASK, RAG, embedding, and retired admin/dashboard client code deleted after Phase 4 archive readiness verification. Sandhill active paths use LM-only flow and redirect shims instead.",
+      "paths": [
+        "_archive/legacy-gps-task/CHANGELOG_RECENT.md",
+        "_archive/legacy-gps-task/Dockerfile.embedding",
+        "_archive/legacy-gps-task/FLOWER_COLOR_DESIGN.md",
+        "_archive/legacy-gps-task/RAG_TUNING_GUIDE.md",
+        "_archive/legacy-gps-task/SCORING_ALGORITHM_DOCUMENTATION.md",
+        "_archive/legacy-gps-task/admin-users.js",
+        "_archive/legacy-gps-task/role-management.js",
+        "_archive/legacy-gps-task/staff-dashboard-old.js"
+      ]
+    },
+    {
+      "key": "delete-ready-legacy-db-migrations",
+      "status": "deleted",
+      "deletedAt": "2026-05-01",
+      "reason": "Retired one-off database migrations deleted after Phase 4 archive readiness verification. Startup now uses scripts/migrations/startup-manifest.js and docs/SCHEMA_OWNERSHIP.json.",
+      "paths": [
+        "_archive/legacy-db-migrations/fix-password-null.js",
+        "_archive/legacy-db-migrations/hash-plaintext-passwords.js",
+        "_archive/legacy-db-migrations/migrate-ar-system.js",
+        "_archive/legacy-db-migrations/migrate-db.js",
+        "_archive/legacy-db-migrations/migrate-quest-chain-creator.js",
+        "_archive/legacy-db-migrations/migrate-task-types.js"
+      ]
+    },
+    {
+      "key": "delete-ready-legacy-db-seeds",
+      "status": "deleted",
+      "deletedAt": "2026-05-01",
+      "reason": "Old server/seed.sql bootstrap file deleted after Phase 4 archive readiness verification. Active seed scripts use db-config.js and scoped Sandhill demo/tutorial seeders.",
+      "paths": [
+        "_archive/legacy-db-seeds/seed.sql"
+      ]
+    },
+    {
+      "key": "delete-ready-legacy-server-shell",
+      "status": "deleted",
+      "deletedAt": "2026-05-01",
+      "reason": "Retired nested server shell deleted after Phase 4 archive readiness verification. The active application starts from root index.js and src/* modules.",
+      "paths": [
+        "_archive/legacy-server-shell"
+      ]
+    },
+    {
+      "key": "quarantined-dangerous-scripts",
+      "status": "deleted",
+      "deletedAt": "2026-05-01",
+      "reason": "Historical cleanup script with destructive behavior and hardcoded remote DB fallback deleted in Phase 5 first batch.",
+      "paths": [
+        "_archive/legacy-dangerous-scripts/cleanup-legacy-content.js"
+      ]
+    },
+    {
+      "key": "historical-security-reference",
+      "status": "deleted",
+      "deletedAt": "2026-05-01",
+      "reason": "Security, push setup, and historical test reports deleted in Phase 5 final cleanup. Current architecture, schema, deletion, and environment guidance now live in docs/* and env.example.",
+      "paths": [
+        "_archive/historical-security/PUSH_SETUP.md",
+        "_archive/historical-security/SECURITY_ANALYSIS.md",
+        "_archive/historical-security/SECURITY_BUGS_FOUND.md",
+        "_archive/historical-security/SECURITY_REVIEW_RESPONSE.md",
+        "_archive/historical-security/TEST_REPORT.md"
+      ]
+    },
+    {
+      "key": "legacy-ad-hoc-tests",
+      "status": "deleted",
+      "deletedAt": "2026-05-01",
+      "reason": "Old manual HTML/JS test utilities deleted after Phase 4 archive readiness verification. Active verification is handled by scripts/verify-*.js and smoke tests.",
+      "paths": [
+        "_archive/legacy-ad-hoc-tests/ar-test-3d.html",
+        "_archive/legacy-ad-hoc-tests/staff-register.html",
+        "_archive/legacy-ad-hoc-tests/test-all-roles.js",
+        "_archive/legacy-ad-hoc-tests/test-full-flow.js",
+        "_archive/legacy-ad-hoc-tests/test-native.js",
+        "_archive/legacy-ad-hoc-tests/test-push.js",
+        "_archive/legacy-ad-hoc-tests/vr-test-3d.html"
+      ]
+    },
+    {
+      "key": "delete-ready-legacy-python-envs",
+      "status": "deleted",
+      "deletedAt": "2026-05-01",
+      "reason": "Old local Python environments for GPS-TASK/RAG/embedding deleted. Sandhill runtime is Node/Express and does not use these environments.",
+      "paths": [
+        ".venv-rag",
+        "venv-embedding"
+      ]
+    }
+  ]
+}

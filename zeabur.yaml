@@ -1,9 +1,12 @@
 # Zeabur 部署配置
-# 定義兩個服務：主應用 (Node.js) + Embedding API (Python)
+# Sandhill production only runs the Node.js application.
+# Legacy GPS-TASK/RAG embedding services are intentionally not part of the
+# active deployment path. See docs/LEGACY_GPS_TASK_AUDIT.md before restoring
+# any archived service.
 
 services:
   # 主 Node.js Express 應用
-  gps-task:
+  sandhill-app:
     type: docker
     source:
       git:
@@ -21,28 +24,7 @@ services:
       MYSQL_USERNAME: ${MYSQL_USERNAME}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
-      # Zeabur 內網呼叫另一個 service，hostname 會是 zeabur.yaml 裡的 service key
-      # 這個 repo 內的 embedding 服務 key 是 embedding-api
-      EMBEDDING_API_URL: http://embedding-api:8080
       # AI (OpenAI-compatible). Configure these in Zeabur environment variables.
       AI_API_URL: https://tactually-venerable-inez.ngrok-free.de/v1
       AI_API_KEY: ${AI_API_KEY}
       AI_MODEL: google/gemma-3-27b
-
-  # Python 植物向量搜尋 API
-  embedding-api:
-    type: docker
-    source:
-      git:
-        repo: joe210393/sandhill
-        branch: main
-        dockerfile: Dockerfile.embedding
-    ports:
-      - port: 8080
-        protocol: http
-    env:
-      QDRANT_URL: https://gps-task-qdrant.zeabur.app
-      QDRANT_API_KEY: ${QDRANT_API_KEY}
-      USE_JINA_API: "true"
-      JINA_API_KEY: ${JINA_API_KEY}
-      PORT: "8080"

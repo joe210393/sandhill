@@ -1,12 +1,7 @@
 const mysql = require('mysql2/promise');
+const { getDbConfig } = require('../db-config');
 
-const DB_CONFIG = {
-  host: process.env.MYSQL_HOST || '150.109.72.98',
-  port: Number(process.env.MYSQL_PORT || 31591),
-  user: process.env.MYSQL_USERNAME || 'root',
-  password: process.env.MYSQL_PASSWORD || '4q7aRwS2d5G0czEL6bAPCmT8I9Zvp3H1',
-  database: process.env.MYSQL_DATABASE || 'zeabur'
-};
+const DB_CONFIG = getDbConfig();
 
 const QUEST_TITLE = '沙丘教學模式｜手機流程導覽';
 

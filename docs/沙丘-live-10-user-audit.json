@@ -1,0 +1,1982 @@
+{
+  "baseUrl": "https://sandhill.zeabur.app",
+  "userCount": 10,
+  "startedAt": "2026-04-09T09:19:50.332Z",
+  "entries": [
+    {
+      "id": 66,
+      "title": "沙丘教學｜潮聲巡航線",
+      "mode_type": "story_campaign",
+      "experience_mode": "tutorial"
+    },
+    {
+      "id": 67,
+      "title": "沙丘教學｜燈塔搜查線",
+      "mode_type": "story_campaign",
+      "experience_mode": "tutorial"
+    },
+    {
+      "id": 68,
+      "title": "沙丘教學｜文具辨識線",
+      "mode_type": "story_campaign",
+      "experience_mode": "tutorial"
+    },
+    {
+      "id": 69,
+      "title": "沙丘教學｜濱海命運棋盤",
+      "mode_type": "board_game",
+      "experience_mode": "tutorial"
+    },
+    {
+      "id": 70,
+      "title": "沙丘教學｜燈塔競速棋盤",
+      "mode_type": "board_game",
+      "experience_mode": "tutorial"
+    }
+  ],
+  "users": [
+    {
+      "username": "0917640201",
+      "registered": true,
+      "entryRuns": [
+        {
+          "entryId": 66,
+          "entryTitle": "沙丘教學｜潮聲巡航線",
+          "mode": "story_campaign",
+          "status": "passed",
+          "steps": [
+            {
+              "task": "第 1 關｜集合報到",
+              "kind": "location",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 2 關｜拍下眼前畫面",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片清晰呈現了動物圍繞營火的場景，符合「拍下眼前畫面」的要求。可愛的插畫風格也增添了溫馨感。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            },
+            {
+              "task": "第 3 關｜選擇你的行動",
+              "kind": "multiple_choice",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 4 關｜輸入一句話",
+              "kind": "keyword",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 5 關｜輸入數字",
+              "kind": "number",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 6 關｜留下收尾照片",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中清晰可見熊、鳥、山羊和營火，符合任務要求。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 67,
+          "entryTitle": "沙丘教學｜燈塔搜查線",
+          "mode": "story_campaign",
+          "status": "passed",
+          "steps": [
+            {
+              "task": "第 1 關｜燈塔開機",
+              "kind": "location",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 2 關｜辨識眼前場景",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中明顯可見熊、鳥、山羊和營火，且它們聚集在一起形成一個主要場景。\n\n不過這次不是這一關要找的內容喔。因為現在是教學模式，所以我還是先讓你通過，方便你繼續往下體驗。正式關卡時，還是需要拍到任務指定的物品或場景才會過關。"
+            },
+            {
+              "task": "第 3 關｜選擇你的行動",
+              "kind": "multiple_choice",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 4 關｜輸入一句話",
+              "kind": "keyword",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 5 關｜輸入數字",
+              "kind": "number",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 6 關｜留下收尾照片",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中清晰可見熊、鳥、山羊和營火，符合任務要求。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 68,
+          "entryTitle": "沙丘教學｜文具辨識線",
+          "mode": "story_campaign",
+          "status": "failed",
+          "steps": [],
+          "error": "這個教學關卡目前不允許匿名體驗"
+        },
+        {
+          "entryId": 69,
+          "entryTitle": "沙丘教學｜濱海命運棋盤",
+          "mode": "board_game",
+          "status": "passed",
+          "steps": [
+            {
+              "tile": "機會｜海風補給",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "問題｜路線判斷",
+              "task": "棋盤挑戰｜回答海岸問題",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "挑戰｜輸入口令",
+              "task": "棋盤挑戰｜輸入口令",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "機會｜捷徑",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "事件｜潮水回退",
+              "kind": "event",
+              "ok": true,
+              "message": "事件關卡"
+            },
+            {
+              "tile": "終點｜命運靠岸",
+              "kind": "story",
+              "ok": true,
+              "message": "終點"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 70,
+          "entryTitle": "沙丘教學｜燈塔競速棋盤",
+          "mode": "board_game",
+          "status": "passed",
+          "steps": [
+            {
+              "tile": "挑戰｜第一張觀測照",
+              "task": "燈塔挑戰｜第一張觀測照",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片清晰展示了熊、鳥、山羊和營火，以及文字標籤。符合任務要求描述圖片內容。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            },
+            {
+              "tile": "事件｜補給",
+              "kind": "event",
+              "ok": true,
+              "message": "事件關卡"
+            },
+            {
+              "tile": "機會｜再前進",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "問題｜終點前確認",
+              "task": "燈塔挑戰｜快速作答",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "終點｜燈塔衝線",
+              "kind": "story",
+              "ok": true,
+              "message": "終點"
+            }
+          ],
+          "error": null
+        }
+      ]
+    },
+    {
+      "username": "0917640202",
+      "registered": true,
+      "entryRuns": [
+        {
+          "entryId": 66,
+          "entryTitle": "沙丘教學｜潮聲巡航線",
+          "mode": "story_campaign",
+          "status": "passed",
+          "steps": [
+            {
+              "task": "第 1 關｜集合報到",
+              "kind": "location",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 2 關｜拍下眼前畫面",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片清晰呈現了動物圍繞營火的場景，符合「拍下眼前畫面」的要求。可愛的插畫風格也增添了溫馨感。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            },
+            {
+              "task": "第 3 關｜選擇你的行動",
+              "kind": "multiple_choice",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 4 關｜輸入一句話",
+              "kind": "keyword",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 5 關｜輸入數字",
+              "kind": "number",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 6 關｜留下收尾照片",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中清晰可見熊、鳥、山羊和營火，符合任務要求。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 67,
+          "entryTitle": "沙丘教學｜燈塔搜查線",
+          "mode": "story_campaign",
+          "status": "passed",
+          "steps": [
+            {
+              "task": "第 1 關｜燈塔開機",
+              "kind": "location",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 2 關｜辨識眼前場景",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中明顯可見熊、鳥、山羊和營火，且它們聚集在一起形成一個主要場景。\n\n不過這次不是這一關要找的內容喔。因為現在是教學模式，所以我還是先讓你通過，方便你繼續往下體驗。正式關卡時，還是需要拍到任務指定的物品或場景才會過關。"
+            },
+            {
+              "task": "第 3 關｜選擇你的行動",
+              "kind": "multiple_choice",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 4 關｜輸入一句話",
+              "kind": "keyword",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 5 關｜輸入數字",
+              "kind": "number",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 6 關｜留下收尾照片",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中清晰可見熊、鳥、山羊和營火，符合任務要求。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 68,
+          "entryTitle": "沙丘教學｜文具辨識線",
+          "mode": "story_campaign",
+          "status": "failed",
+          "steps": [],
+          "error": "這個教學關卡目前不允許匿名體驗"
+        },
+        {
+          "entryId": 69,
+          "entryTitle": "沙丘教學｜濱海命運棋盤",
+          "mode": "board_game",
+          "status": "passed",
+          "steps": [
+            {
+              "tile": "機會｜海風補給",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "問題｜路線判斷",
+              "task": "棋盤挑戰｜回答海岸問題",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "挑戰｜輸入口令",
+              "task": "棋盤挑戰｜輸入口令",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "機會｜捷徑",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "事件｜潮水回退",
+              "kind": "event",
+              "ok": true,
+              "message": "事件關卡"
+            },
+            {
+              "tile": "終點｜命運靠岸",
+              "kind": "story",
+              "ok": true,
+              "message": "終點"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 70,
+          "entryTitle": "沙丘教學｜燈塔競速棋盤",
+          "mode": "board_game",
+          "status": "passed",
+          "steps": [
+            {
+              "tile": "挑戰｜第一張觀測照",
+              "task": "燈塔挑戰｜第一張觀測照",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片清晰展示了熊、鳥、山羊和營火，以及文字標籤。符合任務要求描述圖片內容。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            },
+            {
+              "tile": "事件｜補給",
+              "kind": "event",
+              "ok": true,
+              "message": "事件關卡"
+            },
+            {
+              "tile": "機會｜再前進",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "問題｜終點前確認",
+              "task": "燈塔挑戰｜快速作答",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "終點｜燈塔衝線",
+              "kind": "story",
+              "ok": true,
+              "message": "終點"
+            }
+          ],
+          "error": null
+        }
+      ]
+    },
+    {
+      "username": "0917640203",
+      "registered": true,
+      "entryRuns": [
+        {
+          "entryId": 66,
+          "entryTitle": "沙丘教學｜潮聲巡航線",
+          "mode": "story_campaign",
+          "status": "passed",
+          "steps": [
+            {
+              "task": "第 1 關｜集合報到",
+              "kind": "location",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 2 關｜拍下眼前畫面",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片清晰呈現了動物圍繞營火的場景，符合「拍下眼前畫面」的要求。可愛的插畫風格也增添了溫馨感。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            },
+            {
+              "task": "第 3 關｜選擇你的行動",
+              "kind": "multiple_choice",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 4 關｜輸入一句話",
+              "kind": "keyword",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 5 關｜輸入數字",
+              "kind": "number",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 6 關｜留下收尾照片",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中清晰可見熊、鳥、山羊和營火，符合任務要求。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 67,
+          "entryTitle": "沙丘教學｜燈塔搜查線",
+          "mode": "story_campaign",
+          "status": "passed",
+          "steps": [
+            {
+              "task": "第 1 關｜燈塔開機",
+              "kind": "location",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 2 關｜辨識眼前場景",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中明顯可見熊、鳥、山羊和營火，且它們聚集在一起形成一個主要場景。\n\n不過這次不是這一關要找的內容喔。因為現在是教學模式，所以我還是先讓你通過，方便你繼續往下體驗。正式關卡時，還是需要拍到任務指定的物品或場景才會過關。"
+            },
+            {
+              "task": "第 3 關｜選擇你的行動",
+              "kind": "multiple_choice",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 4 關｜輸入一句話",
+              "kind": "keyword",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 5 關｜輸入數字",
+              "kind": "number",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 6 關｜留下收尾照片",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中清晰可見熊、鳥、山羊和營火，符合任務要求。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 68,
+          "entryTitle": "沙丘教學｜文具辨識線",
+          "mode": "story_campaign",
+          "status": "failed",
+          "steps": [],
+          "error": "這個教學關卡目前不允許匿名體驗"
+        },
+        {
+          "entryId": 69,
+          "entryTitle": "沙丘教學｜濱海命運棋盤",
+          "mode": "board_game",
+          "status": "passed",
+          "steps": [
+            {
+              "tile": "機會｜海風補給",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "問題｜路線判斷",
+              "task": "棋盤挑戰｜回答海岸問題",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "挑戰｜輸入口令",
+              "task": "棋盤挑戰｜輸入口令",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "機會｜捷徑",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "事件｜潮水回退",
+              "kind": "event",
+              "ok": true,
+              "message": "事件關卡"
+            },
+            {
+              "tile": "終點｜命運靠岸",
+              "kind": "story",
+              "ok": true,
+              "message": "終點"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 70,
+          "entryTitle": "沙丘教學｜燈塔競速棋盤",
+          "mode": "board_game",
+          "status": "passed",
+          "steps": [
+            {
+              "tile": "挑戰｜第一張觀測照",
+              "task": "燈塔挑戰｜第一張觀測照",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片清晰展示了熊、鳥、山羊和營火，以及文字標籤。符合任務要求描述圖片內容。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            },
+            {
+              "tile": "事件｜補給",
+              "kind": "event",
+              "ok": true,
+              "message": "事件關卡"
+            },
+            {
+              "tile": "機會｜再前進",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "問題｜終點前確認",
+              "task": "燈塔挑戰｜快速作答",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "終點｜燈塔衝線",
+              "kind": "story",
+              "ok": true,
+              "message": "終點"
+            }
+          ],
+          "error": null
+        }
+      ]
+    },
+    {
+      "username": "0917640204",
+      "registered": true,
+      "entryRuns": [
+        {
+          "entryId": 66,
+          "entryTitle": "沙丘教學｜潮聲巡航線",
+          "mode": "story_campaign",
+          "status": "passed",
+          "steps": [
+            {
+              "task": "第 1 關｜集合報到",
+              "kind": "location",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 2 關｜拍下眼前畫面",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片清晰呈現了動物圍繞營火的場景，符合「拍下眼前畫面」的要求。可愛的插畫風格也增添了溫馨感。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            },
+            {
+              "task": "第 3 關｜選擇你的行動",
+              "kind": "multiple_choice",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 4 關｜輸入一句話",
+              "kind": "keyword",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 5 關｜輸入數字",
+              "kind": "number",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 6 關｜留下收尾照片",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中清晰可見熊、鳥、山羊和營火，符合任務要求。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 67,
+          "entryTitle": "沙丘教學｜燈塔搜查線",
+          "mode": "story_campaign",
+          "status": "passed",
+          "steps": [
+            {
+              "task": "第 1 關｜燈塔開機",
+              "kind": "location",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 2 關｜辨識眼前場景",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中明顯可見熊、鳥、山羊和營火，且它們聚集在一起形成一個主要場景。\n\n不過這次不是這一關要找的內容喔。因為現在是教學模式，所以我還是先讓你通過，方便你繼續往下體驗。正式關卡時，還是需要拍到任務指定的物品或場景才會過關。"
+            },
+            {
+              "task": "第 3 關｜選擇你的行動",
+              "kind": "multiple_choice",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 4 關｜輸入一句話",
+              "kind": "keyword",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 5 關｜輸入數字",
+              "kind": "number",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 6 關｜留下收尾照片",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中清晰可見熊、鳥、山羊和營火，符合任務要求。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 68,
+          "entryTitle": "沙丘教學｜文具辨識線",
+          "mode": "story_campaign",
+          "status": "failed",
+          "steps": [],
+          "error": "這個教學關卡目前不允許匿名體驗"
+        },
+        {
+          "entryId": 69,
+          "entryTitle": "沙丘教學｜濱海命運棋盤",
+          "mode": "board_game",
+          "status": "passed",
+          "steps": [
+            {
+              "tile": "機會｜海風補給",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "問題｜路線判斷",
+              "task": "棋盤挑戰｜回答海岸問題",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "挑戰｜輸入口令",
+              "task": "棋盤挑戰｜輸入口令",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "機會｜捷徑",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "事件｜潮水回退",
+              "kind": "event",
+              "ok": true,
+              "message": "事件關卡"
+            },
+            {
+              "tile": "終點｜命運靠岸",
+              "kind": "story",
+              "ok": true,
+              "message": "終點"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 70,
+          "entryTitle": "沙丘教學｜燈塔競速棋盤",
+          "mode": "board_game",
+          "status": "passed",
+          "steps": [
+            {
+              "tile": "挑戰｜第一張觀測照",
+              "task": "燈塔挑戰｜第一張觀測照",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片清晰展示了熊、鳥、山羊和營火，以及文字標籤。符合任務要求描述圖片內容。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            },
+            {
+              "tile": "事件｜補給",
+              "kind": "event",
+              "ok": true,
+              "message": "事件關卡"
+            },
+            {
+              "tile": "機會｜再前進",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "問題｜終點前確認",
+              "task": "燈塔挑戰｜快速作答",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "終點｜燈塔衝線",
+              "kind": "story",
+              "ok": true,
+              "message": "終點"
+            }
+          ],
+          "error": null
+        }
+      ]
+    },
+    {
+      "username": "0917640205",
+      "registered": true,
+      "entryRuns": [
+        {
+          "entryId": 66,
+          "entryTitle": "沙丘教學｜潮聲巡航線",
+          "mode": "story_campaign",
+          "status": "passed",
+          "steps": [
+            {
+              "task": "第 1 關｜集合報到",
+              "kind": "location",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 2 關｜拍下眼前畫面",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片清晰呈現了動物圍繞營火的場景，符合「拍下眼前畫面」的要求。可愛的插畫風格也增添了溫馨感。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            },
+            {
+              "task": "第 3 關｜選擇你的行動",
+              "kind": "multiple_choice",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 4 關｜輸入一句話",
+              "kind": "keyword",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 5 關｜輸入數字",
+              "kind": "number",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 6 關｜留下收尾照片",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中清晰可見熊、鳥、山羊和營火，符合任務要求。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 67,
+          "entryTitle": "沙丘教學｜燈塔搜查線",
+          "mode": "story_campaign",
+          "status": "passed",
+          "steps": [
+            {
+              "task": "第 1 關｜燈塔開機",
+              "kind": "location",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 2 關｜辨識眼前場景",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中明顯可見熊、鳥、山羊和營火，且它們聚集在一起形成一個主要場景。\n\n不過這次不是這一關要找的內容喔。因為現在是教學模式，所以我還是先讓你通過，方便你繼續往下體驗。正式關卡時，還是需要拍到任務指定的物品或場景才會過關。"
+            },
+            {
+              "task": "第 3 關｜選擇你的行動",
+              "kind": "multiple_choice",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 4 關｜輸入一句話",
+              "kind": "keyword",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 5 關｜輸入數字",
+              "kind": "number",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 6 關｜留下收尾照片",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中清晰可見熊、鳥、山羊和營火，符合任務要求。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 68,
+          "entryTitle": "沙丘教學｜文具辨識線",
+          "mode": "story_campaign",
+          "status": "failed",
+          "steps": [],
+          "error": "這個教學關卡目前不允許匿名體驗"
+        },
+        {
+          "entryId": 69,
+          "entryTitle": "沙丘教學｜濱海命運棋盤",
+          "mode": "board_game",
+          "status": "passed",
+          "steps": [
+            {
+              "tile": "機會｜海風補給",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "問題｜路線判斷",
+              "task": "棋盤挑戰｜回答海岸問題",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "挑戰｜輸入口令",
+              "task": "棋盤挑戰｜輸入口令",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "機會｜捷徑",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "事件｜潮水回退",
+              "kind": "event",
+              "ok": true,
+              "message": "事件關卡"
+            },
+            {
+              "tile": "終點｜命運靠岸",
+              "kind": "story",
+              "ok": true,
+              "message": "終點"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 70,
+          "entryTitle": "沙丘教學｜燈塔競速棋盤",
+          "mode": "board_game",
+          "status": "passed",
+          "steps": [
+            {
+              "tile": "挑戰｜第一張觀測照",
+              "task": "燈塔挑戰｜第一張觀測照",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片清晰展示了熊、鳥、山羊和營火，以及文字標籤。符合任務要求描述圖片內容。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            },
+            {
+              "tile": "事件｜補給",
+              "kind": "event",
+              "ok": true,
+              "message": "事件關卡"
+            },
+            {
+              "tile": "機會｜再前進",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "問題｜終點前確認",
+              "task": "燈塔挑戰｜快速作答",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "終點｜燈塔衝線",
+              "kind": "story",
+              "ok": true,
+              "message": "終點"
+            }
+          ],
+          "error": null
+        }
+      ]
+    },
+    {
+      "username": "0917640206",
+      "registered": true,
+      "entryRuns": [
+        {
+          "entryId": 66,
+          "entryTitle": "沙丘教學｜潮聲巡航線",
+          "mode": "story_campaign",
+          "status": "passed",
+          "steps": [
+            {
+              "task": "第 1 關｜集合報到",
+              "kind": "location",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 2 關｜拍下眼前畫面",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片清晰呈現了動物圍繞營火的場景，符合「拍下眼前畫面」的要求。可愛的插畫風格也增添了溫馨感。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            },
+            {
+              "task": "第 3 關｜選擇你的行動",
+              "kind": "multiple_choice",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 4 關｜輸入一句話",
+              "kind": "keyword",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 5 關｜輸入數字",
+              "kind": "number",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 6 關｜留下收尾照片",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中清晰可見熊、鳥、山羊和營火，符合任務要求。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 67,
+          "entryTitle": "沙丘教學｜燈塔搜查線",
+          "mode": "story_campaign",
+          "status": "passed",
+          "steps": [
+            {
+              "task": "第 1 關｜燈塔開機",
+              "kind": "location",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 2 關｜辨識眼前場景",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中明顯可見熊、鳥、山羊和營火，且它們聚集在一起形成一個主要場景。\n\n不過這次不是這一關要找的內容喔。因為現在是教學模式，所以我還是先讓你通過，方便你繼續往下體驗。正式關卡時，還是需要拍到任務指定的物品或場景才會過關。"
+            },
+            {
+              "task": "第 3 關｜選擇你的行動",
+              "kind": "multiple_choice",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 4 關｜輸入一句話",
+              "kind": "keyword",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 5 關｜輸入數字",
+              "kind": "number",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 6 關｜留下收尾照片",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中清晰可見熊、鳥、山羊和營火，符合任務要求。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 68,
+          "entryTitle": "沙丘教學｜文具辨識線",
+          "mode": "story_campaign",
+          "status": "failed",
+          "steps": [],
+          "error": "這個教學關卡目前不允許匿名體驗"
+        },
+        {
+          "entryId": 69,
+          "entryTitle": "沙丘教學｜濱海命運棋盤",
+          "mode": "board_game",
+          "status": "passed",
+          "steps": [
+            {
+              "tile": "機會｜海風補給",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "問題｜路線判斷",
+              "task": "棋盤挑戰｜回答海岸問題",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "挑戰｜輸入口令",
+              "task": "棋盤挑戰｜輸入口令",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "機會｜捷徑",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "事件｜潮水回退",
+              "kind": "event",
+              "ok": true,
+              "message": "事件關卡"
+            },
+            {
+              "tile": "終點｜命運靠岸",
+              "kind": "story",
+              "ok": true,
+              "message": "終點"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 70,
+          "entryTitle": "沙丘教學｜燈塔競速棋盤",
+          "mode": "board_game",
+          "status": "passed",
+          "steps": [
+            {
+              "tile": "挑戰｜第一張觀測照",
+              "task": "燈塔挑戰｜第一張觀測照",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片清晰展示了熊、鳥、山羊和營火，以及文字標籤。符合任務要求描述圖片內容。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            },
+            {
+              "tile": "事件｜補給",
+              "kind": "event",
+              "ok": true,
+              "message": "事件關卡"
+            },
+            {
+              "tile": "機會｜再前進",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "問題｜終點前確認",
+              "task": "燈塔挑戰｜快速作答",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "終點｜燈塔衝線",
+              "kind": "story",
+              "ok": true,
+              "message": "終點"
+            }
+          ],
+          "error": null
+        }
+      ]
+    },
+    {
+      "username": "0917640207",
+      "registered": true,
+      "entryRuns": [
+        {
+          "entryId": 66,
+          "entryTitle": "沙丘教學｜潮聲巡航線",
+          "mode": "story_campaign",
+          "status": "passed",
+          "steps": [
+            {
+              "task": "第 1 關｜集合報到",
+              "kind": "location",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 2 關｜拍下眼前畫面",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片清晰呈現了動物圍繞營火的場景，符合「拍下眼前畫面」的要求。可愛的插畫風格也增添了溫馨感。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            },
+            {
+              "task": "第 3 關｜選擇你的行動",
+              "kind": "multiple_choice",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 4 關｜輸入一句話",
+              "kind": "keyword",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 5 關｜輸入數字",
+              "kind": "number",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 6 關｜留下收尾照片",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中清晰可見熊、鳥、山羊和營火，符合任務要求。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 67,
+          "entryTitle": "沙丘教學｜燈塔搜查線",
+          "mode": "story_campaign",
+          "status": "passed",
+          "steps": [
+            {
+              "task": "第 1 關｜燈塔開機",
+              "kind": "location",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 2 關｜辨識眼前場景",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中明顯可見熊、鳥、山羊和營火，且它們聚集在一起形成一個主要場景。\n\n不過這次不是這一關要找的內容喔。因為現在是教學模式，所以我還是先讓你通過，方便你繼續往下體驗。正式關卡時，還是需要拍到任務指定的物品或場景才會過關。"
+            },
+            {
+              "task": "第 3 關｜選擇你的行動",
+              "kind": "multiple_choice",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 4 關｜輸入一句話",
+              "kind": "keyword",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 5 關｜輸入數字",
+              "kind": "number",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 6 關｜留下收尾照片",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中清晰可見熊、鳥、山羊和營火，符合任務要求。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 68,
+          "entryTitle": "沙丘教學｜文具辨識線",
+          "mode": "story_campaign",
+          "status": "failed",
+          "steps": [],
+          "error": "這個教學關卡目前不允許匿名體驗"
+        },
+        {
+          "entryId": 69,
+          "entryTitle": "沙丘教學｜濱海命運棋盤",
+          "mode": "board_game",
+          "status": "passed",
+          "steps": [
+            {
+              "tile": "機會｜海風補給",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "問題｜路線判斷",
+              "task": "棋盤挑戰｜回答海岸問題",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "挑戰｜輸入口令",
+              "task": "棋盤挑戰｜輸入口令",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "機會｜捷徑",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "事件｜潮水回退",
+              "kind": "event",
+              "ok": true,
+              "message": "事件關卡"
+            },
+            {
+              "tile": "終點｜命運靠岸",
+              "kind": "story",
+              "ok": true,
+              "message": "終點"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 70,
+          "entryTitle": "沙丘教學｜燈塔競速棋盤",
+          "mode": "board_game",
+          "status": "passed",
+          "steps": [
+            {
+              "tile": "挑戰｜第一張觀測照",
+              "task": "燈塔挑戰｜第一張觀測照",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片清晰展示了熊、鳥、山羊和營火，以及文字標籤。符合任務要求描述圖片內容。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            },
+            {
+              "tile": "事件｜補給",
+              "kind": "event",
+              "ok": true,
+              "message": "事件關卡"
+            },
+            {
+              "tile": "機會｜再前進",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "問題｜終點前確認",
+              "task": "燈塔挑戰｜快速作答",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "終點｜燈塔衝線",
+              "kind": "story",
+              "ok": true,
+              "message": "終點"
+            }
+          ],
+          "error": null
+        }
+      ]
+    },
+    {
+      "username": "0917640208",
+      "registered": true,
+      "entryRuns": [
+        {
+          "entryId": 66,
+          "entryTitle": "沙丘教學｜潮聲巡航線",
+          "mode": "story_campaign",
+          "status": "passed",
+          "steps": [
+            {
+              "task": "第 1 關｜集合報到",
+              "kind": "location",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 2 關｜拍下眼前畫面",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片清晰呈現了動物圍繞營火的場景，符合「拍下眼前畫面」的要求。可愛的插畫風格也增添了溫馨感。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            },
+            {
+              "task": "第 3 關｜選擇你的行動",
+              "kind": "multiple_choice",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 4 關｜輸入一句話",
+              "kind": "keyword",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 5 關｜輸入數字",
+              "kind": "number",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 6 關｜留下收尾照片",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中清晰可見熊、鳥、山羊和營火，符合任務要求。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 67,
+          "entryTitle": "沙丘教學｜燈塔搜查線",
+          "mode": "story_campaign",
+          "status": "passed",
+          "steps": [
+            {
+              "task": "第 1 關｜燈塔開機",
+              "kind": "location",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 2 關｜辨識眼前場景",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中明顯可見熊、鳥、山羊和營火，且它們聚集在一起形成一個主要場景。\n\n不過這次不是這一關要找的內容喔。因為現在是教學模式，所以我還是先讓你通過，方便你繼續往下體驗。正式關卡時，還是需要拍到任務指定的物品或場景才會過關。"
+            },
+            {
+              "task": "第 3 關｜選擇你的行動",
+              "kind": "multiple_choice",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 4 關｜輸入一句話",
+              "kind": "keyword",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 5 關｜輸入數字",
+              "kind": "number",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 6 關｜留下收尾照片",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中清晰可見熊、鳥、山羊和營火，符合任務要求。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 68,
+          "entryTitle": "沙丘教學｜文具辨識線",
+          "mode": "story_campaign",
+          "status": "failed",
+          "steps": [],
+          "error": "這個教學關卡目前不允許匿名體驗"
+        },
+        {
+          "entryId": 69,
+          "entryTitle": "沙丘教學｜濱海命運棋盤",
+          "mode": "board_game",
+          "status": "passed",
+          "steps": [
+            {
+              "tile": "機會｜海風補給",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "問題｜路線判斷",
+              "task": "棋盤挑戰｜回答海岸問題",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "挑戰｜輸入口令",
+              "task": "棋盤挑戰｜輸入口令",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "機會｜捷徑",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "事件｜潮水回退",
+              "kind": "event",
+              "ok": true,
+              "message": "事件關卡"
+            },
+            {
+              "tile": "終點｜命運靠岸",
+              "kind": "story",
+              "ok": true,
+              "message": "終點"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 70,
+          "entryTitle": "沙丘教學｜燈塔競速棋盤",
+          "mode": "board_game",
+          "status": "passed",
+          "steps": [
+            {
+              "tile": "挑戰｜第一張觀測照",
+              "task": "燈塔挑戰｜第一張觀測照",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片清晰展示了熊、鳥、山羊和營火，以及文字標籤。符合任務要求描述圖片內容。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            },
+            {
+              "tile": "事件｜補給",
+              "kind": "event",
+              "ok": true,
+              "message": "事件關卡"
+            },
+            {
+              "tile": "機會｜再前進",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "問題｜終點前確認",
+              "task": "燈塔挑戰｜快速作答",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "終點｜燈塔衝線",
+              "kind": "story",
+              "ok": true,
+              "message": "終點"
+            }
+          ],
+          "error": null
+        }
+      ]
+    },
+    {
+      "username": "0917640209",
+      "registered": true,
+      "entryRuns": [
+        {
+          "entryId": 66,
+          "entryTitle": "沙丘教學｜潮聲巡航線",
+          "mode": "story_campaign",
+          "status": "passed",
+          "steps": [
+            {
+              "task": "第 1 關｜集合報到",
+              "kind": "location",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 2 關｜拍下眼前畫面",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片清晰呈現了動物圍繞營火的場景，符合「拍下眼前畫面」的要求。可愛的插畫風格也增添了溫馨感。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            },
+            {
+              "task": "第 3 關｜選擇你的行動",
+              "kind": "multiple_choice",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 4 關｜輸入一句話",
+              "kind": "keyword",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 5 關｜輸入數字",
+              "kind": "number",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 6 關｜留下收尾照片",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中清晰可見熊、鳥、山羊和營火，符合任務要求。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 67,
+          "entryTitle": "沙丘教學｜燈塔搜查線",
+          "mode": "story_campaign",
+          "status": "passed",
+          "steps": [
+            {
+              "task": "第 1 關｜燈塔開機",
+              "kind": "location",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 2 關｜辨識眼前場景",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中明顯可見熊、鳥、山羊和營火，且它們聚集在一起形成一個主要場景。\n\n不過這次不是這一關要找的內容喔。因為現在是教學模式，所以我還是先讓你通過，方便你繼續往下體驗。正式關卡時，還是需要拍到任務指定的物品或場景才會過關。"
+            },
+            {
+              "task": "第 3 關｜選擇你的行動",
+              "kind": "multiple_choice",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 4 關｜輸入一句話",
+              "kind": "keyword",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 5 關｜輸入數字",
+              "kind": "number",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 6 關｜留下收尾照片",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中清晰可見熊、鳥、山羊和營火，符合任務要求。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 68,
+          "entryTitle": "沙丘教學｜文具辨識線",
+          "mode": "story_campaign",
+          "status": "failed",
+          "steps": [],
+          "error": "這個教學關卡目前不允許匿名體驗"
+        },
+        {
+          "entryId": 69,
+          "entryTitle": "沙丘教學｜濱海命運棋盤",
+          "mode": "board_game",
+          "status": "passed",
+          "steps": [
+            {
+              "tile": "機會｜海風補給",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "問題｜路線判斷",
+              "task": "棋盤挑戰｜回答海岸問題",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "挑戰｜輸入口令",
+              "task": "棋盤挑戰｜輸入口令",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "機會｜捷徑",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "事件｜潮水回退",
+              "kind": "event",
+              "ok": true,
+              "message": "事件關卡"
+            },
+            {
+              "tile": "終點｜命運靠岸",
+              "kind": "story",
+              "ok": true,
+              "message": "終點"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 70,
+          "entryTitle": "沙丘教學｜燈塔競速棋盤",
+          "mode": "board_game",
+          "status": "passed",
+          "steps": [
+            {
+              "tile": "挑戰｜第一張觀測照",
+              "task": "燈塔挑戰｜第一張觀測照",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片清晰展示了熊、鳥、山羊和營火，以及文字標籤。符合任務要求描述圖片內容。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            },
+            {
+              "tile": "事件｜補給",
+              "kind": "event",
+              "ok": true,
+              "message": "事件關卡"
+            },
+            {
+              "tile": "機會｜再前進",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "問題｜終點前確認",
+              "task": "燈塔挑戰｜快速作答",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "終點｜燈塔衝線",
+              "kind": "story",
+              "ok": true,
+              "message": "終點"
+            }
+          ],
+          "error": null
+        }
+      ]
+    },
+    {
+      "username": "0917640210",
+      "registered": true,
+      "entryRuns": [
+        {
+          "entryId": 66,
+          "entryTitle": "沙丘教學｜潮聲巡航線",
+          "mode": "story_campaign",
+          "status": "passed",
+          "steps": [
+            {
+              "task": "第 1 關｜集合報到",
+              "kind": "location",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 2 關｜拍下眼前畫面",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片清晰呈現了動物圍繞營火的場景，符合「拍下眼前畫面」的要求。可愛的插畫風格也增添了溫馨感。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            },
+            {
+              "task": "第 3 關｜選擇你的行動",
+              "kind": "multiple_choice",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 4 關｜輸入一句話",
+              "kind": "keyword",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 5 關｜輸入數字",
+              "kind": "number",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 6 關｜留下收尾照片",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中清晰可見熊、鳥、山羊和營火，符合任務要求。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 67,
+          "entryTitle": "沙丘教學｜燈塔搜查線",
+          "mode": "story_campaign",
+          "status": "passed",
+          "steps": [
+            {
+              "task": "第 1 關｜燈塔開機",
+              "kind": "location",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 2 關｜辨識眼前場景",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中明顯可見熊、鳥、山羊和營火，且它們聚集在一起形成一個主要場景。\n\n不過這次不是這一關要找的內容喔。因為現在是教學模式，所以我還是先讓你通過，方便你繼續往下體驗。正式關卡時，還是需要拍到任務指定的物品或場景才會過關。"
+            },
+            {
+              "task": "第 3 關｜選擇你的行動",
+              "kind": "multiple_choice",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 4 關｜輸入一句話",
+              "kind": "keyword",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 5 關｜輸入數字",
+              "kind": "number",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "task": "第 6 關｜留下收尾照片",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片中清晰可見熊、鳥、山羊和營火，符合任務要求。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 68,
+          "entryTitle": "沙丘教學｜文具辨識線",
+          "mode": "story_campaign",
+          "status": "failed",
+          "steps": [],
+          "error": "這個教學關卡目前不允許匿名體驗"
+        },
+        {
+          "entryId": 69,
+          "entryTitle": "沙丘教學｜濱海命運棋盤",
+          "mode": "board_game",
+          "status": "passed",
+          "steps": [
+            {
+              "tile": "機會｜海風補給",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "問題｜路線判斷",
+              "task": "棋盤挑戰｜回答海岸問題",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "挑戰｜輸入口令",
+              "task": "棋盤挑戰｜輸入口令",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "機會｜捷徑",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "事件｜潮水回退",
+              "kind": "event",
+              "ok": true,
+              "message": "事件關卡"
+            },
+            {
+              "tile": "終點｜命運靠岸",
+              "kind": "story",
+              "ok": true,
+              "message": "終點"
+            }
+          ],
+          "error": null
+        },
+        {
+          "entryId": 70,
+          "entryTitle": "沙丘教學｜燈塔競速棋盤",
+          "mode": "board_game",
+          "status": "passed",
+          "steps": [
+            {
+              "tile": "挑戰｜第一張觀測照",
+              "task": "燈塔挑戰｜第一張觀測照",
+              "kind": "ai-photo",
+              "ok": true,
+              "message": "我看見了：圖片清晰展示了熊、鳥、山羊和營火，以及文字標籤。符合任務要求描述圖片內容。\n\n這看起來就是這一關要找的內容。因為現在是教學模式，所以我直接讓你通過，方便你繼續把流程走完。正式關卡時，仍然需要拍到任務要求的內容才會通過。"
+            },
+            {
+              "tile": "事件｜補給",
+              "kind": "event",
+              "ok": true,
+              "message": "事件關卡"
+            },
+            {
+              "tile": "機會｜再前進",
+              "kind": "chance",
+              "ok": true,
+              "message": "機會關卡"
+            },
+            {
+              "tile": "問題｜終點前確認",
+              "task": "燈塔挑戰｜快速作答",
+              "kind": "manual",
+              "ok": true,
+              "message": "已完成"
+            },
+            {
+              "tile": "終點｜燈塔衝線",
+              "kind": "story",
+              "ok": true,
+              "message": "終點"
+            }
+          ],
+          "error": null
+        }
+      ]
+    }
+  ],
+  "completedAt": "2026-04-09T09:32:15.137Z",
+  "summary": {
+    "沙丘教學｜潮聲巡航線": {
+      "passedUsers": 10,
+      "failedUsers": 0
+    },
+    "沙丘教學｜燈塔搜查線": {
+      "passedUsers": 10,
+      "failedUsers": 0
+    },
+    "沙丘教學｜文具辨識線": {
+      "passedUsers": 0,
+      "failedUsers": 10
+    },
+    "沙丘教學｜濱海命運棋盤": {
+      "passedUsers": 10,
+      "failedUsers": 0
+    },
+    "沙丘教學｜燈塔競速棋盤": {
+      "passedUsers": 10,
+      "failedUsers": 0
+    }
+  }
+}

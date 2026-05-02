@@ -1,0 +1,182 @@
+
+
+body.tutorial-board-clean .feature-dock,
+body.tutorial-board-clean .board-status-card,
+body.tutorial-board-clean .selection-instruction,
+body.tutorial-board-clean .floating-mic-btn,
+body.tutorial-board-clean .task-hud-dock,
+body.tutorial-board-clean .task-guide-arrow,
+body.tutorial-board-clean .task-target-obj,
+body.tutorial-board-clean .mini-selection-toolbar,
+body.tutorial-board-clean #resultPanel,
+body.tutorial-board-clean #voicePanel,
+body.tutorial-board-clean #answerToast {
+    display: none !important;
+}
+
+body.tutorial-board-clean .feature-dock-menu .icon-btn.hidden,
+body.tutorial-board-clean .feature-dock-menu .exit-btn,
+body.tutorial-board-clean .feature-dock-menu #dockModeBtn,
+body.tutorial-board-clean .feature-dock-menu #dockLangBtn,
+body.tutorial-board-clean .feature-dock-menu #micBtn,
+body.tutorial-board-clean .feature-dock-menu #captureBtn,
+body.tutorial-board-clean .feature-dock-menu #switchCameraBtn,
+body.tutorial-board-clean .feature-dock-menu #taskBgmBtn,
+body.tutorial-board-clean .feature-dock-menu #taskIntroBtn {
+    display: none !important;
+}
+
+.mini-map-wrap.tutorial-hidden,
+.feature-dock.tutorial-hidden,
+.selection-instruction.tutorial-hidden,
+.floating-mic-btn.tutorial-hidden,
+.game-hud.tutorial-hidden,
+.mini-selection-toolbar.tutorial-hidden,
+.game-shell-board-status.tutorial-hidden {
+    display: none !important;
+}
+
+.floating-mic-btn {
+    position: absolute;
+    right: 18px;
+    bottom: 18px;
+    width: 58px;
+    height: 58px;
+    border: none;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ff7a18, #ff3d81);
+    color: #fff;
+    font-size: 24px;
+    box-shadow: 0 12px 26px rgba(0, 0, 0, 0.35);
+    z-index: 26;
+    cursor: pointer;
+}
+
+.floating-mic-btn.active {
+    background: linear-gradient(135deg, #ef4444, #b91c1c);
+}
+
+.voice-panel {
+    position: absolute;
+    right: 18px;
+    bottom: 86px;
+    width: min(92vw, 380px);
+    background: rgba(7, 12, 20, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 18px;
+    padding: 14px;
+    color: #fff;
+    font-size: 12px;
+    z-index: 25;
+    pointer-events: auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(14px);
+}
+
+.voice-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.voice-panel-title {
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.voice-close-btn {
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    cursor: pointer;
+}
+
+.voice-helper-text {
+    margin-top: 8px;
+    color: rgba(255, 255, 255, 0.72);
+    line-height: 1.5;
+}
+
+.voice-draft-input {
+    width: 100%;
+    min-height: 88px;
+    margin-top: 10px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+    resize: vertical;
+    font: inherit;
+}
+
+.voice-draft-input::placeholder {
+    color: rgba(255, 255, 255, 0.48);
+}
+
+.voice-action-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.voice-action-btn {
+    flex: 1;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.voice-action-btn.primary {
+    background: #22c55e;
+    color: #04130a;
+}
+
+.voice-action-btn.secondary {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+
+.voice-action-btn.secondary.active {
+    background: #ef4444;
+}
+
+.voice-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    margin-bottom: 8px;
+    color: #fff;
+    font-size: 12px;
+    pointer-events: auto;
+}
+
+.voice-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.voice-label {
+    color: #ffd700;
+    min-width: 28px;
+}
+
+.voice-text {
+    flex: 1;
+    color: #fff;
+}
+
+.voice-status {
+    color: #9fd3ff;
+    font-size: 11px;
+    text-align: right;
+    margin-top: 8px;
+}

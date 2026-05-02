@@ -1,0 +1,222 @@
+
+
+video#cameraFeed {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: var(--z-camera);
+}
+
+canvas#drawingCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: var(--z-reticle);
+    touch-action: none; /* 防止滑動頁面 */
+}
+
+.reticle-overlay {
+    position: absolute;
+    z-index: var(--z-overlay);
+    width: 70vmin;
+    height: 70vmin;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    border: 3px dashed rgba(255, 215, 0, 0.85);
+    border-radius: 50%;
+    pointer-events: none;
+    box-sizing: border-box;
+    transition: left 0.15s ease-out, top 0.15s ease-out;
+}
+
+.reticle-overlay.hidden {
+    display: none;
+}
+
+.capture-reticle-btn {
+    padding: 12px 28px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a1a1a;
+    background: var(--accent-color);
+    border: none;
+    border-radius: 24px;
+    cursor: pointer;
+    box-shadow: 0 2px 12px rgba(255, 215, 0, 0.4);
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.capture-reticle-btn:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 16px rgba(255, 215, 0, 0.5);
+}
+
+.capture-reticle-btn:active {
+    transform: scale(0.98);
+}
+
+.camera-capture-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    z-index: var(--z-capture-bar);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 0 16px;
+}
+
+.camera-capture-bar.hidden {
+    display: none !important;
+}
+
+.camera-mode-switch {
+    display: inline-flex;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 999px;
+    background: rgba(8, 14, 28, 0.68);
+    border: 1px solid rgba(255,255,255,0.12);
+    backdrop-filter: blur(14px);
+}
+
+.camera-mode-btn {
+    border: none;
+    border-radius: 999px;
+    padding: 10px 14px;
+    background: transparent;
+    color: rgba(255,255,255,0.82);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.camera-mode-btn.active {
+    background: linear-gradient(135deg, rgba(255,214,102,0.96) 0%, rgba(255,154,59,0.96) 100%);
+    color: #201204;
+    box-shadow: 0 10px 20px rgba(255, 160, 40, 0.24);
+}
+
+.shutter-btn {
+    position: relative;
+    width: 84px;
+    height: 84px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.16);
+    box-shadow: 0 18px 36px rgba(0,0,0,0.32);
+    backdrop-filter: blur(14px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.12s ease-out, box-shadow 0.12s ease-out;
+}
+
+.shutter-btn:active,
+.shutter-btn.is-firing {
+    transform: scale(0.9);
+}
+
+.shutter-btn-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.88);
+}
+
+.shutter-btn-core {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(233,241,255,0.9) 100%);
+}
+
+body.immersive-camera-mode .selection-instruction {
+    display: none !important;
+}
+
+body.immersive-camera-mode .reticle-overlay {
+    pointer-events: none;
+}
+
+.reticle-center-hint {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+}
+
+.reticle-center-hint {
+    top: 22%;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(8, 14, 28, 0.78);
+    color: rgba(255,255,255,0.92);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    backdrop-filter: blur(8px);
+}
+
+.reticle-center-hint.hidden {
+    display: none !important;
+}
+
+.reticle-capture-hotspot {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 124px;
+    height: 124px;
+    border: none;
+    border-radius: 50%;
+    background: radial-gradient(circle at center, rgba(255, 215, 0, 0.18) 0%, rgba(255, 215, 0, 0.08) 48%, rgba(255, 255, 255, 0.01) 72%);
+    color: #fff8da;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    text-align: center;
+    pointer-events: auto;
+    touch-action: manipulation;
+    z-index: 3;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
+    transition: transform 0.12s ease-out, box-shadow 0.12s ease-out, background 0.12s ease-out;
+}
+
+.reticle-capture-hotspot:active,
+.reticle-capture-hotspot.is-firing {
+    transform: translate(-50%, -50%) scale(0.94);
+    background: radial-gradient(circle at center, rgba(255, 215, 0, 0.32) 0%, rgba(255, 180, 59, 0.18) 52%, rgba(255, 255, 255, 0.03) 76%);
+}
+
+.reticle-capture-hotspot.hidden {
+    display: none !important;
+}
+
+.reticle-capture-icon {
+    font-size: 28px;
+    line-height: 1;
+}
+
+.reticle-capture-text {
+    max-width: 88px;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+body.immersive-camera-mode .tutorial-exit-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}

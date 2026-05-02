@@ -1,0 +1,767 @@
+
+
+@media (max-width: 480px) {
+    .game-shell-panel {
+        top: 48px;
+        left: 10px;
+        width: min(92vw, 330px);
+        padding: 12px;
+    }
+
+    .game-shell-title {
+        font-size: 1rem;
+    }
+
+    .feature-dock {
+        top: 16px;
+        left: 10px;
+        gap: 8px;
+    }
+
+    .feature-drawer-panel {
+        min-width: 148px;
+    }
+
+    .dock-panel {
+        padding: 8px;
+    }
+
+    .task-hud-dock {
+        top: 78px;
+        right: 10px;
+    }
+
+    .task-hud-toggle {
+        min-width: 92px;
+        height: 42px;
+        padding: 0 12px;
+    }
+
+    .task-status-box {
+        width: min(58vw, 230px);
+        padding: 8px;
+        gap: 6px;
+    }
+
+    .game-shell-panel.has-video {
+        width: calc(100vw - 16px);
+    }
+
+    .game-shell-panel.has-video #gameShellObjectiveBlock {
+        padding-left: 0;
+        padding-right: 0;
+        overflow: hidden;
+    }
+
+    .game-shell-panel.has-video #gameShellObjective,
+    .game-shell-panel.has-video #gameShellStartBtn,
+    .game-shell-panel.has-video #gameShellObjectiveBlock > .game-shell-label:first-child {
+        margin-left: 12px;
+        margin-right: 12px;
+    }
+
+    .game-shell-panel.has-video .task-video-wrap {
+        margin-left: calc(50% - 50vw + 8px);
+        margin-right: calc(50% - 50vw + 8px);
+    }
+
+    .game-shell-panel.has-video .task-video-label {
+        padding: 0 12px;
+    }
+
+    .game-shell-panel.has-video .task-video-player {
+        width: 100vw;
+        border-radius: 0;
+        max-height: 58vh;
+        object-fit: cover;
+    }
+
+    .game-shell-panel.has-video .task-video-embed {
+        width: 100vw;
+        border-radius: 0;
+        min-height: 42vh;
+        max-height: 58vh;
+    }
+
+    .task-intro-panel.has-video {
+        top: 0;
+        bottom: 0;
+        max-height: 100dvh;
+        border-radius: 0;
+    }
+
+    .task-intro-panel.has-video .task-intro-header {
+        padding-top: calc(14px + env(safe-area-inset-top, 0px));
+    }
+
+    .task-intro-panel.has-video .task-intro-header-actions {
+        gap: 8px;
+    }
+
+    .task-intro-panel.has-video .task-intro-skip-btn {
+        min-height: 36px;
+        font-size: 12px;
+        padding: 0 12px;
+    }
+
+    .task-intro-panel.has-video .task-intro-body {
+        padding: 0 0 calc(18px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .task-intro-panel.has-video .task-intro-description,
+    .task-intro-panel.has-video .task-intro-cover {
+        margin-left: 16px;
+        margin-right: 16px;
+    }
+
+    .task-intro-panel.has-video .task-video-player-intro {
+        width: 100vw;
+        min-height: 42vh;
+        max-height: 68vh;
+        border-radius: 0;
+        object-fit: contain;
+        background: #020617;
+    }
+
+    .task-intro-panel.has-video .task-video-embed-intro {
+        width: 100vw;
+        min-height: 42vh;
+        max-height: 68vh;
+        border-radius: 0;
+        background: #020617;
+    }
+
+    .task-stat-card {
+        min-height: 46px;
+        padding: 7px 8px;
+    }
+
+    .task-stat-icon {
+        font-size: 16px;
+    }
+
+    .task-stat-value {
+        font-size: 12px;
+    }
+
+    .task-stat-coords {
+        font-size: 11px;
+    }
+
+    .task-target-obj {
+        width: 220px;
+    }
+
+    .task-target-obj img {
+        width: 150px;
+        height: 150px;
+    }
+
+    .task-target-label {
+        font-size: 16px;
+    }
+
+    .header {
+        top: 8px;
+        padding: 0 56px;
+    }
+
+    .status-pill {
+        font-size: 12px;
+        padding: 4px 10px;
+    }
+
+    .icon-btn {
+        width: 34px;
+        height: 34px;
+        font-size: 16px;
+    }
+
+    .top-controls {
+        top: 60px;
+        width: 72vw;
+    }
+
+    .location-bar {
+        font-size: 11px;
+    }
+
+    .mode-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+
+    .instruction {
+        bottom: 110px;
+    }
+
+    .voice-panel {
+        bottom: 120px;
+    }
+
+    .mini-map-wrap {
+        right: 8px;
+        bottom: 140px;
+    }
+
+    .mini-map {
+        width: 220px;
+        height: 220px;
+    }
+
+    .mini-map-task-indicator {
+        max-width: 180px;
+        font-size: 10px;
+        padding: 5px 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .query-transit {
+        bottom: 122px;
+    }
+
+    .query-transit-card {
+        min-width: min(78vw, 250px);
+        padding: 10px 12px;
+        gap: 10px;
+    }
+
+    .query-transit-visual {
+        width: 64px;
+        height: 36px;
+        flex-basis: 64px;
+    }
+
+    .query-transit-label {
+        font-size: 12px;
+        white-space: normal;
+    }
+
+    .answer-toast {
+        right: 12px;
+        bottom: 146px;
+        width: min(84vw, 300px);
+    }
+}
+
+@media (max-width: 480px) {
+    .feature-dock {
+        top: auto;
+        left: 8px;
+        right: 8px;
+        bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 8px;
+    }
+
+    .feature-dock-menu {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+        max-width: calc(100vw - 76px);
+    }
+
+    .feature-drawer-panel {
+        min-width: min(82vw, 320px);
+    }
+
+    .game-shell-panel {
+        top: 54px;
+        left: 8px;
+        width: calc(100vw - 16px);
+        border-radius: 20px;
+        padding: 14px 13px 12px;
+    }
+
+    .answer-modal,
+    .task-encounter-modal,
+    .completion-modal,
+    .lock-overlay {
+        align-items: flex-end;
+        padding: 12px 10px calc(12px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .answer-card,
+    .task-encounter-card,
+    .completion-card,
+    .lock-card {
+        width: 100%;
+        max-width: 100%;
+        max-height: calc(100vh - 24px - env(safe-area-inset-bottom, 0px));
+        border-radius: 22px 22px 16px 16px;
+        padding: 18px 16px 16px;
+        overflow: hidden;
+    }
+
+    #answerInputContainer {
+        max-height: 40vh;
+    }
+
+    .game-hud {
+        top: 70px;
+        right: 10px;
+        gap: 6px;
+    }
+
+    .board-status-card {
+        top: 136px;
+        left: 8px;
+        min-width: min(72vw, 260px);
+        padding: 12px;
+        border-radius: 18px;
+    }
+
+    .hud-chip {
+        min-width: 92px;
+        padding: 9px 10px;
+        border-radius: 14px;
+    }
+
+    .hud-chip strong {
+        font-size: 13px;
+    }
+
+    .npc-dialog {
+        left: 8px;
+        right: 8px;
+        bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+        gap: 8px;
+    }
+
+    .npc-dialog-portrait {
+        width: 52px;
+        height: 52px;
+        flex-basis: 52px;
+        font-size: 22px;
+    }
+
+    .npc-dialog-card {
+        border-radius: 20px 20px 12px 20px;
+        padding: 13px 14px 14px;
+    }
+
+    .npc-dialog-text {
+        font-size: 14px;
+        line-height: 1.7;
+    }
+
+    .npc-dialog-btn {
+        width: 100%;
+        min-height: 48px;
+        font-size: 15px;
+    }
+
+    .icon-btn,
+    .feature-dock-toggle,
+    .mini-map-toggle,
+    .mini-map-refresh,
+    .task-hud-toggle,
+    .game-shell-toggle {
+        min-width: 48px;
+        min-height: 48px;
+    }
+
+    .icon-btn {
+        width: 48px;
+        height: 48px;
+        font-size: 22px;
+    }
+
+    .board-panel-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .board-action-btn,
+    #gameShellStartBtn {
+        min-height: 52px;
+        font-size: 15px;
+        border-radius: 16px;
+    }
+
+    .task-encounter-actions .btn,
+    .answer-actions .btn,
+    .lock-actions .btn,
+    .completion-actions .btn {
+        min-height: 48px;
+    }
+
+    .task-encounter-actions,
+    .answer-actions,
+    .lock-actions,
+    .completion-actions {
+        flex-direction: column;
+    }
+
+    .result-panel {
+        max-height: 70vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .result-content {
+        flex-direction: column;
+    }
+
+    .preview-area {
+        max-height: 220px;
+    }
+
+    .analysis-box {
+        max-height: 45vh;
+        overflow: visible;
+    }
+
+    .ai-text {
+        max-height: 40vh;
+    }
+}
+
+@media (max-width: 900px) {
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .ui-layer {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: calc(6px + env(safe-area-inset-top, 0px)) 10px calc(152px + env(safe-area-inset-bottom, 0px));
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .header,
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .top-controls,
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-shell-panel,
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-hud,
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .board-status-card {
+        position: relative !important;
+        top: auto !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        transform: none !important;
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: none !important;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .header {
+        order: 1;
+        justify-content: flex-start;
+        padding: 0 !important;
+        z-index: var(--z-panel);
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .status-pill {
+        padding: 5px 12px;
+        border-radius: 999px;
+        font-size: 11px;
+        background: rgba(0, 0, 0, 0.46);
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .top-controls {
+        order: 2;
+        width: 100% !important;
+        pointer-events: none;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .location-bar {
+        width: 100%;
+        font-size: 11px;
+        border-radius: 12px;
+        text-align: center;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-shell-panel {
+        order: 3;
+        z-index: var(--z-panel);
+        padding: 12px 12px 10px !important;
+        border-radius: 18px;
+        background: rgba(7, 12, 20, 0.78);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3);
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-shell-top {
+        align-items: center;
+        gap: 8px;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-shell-mode {
+        font-size: 10px;
+        padding: 4px 8px;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-shell-title {
+        margin-top: 6px;
+        font-size: 1.02rem;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-shell-toggle {
+        min-height: 42px;
+        padding: 7px 12px;
+        font-size: 13px;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-shell-summary {
+        margin-top: 8px;
+        font-size: 12px;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-shell-body {
+        margin-top: 10px;
+        gap: 8px;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-shell-block {
+        border-radius: 14px;
+        padding: 9px 10px;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-hud {
+        order: 4;
+        z-index: var(--z-hud);
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+        pointer-events: auto;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .hud-chip {
+        min-width: 0 !important;
+        width: 100%;
+        padding: 8px 8px;
+        border-radius: 13px;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .hud-label {
+        margin-bottom: 3px;
+        font-size: 9px;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .hud-chip strong {
+        font-size: 13px;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .board-status-card {
+        order: 5;
+        z-index: var(--z-hud);
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        min-width: 0 !important;
+        padding: 10px;
+        border-radius: 14px;
+        pointer-events: auto;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .board-status-row {
+        display: grid;
+        gap: 4px;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .board-status-row.wide {
+        grid-column: 1 / -1;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .board-status-row strong {
+        font-size: 13px;
+    }
+
+    .task-hud-dock {
+        position: fixed;
+        top: auto !important;
+        right: 12px !important;
+        bottom: calc(238px + env(safe-area-inset-bottom, 0px));
+        z-index: var(--z-hud);
+        gap: 8px;
+    }
+
+    .task-hud-toggle {
+        min-width: 94px;
+        min-height: 44px;
+        height: 44px;
+        border-radius: 14px;
+        padding: 0 12px;
+    }
+
+    .task-status-box {
+        width: min(78vw, 286px);
+        max-height: 36vh;
+        overflow-y: auto;
+    }
+
+    .mini-map-wrap {
+        position: fixed;
+        right: 12px;
+        bottom: calc(124px + env(safe-area-inset-bottom, 0px));
+        z-index: var(--z-map);
+        align-items: flex-end;
+        gap: 8px;
+    }
+
+    .mini-map {
+        width: 132px;
+        height: 132px;
+        border-radius: 14px;
+        opacity: 0.96;
+    }
+
+    .mini-map-toggle,
+    .mini-map-refresh {
+        width: 48px;
+        height: 48px;
+        padding: 0;
+        border-radius: 14px;
+        font-size: 20px;
+        display: grid;
+        place-items: center;
+    }
+
+    .location-info {
+        max-width: 132px;
+        font-size: 10px;
+        padding: 4px 6px;
+        border-radius: 9px;
+    }
+
+    .feature-dock {
+        position: fixed !important;
+        top: auto !important;
+        left: 12px !important;
+        right: auto !important;
+        bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+        z-index: var(--z-dock);
+        align-items: flex-end;
+        gap: 8px;
+    }
+
+    .feature-dock-controls {
+        gap: 8px;
+    }
+
+    .feature-dock-menu {
+        position: absolute;
+        left: 0;
+        bottom: 58px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: 48vh;
+        overflow-y: auto;
+        padding: 10px;
+        border-radius: 18px;
+        background: rgba(8, 14, 28, 0.88);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: 0 18px 34px rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(14px);
+    }
+
+    .icon-btn,
+    .feature-dock-toggle {
+        width: 50px;
+        height: 50px;
+        border-radius: 16px;
+        font-size: 20px;
+        background: rgba(8, 14, 28, 0.78);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        box-shadow: 0 10px 22px rgba(0, 0, 0, 0.24);
+    }
+
+    .feature-drawer-panel {
+        position: fixed;
+        left: 10px;
+        right: 10px;
+        bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+        min-width: 0;
+        z-index: var(--z-tutorial-drawer);
+    }
+
+    .dock-panel {
+        max-height: 46vh;
+        overflow-y: auto;
+        border-radius: 16px;
+        padding: 11px;
+    }
+
+    .floating-mic-btn {
+        position: fixed;
+        right: 12px;
+        bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+        width: 64px;
+        height: 64px;
+        border-radius: 20px;
+        z-index: var(--z-mic);
+    }
+
+    .voice-panel {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        width: auto;
+        bottom: calc(94px + env(safe-area-inset-bottom, 0px));
+        max-height: 52vh;
+        overflow-y: auto;
+        z-index: var(--z-voice);
+    }
+
+    .answer-toast {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        width: auto;
+        bottom: calc(98px + env(safe-area-inset-bottom, 0px));
+        z-index: var(--z-toast);
+    }
+
+    .query-transit {
+        bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+    }
+
+    body.ux-dock-menu-open .mini-map-wrap,
+    body.ux-dock-menu-open .task-hud-dock {
+        opacity: 0.34;
+        pointer-events: none;
+    }
+
+    body.ux-drawer-open .game-shell-panel,
+    body.ux-drawer-open .game-hud,
+    body.ux-drawer-open .board-status-card {
+        opacity: 0.36;
+        pointer-events: none;
+    }
+
+    body.ux-taskhud-open .game-hud,
+    body.ux-taskhud-open .board-status-card {
+        opacity: 0.6;
+    }
+
+    body.ux-voice-open .mini-map-wrap,
+    body.ux-voice-open .task-hud-dock {
+        display: none !important;
+    }
+
+    body.ux-toast-open .feature-drawer-panel {
+        display: none !important;
+    }
+}
+
+@media (max-width: 390px) {
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-hud {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .hud-chip strong {
+        font-size: 12px;
+    }
+
+    .mini-map {
+        width: 120px;
+        height: 120px;
+    }
+
+    .task-hud-dock {
+        bottom: calc(220px + env(safe-area-inset-bottom, 0px));
+    }
+}
