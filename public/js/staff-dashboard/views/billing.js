@@ -547,6 +547,9 @@
       });
   }
 
+  // Shared by quest-chains.js + data-services.js (quest list search / re-render after shop & plan loads).
+  global.filterQuestChains = filterQuestChains;
+
   global.getDefaultBillingMonth = getDefaultBillingMonth;
   global.getSelectedBillingMonth = getSelectedBillingMonth;
   global.renderBillingOverview = renderBillingOverview;
