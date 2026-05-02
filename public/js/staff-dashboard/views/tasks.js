@@ -147,16 +147,23 @@ if (taskPhotoInput) {
   });
 }
 
-wireLatLngPaste(
-  document.getElementById('taskLatLngPaste'),
-  document.getElementById('taskLatInput'),
-  document.getElementById('taskLngInput')
-);
-wireLatLngPaste(
-  document.getElementById('tileLatLngPaste'),
-  document.getElementById('tileLatInput'),
-  document.getElementById('tileLngInput')
-);
+(function bindLatLngPasteFromFormUtils() {
+  const { wireLatLngPaste } = window.StaffDashboardFormUtils || {};
+  const showToast = window.SandhillDom?.showToast;
+  if (typeof wireLatLngPaste !== 'function') return;
+  wireLatLngPaste(
+    document.getElementById('taskLatLngPaste'),
+    document.getElementById('taskLatInput'),
+    document.getElementById('taskLngInput'),
+    { showToast }
+  );
+  wireLatLngPaste(
+    document.getElementById('tileLatLngPaste'),
+    document.getElementById('tileLatInput'),
+    document.getElementById('tileLngInput'),
+    { showToast }
+  );
+})();
 
 // BGM manual preview
 const bgmUrlInputEl = document.getElementById('bgmUrlInput');

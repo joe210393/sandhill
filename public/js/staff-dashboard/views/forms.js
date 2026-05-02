@@ -1,3 +1,6 @@
+// Loaded after form-utils.js in staff-dashboard.html (same surface as staff-dashboard.js used to bind).
+const staffFormUtils = window.StaffDashboardFormUtils;
+
 function normalizeQuestChainBillingPolicy(chain = null) {
   if (!chain) return 'commercial';
   const policy = typeof chain.billing_policy === 'string' ? chain.billing_policy.trim().toLowerCase() : '';
