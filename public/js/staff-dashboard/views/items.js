@@ -108,9 +108,19 @@ function applySidebarRBAC() {
 
 function hydrateLoginHeader() {
   const info = document.getElementById('loginUserInfo');
-  const roles = { admin: '平台管理員', shop: '建置廠商', staff: '廠商員工', user: '玩家' };
+  const roleEl = document.getElementById('staffRoleLabel');
+  const roles =
+    window.StaffDashboardRoleContext?.ROLE_LABELS || {
+      admin: '平台管理員',
+      shop: '建置廠商',
+      staff: '廠商員工',
+      user: '玩家'
+    };
   if (info && loginUser) {
-    info.textContent = `${roles[loginUser.role] || ''}：${loginUser.username}`;
+    info.textContent = loginUser.username || '';
+  }
+  if (roleEl && loginUser) {
+    roleEl.textContent = roles[loginUser.role] || '';
   }
 
   const logoutBtn = document.getElementById('logoutBtn');
@@ -159,6 +169,7 @@ async function bootstrapSession() {
     ensureQuestChainSearchStartsBlank();
     hydrateLoginHeader();
     applySidebarRBAC();
+    window.StaffDashboardRoleContext?.refreshStaffScopeChrome?.();
     window.selectInitialStaffView?.();
 
     const role = loginUser?.role || '';
@@ -173,6 +184,7 @@ async function bootstrapSession() {
     }
 
     await Promise.all(initLoads);
+    window.StaffDashboardRoleContext?.refreshStaffScopeChrome?.();
   } catch (error) {
     alert(error.message || '請先以管理員或工作人員登入內容控制台');
     localStorage.removeItem('loginUser');

@@ -10,6 +10,7 @@ const staffStateJs = fs.readFileSync(path.join(root, 'public/js/staff-dashboard/
 const staffFormUtilsJs = fs.readFileSync(path.join(root, 'public/js/staff-dashboard/form-utils.js'), 'utf8');
 const staffNavigationJs = fs.readFileSync(path.join(root, 'public/js/staff-dashboard/navigation.js'), 'utf8');
 const staffDrawerJs = fs.readFileSync(path.join(root, 'public/js/staff-dashboard/drawer-controller.js'), 'utf8');
+const staffRoleContextJs = fs.readFileSync(path.join(root, 'public/js/staff-dashboard/role-context.js'), 'utf8');
 const billingViewJs = fs.readFileSync(path.join(root, 'public/js/staff-dashboard/views/billing.js'), 'utf8');
 const formsViewJs = fs.readFileSync(path.join(root, 'public/js/staff-dashboard/views/forms.js'), 'utf8');
 const dataServicesJs = fs.readFileSync(path.join(root, 'public/js/staff-dashboard/views/data-services.js'), 'utf8');
@@ -75,7 +76,8 @@ const syntaxCheckedFrontendFiles = [
   'public/js/ai-lab/hud-manager.js',
   'public/js/ai-lab/geo-watch.js',
   'public/js/ai-lab/nearby-tasks.js',
-  'public/js/staff-dashboard.js'
+  'public/js/staff-dashboard.js',
+  'public/js/staff-dashboard/role-context.js'
 ];
 
 for (const relativePath of syntaxCheckedFrontendFiles) {
@@ -89,6 +91,7 @@ const stateScriptIndex = staffHtml.indexOf('/js/staff-dashboard/state.js');
 const formUtilsScriptIndex = staffHtml.indexOf('/js/staff-dashboard/form-utils.js');
 const navigationScriptIndex = staffHtml.indexOf('/js/staff-dashboard/navigation.js');
 const drawerScriptIndex = staffHtml.indexOf('/js/staff-dashboard/drawer-controller.js');
+const roleContextScriptIndex = staffHtml.indexOf('/js/staff-dashboard/role-context.js');
 const billingScriptIndex = staffHtml.indexOf('/js/staff-dashboard/views/billing.js');
 const formsScriptIndex = staffHtml.indexOf('/js/staff-dashboard/views/forms.js');
 const questChainsScriptIndex = staffHtml.indexOf('/js/staff-dashboard/views/quest-chains.js');
@@ -102,6 +105,7 @@ assert.ok(stateScriptIndex > -1, 'staff dashboard must load staff-dashboard/stat
 assert.ok(formUtilsScriptIndex > -1, 'staff dashboard must load staff-dashboard/form-utils.js');
 assert.ok(navigationScriptIndex > -1, 'staff dashboard must load staff-dashboard/navigation.js');
 assert.ok(drawerScriptIndex > -1, 'staff dashboard must load staff-dashboard/drawer-controller.js');
+assert.ok(roleContextScriptIndex > -1, 'staff dashboard must load staff-dashboard/role-context.js');
 assert.ok(billingScriptIndex > -1, 'staff dashboard must load staff-dashboard/views/billing.js');
 assert.ok(dashboardScriptIndex > -1, 'staff dashboard must load staff-dashboard.js');
 assert.ok(apiScriptIndex < dashboardScriptIndex, 'shared api.js must load before staff-dashboard.js');
@@ -111,6 +115,8 @@ assert.ok(stateScriptIndex < dashboardScriptIndex, 'staff-dashboard/state.js mus
 assert.ok(formUtilsScriptIndex < dashboardScriptIndex, 'staff-dashboard/form-utils.js must load before staff-dashboard.js');
 assert.ok(navigationScriptIndex < dashboardScriptIndex, 'staff-dashboard/navigation.js must load before staff-dashboard.js');
 assert.ok(drawerScriptIndex < dashboardScriptIndex, 'staff-dashboard/drawer-controller.js must load before staff-dashboard.js');
+assert.ok(roleContextScriptIndex > drawerScriptIndex, 'role-context.js must load after drawer-controller.js');
+assert.ok(roleContextScriptIndex < dashboardScriptIndex, 'role-context.js must load before staff-dashboard.js shell');
 assert.ok(dashboardScriptIndex < billingScriptIndex, 'staff-dashboard.js shell must load before views/billing.js (global apiJson/staffDrawer/switchView)');
 assert.ok(formsScriptIndex > -1, 'staff dashboard must load views/forms.js');
 assert.ok(questChainsScriptIndex > -1, 'staff dashboard must load views/quest-chains.js');
@@ -137,6 +143,7 @@ assert.ok(staffStateJs.includes('Object.defineProperty(global, key'), 'state.js 
 assert.ok(staffFormUtilsJs.includes('global.StaffDashboardFormUtils'), 'form-utils.js must expose StaffDashboardFormUtils');
 assert.ok(staffNavigationJs.includes('global.StaffDashboardNavigation'), 'navigation.js must expose StaffDashboardNavigation');
 assert.ok(staffDrawerJs.includes('global.StaffDashboardDrawer'), 'drawer-controller.js must expose StaffDashboardDrawer');
+assert.ok(staffRoleContextJs.includes('global.StaffDashboardRoleContext'), 'role-context.js must expose StaffDashboardRoleContext');
 assert.ok(billingViewJs.includes('global.loadBillingDashboard = loadBillingDashboard'), 'billing view must expose loadBillingDashboard for inline handlers');
 assert.ok(
   formsViewJs.includes('const sdDrawer = window.StaffDashboardDrawer')

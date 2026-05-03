@@ -515,9 +515,12 @@
     const params = new URLSearchParams({ billing_month: billingMonth });
     const scopeHint = document.getElementById('billingScopeHint');
     if (scopeHint) {
-      scopeHint.textContent = getLoginUser()?.role === 'admin'
-        ? '目前為平台管理視角，可查看全部商家的用量、收費狀態與公益代付數據。'
-        : `目前為 ${getLoginUser()?.shop_name || '你的商家'} 視角，只顯示自己商家的入口資料與使用量。`;
+      const u = getLoginUser();
+      scopeHint.textContent =
+        global.StaffDashboardRoleContext?.getBillingScopeHintText?.(u) ||
+        (u?.role === 'admin'
+          ? '目前為平台管理視角，可查看全部商家的用量、收費狀態與公益代付數據。'
+          : `目前為 ${u?.shop_name || '你的商家'} 視角，只顯示自己商家的入口資料與使用量。`);
     }
     setBillingLoadingState();
     return Promise.all([

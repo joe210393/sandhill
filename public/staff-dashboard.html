@@ -113,6 +113,78 @@
       width: 100%; justify-content: flex-start;
     }
 
+    /* Admin / Shop 範圍標頭 */
+    .staff-header-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+      max-width: min(420px, 52vw);
+    }
+    .staff-header-row1 {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .staff-login-line {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 8px;
+      font-size: 0.85rem;
+      opacity: 0.92;
+    }
+    .staff-login-role {
+      font-size: 0.72rem;
+      opacity: 0.75;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .staff-scope-badge {
+      display: none;
+      align-items: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.35);
+      white-space: nowrap;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .staff-scope-badge--platform {
+      background: rgba(99,102,241,0.35);
+      border-color: rgba(199,210,254,0.5);
+    }
+    .staff-scope-badge--tenant {
+      background: rgba(20,184,166,0.28);
+      border-color: rgba(153,246,228,0.45);
+    }
+    .staff-scope-subline {
+      display: none;
+      font-size: 0.72rem;
+      line-height: 1.35;
+      opacity: 0.78;
+      text-align: right;
+      max-width: 100%;
+    }
+    .v2-sidebar-scope-pill {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: #64748b;
+      border: 1px solid #475569;
+      border-radius: 999px;
+      padding: 2px 7px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+    .v2-sidebar--tenant .v2-sidebar-label--scoped .v2-sidebar-scope-pill {
+      display: none;
+    }
+
     /* Task list items */
     .task-item {
       background: white; padding: 16px; border-radius: 10px; border: 1px solid #e2e8f0;
@@ -445,10 +517,17 @@
       <button id="sidebarToggle" style="display:none; background:none; border:none; color:white; font-size:1.3rem; cursor:pointer; padding:4px;">&#9776;</button>
       <h1>沙丘內容控制台</h1>
     </div>
-    <div style="display:flex; align-items:center; gap:16px;">
-      <a href="/index.html">回遊戲首頁</a>
-      <span id="loginUserInfo" style="font-size:0.85rem; opacity:0.8;"></span>
-      <button id="logoutBtn" style="background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.25); color:white; padding:5px 12px; border-radius:6px; cursor:pointer; font-size:0.85rem; display:none;">登出</button>
+    <div class="staff-header-right">
+      <div class="staff-header-row1">
+        <a href="/index.html">回遊戲首頁</a>
+        <div class="staff-login-line">
+          <span id="staffRoleLabel" class="staff-login-role" aria-hidden="true"></span>
+          <span id="loginUserInfo" style="font-weight:600;"></span>
+          <span id="staffScopeBadge" class="staff-scope-badge"></span>
+        </div>
+        <button id="logoutBtn" type="button" style="background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.25); color:white; padding:5px 12px; border-radius:6px; cursor:pointer; font-size:0.85rem; display:none;">登出</button>
+      </div>
+      <div id="staffScopeSubline" class="staff-scope-subline"></div>
     </div>
   </header>
 
@@ -481,7 +560,7 @@
       <div class="v2-nav-item" data-view="view-pos" data-roles="admin,shop">
         <span>💳</span> 現場核銷
       </div>
-      <div class="v2-sidebar-label" style="margin-top:12px;">管理</div>
+      <div class="v2-sidebar-label v2-sidebar-label--scoped" style="margin-top:12px;">管理<span class="v2-sidebar-scope-pill">僅平台</span></div>
       <div class="v2-nav-item" data-view="view-shops" data-roles="admin">
         <span>🏪</span> 商店管理
       </div>
@@ -507,6 +586,7 @@
           <button class="btn-md btn-primary-v2" onclick="openDrawer('新增玩法入口', 'form-quest-chain')">+ 新增入口</button>
         </div>
         <p class="view-subtitle">管理首頁顯示的劇本與大富翁入口。主要操作為「管理內容」（關卡／棋盤）；「⋯」內為發布狀態、計費與結構鎖定相關的次要操作。</p>
+        <p id="questChainsScopeNote" class="subtle-note" style="display:none; margin-top:-8px; margin-bottom:14px;"></p>
         <div class="qc-toolbar-row">
           <div id="questChainFilterTabs" class="qc-filter-tabs" role="tablist" aria-label="入口狀態">
             <button type="button" class="qc-tab active" role="tab" data-qc-filter="all" aria-selected="true">全部</button>
@@ -2021,9 +2101,10 @@
   <script src="/js/staff-dashboard/form-utils.js?v=20260502e"></script>
   <script src="/js/staff-dashboard/navigation.js?v=20260502e"></script>
   <script src="/js/staff-dashboard/drawer-controller.js?v=20260502e"></script>
+  <script src="/js/staff-dashboard/role-context.js?v=20260502h"></script>
   <!-- Shell must run before any views: establishes apiJson / staffDrawer / switchView in shared global scope -->
   <script src="/js/staff-dashboard.js?v=20260502e"></script>
-  <script src="/js/staff-dashboard/views/billing.js?v=20260502e"></script>
+  <script src="/js/staff-dashboard/views/billing.js?v=20260502h"></script>
   <script src="/js/staff-dashboard/views/forms.js?v=20260502f"></script>
   <script src="/js/staff-dashboard/views/board-maps.js?v=20260502e"></script>
   <script src="/js/staff-dashboard/views/assets.js?v=20260502e"></script>
@@ -2033,7 +2114,7 @@
   <script src="/js/staff-dashboard/views/data-services.js?v=20260502g"></script>
   <script src="/js/staff-dashboard/views/products.js?v=20260502e"></script>
   <script src="/js/staff-dashboard/views/users.js?v=20260502e"></script>
-  <script src="/js/staff-dashboard/views/items.js?v=20260502e"></script>
+  <script src="/js/staff-dashboard/views/items.js?v=20260502h"></script>
   <script src="/js/staff-dashboard/views/init.js?v=20260502e"></script>
   <script>
     window.loginUser = JSON.parse(localStorage.getItem('loginUser') || 'null');

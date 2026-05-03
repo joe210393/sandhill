@@ -1,6 +1,6 @@
 # Sandhill 架構備忘錄
 
-最後更新：2026-05-02（staff-dashboard「玩法入口管理」列表：狀態篩選列 + 精簡卡片／主要「管理內容」+ ⋯ 次要操作，邏輯集中在 `views/quest-chains.js` + `state.js`，薄入口不擴張）
+最後更新：2026-05-02（staff-dashboard Admin／Shop／Staff 範圍 UX：`role-context.js` 統一頂欄徽章、側欄平台標記、玩法入口頁提示與計費說明；`views/items.js` 僅掛載 refresh，勿回塞薄入口）
 
 ## 修改守則
 
@@ -75,7 +75,7 @@ Phase 5 已完成第一輪高信心刪除；以下是仍需後續拆分或確認
 
 - `src/app.js` 約 496 行，已移除重複 helper 實作，主要負責 app 組裝、route 註冊與少量相容接線；root `index.js` 已是薄入口。
 - `public/js/ai-lab.js` 約 1682 行；語音、照片、任務媒體、玩家任務流程、劇情/棋盤 shell、棋盤動畫、棋盤 session、教學進度、事件接線、語言/LM、視覺問答、GPS watch / 裝置方位 / 任務 BGM 觸發、共享 runtime state、nearby task 資料流、自由探索 analyze-flow、相機 share/download (photo-share) 都已拆成獨立模組。`task-submit.js` 內部也已按 `submitPhotoAnswer / submitChoiceAnswer / submitTextAnswer` 三條子流程切分，並抽出 `dispatchAnswerViaApi / handleChoiceTutorialPassThrough / handleGenericTutorialPassThrough / triggerShakeError` 四個共享 helper。下一輪重點在 repository layer 與視覺回歸 smoke，不得再新增大型業務流程到主檔。
-- `public/js/staff-dashboard.js` 已縮到約 66 行，現為薄入口；剩餘複雜度集中在 `public/js/staff-dashboard/views/`，尤其 `quest-chains.js`、`tasks.js`、`board-maps.js`。玩法入口列表 UI（篩選、`applyQuestChainListFilters`）只放在 `quest-chains.js`，狀態 `questChainStatusFilter` 在 `state.js`，勿回塞 `staff-dashboard.js`。
+- `public/js/staff-dashboard.js` 已縮到約 66 行，現為薄入口；剩餘複雜度集中在 `public/js/staff-dashboard/views/`，尤其 `quest-chains.js`、`tasks.js`、`board-maps.js`。玩法入口列表 UI（篩選、`applyQuestChainListFilters`）只放在 `quest-chains.js`，狀態 `questChainStatusFilter` 在 `state.js`，勿回塞 `staff-dashboard.js`。Admin／商家／員工的「資料範圍」文案與頂欄徽章集中在 `public/js/staff-dashboard/role-context.js`（`StaffDashboardRoleContext`），bootstrap 內於 `applySidebarRBAC` 後與初次資料載入後呼叫 `refreshStaffScopeChrome`；計費頁頂部說明與 `getBillingScopeHintText` 共用，避免與頂欄矛盾。
 - `public/css/ai-lab/`：已將原本 4k+ 行的巨型樣式表，依功能域分拆為 core、camera、hud、board、tasks 等獨立 CSS 檔案。
 - `public/staff-dashboard-old.html`、`public/staff-dashboard-v2.html`、`public/admin-users.html`、`public/admin-user-tasks.html`、`public/redeem-tasks.html`、`public/role-management.html` 目前是 redirect shim；確認流量後可保留極薄 redirect 或移除 shim。舊 JS 已刪除，不得恢復載入。
 - `package.json` 已移除不存在的 `scripts/rag/*` 指令，並以 `scripts/verify-legacy-boundaries.js` 防止回流。
@@ -292,11 +292,12 @@ Phase 6：2026-05-01，已開始
 - `public/js/staff-dashboard/form-utils.js`：集中後台表單工具，包括座標貼上解析、AI validation mode 正規化、AI task payload 組裝與 AI payload 檢查。後續 form/view 不得重新宣告 `parseLatLngPaste`。
 - `public/js/staff-dashboard/navigation.js`：集中後台 view/hash 切換、sidebar wiring 與 reward shop iframe lazy init。`staff-dashboard.js` 只保留 lazy-load callback 對接，不得重新宣告 `STAFF_DASH_HASH_BY_VIEW`。
 - `public/js/staff-dashboard/drawer-controller.js`：集中右側 drawer、active form resolve、task wizard DOM 分組、wizard footer 與 submit 轉發。`staff-dashboard.js` 只保留各表單 after-open 業務接線，不得重新宣告 `validateTaskWizardStep` 或 `initializeTaskWizardDOM`。
+- `public/js/staff-dashboard/role-context.js`：集中 Admin／Shop／Staff 範圍的頂欄徽章、副標、側欄 `v2-sidebar--platform`／`--tenant` class、玩法入口搜尋 placeholder 與 `getBillingScopeHintText`。不得把業務 API 或表單邏輯塞進此檔。
 - `public/js/staff-dashboard/views/billing.js`：集中後台計費 dashboard render/load/chart 邏輯，並保留 `loadBillingDashboard` 全域入口給既有 HTML inline handler 使用。後續 billing UI 修改應在此檔，不得回塞 `staff-dashboard.js`。
 - `public/js/staff-dashboard/views/forms.js`：集中 drawer logic、填表輔助、blueprint 系統、AI payload 產生器。
 - `public/js/staff-dashboard/views/data-services.js`：集中 `loadShops` 與 `loadEntryPlans` API 邏輯。
 - `public/js/staff-dashboard.js`：已大幅抽離所有視圖與資料邏輯，縮減至 66 行，現僅作為路由與主程式載入的薄入口。
-- `public/staff-dashboard.html`：先載入 `shared/api.js`、`shared/format.js`、`shared/dom.js`、`staff-dashboard/state.js`、`staff-dashboard/form-utils.js`、`staff-dashboard/navigation.js`、`staff-dashboard/drawer-controller.js`、`staff-dashboard/views/billing.js`、`staff-dashboard/views/forms.js`、`staff-dashboard/views/data-services.js`，再載入 `staff-dashboard.js`。修改 script 順序時必須跑 `npm run test:phase3-frontend`。
+- `public/staff-dashboard.html`：先載入 `shared/api.js`、`shared/format.js`、`shared/dom.js`、`staff-dashboard/state.js`、`staff-dashboard/form-utils.js`、`staff-dashboard/navigation.js`、`staff-dashboard/drawer-controller.js`、`staff-dashboard/role-context.js`，再載入 `staff-dashboard.js` 與各 `views/*`。修改 script 順序時必須跑 `npm run test:phase3-frontend`。
 - `public/js/ai-lab/thinking.js`：集中 AI 上傳/分析/legacy plant/search/finalize 思考階段與 loading message 控制。`ai-lab.js` 不得重新宣告 `AI_THINKING_STAGES` 或思考動畫函式。
 - `public/js/ai-lab/vision-client.js`：集中照片 grid 合成與 `/api/vision-test` 呼叫，固定 `skipRag=true`，維持 Sandhill 現役 LM-only 流程。`ai-lab.js` 不得重新宣告 `combinePhotosToGrid` 或 `analyzePhotos`。
 - `public/js/ai-lab/legacy-plant-results.js`：**已於本輪刪除**。後端 `/api/vision-test` 固定回 `skip_rag: true`，前端 `analyzeBtn` 也已縮成 LM-only 流程，不再需要 plant 結果/信心度/非植物相容顯示。`ai-lab.js` 不得再 reference `AiLabLegacyPlantResults`、`showHighConfidenceResult`、`showMediumConfidenceResult`、`showLowConfidenceResult`、`showNonPlantResult`、`showQuickFeatures`、`plant_rag`、`need_more_photos`、`needMorePhotosSession`、`CONFIDENCE_HIGH`、`CONFIDENCE_MEDIUM`，亦不得恢復 `legacy-plant-results.js` 檔案。`scripts/verify-phase3-frontend.js` 已加入守門。
