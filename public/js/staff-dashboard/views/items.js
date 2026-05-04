@@ -141,6 +141,7 @@ function hydrateLoginHeader() {
 async function bootstrapSession() {
   try {
     window.StaffDashboardDrawer?.initializeTaskWizardDOM?.();
+    window.applyTaskValidationModeUi?.();
     syncDrawerFooter();
     const billingMonthInput = document.getElementById('billingMonthInput');
     if (billingMonthInput && !billingMonthInput.value) {

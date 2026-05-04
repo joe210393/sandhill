@@ -480,6 +480,7 @@ function openTaskDrawerForCreate() {
     bpSel.value = 'story_ai_identify';
     applyBlueprint('story_ai_identify', false);
   }
+  window.applyTaskValidationModeUi?.();
   syncTaskLocationRequirementUi();
   syncTaskWizardUI();
   applyTaskStructureLockUi(null, globalQuestChainsMap[String(currentQuestChainId)] || null);
@@ -589,6 +590,7 @@ function populateTaskFormForEdit(t) {
       form.elements.failure_message.value = t.failure_message || '';
       form.elements.success_message.value = t.success_message || '';
       form.elements.max_attempts.value = t.max_attempts || '';
+      window.applyTaskValidationModeUi?.();
       if (form.elements.location_required) form.elements.location_required.checked = !!t.location_required;
       syncTaskLocationRequirementUi();
 

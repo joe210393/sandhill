@@ -156,6 +156,7 @@ assert.ok(!staffJs.includes('with (staffDashboardState)'), 'staff dashboard must
 assert.ok(staffStateJs.includes('Object.defineProperty(global, key'), 'state.js must expose state-backed globals for inline handlers');
 assert.ok(staffFormUtilsJs.includes('global.StaffDashboardFormUtils'), 'form-utils.js must expose StaffDashboardFormUtils');
 assert.ok(staffTaskFormCopyJs.includes('global.StaffDashboardTaskFormCopy'), 'task-form-copy.js must expose StaffDashboardTaskFormCopy');
+assert.ok(staffTaskFormCopyJs.includes('getAiJudgePlaceholders'), 'task-form-copy.js must expose AI judge placeholder helpers per validation mode');
 assert.ok(staffNavigationJs.includes('global.StaffDashboardNavigation'), 'navigation.js must expose StaffDashboardNavigation');
 assert.ok(staffNavigationJs.includes("'view-ops-overview': 'overview'"), 'navigation.js must register ops overview hash route');
 assert.ok(staffDrawerJs.includes('global.StaffDashboardDrawer'), 'drawer-controller.js must expose StaffDashboardDrawer');
@@ -172,6 +173,7 @@ assert.ok(
     && formsViewJs.includes('const sdFormUtils = window.StaffDashboardFormUtils'),
   'forms view must bind sdDrawer/sdFormUtils (names must not duplicate staff-dashboard.js const staffDrawer/staffFormUtils in shared global lexical scope)'
 );
+assert.ok(formsViewJs.includes('window.applyTaskValidationModeUi = applyTaskValidationModeUi'), 'forms.js must expose applyTaskValidationModeUi for wizard / drawer resync');
 assert.ok(!formsViewJs.includes('const staffFormUtils ='), 'forms.js must not redeclare const staffFormUtils (conflicts with staff-dashboard.js in same page)');
 
 const forbiddenStaffDefinitions = [

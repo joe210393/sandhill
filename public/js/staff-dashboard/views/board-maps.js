@@ -315,6 +315,7 @@ function openTaskDrawerForBoardChallenge() {
   const bpSel = document.getElementById('taskBlueprintSelect');
   bpSel.value = 'board_ai_identify';
   applyBlueprint('board_ai_identify', false);
+  window.applyTaskValidationModeUi?.();
   applyTaskStructureLockUi(null, globalQuestChainsMap[String(currentQuestChainId)] || null);
 }
 

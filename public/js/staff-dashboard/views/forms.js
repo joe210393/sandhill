@@ -522,7 +522,90 @@ function normalizeValidationModeForTaskType(taskType = 'qa', validationMode = 'a
   return sdFormUtils.normalizeValidationModeForTaskType(taskType, validationMode);
 }
 
-function setupValidationModeToggle() {
+/** 與 task-form-copy.js 同步；若該檔未載入或快取舊版，仍要能顯示正確範例，避免畫面卡在海洋／寶特瓶舊文案。 */
+const FALLBACK_AI_JUDGE_PLACEHOLDERS = {
+  ai_text_check: {
+    system:
+      '你是關卡「文字」裁判：只依下方「任務說明」判斷是否扣題；不代寫作文、不延伸創作；同義改寫可接受時請在理由簡述。',
+    user:
+      '請依本關規約判斷玩家回答是否扣題。例：須同時提到「地層受擠壓」與「逆斷層」兩個概念；只提到其中一個不算過關；可用自己的話，不必逐字相同。',
+    failure: '回答裡還缺「○○」或「△△」其中一項，對照關卡說明再補一句即可。',
+    success: '兩個重點都有講到，這一關過關！'
+  },
+  ai_count: {
+    system:
+      '你是關卡「計數」裁判：只數任務說明裡指定的物件類別；遮擋過半、倒影、非本體不計；邊界採保守。',
+    user:
+      '請數照片中「易開罐本體」數量（不含壓扁碎片與遠方模糊小點）。達 5 個通關；若同一物重疊只算 1。',
+    failure: '目前數到的數量還不到門檻，靠近主體、避免反光再拍一張。',
+    success: '數量達標，過關！'
+  },
+  ai_identify: {
+    system:
+      '你是關卡「辨識」裁判：只判斷任務說明中的目標是否清楚出現在畫面主要區域；不猜地點、不評美醜。',
+    user:
+      '請判斷畫面中是否清楚可見「指定招牌上的店名全稱」或「完整花冠的牽牛花」二擇一即過關；局部裁切不算。',
+    failure: '鏡頭裡還找不到清楚的主體，請對焦後再試一次。',
+    success: '有拍到清楚目標，過關！'
+  },
+  ai_score: {
+    system:
+      '你是關卡「攝影／構圖評分」裁判：只依下方「任務說明」裡的配分表與通關門檻給分；不臆測關卡主題（主題完全由任務說明定義）；主觀分項須註明上限並避免與必要項矛盾。',
+    user:
+      '【請改成你的主題，以下為配分表範例】① 必要項（共 6 分）：畫面須同時清楚出現「天空、沙灘、海」三元素，缺一則必要項不滿分。② 加分（+1）：有清楚可辨的人物。③ 主觀池（至多 3 分）：幽默、美感等，由你依畫面自由心證，但不得推翻①②的事實認定。④ 通關：總分須達本關「最低通過分數」欄位所設門檻。',
+    failure: '目前總分未達通關門檻，或必要項／加分條件未滿足；請對照上方配分表調整畫面後再拍。',
+    success: '配分表各項與總分皆達標，恭喜過關！'
+  },
+  ai_rule_check: {
+    system:
+      '你是關卡「規則檢查」裁判：只檢查任務說明列出的必達條與禁則；未列的不臆測、不額外扣分。',
+    user:
+      '請逐條檢查：① 畫面須同時出現「手套」與「垃圾袋」② 不可只有手部特寫而看不到環境脈絡。任一禁則觸發即不通關。',
+    failure: '規則裡還有條件沒達成（例：缺手套或構圖太局部），調整後再拍。',
+    success: '列出的條件都符合，過關！'
+  },
+  ai_reference_match: {
+    system:
+      '你是關卡「場景比對」裁判：比對玩家照片與關卡封面／參考意圖是否為同一地點或同一視角類型；容許天候、色差、人潮差異。',
+    user:
+      '請比對是否與封面所代表的「同一個地標入口」或「同一面解說看板」為同一處；僅風格相似但建築不同不算過關。',
+    failure: '看起來不像同一地標或視角，請靠近封面構圖再拍一張。',
+    success: '地點或構圖對上了，過關！'
+  }
+};
+
+function resolveAiJudgePlaceholders(mode) {
+  const fromCopy = window.StaffDashboardTaskFormCopy?.getAiJudgePlaceholders?.(mode);
+  if (fromCopy) return fromCopy;
+  return FALLBACK_AI_JUDGE_PLACEHOLDERS[mode] || null;
+}
+
+function applyAiJudgePlaceholderAttrs(form, judgePh) {
+  if (!judgePh || !form) return;
+  const sysTa = form.querySelector('textarea[name="ai_system_prompt"]');
+  const userTa = form.querySelector('textarea[name="ai_user_prompt"]');
+  const failIn = form.querySelector('input[name="failure_message"]');
+  const okIn = form.querySelector('input[name="success_message"]');
+  if (sysTa && judgePh.system) {
+    sysTa.setAttribute('placeholder', judgePh.system);
+    sysTa.placeholder = judgePh.system;
+  }
+  if (userTa && judgePh.user) {
+    userTa.setAttribute('placeholder', judgePh.user);
+    userTa.placeholder = judgePh.user;
+  }
+  if (failIn && judgePh.failure) {
+    failIn.setAttribute('placeholder', judgePh.failure);
+    failIn.placeholder = judgePh.failure;
+  }
+  if (okIn && judgePh.success) {
+    okIn.setAttribute('placeholder', judgePh.success);
+    okIn.placeholder = judgePh.success;
+  }
+}
+
+/** 依「提交類型 + 驗證模式」同步 AI 區塊顯示與各欄 placeholder（wizard 分步後仍可呼叫）。 */
+function applyTaskValidationModeUi() {
   const sel = document.getElementById('validationModeSelect');
   const typeSel = document.getElementById('taskTypeSelect');
   const fields = document.getElementById('aiConfigFields');
@@ -534,31 +617,59 @@ function setupValidationModeToggle() {
   const scoreGrp = document.getElementById('aiMinScoreGroup');
   if (!sel || !fields) return;
 
-  const update = () => {
-    const normalizedMode = normalizeValidationModeForTaskType(typeSel?.value || 'qa', sel.value);
-    if (sel.value !== normalizedMode) {
-      sel.value = normalizedMode;
-    }
-    const isAi = sel.value.startsWith('ai_');
-    if (aiWrap) aiWrap.style.display = isAi ? 'block' : 'none';
-    fields.style.display = isAi ? 'block' : 'none';
-    if (!isAi) return;
-    const m = validationModeMeta[sel.value] || validationModeMeta.ai_identify;
-    const human = window.StaffDashboardTaskFormCopy?.getValidationUi?.(sel.value);
-    if (helper) helper.textContent = human?.helper || m.helper;
-    if (labelEl) labelEl.textContent = human?.label || m.label;
-    if (labelInput) labelInput.placeholder = human?.placeholder || m.placeholder;
-    if (countGrp) countGrp.style.display = m.showCount ? 'block' : 'none';
-    if (scoreGrp) scoreGrp.style.display = m.showScore ? 'block' : 'none';
-  };
-  sel.addEventListener('change', update);
-  update();
+  const normalizedMode = normalizeValidationModeForTaskType(typeSel?.value || 'qa', sel.value);
+  if (sel.value !== normalizedMode) {
+    sel.value = normalizedMode;
+  }
+  const isAi = sel.value.startsWith('ai_');
+  if (aiWrap) aiWrap.style.display = isAi ? 'block' : 'none';
+  fields.style.display = isAi ? 'block' : 'none';
+  if (!isAi) return;
+
+  const m = validationModeMeta[sel.value] || validationModeMeta.ai_identify;
+  const human = window.StaffDashboardTaskFormCopy?.getValidationUi?.(sel.value);
+  if (helper) helper.textContent = human?.helper || m.helper;
+  if (labelEl) labelEl.textContent = human?.label || m.label;
+  if (labelInput) labelInput.placeholder = human?.placeholder || m.placeholder;
+  if (countGrp) countGrp.style.display = m.showCount ? 'block' : 'none';
+  if (scoreGrp) scoreGrp.style.display = m.showScore ? 'block' : 'none';
+
+  const form = document.getElementById('taskForm');
+  const modeSnapshot = sel.value;
+  const judgePh = resolveAiJudgePlaceholders(sel.value);
+  applyAiJudgePlaceholderAttrs(form, judgePh);
+
+  requestAnimationFrame(() => {
+    const selLater = document.getElementById('validationModeSelect');
+    const formLater = document.getElementById('taskForm');
+    if (!selLater || !formLater || selLater.value !== modeSnapshot) return;
+    applyAiJudgePlaceholderAttrs(formLater, resolveAiJudgePlaceholders(selLater.value));
+  });
+}
+
+function setupValidationModeToggle() {
+  const sel = document.getElementById('validationModeSelect');
+  if (!sel) return;
+  sel.addEventListener('change', applyTaskValidationModeUi);
+  applyTaskValidationModeUi();
+}
+
+function wireTaskAiAdvancedPlaceholderResync() {
+  const panel = document.getElementById('taskAiAdvancedPanel');
+  if (!panel || panel.dataset.placeholderResync === '1') return;
+  panel.dataset.placeholderResync = '1';
+  panel.addEventListener('toggle', () => {
+    if (panel.open) applyTaskValidationModeUi();
+  });
 }
 
 setupCategoryToggle();
 setupTaskTypeToggle();
 setupValidationModeToggle();
+wireTaskAiAdvancedPlaceholderResync();
 setupLocationRequirementToggle();
+
+window.applyTaskValidationModeUi = applyTaskValidationModeUi;
 
 // Apply initial blueprint
 applyBlueprint('story_ai_identify', false);
