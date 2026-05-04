@@ -1,4 +1,17 @@
 // ── Asset Tabs ────────────────────────────────────────────────
+function syncAssetPrimaryLabel(tab) {
+  const el = document.getElementById('assetPrimaryLabel');
+  if (!el) return;
+  const map = {
+    models: '目前主操作：上傳 3D 模型',
+    items: '目前主操作：新增道具素材',
+    bgm: '目前主操作：上傳背景音樂',
+    videos: '目前主操作：上傳影片素材',
+    npc: '目前主操作：新增 NPC（僅平台管理員）'
+  };
+  el.textContent = map[tab] || '';
+}
+
 function switchAssetTab(tab, el) {
   document.querySelectorAll('.asset-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.asset-section').forEach(s => s.classList.remove('active'));
@@ -24,6 +37,7 @@ function switchAssetTab(tab, el) {
   if (tab === 'bgm') loadBgmAssets();
   if (tab === 'videos') loadVideoAssets();
   loadAssetStorageOverview();
+  syncAssetPrimaryLabel(tab);
 }
 
 let globalNpcs = [];
@@ -542,3 +556,4 @@ if (itemImageInput) {
   });
 }
 
+syncAssetPrimaryLabel('models');

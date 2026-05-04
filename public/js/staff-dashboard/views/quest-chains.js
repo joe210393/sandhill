@@ -199,6 +199,17 @@ function goToQuestDetail(questChainId) {
   document.getElementById('task_locked_quest_name').textContent = q.title;
   document.getElementById('task_quest_chain_id').value = questChainId;
 
+  const detailNote = document.getElementById('questDetailScopeNote');
+  if (detailNote) {
+    detailNote.style.display = 'block';
+    const modeLabel = q.mode_type === 'board_game' ? '大富翁' : '劇情主線';
+    const scopeHint =
+      loginUser?.role === 'admin'
+        ? '平台視角：可編排此入口之關卡／棋盤（仍受結構鎖與後端權限約束）。'
+        : '商家視角：僅能管理你有權限的此入口內容。';
+    detailNote.textContent = `${modeLabel} · ${scopeHint}`;
+  }
+
   // Toggle buttons based on mode
   const btnAddTask = document.getElementById('btnAddTask');
   const btnAddTile = document.getElementById('btnAddTile');
@@ -630,6 +641,34 @@ function loadQuestChains() {
     });
 }
 
+/** 依目前 API 載入的 globalQuestChainsMap 顯示快照（不受列表篩選影響，方便 Admin／Shop 一眼掌握） */
+function renderQuestChainSnapshotStrip() {
+  const strip = document.getElementById('questChainSnapshotStrip');
+  if (!strip) return;
+  const all = Object.values(globalQuestChainsMap || {});
+  if (!all.length) {
+    strip.classList.remove('is-visible');
+    strip.innerHTML = '';
+    return;
+  }
+  const n = all.length;
+  const published = all.filter((q) => q.is_active).length;
+  const draft = n - published;
+  const locked = all.filter((q) => isQuestChainStructureLockedClient(q)).length;
+  const board = all.filter((q) => q.mode_type === 'board_game').length;
+  const story = n - board;
+  strip.classList.add('is-visible');
+  strip.innerHTML = `
+    <div class="sd-snapshot-hint">以下統計為<strong>目前載入的入口資料</strong>（與頂欄資料範圍一致；不受下方篩選／搜尋影響）。</div>
+    <div class="sd-snapshot-chip"><strong>${n}</strong>總數</div>
+    <div class="sd-snapshot-chip"><strong>${published}</strong>已發布</div>
+    <div class="sd-snapshot-chip"><strong>${draft}</strong>草稿</div>
+    <div class="sd-snapshot-chip"><strong>${locked}</strong>結構已鎖</div>
+    <div class="sd-snapshot-chip"><strong>${story}</strong>劇情</div>
+    <div class="sd-snapshot-chip"><strong>${board}</strong>大富翁</div>
+  `;
+}
+
 /** 搜尋（billing.js `filterQuestChains`）＋狀態篩選（全部／已發布／草稿／結構已鎖） */
 function applyQuestChainListFilters(chains = []) {
   const base = filterQuestChains(Array.isArray(chains) ? chains : []);
@@ -654,6 +693,7 @@ function renderQuestChainList(chains) {
       }
     }
     container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div>${msg}</div>`;
+    renderQuestChainSnapshotStrip();
     return;
   }
   container.innerHTML = chains.map((q) => {
@@ -735,6 +775,7 @@ function renderQuestChainList(chains) {
       </div>
     `;
   }).join('');
+  renderQuestChainSnapshotStrip();
 }
 
 async function toggleQuestChainStructureLock(id, locked) {

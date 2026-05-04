@@ -292,6 +292,22 @@
     }];
   }
 
+  function applyBillingDailyScopeUiVisibility(isAdmin, optionCount) {
+    const row = document.getElementById('billingDailyScopeRow');
+    const sub = document.getElementById('billingDailyTrendSubtitle');
+    if (row) {
+      const showRow = Boolean(isAdmin) || optionCount > 1;
+      row.style.display = showRow ? 'flex' : 'none';
+    }
+    if (sub) {
+      sub.textContent = isAdmin
+        ? '可看全平台、所有商店一起比較，或切到單一商店檢視每日 LM 使用量與每日應收。'
+        : optionCount <= 1
+          ? '以下為你的商店在本月的每日 LM 與金額趨勢（單一範圍，無須切換圖表）。'
+          : '可從「圖表範圍」切換檢視；下方表格僅限你的商家。';
+    }
+  }
+
   function populateBillingDailyScopeOptions(data = null) {
     const select = document.getElementById('billingDailyScopeSelect');
     if (!select) return;
@@ -326,6 +342,7 @@
       ? previousValue
       : (options[0]?.value || 'platform');
     select.value = window.currentBillingDailyScope;
+    applyBillingDailyScopeUiVisibility(isAdmin, options.length);
   }
 
   function renderBillingChartSummary(data = null, scope = 'platform') {

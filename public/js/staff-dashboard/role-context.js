@@ -61,6 +61,74 @@
     }
   }
 
+  /** 各 view 一行的資料範圍說明（與頂欄一致，避免各 view 複製長文） */
+  function applySecondaryViewNotes(user) {
+    if (!user) return;
+    const show = (id, text, { adminOnly = false, hideForAdmin = false } = {}) => {
+      const el = global.document.getElementById(id);
+      if (!el) return;
+      if (adminOnly && user.role !== 'admin') {
+        el.style.display = 'none';
+        el.textContent = '';
+        return;
+      }
+      if (hideForAdmin && user.role === 'admin') {
+        el.style.display = 'none';
+        el.textContent = '';
+        return;
+      }
+      if (!text) {
+        el.style.display = 'none';
+        return;
+      }
+      el.style.display = 'block';
+      el.textContent = text;
+    };
+
+    show('billingViewScopeNote', user.role === 'admin'
+      ? '計費與圖表：含全平台與各商家；可切換「圖表範圍」比較每日 LM。'
+      : '計費與圖表：僅你的商家；下方商店總帳與入口月報亦僅限自家。');
+
+    show('assetsScopeNote', user.role === 'admin'
+      ? '素材庫：列表含各商家上傳內容；建立／編輯時請確認所屬商家。'
+      : '素材庫：僅顯示與管理上傳至你商家範圍的模型、道具、音樂與影片。');
+
+    show('productsScopeNote', user.role === 'admin'
+      ? '兌換商品：可含各商家建立之品項（列表若顯示商家請以此辨識）。'
+      : '兌換商品：僅列出你商家建立之可兌換品項與相關紀錄。');
+
+    show('redemptionsScopeNote', user.role === 'admin'
+      ? '此頁為「積分兌換商品」佇列（全平台相關資料依 API 範圍）。優惠券請至「現場核銷」。'
+      : '此頁為「積分兌換商品」佇列，僅你的商家相關申請。優惠券請至「現場核銷」。');
+
+    show('couponIssueScopeNote', user.role === 'admin'
+      ? '發券對象為玩家帳號；可綁定需 Coupon 的入口（全平台入口選項）。'
+      : '發券對象為玩家帳號；可綁定需 Coupon 的入口（僅顯示你有權限的入口）。');
+
+    show('posScopeNote', user.role === 'admin'
+      ? '核銷對象為優惠券／兌換碼（全平台核銷紀錄依 API）。與「兌換紀錄」分頁不同。'
+      : '核銷對象為優惠券／兌換碼；與「兌換紀錄」（積分換商品）不同。');
+
+    show('usersScopeNote', user.role === 'admin'
+      ? '會員列表：全平台玩家帳號；匯入／匯出影響面大，請謹慎操作。'
+      : '',
+      { adminOnly: true });
+
+    show('shopsScopeNote', user.role === 'admin'
+      ? '商店主檔：建立／編輯商店帳號與聯絡資料；與「玩法入口」分屬不同層級。'
+      : '',
+      { adminOnly: true });
+
+    show('plansScopeNote', user.role === 'admin'
+      ? '計價方案：影響新入口的費率與關卡上限；變更前請確認已上架入口的相容性。'
+      : '',
+      { adminOnly: true });
+
+    show('rolesScopeNote', user.role === 'admin'
+      ? '建立平台 admin、指派 staff；商店主帳號請至「商店管理」。'
+      : '帳號安全與 staff 指派；建立商店主帳號請至「商店管理」。');
+  }
+
   function applyHeaderScope(user) {
     const badge = global.document.getElementById('staffScopeBadge');
     const sub = global.document.getElementById('staffScopeSubline');
@@ -120,6 +188,7 @@
     applySidebarScopeClasses(user);
     applyListUiTweaks(user);
     applyQuestChainViewNote(user);
+    applySecondaryViewNotes(user);
   }
 
   global.StaffDashboardRoleContext = {

@@ -185,6 +185,62 @@
       display: none;
     }
 
+    .staff-ops-shortcuts {
+      margin-bottom: 14px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #f8fafc;
+      padding: 0 12px;
+    }
+    .staff-ops-shortcuts > summary {
+      cursor: pointer;
+      list-style: none;
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: #475569;
+      padding: 10px 4px;
+      user-select: none;
+    }
+    .staff-ops-shortcuts > summary::-webkit-details-marker { display: none; }
+    .staff-ops-shortcuts-body {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 0 4px 12px;
+      align-items: center;
+    }
+
+    .sd-snapshot-strip {
+      display: none;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+      align-items: stretch;
+    }
+    .sd-snapshot-strip.is-visible { display: flex; }
+    .sd-snapshot-chip {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      color: #475569;
+      line-height: 1.35;
+    }
+    .sd-snapshot-chip strong {
+      display: block;
+      font-size: 1.05rem;
+      color: #0f172a;
+      font-weight: 800;
+      margin-bottom: 2px;
+    }
+    .sd-snapshot-hint {
+      font-size: 0.72rem;
+      color: #94a3b8;
+      width: 100%;
+      margin-bottom: 4px;
+    }
+
     /* Task list items */
     .task-item {
       background: white; padding: 16px; border-radius: 10px; border: 1px solid #e2e8f0;
@@ -587,6 +643,7 @@
         </div>
         <p class="view-subtitle">管理首頁顯示的劇本與大富翁入口。主要操作為「管理內容」（關卡／棋盤）；「⋯」內為發布狀態、計費與結構鎖定相關的次要操作。</p>
         <p id="questChainsScopeNote" class="subtle-note" style="display:none; margin-top:-8px; margin-bottom:14px;"></p>
+        <div id="questChainSnapshotStrip" class="sd-snapshot-strip" aria-label="入口載入範圍快照"></div>
         <div class="qc-toolbar-row">
           <div id="questChainFilterTabs" class="qc-filter-tabs" role="tablist" aria-label="入口狀態">
             <button type="button" class="qc-tab active" role="tab" data-qc-filter="all" aria-selected="true">全部</button>
@@ -619,12 +676,13 @@
           <div class="panel-card-header">
             <div>
               <div class="panel-card-title">每日趨勢圖</div>
-              <div class="panel-card-subtitle">可看全平台、所有商店一起比較，或切到單一商店檢視每日 LM 使用量與每日應收。</div>
+              <div class="panel-card-subtitle" id="billingDailyTrendSubtitle">可看全平台、所有商店一起比較，或切到單一商店檢視每日 LM 使用量與每日應收。</div>
             </div>
           </div>
+          <p id="billingViewScopeNote" class="subtle-note" style="display:none; margin:0 0 12px;"></p>
           <div class="billing-chart-toolbar">
             <div class="subtle-note" id="billingDailyChartHint">載入每日圖表資料中...</div>
-            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <div id="billingDailyScopeRow" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
               <label class="subtle-note" for="billingDailyScopeSelect" style="margin:0;">圖表範圍</label>
               <select id="billingDailyScopeSelect" class="form-select" style="width:auto; min-width:240px;">
                 <option value="platform">全平台總量</option>
@@ -697,6 +755,7 @@
       <!-- View 2: Quest Detail (Drill-down) -->
       <div id="view-quest-detail" class="v2-view">
         <div class="breadcrumb" onclick="switchView('view-quest-chains')">← 返回玩法入口列表</div>
+        <p id="questDetailScopeNote" class="subtle-note" style="display:none; margin-bottom:12px;"></p>
         <div class="view-header">
           <h2 id="detailQuestTitle">載入中...</h2>
           <div id="detailActions" style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -755,6 +814,7 @@
       <div id="view-assets" class="v2-view">
         <div class="view-header">
           <h2>共用素材庫</h2>
+          <span id="assetPrimaryLabel" class="subtle-note" style="flex:1; text-align:right; align-self:center; min-width:160px;"></span>
           <div id="assetActions" style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn-md btn-primary-v2" id="btnAssetAdd" onclick="openDrawer('上傳模型', 'form-asset')">+ 上傳模型</button>
             <button class="btn-md btn-primary-v2" id="btnItemAdd" style="display:none;" onclick="openDrawer('新增道具', 'form-item')">+ 新增道具</button>
@@ -766,6 +826,7 @@
         <div id="assetStorageSummary" style="display:grid; gap:12px; margin-bottom:16px;">
           <div class="empty-state"><div class="empty-state-icon">🗂️</div>載入素材庫使用量中...</div>
         </div>
+        <p id="assetsScopeNote" class="subtle-note" style="display:none; margin-bottom:12px;"></p>
         <div class="asset-tabs">
           <div class="asset-tab active" onclick="switchAssetTab('models', this)">🧊 3D 模型</div>
           <div class="asset-tab" onclick="switchAssetTab('items', this)">🎒 道具素材</div>
@@ -813,13 +874,17 @@
           您目前為<strong>商店帳號</strong>：此處僅顯示<strong>您建立的</strong>兌換商品；兌換紀錄亦只會列出與這些商品相關的申請。
         </div>
         <p class="view-subtitle">後台維護可兌換品項、庫存與上下架。玩家實際兌換請至前台商城操作。</p>
-        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; align-items:center;">
-          <button type="button" class="btn-sm btn-secondary-v2" onclick="switchView('view-reward-shop')">獎勵兌換預覽（玩家畫面）</button>
-          <a href="/products.html" target="_blank" rel="noopener" class="btn-sm btn-secondary-v2" style="text-decoration:none;">另開前台商城</a>
-          <button type="button" class="btn-sm btn-secondary-v2" onclick="switchView('view-redemptions')">前往兌換紀錄</button>
-          <button type="button" class="btn-sm btn-secondary-v2" onclick="switchView('view-coupon-issue')">發放兌換卷</button>
-          <button type="button" class="btn-sm btn-secondary-v2" onclick="switchView('view-pos')">現場核銷</button>
-        </div>
+        <p id="productsScopeNote" class="subtle-note" style="display:none; margin-top:-8px; margin-bottom:10px;"></p>
+        <details class="staff-ops-shortcuts" id="productOpsShortcuts">
+          <summary>營運捷徑：預覽、前台、兌換紀錄、發券、核銷</summary>
+          <div class="staff-ops-shortcuts-body">
+            <button type="button" class="btn-sm btn-secondary-v2" onclick="switchView('view-reward-shop')">獎勵兌換預覽（玩家畫面）</button>
+            <a href="/products.html" target="_blank" rel="noopener" class="btn-sm btn-secondary-v2" style="text-decoration:none;">另開前台商城</a>
+            <button type="button" class="btn-sm btn-secondary-v2" onclick="switchView('view-redemptions')">前往兌換紀錄</button>
+            <button type="button" class="btn-sm btn-secondary-v2" onclick="switchView('view-coupon-issue')">發放兌換卷</button>
+            <button type="button" class="btn-sm btn-secondary-v2" onclick="switchView('view-pos')">現場核銷</button>
+          </div>
+        </details>
         <div id="productListContainer" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:14px;">
           <div class="empty-state"><div class="empty-state-icon">📦</div>載入中...</div>
         </div>
@@ -842,7 +907,8 @@
           <h2>兌換紀錄</h2>
         </div>
         <p class="view-subtitle">此為<strong>積分兌換商品</strong>的處理佇列（待簽收／已完成）。<strong>優惠券現場核銷</strong>請至「現場核銷」分頁。</p>
-        <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+        <p id="redemptionsScopeNote" class="subtle-note" style="display:none; margin-top:-8px; margin-bottom:12px;"></p>
+        <div class="qc-toolbar-row" style="margin-bottom:16px;">
           <select id="redemptionStatusFilter" class="form-select" style="width:auto; min-width:140px;" onchange="loadRedemptions()">
             <option value="">全部狀態</option>
             <option value="pending">待處理</option>
@@ -862,6 +928,7 @@
           <h2>發放兌換卷</h2>
         </div>
         <p class="view-subtitle">建立綁定<strong>玩家手機帳號</strong>的券。可做成<strong>折扣兌換卷</strong>，也可直接綁定某個<strong>需 Coupon 的玩法入口</strong>。</p>
+        <p id="couponIssueScopeNote" class="subtle-note" style="display:none; margin-top:-8px; margin-bottom:12px;"></p>
         <div style="max-width:520px; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:20px; margin-bottom:20px;">
           <form id="couponIssueForm" class="v2-form">
             <div class="form-group">
@@ -911,6 +978,7 @@
       <div id="view-pos" class="v2-view">
         <div class="view-header"><h2>現場核銷台</h2></div>
         <p class="view-subtitle">查詢並核銷<strong>優惠券／兌換碼</strong>（與積分商城的「兌換紀錄」不同）。</p>
+        <p id="posScopeNote" class="subtle-note" style="display:none; margin:0 auto 14px; max-width:500px;"></p>
         <div style="max-width:500px; margin:0 auto;">
           <div style="background:white; padding:24px; border-radius:14px; border:1px solid #e2e8f0; margin-bottom:16px;">
             <label class="form-label" style="font-size:1.1rem; font-weight:700;">輸入優惠券代碼</label>
@@ -935,6 +1003,7 @@
           <button class="btn-md btn-primary-v2" onclick="openShopDrawer()">+ 新增商店</button>
         </div>
         <p class="view-subtitle">僅限平台管理員。可建立商店帳號、維護商店資料，並在同一頁查看每間商店的素材庫概況與本月 LM 用量。</p>
+        <p id="shopsScopeNote" class="subtle-note" style="display:none; margin-top:-8px; margin-bottom:12px;"></p>
         <div id="shopDetailContainer" style="display:grid; gap:12px; margin-bottom:16px;">
           <div class="empty-state"><div class="empty-state-icon">🏪</div>選擇一間商店即可查看詳情摘要</div>
         </div>
@@ -952,6 +1021,7 @@
           </div>
         </div>
         <p class="view-subtitle">僅限平台管理員。設定入口可用的關卡上限、一次性建置費、每月基本費與 LM 使用量單價。若要做廠商報價與情境估算，請從這裡開啟獨立報價頁。</p>
+        <p id="plansScopeNote" class="subtle-note" style="display:none; margin-top:-8px; margin-bottom:12px;"></p>
         <div id="planQuotePreview" style="display:grid; gap:12px; margin-bottom:16px;">
           <div class="empty-state"><div class="empty-state-icon">📄</div>載入方案報價預覽中...</div>
         </div>
@@ -969,7 +1039,8 @@
           </div>
         </div>
         <p class="view-subtitle">僅列出角色為「一般玩家」的帳號；搜尋為帳號名稱模糊比對。</p>
-        <div style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; align-items:center;">
+        <p id="usersScopeNote" class="subtle-note" style="display:none; margin-top:-8px; margin-bottom:12px;"></p>
+        <div class="qc-toolbar-row" style="margin-bottom:14px;">
           <input type="search" id="userSearchInput" class="form-input" placeholder="搜尋帳號關鍵字…" style="max-width:280px;" autocomplete="off">
           <button type="button" class="btn-sm btn-primary-v2" onclick="loadUsers(1)">搜尋</button>
         </div>
@@ -986,6 +1057,7 @@
       <div id="view-roles" class="v2-view">
         <div class="view-header"><h2>權限管理</h2></div>
         <p class="view-subtitle" id="rolesViewSubtitle">僅限平台管理員。管理後台帳號與 staff 指派規則。</p>
+        <p id="rolesScopeNote" class="subtle-note" style="display:none; margin-top:-8px; margin-bottom:14px;"></p>
         <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
           <div style="background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0;" id="roleSection_createAccount">
             <h3 style="margin:0 0 12px; font-size:1rem;">建立管理帳號</h3>
@@ -2101,16 +2173,16 @@
   <script src="/js/staff-dashboard/form-utils.js?v=20260502e"></script>
   <script src="/js/staff-dashboard/navigation.js?v=20260502e"></script>
   <script src="/js/staff-dashboard/drawer-controller.js?v=20260502e"></script>
-  <script src="/js/staff-dashboard/role-context.js?v=20260502h"></script>
+  <script src="/js/staff-dashboard/role-context.js?v=20260502j"></script>
   <!-- Shell must run before any views: establishes apiJson / staffDrawer / switchView in shared global scope -->
   <script src="/js/staff-dashboard.js?v=20260502e"></script>
-  <script src="/js/staff-dashboard/views/billing.js?v=20260502h"></script>
+  <script src="/js/staff-dashboard/views/billing.js?v=20260502i"></script>
   <script src="/js/staff-dashboard/views/forms.js?v=20260502f"></script>
   <script src="/js/staff-dashboard/views/board-maps.js?v=20260502e"></script>
-  <script src="/js/staff-dashboard/views/assets.js?v=20260502e"></script>
+  <script src="/js/staff-dashboard/views/assets.js?v=20260502j"></script>
   <script src="/js/staff-dashboard/views/tasks.js?v=20260502e"></script>
   <script src="/js/staff-dashboard/views/coupons.js?v=20260502e"></script>
-  <script src="/js/staff-dashboard/views/quest-chains.js?v=20260502g"></script>
+  <script src="/js/staff-dashboard/views/quest-chains.js?v=20260502j"></script>
   <script src="/js/staff-dashboard/views/data-services.js?v=20260502g"></script>
   <script src="/js/staff-dashboard/views/products.js?v=20260502e"></script>
   <script src="/js/staff-dashboard/views/users.js?v=20260502e"></script>
