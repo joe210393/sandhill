@@ -111,6 +111,7 @@ const {
   assertProductAccess
 } = require('./utils/app-helpers');
 const { registerUploadRoutes } = require('./routes/uploads.routes');
+const { registerDashboardOpsRoutes } = require('./routes/dashboard-ops.routes');
 
 
 // Embedding API 已移除，視覺辨識改為 LM-only 模式
@@ -465,6 +466,12 @@ registerProductRoutes(app, {
   resolveActorShopId,
   assertProductAccess,
   getActorShopId
+});
+registerDashboardOpsRoutes(app, {
+  pool,
+  staffOrAdminAuth,
+  assertActorHasShopScope,
+  getSharedAssetStorageSummary
 });
 registerPushRoutes(app, {
   pool,

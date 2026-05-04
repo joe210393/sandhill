@@ -1,6 +1,6 @@
 # Sandhill 架構備忘錄
 
-最後更新：2026-05-02（staff-dashboard：玩法入口「載入範圍快照」條、詳情頁 scope 行、素材主操作標籤、商店／方案／權限 scope、列表 qc-toolbar-row；代辦見 `docs/STAFF_DASHBOARD_WORKFLOW_CHECKLIST.md`）
+最後更新：2026-05-02（營運總覽 **v2**：`GET /api/dashboard/ops-snapshot` 後端聚合 + `ops-overview.js`；v1 多 API 並行已汰換；關卡精靈 `task-form-copy`／anchor 等仍有效；代辦見 `docs/STAFF_DASHBOARD_WORKFLOW_CHECKLIST.md`）
 
 ## 修改守則
 
@@ -253,6 +253,7 @@ Phase 6：2026-05-01，已開始
 - `src/services/shop-scope.js`：集中商家 scope 判斷、`shop_id` 解析、商家存在檢查與 admin/shop/staff 的 shop_id resolution。注意：目前 `actorCanAccessShop` 沿用既有語意，只比對 admin 或 `shop_id`，不是 role guard；需要收緊時必須獨立變更並更新測試。
 - `src/routes/shops.routes.js`：集中商家 profile 查詢/更新與商家列表；保留原本資產與 LLM 帳務摘要欄位。
 - `src/routes/billing.routes.js`：集中商家總帳、入口方案 CRUD、計費總覽、入口月報、LM 用量明細、每日用量圖表與建置費紀錄。
+- `src/routes/dashboard-ops.routes.js`：後台「營運總覽」**聚合快照** `GET /api/dashboard/ops-snapshot`（`staffOrAdminAuth`、Admin 全平台／Shop+Staff 單商家範圍）。僅讀多表 COUNT 與 `getSharedAssetStorageSummary`，不寫入業務表；前端 `views/ops-overview.js` 應優先呼叫此端點而非自行拼多支 API。
 - `src/services/billing.js`：集中計費月份、月份範圍、金額四捨五入、公益/商業政策、token 計費金額計算；route 不得自行複製計費公式。
 - `src/services/asset-storage.js`：集中素材庫容量統計、商家 500MB 上限、容量文字格式與超量錯誤；素材/道具/影音 route 不得自行複製容量計算。
 - `src/routes/assets.routes.js`：集中 AR 模型、素材容量摘要、背景音樂、影片素材、道具 CRUD、admin 發放道具與玩家背包。此模組仍保留原 URL 與原回傳格式；容量判斷必須透過 `src/services/asset-storage.js`，商家範圍必須透過 `src/services/shop-scope.js`。
@@ -290,15 +291,17 @@ Phase 6：2026-05-01，已開始
 - `public/js/shared/dom.js`：集中 toast、HTML escape、inline form message。後續 dashboard view/form 不得重新定義 `showToast`、`escHtml`、`setInlineMessage`。
 - `public/js/staff-dashboard/state.js`：集中 dashboard 全域狀態與常數，並提供 state-backed globals 給現有 inline handler 過渡使用。後續拆 view/form 時優先改成明確讀寫 `StaffDashboardState.state`，但不得重新在 `staff-dashboard.js` 宣告同名 state。
 - `public/js/staff-dashboard/form-utils.js`：集中後台表單工具，包括座標貼上解析、AI validation mode 正規化、AI task payload 組裝與 AI payload 檢查。後續 form/view 不得重新宣告 `parseLatLngPaste`。
+- `public/js/staff-dashboard/task-form-copy.js`：集中「新增關卡」精靈 footer 說明與 AI 驗證模式的人話文案（`StaffDashboardTaskFormCopy`）。`drawer-controller.js` 與 `views/forms.js` 只讀取，業務規則仍留在 form-utils／後端。
 - `public/js/staff-dashboard/navigation.js`：集中後台 view/hash 切換、sidebar wiring 與 reward shop iframe lazy init。`staff-dashboard.js` 只保留 lazy-load callback 對接，不得重新宣告 `STAFF_DASH_HASH_BY_VIEW`。
-- `public/js/staff-dashboard/drawer-controller.js`：集中右側 drawer、active form resolve、task wizard DOM 分組、wizard footer 與 submit 轉發。`staff-dashboard.js` 只保留各表單 after-open 業務接線，不得重新宣告 `validateTaskWizardStep` 或 `initializeTaskWizardDOM`。
+- `public/js/staff-dashboard/drawer-controller.js`：集中右側 drawer、active form resolve、task wizard DOM 分組（優先 `data-wizard-anchor`）、wizard footer 與 submit 轉發。`staff-dashboard.js` 只保留各表單 after-open 業務接線，不得重新宣告 `validateTaskWizardStep` 或 `initializeTaskWizardDOM`。
 - `public/js/staff-dashboard/role-context.js`：集中 Admin／Shop／Staff 範圍的頂欄徽章、副標、側欄 `v2-sidebar--platform`／`--tenant` class、玩法入口搜尋 placeholder、`getBillingScopeHintText`，以及各 view 頂部 **一行** 範圍說明（`billingViewScopeNote`、`assetsScopeNote` 等 DOM id，由 `applySecondaryViewNotes` 更新）。不得把業務 API 或表單邏輯塞進此檔。
 - `docs/STAFF_DASHBOARD_WORKFLOW_CHECKLIST.md`：後台 UX／正規化代辦階段與守門流程；重大進度更新此檔與本備忘錄「最後更新」列。
 - `public/js/staff-dashboard/views/billing.js`：集中後台計費 dashboard render/load/chart 邏輯，並保留 `loadBillingDashboard` 全域入口給既有 HTML inline handler 使用。後續 billing UI 修改應在此檔，不得回塞 `staff-dashboard.js`。
+- `public/js/staff-dashboard/views/ops-overview.js`：營運總覽 UI（`loadOpsOverview` / `refreshOpsOverview`）。**v2** 僅呼叫 `GET /api/dashboard/ops-snapshot` 渲染 8 項定稿指標與 meta 列；不得回復為前端自行並行多支舊 API。
 - `public/js/staff-dashboard/views/forms.js`：集中 drawer logic、填表輔助、blueprint 系統、AI payload 產生器。
 - `public/js/staff-dashboard/views/data-services.js`：集中 `loadShops` 與 `loadEntryPlans` API 邏輯。
 - `public/js/staff-dashboard.js`：已大幅抽離所有視圖與資料邏輯，縮減至 66 行，現僅作為路由與主程式載入的薄入口。
-- `public/staff-dashboard.html`：先載入 `shared/api.js`、`shared/format.js`、`shared/dom.js`、`staff-dashboard/state.js`、`staff-dashboard/form-utils.js`、`staff-dashboard/navigation.js`、`staff-dashboard/drawer-controller.js`、`staff-dashboard/role-context.js`，再載入 `staff-dashboard.js` 與各 `views/*`。修改 script 順序時必須跑 `npm run test:phase3-frontend`。
+- `public/staff-dashboard.html`：先載入 `shared/api.js`、`shared/format.js`、`shared/dom.js`、`staff-dashboard/state.js`、`staff-dashboard/form-utils.js`、`staff-dashboard/task-form-copy.js`、`staff-dashboard/navigation.js`、`staff-dashboard/drawer-controller.js`、`staff-dashboard/role-context.js`，再載入 `staff-dashboard.js`；`views` 順序含 `billing.js` → `ops-overview.js` → `forms.js` → …。修改 script 順序時必須跑 `npm run test:phase3-frontend`。
 - `public/js/ai-lab/thinking.js`：集中 AI 上傳/分析/legacy plant/search/finalize 思考階段與 loading message 控制。`ai-lab.js` 不得重新宣告 `AI_THINKING_STAGES` 或思考動畫函式。
 - `public/js/ai-lab/vision-client.js`：集中照片 grid 合成與 `/api/vision-test` 呼叫，固定 `skipRag=true`，維持 Sandhill 現役 LM-only 流程。`ai-lab.js` 不得重新宣告 `combinePhotosToGrid` 或 `analyzePhotos`。
 - `public/js/ai-lab/legacy-plant-results.js`：**已於本輪刪除**。後端 `/api/vision-test` 固定回 `skip_rag: true`，前端 `analyzeBtn` 也已縮成 LM-only 流程，不再需要 plant 結果/信心度/非植物相容顯示。`ai-lab.js` 不得再 reference `AiLabLegacyPlantResults`、`showHighConfidenceResult`、`showMediumConfidenceResult`、`showLowConfidenceResult`、`showNonPlantResult`、`showQuickFeatures`、`plant_rag`、`need_more_photos`、`needMorePhotosSession`、`CONFIDENCE_HIGH`、`CONFIDENCE_MEDIUM`，亦不得恢復 `legacy-plant-results.js` 檔案。`scripts/verify-phase3-frontend.js` 已加入守門。

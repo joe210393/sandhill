@@ -85,6 +85,12 @@
       el.textContent = text;
     };
 
+    show('opsOverviewScopeNote', user.role === 'admin'
+      ? '營運快照：全平台可見的入口、關卡、商店與兌換等彙總（依 API 範圍）。'
+      : user.role === 'shop'
+        ? '營運快照：僅你的商家相關入口、關卡、商品與兌換等彙總。'
+        : '營運快照：工作人員可見玩法與營運量体；關卡總數等需商家主帳權限。');
+
     show('billingViewScopeNote', user.role === 'admin'
       ? '計費與圖表：含全平台與各商家；可切換「圖表範圍」比較每日 LM。'
       : '計費與圖表：僅你的商家；下方商店總帳與入口月報亦僅限自家。');

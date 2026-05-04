@@ -53,7 +53,12 @@
     }
 
     if (!note) return;
-    if (isTaskWizard) note.textContent = `新增關卡流程：第 ${taskWizardStep} / ${totalSteps} 步`;
+    if (isTaskWizard) {
+      const copy = global.StaffDashboardTaskFormCopy;
+      note.textContent = typeof copy?.getFooterNote === 'function'
+        ? copy.getFooterNote(taskWizardStep, totalSteps)
+        : `新增關卡流程：第 ${taskWizardStep} / ${totalSteps} 步`;
+    }
     else if (currentFormId === 'tileForm') note.textContent = '大富翁格子會直接歸屬在目前這張棋盤底下。';
     else if (currentFormId === 'questChainForm') note.textContent = '入口未發布前僅能後台預覽；勾選正式發布後會自動鎖定核心結構。';
     else note.textContent = '';
@@ -96,6 +101,14 @@
       }
     }
 
+    if (step === 3) {
+      const aiPanel = global.document.getElementById('taskAiAdvancedPanel');
+      const aiWrap = global.document.getElementById('taskAiAdvancedWrap');
+      if (aiPanel && aiWrap && aiWrap.style.display !== 'none') {
+        aiPanel.open = true;
+      }
+    }
+
     const inputs = Array.from(stepEl.querySelectorAll('input, select, textarea')).filter((element) => {
       if (element.disabled) return false;
       if (element.closest('[style*="display:none"]')) return false;
@@ -116,10 +129,15 @@
     const shell = form.querySelector('.wizard-shell');
     const taskLockedContext = global.document.getElementById('taskLockedContext');
     const blueprintInfo = form.querySelector('.blueprint-info');
-    const gamePositionTitle = Array.from(form.querySelectorAll('.section-title')).find((element) => element.textContent.includes('遊戲定位'));
-    const fieldAreaTitle = Array.from(form.querySelectorAll('.section-title')).find((element) => element.textContent.includes('場域與目標'));
-    const interactionTitle = Array.from(form.querySelectorAll('.section-title')).find((element) => element.textContent.includes('互動方式'));
-    const playerContentTitle = Array.from(form.querySelectorAll('.section-title')).find((element) => element.textContent.includes('玩家感受到的內容'));
+    const byAnchor = (key) => form.querySelector(`.section-title[data-wizard-anchor="${key}"]`);
+    const gamePositionTitle = byAnchor('game')
+      || Array.from(form.querySelectorAll('.section-title')).find((element) => element.textContent.includes('遊戲定位'));
+    const fieldAreaTitle = byAnchor('field')
+      || Array.from(form.querySelectorAll('.section-title')).find((element) => element.textContent.includes('場域與目標'));
+    const interactionTitle = byAnchor('interact')
+      || Array.from(form.querySelectorAll('.section-title')).find((element) => element.textContent.includes('互動方式'));
+    const playerContentTitle = byAnchor('player')
+      || Array.from(form.querySelectorAll('.section-title')).find((element) => element.textContent.includes('玩家感受到的內容'));
     const taskFormMsg = global.document.getElementById('taskFormMsg');
     if (!shell || !taskLockedContext || !blueprintInfo || !gamePositionTitle || !fieldAreaTitle || !interactionTitle || !playerContentTitle || !taskFormMsg) return;
 

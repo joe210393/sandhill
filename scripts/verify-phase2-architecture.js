@@ -17,6 +17,7 @@ const requiredRegistrations = [
   'registerTaskRoutes(app',
   'registerBoardRoutes(app',
   'registerProductRoutes(app',
+  'registerDashboardOpsRoutes(app',
   'registerCouponRoutes(app'
 ];
 
@@ -45,7 +46,8 @@ const forbiddenInlineRoutes = [
   "app.delete('/api/board-maps",
   "app.put('/api/board-tiles",
   "app.delete('/api/board-tiles",
-  "app.post('/api/board/session"
+  "app.post('/api/board/session'",
+  "app.get('/api/dashboard/ops-snapshot'"
 ];
 
 for (const route of forbiddenInlineRoutes) {
@@ -59,6 +61,7 @@ const expectedRouteFiles = [
   'src/routes/tasks.routes.js',
   'src/routes/board.routes.js',
   'src/routes/products.routes.js',
+  'src/routes/dashboard-ops.routes.js',
   'src/routes/coupons.routes.js'
 ];
 

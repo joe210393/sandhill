@@ -526,6 +526,7 @@ function setupValidationModeToggle() {
   const sel = document.getElementById('validationModeSelect');
   const typeSel = document.getElementById('taskTypeSelect');
   const fields = document.getElementById('aiConfigFields');
+  const aiWrap = document.getElementById('taskAiAdvancedWrap');
   const helper = document.getElementById('aiModeHelper');
   const labelEl = document.getElementById('aiTargetLabelLabel');
   const labelInput = document.getElementById('aiTargetLabelInput');
@@ -539,12 +540,14 @@ function setupValidationModeToggle() {
       sel.value = normalizedMode;
     }
     const isAi = sel.value.startsWith('ai_');
+    if (aiWrap) aiWrap.style.display = isAi ? 'block' : 'none';
     fields.style.display = isAi ? 'block' : 'none';
     if (!isAi) return;
     const m = validationModeMeta[sel.value] || validationModeMeta.ai_identify;
-    if (helper) helper.textContent = m.helper;
-    if (labelEl) labelEl.textContent = m.label;
-    if (labelInput) labelInput.placeholder = m.placeholder;
+    const human = window.StaffDashboardTaskFormCopy?.getValidationUi?.(sel.value);
+    if (helper) helper.textContent = human?.helper || m.helper;
+    if (labelEl) labelEl.textContent = human?.label || m.label;
+    if (labelInput) labelInput.placeholder = human?.placeholder || m.placeholder;
     if (countGrp) countGrp.style.display = m.showCount ? 'block' : 'none';
     if (scoreGrp) scoreGrp.style.display = m.showScore ? 'block' : 'none';
   };

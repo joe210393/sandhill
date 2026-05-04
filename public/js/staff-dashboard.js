@@ -47,6 +47,7 @@ function switchView(viewId, opts = {}) {
   staffNavigation.switchView(viewId, {
     ...opts,
     lazyLoad: {
+      loadOpsOverview,
       loadBillingDashboard,
       loadShopManagement,
       loadPlanManagement,

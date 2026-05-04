@@ -1,6 +1,7 @@
 (function(global) {
   const STAFF_DASH_HASH_BY_VIEW = {
     'view-quest-chains': 'quests',
+    'view-ops-overview': 'overview',
     'view-billing': 'billing',
     'view-shops': 'shops',
     'view-plans': 'plans',
@@ -17,6 +18,7 @@
   const STAFF_DASH_NAV_BY_VIEW = {
     'view-quest-chains': 'view-quest-chains',
     'view-quest-detail': 'view-quest-chains',
+    'view-ops-overview': 'view-ops-overview',
     'view-billing': 'view-billing',
     'view-shops': 'view-shops',
     'view-plans': 'view-plans',
@@ -69,6 +71,7 @@
 
     if (!skipHash) setStaffViewHash(normalizedViewId);
 
+    if (normalizedViewId === 'view-ops-overview') lazyLoad.loadOpsOverview?.();
     if (normalizedViewId === 'view-billing') lazyLoad.loadBillingDashboard?.();
     if (normalizedViewId === 'view-shops') lazyLoad.loadShopManagement?.();
     if (normalizedViewId === 'view-plans') lazyLoad.loadPlanManagement?.();

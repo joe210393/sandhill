@@ -533,6 +533,39 @@
     .ai-config-block { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 16px; margin-top: 12px; }
     .ai-helper { padding: 10px; border-radius: 8px; background: white; border: 1px dashed #94a3b8; color: #334155; font-size: 0.88rem; margin-bottom: 12px; }
 
+    .ops-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+      gap: 14px;
+    }
+    .ops-kpi-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px 16px;
+      min-height: 108px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .ops-kpi-title { font-size: 0.82rem; font-weight: 600; color: #64748b; text-transform: none; }
+    .ops-kpi-value { font-size: 1.45rem; font-weight: 700; color: #0f172a; line-height: 1.2; }
+    .ops-kpi-hint { font-size: 0.75rem; color: #94a3b8; line-height: 1.35; margin-top: auto; }
+    .ops-meta-host { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .ops-meta-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .ops-meta-chip {
+      font-size: 0.8rem;
+      color: #334155;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 999px;
+      padding: 6px 12px;
+    }
+    .task-ai-advanced-wrap { margin-top: 4px; }
+    .task-ai-advanced { border: 1px solid #e2e8f0; border-radius: 10px; padding: 4px 12px 12px; background: #f8fafc; }
+    .task-ai-advanced-summary { cursor: pointer; font-weight: 600; color: #0f172a; padding: 8px 0; list-style: none; }
+    .task-ai-advanced-summary::-webkit-details-marker { display: none; }
+
     /* Media upload block */
     .media-upload-item { padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 10px; }
     .media-upload-row { display: flex; gap: 10px; align-items: center; }
@@ -594,6 +627,9 @@
       <div class="v2-nav-item active" data-view="view-quest-chains" data-roles="admin,shop,staff">
         <span>🎯</span> 玩法入口管理
       </div>
+      <div class="v2-nav-item" data-view="view-ops-overview" data-roles="admin,shop,staff">
+        <span>📊</span> 營運總覽
+      </div>
       <div class="v2-nav-item" data-view="view-billing" data-roles="admin,shop,staff">
         <span>💳</span> 計費與 LM 用量
       </div>
@@ -634,6 +670,20 @@
 
     <!-- Main Content -->
     <main class="v2-main">
+
+      <div id="view-ops-overview" class="v2-view">
+        <div class="view-header">
+          <h2>營運總覽</h2>
+          <button type="button" class="btn-md btn-secondary-v2" onclick="refreshOpsOverview()">重新整理</button>
+        </div>
+        <p class="view-subtitle">第二版：8 項產品定稿指標由後端單一聚合 API 回傳；下方另附素材用量估算與（僅 Admin）全平台補充列。</p>
+        <p id="opsOverviewScopeNote" class="subtle-note" style="display:none; margin-top:-8px; margin-bottom:14px;"></p>
+        <div id="opsOverviewGrid" style="min-height:120px;">
+          <div class="empty-state"><div class="empty-state-icon">📊</div>請由左側進入本頁以載入指標</div>
+        </div>
+        <div id="opsOverviewMeta" class="ops-meta-host" style="margin-top:12px;"></div>
+        <p id="opsOverviewFootnote" class="form-hint" style="margin-top:16px;"></p>
+      </div>
 
       <!-- View 1: Quest Chain List -->
       <div id="view-quest-chains" class="v2-view active">
@@ -1339,21 +1389,21 @@
                 <div class="wizard-step-no">2</div>
                 <div>
                   <div class="wizard-step-title">場域與目標</div>
-                  <div class="wizard-step-subtitle">名稱、座標、積分</div>
+                  <div class="wizard-step-subtitle">名稱、說明、座標、積分</div>
                 </div>
               </div>
               <div class="wizard-step-chip" data-step-chip="3">
                 <div class="wizard-step-no">3</div>
                 <div>
                   <div class="wizard-step-title">互動與驗證</div>
-                  <div class="wizard-step-subtitle">作答方式與 AI 裁判</div>
+                  <div class="wizard-step-subtitle">怎麼交卷；進階再調 AI</div>
                 </div>
               </div>
               <div class="wizard-step-chip" data-step-chip="4">
                 <div class="wizard-step-no">4</div>
                 <div>
                   <div class="wizard-step-title">玩家體驗</div>
-                  <div class="wizard-step-subtitle">提示、素材、獎勵</div>
+                  <div class="wizard-step-subtitle">道具、素材、完成訊息</div>
                 </div>
               </div>
             </div>
@@ -1407,7 +1457,7 @@
           </div>
 
           <!-- Category -->
-          <div class="section-title">遊戲定位</div>
+          <div class="section-title" data-wizard-anchor="game">遊戲定位</div>
           <div class="form-group">
             <label class="form-label">關卡分類</label>
             <select name="type" id="taskCategorySelect" class="form-select">
@@ -1459,7 +1509,7 @@
           </div>
 
           <hr class="section-divider">
-          <div class="section-title">場域與目標</div>
+          <div class="section-title" data-wizard-anchor="field">場域與目標</div>
           <div class="form-hint" style="margin-top:-8px; margin-bottom:12px;">經緯度請貼入十進位格式（如 24.678, 121.760）。只有開啟 GPS 位置限制時，才需要填寫緯度、經度與觸發半徑。</div>
 
           <div class="form-group">
@@ -1503,8 +1553,14 @@
             </div>
           </div>
 
+          <div class="form-group">
+            <label class="form-label">給玩家的關卡說明</label>
+            <textarea name="description" class="form-textarea" required style="height:88px;" placeholder="用白話寫：這一關要做什麼、怎樣算成功"></textarea>
+            <div class="form-hint">建議在選提交方式之前就寫好，方便自己檢查關卡是否說得清楚。</div>
+          </div>
+
           <hr class="section-divider">
-          <div class="section-title">互動方式</div>
+          <div class="section-title" data-wizard-anchor="interact">互動方式</div>
 
           <div class="form-group">
             <label class="form-label">提交類型</label>
@@ -1547,7 +1603,7 @@
           </div>
 
           <hr class="section-divider">
-          <div class="section-title">AI 裁判設定</div>
+          <div class="section-title">判定方式</div>
 
           <div class="form-group">
             <label class="form-label">驗證模式</label>
@@ -1561,8 +1617,12 @@
               <option value="ai_rule_check">AI 規則檢查</option>
               <option value="ai_reference_match">AI 地點照片比對</option>
             </select>
+            <div class="form-hint">選擇題、數字與關鍵字等多為自動比對；拍照／問答可搭配下方 AI 模式。</div>
           </div>
 
+          <div id="taskAiAdvancedWrap" class="task-ai-advanced-wrap" style="display:none;">
+          <details id="taskAiAdvancedPanel" class="task-ai-advanced">
+            <summary class="task-ai-advanced-summary">進階：用 AI 協助判斷（標籤、信心值與提示詞）</summary>
           <div id="aiConfigFields" class="ai-config-block" style="display:none;">
             <div id="aiModeHelper" class="ai-helper"></div>
             <div class="grid-2">
@@ -1599,12 +1659,12 @@
             <div class="form-group">
               <label class="form-label">給 AI 的角色設定（系統提示）</label>
               <textarea name="ai_system_prompt" class="form-textarea" style="height:70px;" placeholder="例如：你是海洋保育關卡的公平裁判，只根據規則判斷..."></textarea>
-              <div class="form-hint">對應欄位 <code>ai_system_prompt</code>，決定 AI 的語氣與判斷原則</div>
+              <div class="form-hint">決定 AI 的語氣與判斷原則；可留空使用預設。</div>
             </div>
             <div class="form-group">
               <label class="form-label">給 AI 的任務說明（玩家情境）</label>
               <textarea name="ai_user_prompt" class="form-textarea" style="height:70px;" placeholder="例如：請判斷照片中是否出現寶特瓶，且數量是否足夠..."></textarea>
-              <div class="form-hint">對應欄位 <code>ai_user_prompt</code>，描述本次要檢查的具體內容</div>
+              <div class="form-hint">描述這一關要檢查的具體內容；與上方「關卡說明」可互相補充。</div>
             </div>
             <div class="grid-2">
               <div class="form-group">
@@ -1617,14 +1677,11 @@
               </div>
             </div>
           </div>
+          </details>
+          </div>
 
           <hr class="section-divider">
-          <div class="section-title">玩家感受到的內容</div>
-
-          <div class="form-group">
-            <label class="form-label">關卡說明</label>
-            <textarea name="description" class="form-textarea" required style="height:80px;"></textarea>
-          </div>
+          <div class="section-title" data-wizard-anchor="player">玩家感受到的內容</div>
 
           <div class="grid-2">
             <div class="form-group">
@@ -2171,13 +2228,15 @@
   <script src="/js/shared/dom.js?v=20260502e"></script>
   <script src="/js/staff-dashboard/state.js?v=20260502g"></script>
   <script src="/js/staff-dashboard/form-utils.js?v=20260502e"></script>
-  <script src="/js/staff-dashboard/navigation.js?v=20260502e"></script>
-  <script src="/js/staff-dashboard/drawer-controller.js?v=20260502e"></script>
-  <script src="/js/staff-dashboard/role-context.js?v=20260502j"></script>
+  <script src="/js/staff-dashboard/task-form-copy.js?v=20260502k"></script>
+  <script src="/js/staff-dashboard/navigation.js?v=20260502m"></script>
+  <script src="/js/staff-dashboard/drawer-controller.js?v=20260502k"></script>
+  <script src="/js/staff-dashboard/role-context.js?v=20260502m"></script>
   <!-- Shell must run before any views: establishes apiJson / staffDrawer / switchView in shared global scope -->
-  <script src="/js/staff-dashboard.js?v=20260502e"></script>
+  <script src="/js/staff-dashboard.js?v=20260502m"></script>
   <script src="/js/staff-dashboard/views/billing.js?v=20260502i"></script>
-  <script src="/js/staff-dashboard/views/forms.js?v=20260502f"></script>
+  <script src="/js/staff-dashboard/views/ops-overview.js?v=20260502n"></script>
+  <script src="/js/staff-dashboard/views/forms.js?v=20260502k"></script>
   <script src="/js/staff-dashboard/views/board-maps.js?v=20260502e"></script>
   <script src="/js/staff-dashboard/views/assets.js?v=20260502j"></script>
   <script src="/js/staff-dashboard/views/tasks.js?v=20260502e"></script>

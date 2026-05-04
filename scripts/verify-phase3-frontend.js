@@ -8,10 +8,12 @@ const staffHtml = fs.readFileSync(path.join(root, 'public/staff-dashboard.html')
 const staffJs = fs.readFileSync(path.join(root, 'public/js/staff-dashboard.js'), 'utf8');
 const staffStateJs = fs.readFileSync(path.join(root, 'public/js/staff-dashboard/state.js'), 'utf8');
 const staffFormUtilsJs = fs.readFileSync(path.join(root, 'public/js/staff-dashboard/form-utils.js'), 'utf8');
+const staffTaskFormCopyJs = fs.readFileSync(path.join(root, 'public/js/staff-dashboard/task-form-copy.js'), 'utf8');
 const staffNavigationJs = fs.readFileSync(path.join(root, 'public/js/staff-dashboard/navigation.js'), 'utf8');
 const staffDrawerJs = fs.readFileSync(path.join(root, 'public/js/staff-dashboard/drawer-controller.js'), 'utf8');
 const staffRoleContextJs = fs.readFileSync(path.join(root, 'public/js/staff-dashboard/role-context.js'), 'utf8');
 const billingViewJs = fs.readFileSync(path.join(root, 'public/js/staff-dashboard/views/billing.js'), 'utf8');
+const opsOverviewViewJs = fs.readFileSync(path.join(root, 'public/js/staff-dashboard/views/ops-overview.js'), 'utf8');
 const formsViewJs = fs.readFileSync(path.join(root, 'public/js/staff-dashboard/views/forms.js'), 'utf8');
 const dataServicesJs = fs.readFileSync(path.join(root, 'public/js/staff-dashboard/views/data-services.js'), 'utf8');
 const aiLabHtml = fs.readFileSync(path.join(root, 'public/ai-lab.html'), 'utf8');
@@ -77,7 +79,9 @@ const syntaxCheckedFrontendFiles = [
   'public/js/ai-lab/geo-watch.js',
   'public/js/ai-lab/nearby-tasks.js',
   'public/js/staff-dashboard.js',
-  'public/js/staff-dashboard/role-context.js'
+  'public/js/staff-dashboard/role-context.js',
+  'public/js/staff-dashboard/task-form-copy.js',
+  'public/js/staff-dashboard/views/ops-overview.js'
 ];
 
 for (const relativePath of syntaxCheckedFrontendFiles) {
@@ -89,10 +93,12 @@ const formatScriptIndex = staffHtml.indexOf('/js/shared/format.js');
 const domScriptIndex = staffHtml.indexOf('/js/shared/dom.js');
 const stateScriptIndex = staffHtml.indexOf('/js/staff-dashboard/state.js');
 const formUtilsScriptIndex = staffHtml.indexOf('/js/staff-dashboard/form-utils.js');
+const taskFormCopyScriptIndex = staffHtml.indexOf('/js/staff-dashboard/task-form-copy.js');
 const navigationScriptIndex = staffHtml.indexOf('/js/staff-dashboard/navigation.js');
 const drawerScriptIndex = staffHtml.indexOf('/js/staff-dashboard/drawer-controller.js');
 const roleContextScriptIndex = staffHtml.indexOf('/js/staff-dashboard/role-context.js');
 const billingScriptIndex = staffHtml.indexOf('/js/staff-dashboard/views/billing.js');
+const opsOverviewScriptIndex = staffHtml.indexOf('/js/staff-dashboard/views/ops-overview.js');
 const formsScriptIndex = staffHtml.indexOf('/js/staff-dashboard/views/forms.js');
 const questChainsScriptIndex = staffHtml.indexOf('/js/staff-dashboard/views/quest-chains.js');
 const initScriptIndex = staffHtml.indexOf('/js/staff-dashboard/views/init.js');
@@ -103,10 +109,12 @@ assert.ok(formatScriptIndex > -1, 'staff dashboard must load shared format.js');
 assert.ok(domScriptIndex > -1, 'staff dashboard must load shared dom.js');
 assert.ok(stateScriptIndex > -1, 'staff dashboard must load staff-dashboard/state.js');
 assert.ok(formUtilsScriptIndex > -1, 'staff dashboard must load staff-dashboard/form-utils.js');
+assert.ok(taskFormCopyScriptIndex > -1, 'staff dashboard must load staff-dashboard/task-form-copy.js');
 assert.ok(navigationScriptIndex > -1, 'staff dashboard must load staff-dashboard/navigation.js');
 assert.ok(drawerScriptIndex > -1, 'staff dashboard must load staff-dashboard/drawer-controller.js');
 assert.ok(roleContextScriptIndex > -1, 'staff dashboard must load staff-dashboard/role-context.js');
 assert.ok(billingScriptIndex > -1, 'staff dashboard must load staff-dashboard/views/billing.js');
+assert.ok(opsOverviewScriptIndex > -1, 'staff dashboard must load staff-dashboard/views/ops-overview.js');
 assert.ok(dashboardScriptIndex > -1, 'staff dashboard must load staff-dashboard.js');
 assert.ok(apiScriptIndex < dashboardScriptIndex, 'shared api.js must load before staff-dashboard.js');
 assert.ok(formatScriptIndex < dashboardScriptIndex, 'shared format.js must load before staff-dashboard.js');
@@ -122,11 +130,17 @@ assert.ok(formsScriptIndex > -1, 'staff dashboard must load views/forms.js');
 assert.ok(questChainsScriptIndex > -1, 'staff dashboard must load views/quest-chains.js');
 assert.ok(initScriptIndex > -1, 'staff dashboard must load views/init.js');
 assert.ok(dashboardScriptIndex < formsScriptIndex, 'staff-dashboard.js must load before views/forms.js');
+assert.ok(billingScriptIndex < opsOverviewScriptIndex, 'views/billing.js must load before views/ops-overview.js');
+assert.ok(opsOverviewScriptIndex < formsScriptIndex, 'views/ops-overview.js must load before views/forms.js');
 assert.ok(dashboardScriptIndex < questChainsScriptIndex, 'staff-dashboard.js must load before views/quest-chains.js');
 assert.ok(dashboardScriptIndex < initScriptIndex, 'staff-dashboard.js must load before views/init.js');
 assert.ok(stateScriptIndex < billingScriptIndex, 'staff-dashboard/state.js must load before billing view');
 assert.ok(stateScriptIndex < formUtilsScriptIndex, 'staff-dashboard/state.js must load before form-utils.js');
 assert.ok(formUtilsScriptIndex < navigationScriptIndex, 'staff-dashboard/form-utils.js must load before navigation.js');
+assert.ok(formUtilsScriptIndex < taskFormCopyScriptIndex, 'staff-dashboard/form-utils.js must load before task-form-copy.js');
+assert.ok(taskFormCopyScriptIndex < navigationScriptIndex, 'staff-dashboard/task-form-copy.js must load before navigation.js');
+assert.ok(taskFormCopyScriptIndex < dashboardScriptIndex, 'staff-dashboard/task-form-copy.js must load before staff-dashboard.js shell');
+assert.ok(taskFormCopyScriptIndex < formsScriptIndex, 'staff-dashboard/task-form-copy.js must load before views/forms.js');
 assert.ok(navigationScriptIndex < drawerScriptIndex, 'staff-dashboard/navigation.js must load before drawer-controller.js');
 
 assert.ok(staffJs.includes('window.SandhillApi.installStaffFetchPatch()'), 'staff dashboard must install shared staff fetch patch');
@@ -141,10 +155,18 @@ assert.ok(staffJs.includes('window.selectInitialStaffView = selectInitialStaffVi
 assert.ok(!staffJs.includes('with (staffDashboardState)'), 'staff dashboard must not hide global handlers inside a with block');
 assert.ok(staffStateJs.includes('Object.defineProperty(global, key'), 'state.js must expose state-backed globals for inline handlers');
 assert.ok(staffFormUtilsJs.includes('global.StaffDashboardFormUtils'), 'form-utils.js must expose StaffDashboardFormUtils');
+assert.ok(staffTaskFormCopyJs.includes('global.StaffDashboardTaskFormCopy'), 'task-form-copy.js must expose StaffDashboardTaskFormCopy');
 assert.ok(staffNavigationJs.includes('global.StaffDashboardNavigation'), 'navigation.js must expose StaffDashboardNavigation');
+assert.ok(staffNavigationJs.includes("'view-ops-overview': 'overview'"), 'navigation.js must register ops overview hash route');
 assert.ok(staffDrawerJs.includes('global.StaffDashboardDrawer'), 'drawer-controller.js must expose StaffDashboardDrawer');
 assert.ok(staffRoleContextJs.includes('global.StaffDashboardRoleContext'), 'role-context.js must expose StaffDashboardRoleContext');
 assert.ok(billingViewJs.includes('global.loadBillingDashboard = loadBillingDashboard'), 'billing view must expose loadBillingDashboard for inline handlers');
+assert.ok(opsOverviewViewJs.includes('global.loadOpsOverview = loadOpsOverview'), 'ops-overview view must expose loadOpsOverview for shell lazyLoad');
+assert.ok(
+  opsOverviewViewJs.includes('/api/dashboard/ops-snapshot'),
+  'ops-overview v2 must call aggregated dashboard ops-snapshot API'
+);
+assert.ok(staffJs.includes('loadOpsOverview'), 'staff-dashboard.js must pass loadOpsOverview in navigation lazyLoad');
 assert.ok(
   formsViewJs.includes('const sdDrawer = window.StaffDashboardDrawer')
     && formsViewJs.includes('const sdFormUtils = window.StaffDashboardFormUtils'),
