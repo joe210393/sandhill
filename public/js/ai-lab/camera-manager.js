@@ -37,6 +37,29 @@ window.AiLabCameraManager = (function() {
         return stream;
     }
 
+    function attachStreamToVideo(videoEl, mediaStream) {
+        if (!videoEl || !mediaStream) return;
+        videoEl.muted = true;
+        videoEl.defaultMuted = true;
+        videoEl.playsInline = true;
+        videoEl.setAttribute('playsinline', '');
+        videoEl.setAttribute('webkit-playsinline', '');
+        videoEl.srcObject = mediaStream;
+
+        const tryPlay = () => {
+            const p = videoEl.play();
+            if (p && typeof p.catch === 'function') {
+                p.catch(() => {});
+            }
+        };
+
+        tryPlay();
+        if (videoEl.readyState < 2) {
+            videoEl.addEventListener('loadeddata', tryPlay, { once: true });
+        }
+        videoEl.addEventListener('canplay', tryPlay, { once: true });
+    }
+
     async function startCamera() {
         const { video, shouldSuppressCameraAlert, onCameraStartSuccess, onCameraStartFail } = refs;
         
@@ -50,13 +73,8 @@ window.AiLabCameraManager = (function() {
             const highQualityConstraints = {
                 video: {
                     facingMode: facingMode,
-                    width: { ideal: 1920, min: 1280 },
-                    height: { ideal: 1080, min: 720 },
-                    aspectRatio: { ideal: 16/9 },
-                    advanced: [
-                        { width: 1920, height: 1080 },
-                        { width: 1280, height: 720 }
-                    ]
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
                 },
                 audio: false
             };
@@ -84,7 +102,7 @@ window.AiLabCameraManager = (function() {
             }
             
             if (video) {
-                video.srcObject = stream;
+                attachStreamToVideo(video, stream);
                 try {
                     await video.play();
                     console.log('相機啟動成功');
