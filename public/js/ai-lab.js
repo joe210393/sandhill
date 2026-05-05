@@ -1623,6 +1623,12 @@ document.addEventListener('DOMContentLoaded', () => {
         renderHudSummary();
         renderBoardPanel();
         initMiniMap();
+        window.AiLabCameraManager.init({
+            video,
+            zoomControl: null,
+            zoomValue: null,
+            zoomButtons: []
+        });
         window.AiLabCameraManager.startCamera();
         
         log('初始化完成');
