@@ -696,7 +696,11 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.classList.toggle('tutorial-story-clean', isTutorialStory);
             document.body.classList.toggle('formal-story-clean', shouldHideFormalStoryChrome);
             document.body.classList.toggle('formal-story-capture-clean', shouldHideFormalStoryTaskCard);
-            featureDockMenu?.classList.toggle('hidden', !isTutorialBoard);
+            const immersivePhotoHideShell = Boolean(isPhotoCapture && !shouldHideFormalStoryTaskCard);
+            document.body.classList.toggle('immersive-photo-hide-shell', immersivePhotoHideShell);
+            if (isTutorialBoard) {
+                featureDockMenu?.classList.add('hidden');
+            }
             setImmersiveCameraMode(isPhotoCapture);
             if (shouldHideFormalStoryTaskCard) {
                 closeDockPanels();

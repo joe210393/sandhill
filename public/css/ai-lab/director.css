@@ -10,9 +10,6 @@ body.immersive-camera-mode .game-shell-progress-block,
 body.immersive-camera-mode .mini-map-wrap,
 body.immersive-camera-mode .top-controls,
 body.immersive-camera-mode .game-hud,
-body.immersive-camera-mode .header,
-body.immersive-camera-mode .game-shell-panel,
-body.immersive-camera-mode .board-mini-map,
 body.immersive-camera-mode #directorToggle,
 body.immersive-camera-mode #directorPanel,
 body.immersive-camera-mode #floatingMicBtn,
@@ -20,6 +17,13 @@ body.immersive-camera-mode #taskHudDock,
 body.immersive-camera-mode #taskGuideArrow,
 body.immersive-camera-mode #taskTargetObj,
 body.immersive-camera-mode #taskEncounterModal {
+    display: none !important;
+}
+
+/* 沉浸式拍照時暫收殼層：正規劇情拍照由 formal-story-capture-clean 負責；此類僅補教學／體驗劇情與大富翁拍照 */
+body.immersive-photo-hide-shell .header,
+body.immersive-photo-hide-shell .game-shell-panel,
+body.immersive-photo-hide-shell .board-mini-map {
     display: none !important;
 }
 
