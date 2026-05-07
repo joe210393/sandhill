@@ -64,6 +64,9 @@
                 credentials: 'include',
                 body: JSON.stringify({ task_id: currentTaskId })
             }, '建立關卡紀錄');
+            if (data && data.success === false) {
+                throw new Error(data.message || '無法建立關卡紀錄');
+            }
             if (data.success && data.userTaskId) {
                 set('currentUserTaskId', data.userTaskId);
                 return data.userTaskId;

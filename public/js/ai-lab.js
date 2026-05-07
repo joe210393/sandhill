@@ -991,11 +991,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (targetLat && targetLng) {
                 points.push([targetLat, targetLng]);
             }
-            nearbyVisibleTasks.slice(0, 8).forEach((task) => {
-                if (Number.isFinite(task.lat) && Number.isFinite(task.lng)) {
-                    points.push([task.lat, task.lng]);
-                }
-            });
+            const focusGpsRoute = Boolean(taskUsesGps(currentTask) && lastLatLng && targetLat && targetLng);
+            if (!focusGpsRoute) {
+                nearbyVisibleTasks.slice(0, 8).forEach((task) => {
+                    if (Number.isFinite(task.lat) && Number.isFinite(task.lng)) {
+                        points.push([task.lat, task.lng]);
+                    }
+                });
+            }
             if (!points.length) return;
             const bounds = L.latLngBounds(points[0], points[0]);
             for (let i = 1; i < points.length; i += 1) {
