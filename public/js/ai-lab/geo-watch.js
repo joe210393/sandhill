@@ -76,7 +76,7 @@
             const shouldShow = !isCurrentQuestTutorialMode()
                 && !isCurrentQuestDemoMode()
                 && taskHasNavigationTarget(currentTask)
-                && Number.isFinite(distanceMeters);
+                && (Number.isFinite(distanceMeters) || message);
             cameraNavigationPanel.classList.toggle('hidden', !shouldShow);
             if (!shouldShow) return;
 
@@ -88,9 +88,15 @@
 
             cameraNavigationPanel.classList.toggle('arrived', reached);
             cameraNavigationPanel.classList.toggle('no-heading', !hasHeading);
-            if (cameraNavigationDistance) cameraNavigationDistance.textContent = reached ? '抵達' : `${dist}m`;
+            if (cameraNavigationDistance) {
+                cameraNavigationDistance.textContent = reached
+                    ? '抵達'
+                    : (Number.isFinite(distanceMeters) ? `${dist}m` : '--m');
+            }
             if (cameraNavigationDirection) {
-                cameraNavigationDirection.textContent = reached ? verb : `前方約 ${dist}m，${verb}`;
+                cameraNavigationDirection.textContent = reached
+                    ? verb
+                    : (Number.isFinite(distanceMeters) ? `前方約 ${dist}m，${verb}` : verb);
             }
             if (cameraNavigationMeta) cameraNavigationMeta.textContent = meta || defaultMeta;
             if (cameraNavigationArrow) {
@@ -281,12 +287,9 @@
         }
 
         function startTaskNavigation() {
-            const targetLat = getTargetLat();
-            const targetLng = getTargetLng();
-            if (targetLat == null || targetLng == null) return;
-            const tutorialLikeMode = isCurrentQuestTutorialMode() || isCurrentQuestDemoMode();
             stopTaskNavigation();
             const currentTask = getCurrentTask();
+            const tutorialLikeMode = isCurrentQuestTutorialMode() || isCurrentQuestDemoMode();
             if (tutorialLikeMode) {
                 updateCameraNavigationPanel();
                 lastGpsUpdateAt = Date.now();
@@ -323,7 +326,26 @@
                 }
                 return;
             }
-            if (!navigator.geolocation) return;
+            const targetLat = Number(getTargetLat());
+            const targetLng = Number(getTargetLng());
+            if (!Number.isFinite(targetLat) || !Number.isFinite(targetLng)) {
+                updateCameraNavigationPanel({
+                    message: '任務地點尚未設定',
+                    meta: '請確認此 GPS 關卡已有有效座標'
+                });
+                return;
+            }
+            updateCameraNavigationPanel({
+                message: 'GPS 定位中...',
+                meta: '正在取得目前位置'
+            });
+            if (!navigator.geolocation) {
+                updateCameraNavigationPanel({
+                    message: '裝置不支援定位',
+                    meta: '無法啟用 GPS 導覽'
+                });
+                return;
+            }
             navigationWatchId = navigator.geolocation.watchPosition((pos) => {
                 const { latitude, longitude } = pos.coords;
                 const distanceMeters = applyPositionUpdate(latitude, longitude, targetLat, targetLng, { triggerBgm: true });
@@ -333,7 +355,10 @@
                 if (taskCoordsValue) taskCoordsValue.textContent = '定位失敗';
                 if (taskDistanceValue) taskDistanceValue.textContent = '--m';
                 if (taskStatusLabel) taskStatusLabel.textContent = '定位失敗';
-                if (cameraNavigationPanel) cameraNavigationPanel.classList.add('hidden');
+                updateCameraNavigationPanel({
+                    message: '定位失敗',
+                    meta: '請確認瀏覽器定位權限已開啟'
+                });
             }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 });
 
             // iPhone/Safari 有時 watchPosition 更新不穩，補一層定時輪詢
