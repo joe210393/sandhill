@@ -123,6 +123,17 @@
                     ? Boolean(tutorialGuestState.completed)
                     : (Number.isFinite(progressOrder) && progressOrder > maxStoryOrder && maxStoryOrder > 0);
                 set('currentStoryCompleted', currentStoryCompleted);
+                if (!tutorialGuestState) {
+                    const completed = new Set();
+                    const cutoff = currentStoryCompleted
+                        ? Number.MAX_SAFE_INTEGER
+                        : (Number.isFinite(progressOrder) ? progressOrder : 1);
+                    currentStoryTasks.forEach((task) => {
+                        const order = Number(task?.quest_order || 0);
+                        if (order > 0 && order < cutoff) completed.add(Number(task.id));
+                    });
+                    set('currentStoryCompletedTaskIds', completed);
+                }
                 const activeTask = currentStoryCompleted
                     ? currentStoryTasks.find(task => Number(task.quest_order) === maxStoryOrder) || currentStoryTasks[currentStoryTasks.length - 1] || null
                     : ((Number.isFinite(progressOrder) && progressOrder > 0)

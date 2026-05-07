@@ -322,6 +322,26 @@
             const tutorialMode = isCurrentQuestTutorialMode();
             const tutorialGuestMode = isTutorialGuestMode();
             const gpsRequired = taskUsesGps(currentTask);
+            const completedIds = get('currentStoryCompletedTaskIds');
+            const isCompletedStoryTask = Boolean(
+                get('currentEntryMode') === 'story_campaign'
+                && !isCurrentQuestDemoMode()
+                && !isCurrentQuestTutorialMode()
+                && completedIds
+                && typeof completedIds.has === 'function'
+                && completedIds.has(Number(currentTask.id))
+            );
+            if (isCompletedStoryTask) {
+                await Swal.fire({
+                    icon: 'info',
+                    title: '此關卡已完成',
+                    text: '你可以查看上一關內容，但不能再次作答或重玩。',
+                    confirmButtonText: '知道了'
+                });
+                set('tutorialFlowStarted', false);
+                renderTutorialModeUi();
+                return;
+            }
             set('tutorialFlowStarted', true);
             set('tutorialBoardPhotoCaptureArmed', false);
             renderTutorialModeUi();
@@ -345,7 +365,12 @@
                     ? haversineDistance(lastLatLng.latitude, lastLatLng.longitude, get('targetLat'), get('targetLng'))
                     : Number.MAX_SAFE_INTEGER;
                 if (!demoMode && dist > Math.max(6, currentTask.radius || 30)) {
-                    Swal.fire({ icon: 'warning', title: '還沒到任務地點', text: `目前距離約 ${Math.round(dist)}m` });
+                    Swal.fire({
+                        icon: 'info',
+                        title: '前往任務地點',
+                        text: `目前距離約 ${Math.round(dist)}m。\n\n請跟著畫面上的方向提示前進，或打開小地圖查看導引線。`,
+                        confirmButtonText: '知道了'
+                    });
                     return;
                 }
             }

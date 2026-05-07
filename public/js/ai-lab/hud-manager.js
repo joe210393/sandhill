@@ -206,10 +206,12 @@ window.AiLabHudManager = (function() {
 
             if (gameShellStartBtn) {
                 if (currentEntryMode === 'story_campaign') {
-                    gameShellStartBtn.textContent = currentStoryCompleted
+                    const isCompletedTask = Boolean(currentTask && currentStoryCompletedTaskIds && currentStoryCompletedTaskIds.has(Number(currentTask.id)));
+                    const label = currentStoryCompleted
                         ? '主線已完成'
-                        : (currentTask?.task_type === 'location' ? '開始報到' : '開始這一關');
-                    gameShellStartBtn.disabled = !currentTask || currentStoryCompleted;
+                        : (isCompletedTask ? '已完成' : (currentTask?.task_type === 'location' ? '開始報到' : '開始這一關'));
+                    gameShellStartBtn.textContent = label;
+                    gameShellStartBtn.disabled = !currentTask || currentStoryCompleted || isCompletedTask;
                     gameShellStartBtn.classList.remove('hidden');
                 } else if (currentEntryMode === 'board_game') {
                     const hasPendingBoardTask = Boolean(currentBoardRun?.pendingTargetTile);

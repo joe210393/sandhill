@@ -1277,7 +1277,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const fetchQuestProgressMap = () => nearbyTasks.fetchQuestProgressMap();
         const loadNearbyVisibleTasks = () => nearbyTasks.loadNearbyVisibleTasks();
-        const applyTaskSelection = (task, options) => nearbyTasks.applyTaskSelection(task, options);
+        const applyTaskSelection = (task, options) => {
+            const result = nearbyTasks.applyTaskSelection(task, options);
+            if (miniMapWrap && taskUsesGps(task)) {
+                miniMapWrap.classList.remove('collapsed');
+            }
+            updateTaskMapViewport();
+            return result;
+        };
         const loadDefaultVisibleTaskForUser = () => nearbyTasks.loadDefaultVisibleTaskForUser();
         const updateMiniMapTaskIndicators = () => nearbyTasks.updateMiniMapTaskIndicators();
 
