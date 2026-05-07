@@ -68,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // bgmAutoStarted / orientationPermissionState 已搬入 AiLabGeoWatch controller，
         // 不要再在主檔重新宣告，請透過 geoWatch.* getter/setter 存取。
         let geoWatch = null;
+        let routeLine = null;
 
         // ------------------------------------------------
         // 3. DOM 元素選取 (DOM Elements)
@@ -960,6 +961,26 @@ document.addEventListener('DOMContentLoaded', () => {
             syncCompactUxState();
         }
 
+        function refreshRouteLine() {
+            if (!routeLine || !mapInstance) return;
+            if (!taskUsesGps(currentTask)) {
+                routeLine.setLatLngs([]);
+                return;
+            }
+            if (!lastLatLng || !Number.isFinite(lastLatLng.latitude) || !Number.isFinite(lastLatLng.longitude)) {
+                routeLine.setLatLngs([]);
+                return;
+            }
+            if (!Number.isFinite(Number(targetLat)) || !Number.isFinite(Number(targetLng))) {
+                routeLine.setLatLngs([]);
+                return;
+            }
+            routeLine.setLatLngs([
+                [Number(lastLatLng.latitude), Number(lastLatLng.longitude)],
+                [Number(targetLat), Number(targetLng)]
+            ]);
+        }
+
 
         function updateTaskMapViewport() {
             if (!mapInstance) return;
@@ -981,6 +1002,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 bounds.extend(points[i]);
             }
             mapInstance.fitBounds(bounds, { padding: [28, 28], maxZoom: points.length === 1 ? 17 : 16 });
+            refreshRouteLine();
         }
 
         function loadTaskFromUrl() {
@@ -1332,6 +1354,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 maxZoom: 18
             }).addTo(mapInstance);
 
+            if (!routeLine) {
+                routeLine = L.polyline([], {
+                    color: '#38bdf8',
+                    weight: 4,
+                    opacity: 0.9,
+                    dashArray: '6 10'
+                }).addTo(mapInstance);
+            }
+
             // 玩家定位 marker 僅在取得真實 GPS 後才建立，避免誤導顯示在台北市
             if (lastLatLng && Number.isFinite(lastLatLng.latitude) && Number.isFinite(lastLatLng.longitude)) {
                 mapMarker = L.marker([lastLatLng.latitude, lastLatLng.longitude]).addTo(mapInstance);
@@ -1375,11 +1406,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         async function requestLocation() {
-            const hasQuestChainInUrl = Boolean(new URLSearchParams(window.location.search).get('questChainId'));
-            if (hasQuestChainInUrl) {
-                updateLocationText('劇本載入中...');
-                return;
-            }
             if (isCurrentQuestTutorialMode() || isCurrentQuestDemoMode()) {
                 lastLatLng = null;
                 updateLocationText(`模擬距離 ${getTutorialMockDistance()}m（GPS 已關閉）`);
