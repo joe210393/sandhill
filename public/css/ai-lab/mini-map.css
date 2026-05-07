@@ -11,6 +11,46 @@
     pointer-events: none;
 }
 
+.floating-ui-customizable {
+    touch-action: none;
+}
+
+.floating-ui-controls {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    pointer-events: auto;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.floating-ui-drag-handle,
+.floating-ui-resize-btn {
+    min-height: 28px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(7, 12, 20, 0.74);
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+    cursor: grab;
+    touch-action: none;
+}
+
+.floating-ui-resize-btn {
+    cursor: pointer;
+}
+
+.floating-ui-dragging .floating-ui-drag-handle {
+    cursor: grabbing;
+    background: rgba(255, 193, 80, 0.92);
+    color: #1c1204;
+}
+
 .mini-map-toggle {
     align-self: flex-end;
     background: rgba(0, 0, 0, 0.7);
@@ -36,8 +76,8 @@
 }
 
 .mini-map {
-    width: 280px;
-    height: 280px;
+    width: var(--mini-map-size, 280px);
+    height: var(--mini-map-size, 280px);
     border-radius: 12px;
     overflow: hidden;
     background: rgba(0, 0, 0, 0.35);
@@ -47,6 +87,18 @@
     pointer-events: auto;
 }
 
+.mini-map-wrap.floating-ui-size-sm {
+    --mini-map-size: 150px;
+}
+
+.mini-map-wrap.floating-ui-size-md {
+    --mini-map-size: 220px;
+}
+
+.mini-map-wrap.floating-ui-size-lg {
+    --mini-map-size: min(72vw, 320px);
+}
+
 body.tutorial-board-clean .mini-map-wrap {
     right: 12px;
     bottom: 16px;
@@ -54,8 +106,8 @@ body.tutorial-board-clean .mini-map-wrap {
 }
 
 body.tutorial-board-clean .mini-map {
-    width: 148px;
-    height: 148px;
+    width: var(--mini-map-size, 148px);
+    height: var(--mini-map-size, 148px);
     opacity: 0.48;
     background: rgba(3, 10, 22, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.08);

@@ -205,8 +205,8 @@
     }
 
     .mini-map {
-        width: 220px;
-        height: 220px;
+        width: var(--mini-map-size, 220px);
+        height: var(--mini-map-size, 220px);
     }
 
     .mini-map-task-indicator {
@@ -602,8 +602,8 @@
     }
 
     .mini-map {
-        width: 132px;
-        height: 132px;
+        width: var(--mini-map-size, 132px);
+        height: var(--mini-map-size, 132px);
         border-radius: 14px;
         opacity: 0.96;
     }
@@ -757,8 +757,8 @@
     }
 
     .mini-map {
-        width: 120px;
-        height: 120px;
+        width: var(--mini-map-size, 120px);
+        height: var(--mini-map-size, 120px);
     }
 
     .task-hud-dock {

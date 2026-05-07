@@ -1389,6 +1389,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (miniMapWrap && miniMapToggle) {
                 AiLabMiniMapUi.initMiniMapToggle({ miniMapToggle, miniMapWrap, miniMapRefresh });
+                AiLabMiniMapUi.initFloatingUiControls({
+                    target: miniMapWrap,
+                    storageKey: 'miniMap',
+                    label: '移動地圖'
+                });
+            }
+            if (cameraNavigationPanel) {
+                AiLabMiniMapUi.initFloatingUiControls({
+                    target: cameraNavigationPanel,
+                    storageKey: 'cameraNavigation',
+                    label: '移動導覽'
+                });
             }
             updateLocationText('定位中...');
             requestLocation();

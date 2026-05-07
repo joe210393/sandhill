@@ -111,7 +111,7 @@
     left: 50%;
     bottom: calc(116px + env(safe-area-inset-bottom, 0px));
     z-index: 18;
-    width: min(92vw, 420px);
+    width: var(--camera-navigation-width, min(92vw, 420px));
     min-height: 86px;
     transform: translateX(-50%);
     display: grid;
@@ -125,7 +125,35 @@
     color: #fff;
     box-shadow: 0 18px 42px rgba(0, 0, 0, 0.32);
     backdrop-filter: blur(16px);
-    pointer-events: none;
+    pointer-events: auto;
+}
+
+.camera-navigation-panel .floating-ui-controls {
+    grid-column: 1 / -1;
+    margin: -4px -2px 0;
+}
+
+.camera-navigation-panel.floating-ui-size-sm {
+    --camera-navigation-width: min(76vw, 320px);
+    grid-template-columns: 46px minmax(0, 1fr);
+    min-height: 72px;
+}
+
+.camera-navigation-panel.floating-ui-size-sm .camera-navigation-arrow {
+    width: 42px;
+    height: 42px;
+}
+
+.camera-navigation-panel.floating-ui-size-sm .camera-navigation-distance {
+    font-size: 20px;
+}
+
+.camera-navigation-panel.floating-ui-size-sm .camera-navigation-direction {
+    font-size: 14px;
+}
+
+.camera-navigation-panel.floating-ui-size-lg {
+    --camera-navigation-width: min(94vw, 520px);
 }
 
 .camera-navigation-panel.hidden {
