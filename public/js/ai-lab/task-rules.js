@@ -1,9 +1,14 @@
 (function (global) {
+  function taskHasNavigationTarget(task) {
+    if (!task) return false;
+    return Number.isFinite(Number(task.lat)) && Number.isFinite(Number(task.lng));
+  }
+
+  /** 需到點／限制距離才允許作答（報到型） */
   function taskUsesGps(task) {
     if (!task) return false;
     const gpsEnabled = Boolean(task.location_required || task.task_type === 'location');
-    const hasCoords = Number.isFinite(Number(task.lat)) && Number.isFinite(Number(task.lng));
-    return gpsEnabled && hasCoords;
+    return gpsEnabled && taskHasNavigationTarget(task);
   }
 
   function getRequiredShots(task) {
@@ -19,6 +24,7 @@
   }
 
   global.AiLabTaskRules = {
+    taskHasNavigationTarget,
     taskUsesGps,
     getRequiredShots
   };

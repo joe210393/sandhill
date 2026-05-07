@@ -84,8 +84,13 @@ window.AiLabHudManager = (function() {
             }
 
             if (hudStageValue) {
-                if (currentEntryMode === 'story_campaign' && currentTask?.quest_order) {
-                    hudStageValue.textContent = `第 ${currentTask.quest_order} 關`;
+                if (currentEntryMode === 'story_campaign' && currentTask) {
+                    const ord = Number(currentTask.quest_order);
+                    if (Number.isFinite(ord) && ord > 0) {
+                        hudStageValue.textContent = `第 ${ord} 關`;
+                    } else {
+                        hudStageValue.textContent = '劇情關卡';
+                    }
                 } else if (currentEntryMode === 'board_game' && currentBoardRun?.currentTile) {
                     hudStageValue.textContent = `第 ${currentBoardRun.currentTile} 格`;
                 } else {

@@ -11,6 +11,7 @@
             startTaskNavigation = () => {},
             syncTaskEncounterVisibility = () => {},
             taskUsesGps = () => false,
+            taskHasNavigationTarget = () => false,
             updateTaskMapViewport = () => {},
             getMiniMapTaskIndicators = () => null
         } = deps;
@@ -220,8 +221,9 @@
             syncTaskEncounterVisibility();
             set('currentTask', task);
             set('currentTaskId', task.id);
-            const targetLat = taskUsesGps(task) ? Number(task.lat) : null;
-            const targetLng = taskUsesGps(task) ? Number(task.lng) : null;
+            const hasNavTarget = taskHasNavigationTarget(task);
+            const targetLat = hasNavTarget ? Number(task.lat) : null;
+            const targetLng = hasNavTarget ? Number(task.lng) : null;
             set('targetLat', targetLat);
             set('targetLng', targetLng);
             loadTaskBGM(task);

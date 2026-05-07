@@ -33,6 +33,44 @@
             return runtimeState.set(key, value);
         }
 
+        function normalizeStoryTasksWithOrders(tasks) {
+            const arr = Array.isArray(tasks) ? tasks.slice() : [];
+            arr.sort((a, b) => {
+                const ao = Number(a && a.quest_order);
+                const bo = Number(b && b.quest_order);
+                if (Number.isFinite(ao) && ao > 0 && Number.isFinite(bo) && bo > 0) return ao - bo;
+                return Number((a && a.id) || 0) - Number((b && b.id) || 0);
+            });
+            arr.forEach((task, idx) => {
+                const qo = Number(task.quest_order);
+                if (!Number.isFinite(qo) || qo <= 0) {
+                    task.quest_order = idx + 1;
+                }
+            });
+            return arr;
+        }
+
+        async function fetchCompletedTaskIdsFromUserTasks(chainId) {
+            try {
+                const res = await fetch('/api/user-tasks/all', { credentials: 'include' });
+                if (res.status === 401 || res.status === 403) return new Set();
+                if (!res.ok) return new Set();
+                const data = await res.json();
+                if (!data.success || !Array.isArray(data.tasks)) return new Set();
+                const done = new Set();
+                data.tasks.forEach((row) => {
+                    if (row.status !== '完成') return;
+                    if (row.quest_chain_id == null || String(row.quest_chain_id) !== String(chainId)) return;
+                    const tid = Number(row.id);
+                    if (Number.isFinite(tid)) done.add(tid);
+                });
+                return done;
+            } catch (e) {
+                console.warn('合併已完成關卡紀錄失敗', e);
+                return new Set();
+            }
+        }
+
         async function focusStoryTask(task) {
             if (!task) return;
             renderGameShellEntries(get('currentStoryTasks'), task.id);
@@ -94,7 +132,8 @@
                     }
                     throw new Error(base);
                 }
-                const currentStoryTasks = Array.isArray(contentData.tasks) ? contentData.tasks : [];
+                const rawTasks = Array.isArray(contentData.tasks) ? contentData.tasks : [];
+                const currentStoryTasks = normalizeStoryTasksWithOrders(rawTasks);
                 set('currentQuestChainId', questChainId);
                 set('currentQuestChainData', contentData.questChain || null);
                 set('currentEntryMode', 'story_campaign');
@@ -132,6 +171,8 @@
                         const order = Number(task?.quest_order || 0);
                         if (order > 0 && order < cutoff) completed.add(Number(task.id));
                     });
+                    const fromRecords = await fetchCompletedTaskIdsFromUserTasks(questChainId);
+                    fromRecords.forEach((tid) => completed.add(tid));
                     set('currentStoryCompletedTaskIds', completed);
                 }
                 const activeTask = currentStoryCompleted

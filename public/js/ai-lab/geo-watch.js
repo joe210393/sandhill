@@ -17,6 +17,7 @@
             getTutorialMockDistance = () => 0,
             getTutorialMockBearing = () => 0,
             taskUsesGps = () => false,
+            taskHasNavigationTarget = () => false,
             haversineDistance,
             calculateBearing,
             renderTaskMetrics = () => {},
@@ -118,7 +119,8 @@
             const diff = ((bearing - deviceHeading + 540) % 360) - 180;
             renderTaskMetrics(distanceMeters, bearing);
 
-            if (taskStatusLabel && taskUsesGps(currentTask) && Number.isFinite(distanceMeters) && Number.isFinite(bearing)) {
+            const hasNavTarget = taskHasNavigationTarget(currentTask);
+            if (taskStatusLabel && hasNavTarget && Number.isFinite(distanceMeters) && Number.isFinite(bearing)) {
                 const dist = Math.max(0, Math.round(distanceMeters));
                 if (!hasHeading) {
                     taskStatusLabel.textContent = dist <= Math.max(6, currentTask?.radius || 30)
@@ -245,7 +247,7 @@
                 }
                 return;
             }
-            if (!taskUsesGps(currentTask)) {
+            if (!taskHasNavigationTarget(currentTask)) {
                 taskReached = true;
                 lastTaskDistance = null;
                 lastTaskBearing = null;

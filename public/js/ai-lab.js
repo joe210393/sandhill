@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const { toYouTubeEmbedUrl, setYouTubeFrameSource, pauseYouTubeFrame, getTaskVideoUrl } = window.AiLabMedia || {};
         const { requestJson } = window.AiLabNetwork || {};
         const { PROMPTS } = window.AiLabPrompts || {};
-        const { taskUsesGps, getRequiredShots } = window.AiLabTaskRules || {};
+        const { taskUsesGps, taskHasNavigationTarget, getRequiredShots } = window.AiLabTaskRules || {};
         const { combinePhotosToGrid, analyzePhotos } = window.AiLabVisionClient || {};
 
         // ------------------------------------------------
@@ -468,6 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
             getTutorialMockDistance: (task) => getTutorialMockDistance(task),
             getTutorialMockBearing: (task) => getTutorialMockBearing(task),
             taskUsesGps: (task) => taskUsesGps(task),
+            taskHasNavigationTarget: (task) => (taskHasNavigationTarget || taskUsesGps)(task),
             haversineDistance,
             calculateBearing,
             renderTaskMetrics: (...args) => renderTaskMetrics(...args),
@@ -963,7 +964,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function refreshRouteLine() {
             if (!routeLine || !mapInstance) return;
-            if (!taskUsesGps(currentTask)) {
+            const hasNavTarget = taskHasNavigationTarget
+                ? taskHasNavigationTarget(currentTask)
+                : taskUsesGps(currentTask);
+            if (!hasNavTarget) {
                 routeLine.setLatLngs([]);
                 return;
             }
@@ -991,7 +995,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (targetLat && targetLng) {
                 points.push([targetLat, targetLng]);
             }
-            const focusGpsRoute = Boolean(taskUsesGps(currentTask) && lastLatLng && targetLat && targetLng);
+            const focusGpsRoute = Boolean(
+                (taskHasNavigationTarget ? taskHasNavigationTarget(currentTask) : taskUsesGps(currentTask))
+                && lastLatLng && targetLat && targetLng
+            );
             if (!focusGpsRoute) {
                 nearbyVisibleTasks.slice(0, 8).forEach((task) => {
                     if (Number.isFinite(task.lat) && Number.isFinite(task.lng)) {
@@ -1276,13 +1283,14 @@ document.addEventListener('DOMContentLoaded', () => {
             startTaskNavigation: () => geoWatch.startTaskNavigation(),
             syncTaskEncounterVisibility,
             taskUsesGps,
+            taskHasNavigationTarget,
             updateTaskMapViewport
         });
         const fetchQuestProgressMap = () => nearbyTasks.fetchQuestProgressMap();
         const loadNearbyVisibleTasks = () => nearbyTasks.loadNearbyVisibleTasks();
         const applyTaskSelection = (task, options) => {
             const result = nearbyTasks.applyTaskSelection(task, options);
-            if (miniMapWrap && taskUsesGps(task)) {
+            if (miniMapWrap && (taskHasNavigationTarget ? taskHasNavigationTarget(task) : taskUsesGps(task))) {
                 miniMapWrap.classList.remove('collapsed');
             }
             updateTaskMapViewport();
