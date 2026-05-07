@@ -244,7 +244,7 @@ window.AiLabHudManager = (function() {
             if (currentTask && task && currentTask.id !== task.id && photoCaptureModeActive) {
                 resetPhotoCaptureState();
             }
-            currentTask = task;
+            // currentTask is already runtimeState via ctx; callers (e.g. applyTaskSelection) set it before this runs.
             const statusPill = document.querySelector('.status-pill');
             if (statusPill) statusPill.textContent = task.name || '任務';
             if (taskIntroTitle) taskIntroTitle.textContent = task.name || '任務';
