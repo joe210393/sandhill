@@ -192,7 +192,7 @@
             updatePhotoBasketUi();
         }
 
-        function showAnswerModal(task) {
+        function showAnswerModal(task, renderOptions = null) {
             const {
                 answerModal,
                 answerTaskName,
@@ -212,6 +212,7 @@
                 task,
                 isDemoMode: isCurrentQuestDemoMode(),
                 isShellExperience: get('isShellExperience'),
+                ...(renderOptions && typeof renderOptions === 'object' ? renderOptions : {}),
                 elements: { answerModal, answerTaskName, answerTaskDescription, answerInputContainer, answerMessage, btnAnswerSubmit },
                 callbacks: {
                     resetAnswerSubmitUi,
@@ -335,12 +336,19 @@
                 && completedIds.has(Number(currentTask.id))
             );
             if (isCompletedStoryTask) {
-                await Swal.fire({
-                    icon: 'info',
-                    title: '此關卡已完成',
-                    text: '你可以查看上一關內容，但不能再次作答或重玩。',
-                    confirmButtonText: '知道了'
-                });
+                if (currentTask.task_type === 'multiple_choice') {
+                    showAnswerModal(currentTask, {
+                        readOnly: true,
+                        prefillAnswer: currentTask.correct_answer || ''
+                    });
+                } else {
+                    await Swal.fire({
+                        icon: 'info',
+                        title: '此關卡已完成',
+                        text: '你可以查看上一關內容，但不能再次作答或重玩。',
+                        confirmButtonText: '知道了'
+                    });
+                }
                 set('tutorialFlowStarted', false);
                 renderTutorialModeUi();
                 return;

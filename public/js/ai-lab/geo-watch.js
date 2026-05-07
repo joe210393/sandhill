@@ -118,6 +118,29 @@
             const diff = ((bearing - deviceHeading + 540) % 360) - 180;
             renderTaskMetrics(distanceMeters, bearing);
 
+            if (taskStatusLabel && taskUsesGps(currentTask) && Number.isFinite(distanceMeters) && Number.isFinite(bearing)) {
+                const dist = Math.max(0, Math.round(distanceMeters));
+                if (!hasHeading) {
+                    taskStatusLabel.textContent = dist <= Math.max(6, currentTask?.radius || 30)
+                        ? '已抵達任務地點'
+                        : `前方約 ${dist}m，請往任務方向前進（可開啟指南針權限獲得轉向提示）`;
+                } else {
+                    const abs = Math.abs(diff);
+                    const dir = diff < 0 ? '左' : '右';
+                    let verb = '直走';
+                    if (abs < 15) verb = '直走';
+                    else if (abs < 45) verb = `微向${dir}`;
+                    else if (abs < 110) verb = `${dir}轉`;
+                    else verb = '迴轉';
+                    const turnHint = verb === '直走'
+                        ? `前方約 ${dist}m，${verb}`
+                        : `前方約 ${dist}m，${verb}`;
+                    taskStatusLabel.textContent = dist <= Math.max(6, currentTask?.radius || 30)
+                        ? '已抵達任務地點'
+                        : turnHint;
+                }
+            }
+
             if (!allowFloatingTarget) {
                 taskObjectVisible = false;
                 if (taskGuideArrow) taskGuideArrow.classList.add('hidden');

@@ -97,6 +97,8 @@
         task,
         isDemoMode,
         isShellExperience,
+        readOnly = false,
+        prefillAnswer = '',
         elements = {},
         callbacks = {}
     } = {}) {
@@ -124,7 +126,7 @@
         }
         answerTaskDescription.textContent = descriptionParts.join('\n\n');
         answerInputContainer.innerHTML = '';
-        answerMessage.textContent = '';
+        answerMessage.textContent = readOnly ? '✅ 此關卡已完成，答案已鎖定為唯讀模式。' : '';
         if (typeof resetAnswerSubmitUi === 'function') resetAnswerSubmitUi();
         btnAnswerSubmit.disabled = true;
 
@@ -138,11 +140,28 @@
                 node.textContent = choice.label;
                 node.dataset.value = choice.value;
                 node.dataset.choiceKey = choice.key;
-                node.onclick = () => {
-                    choicesDiv.querySelectorAll('.answer-choice').forEach((choiceNode) => choiceNode.classList.remove('selected'));
-                    node.classList.add('selected');
-                    btnAnswerSubmit.disabled = false;
-                };
+                const normalizedPrefill = String(prefillAnswer || '').trim().toLowerCase();
+                const normalizedValue = String(choice.value || '').trim().toLowerCase();
+                const normalizedKey = String(choice.key || '').trim().toLowerCase();
+                const normalizedLabel = String(choice.label || '').trim().toLowerCase();
+                const shouldSelect = normalizedPrefill && (
+                    normalizedPrefill === normalizedValue
+                    || normalizedPrefill === normalizedLabel
+                    || normalizedPrefill === normalizedKey
+                    || normalizedPrefill.startsWith(normalizedKey + '.')
+                    || normalizedPrefill.startsWith(normalizedKey + ' ')
+                    || normalizedPrefill.startsWith(normalizedKey + '：')
+                );
+                if (shouldSelect) node.classList.add('selected');
+                if (readOnly) {
+                    node.setAttribute('aria-disabled', 'true');
+                } else {
+                    node.onclick = () => {
+                        choicesDiv.querySelectorAll('.answer-choice').forEach((choiceNode) => choiceNode.classList.remove('selected'));
+                        node.classList.add('selected');
+                        btnAnswerSubmit.disabled = false;
+                    };
+                }
                 choicesDiv.appendChild(node);
             });
             if (!choices.length) {
@@ -152,6 +171,9 @@
                 choicesDiv.appendChild(emptyHint);
             }
             answerInputContainer.appendChild(choicesDiv);
+            if (readOnly) {
+                btnAnswerSubmit.disabled = true;
+            }
         } else if (task.task_type === 'photo') {
             const group = global.document.createElement('div');
             group.className = 'answer-input-group';
@@ -186,11 +208,19 @@
                 });
             }
             if (answerCaptureFromReticle) {
-                answerCaptureFromReticle.addEventListener('click', () => refreshAnswerPhotoFromReticle());
-                setTimeout(() => refreshAnswerPhotoFromReticle(), 120);
+                if (!readOnly) {
+                    answerCaptureFromReticle.addEventListener('click', () => refreshAnswerPhotoFromReticle());
+                    setTimeout(() => refreshAnswerPhotoFromReticle(), 120);
+                } else {
+                    answerCaptureFromReticle.setAttribute('disabled', 'true');
+                }
             }
             if (answerRetakeFromReticle) {
-                answerRetakeFromReticle.addEventListener('click', () => refreshAnswerPhotoFromReticle());
+                if (!readOnly) {
+                    answerRetakeFromReticle.addEventListener('click', () => refreshAnswerPhotoFromReticle());
+                } else {
+                    answerRetakeFromReticle.setAttribute('disabled', 'true');
+                }
             }
         } else {
             const group = global.document.createElement('div');
@@ -198,10 +228,16 @@
             group.innerHTML = '<label>✍️ 請輸入答案</label><input type="text" id="answerTextInput" autocomplete="off" placeholder="請輸入您的答案...">';
             answerInputContainer.appendChild(group);
             const input = global.document.getElementById('answerTextInput');
-            input.addEventListener('input', () => {
-                btnAnswerSubmit.disabled = input.value.trim() === '';
-            });
-            setTimeout(() => input.focus(), 150);
+            if (readOnly) {
+                input.value = String(prefillAnswer || '');
+                input.setAttribute('readonly', 'true');
+                btnAnswerSubmit.disabled = true;
+            } else {
+                input.addEventListener('input', () => {
+                    btnAnswerSubmit.disabled = input.value.trim() === '';
+                });
+                setTimeout(() => input.focus(), 150);
+            }
         }
         answerModal.classList.remove('hidden');
         answerInputContainer.scrollTop = 0;
