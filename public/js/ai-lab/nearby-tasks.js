@@ -26,8 +26,7 @@
 
         function isIndependentVisibleTask(task) {
             return task
-                && task.lat != null
-                && task.lng != null
+                && taskHasNavigationTarget(task)
                 && !task.quest_chain_id
                 && String(task.id) !== String(get('currentTaskId'));
         }
@@ -98,7 +97,7 @@
         function getVisibleQuestTasks(tasks, progressMap) {
             const grouped = new Map();
             tasks.forEach((task) => {
-                if (!task || !task.quest_chain_id || task.lat == null || task.lng == null) return;
+                if (!task || !task.quest_chain_id || !taskHasNavigationTarget(task)) return;
                 const chainId = String(task.quest_chain_id);
                 if (!grouped.has(chainId)) grouped.set(chainId, []);
                 grouped.get(chainId).push({

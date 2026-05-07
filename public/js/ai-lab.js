@@ -224,6 +224,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const taskCoordsValue = document.getElementById('taskCoordsValue');
         const taskStatusLabel = document.getElementById('taskStatusLabel');
         const taskGuideArrow = document.getElementById('taskGuideArrow');
+        const cameraNavigationPanel = document.getElementById('cameraNavigationPanel');
+        const cameraNavigationArrow = document.getElementById('cameraNavigationArrow');
+        const cameraNavigationDistance = document.getElementById('cameraNavigationDistance');
+        const cameraNavigationDirection = document.getElementById('cameraNavigationDirection');
+        const cameraNavigationMeta = document.getElementById('cameraNavigationMeta');
         const taskTargetObj = document.getElementById('taskTargetObj');
         const taskTargetImg = document.getElementById('taskTargetImg');
         const taskEncounterModal = document.getElementById('taskEncounterModal');
@@ -369,7 +374,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 lastHeadingUpdateAt: geoWatch ? geoWatch.getLastHeadingUpdateAt() : 0,
                 getTutorialMockBearing, getTutorialMockDistance,
                 lastLatLng: runtimeState.get('lastLatLng'),
-                taskHudDock, taskBearingValue, taskDistanceValue, taskAngleValue, taskCoordsValue, taskStatusLabel
+                taskHudDock, taskBearingValue, taskDistanceValue, taskAngleValue, taskCoordsValue, taskStatusLabel,
+                cameraNavigationPanel
             };
         }
 
@@ -492,6 +498,11 @@ document.addEventListener('DOMContentLoaded', () => {
             taskBgm,
             taskBgmBtn,
             taskGuideArrow,
+            cameraNavigationPanel,
+            cameraNavigationArrow,
+            cameraNavigationDistance,
+            cameraNavigationDirection,
+            cameraNavigationMeta,
             taskTargetObj,
             locationBar,
             taskCoordsValue,
@@ -1023,15 +1034,20 @@ document.addEventListener('DOMContentLoaded', () => {
         function updateTaskMapViewport() {
             if (!mapInstance) return;
             const points = [];
+            const hasNavTarget = taskHasNavigationTarget
+                ? taskHasNavigationTarget(currentTask)
+                : taskUsesGps(currentTask);
             if (lastLatLng && Number.isFinite(lastLatLng.latitude) && Number.isFinite(lastLatLng.longitude)) {
                 points.push([lastLatLng.latitude, lastLatLng.longitude]);
             }
-            if (targetLat && targetLng) {
-                points.push([targetLat, targetLng]);
+            if (hasNavTarget && Number.isFinite(Number(targetLat)) && Number.isFinite(Number(targetLng))) {
+                points.push([Number(targetLat), Number(targetLng)]);
             }
             const focusGpsRoute = Boolean(
-                (taskHasNavigationTarget ? taskHasNavigationTarget(currentTask) : taskUsesGps(currentTask))
-                && lastLatLng && targetLat && targetLng
+                hasNavTarget
+                && lastLatLng
+                && Number.isFinite(Number(targetLat))
+                && Number.isFinite(Number(targetLng))
             );
             if (!focusGpsRoute) {
                 nearbyVisibleTasks.slice(0, 8).forEach((task) => {
@@ -1385,8 +1401,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (lastLatLng && Number.isFinite(lastLatLng.latitude) && Number.isFinite(lastLatLng.longitude)) {
                 initialCenter = [lastLatLng.latitude, lastLatLng.longitude];
                 initialZoom = 15;
-            } else if (targetLat && targetLng) {
-                initialCenter = [targetLat, targetLng];
+            } else if ((taskHasNavigationTarget ? taskHasNavigationTarget(currentTask) : taskUsesGps(currentTask))
+                && Number.isFinite(Number(targetLat))
+                && Number.isFinite(Number(targetLng))) {
+                initialCenter = [Number(targetLat), Number(targetLng)];
                 initialZoom = 15;
             }
 
@@ -1421,8 +1439,10 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 mapMarker = null;
             }
-            if (targetLat && targetLng) {
-                taskMapMarker = L.circleMarker([targetLat, targetLng], {
+            if ((taskHasNavigationTarget ? taskHasNavigationTarget(currentTask) : taskUsesGps(currentTask))
+                && Number.isFinite(Number(targetLat))
+                && Number.isFinite(Number(targetLng))) {
+                taskMapMarker = L.circleMarker([Number(targetLat), Number(targetLng)], {
                     radius: 8,
                     color: '#ef4444',
                     weight: 3,

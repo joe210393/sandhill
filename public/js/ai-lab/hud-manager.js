@@ -21,7 +21,8 @@ window.AiLabHudManager = (function() {
             tryAutoPlayTaskBgm, getTaskVideoUrl, exitFormalStoryIntroMode,
             isCurrentQuestTutorialMode, isCurrentQuestDemoMode, taskUsesGps, deviceHeading,
             lastHeadingUpdateAt, getTutorialMockBearing, getTutorialMockDistance, lastLatLng,
-            taskHudDock, taskBearingValue, taskDistanceValue, taskAngleValue, taskCoordsValue, taskStatusLabel
+            taskHudDock, taskBearingValue, taskDistanceValue, taskAngleValue, taskCoordsValue, taskStatusLabel,
+            cameraNavigationPanel
         } = ctx;
 
             return window.matchMedia('(max-width: 768px)').matches;
@@ -305,6 +306,10 @@ window.AiLabHudManager = (function() {
                 : null;
             if (taskHudDock) {
                 taskHudDock.classList.toggle('hidden', tutorialLikeMode);
+            }
+            if (cameraNavigationPanel && (tutorialLikeMode || !gpsRequired)) {
+                cameraNavigationPanel.classList.add('hidden');
+                cameraNavigationPanel.classList.remove('arrived', 'no-heading');
             }
             if (taskBearingValue) {
                 taskBearingValue.textContent = tutorialLikeMode

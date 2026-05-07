@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="css/ai-lab/camera.css?v=20260502c">
     <link rel="stylesheet" href="css/ai-lab/hud.css">
     <link rel="stylesheet" href="css/ai-lab/board.css">
-    <link rel="stylesheet" href="css/ai-lab/tasks.css">
+    <link rel="stylesheet" href="css/ai-lab/tasks.css?v=20260507e">
     <link rel="stylesheet" href="css/ai-lab/mini-map.css">
     <link rel="stylesheet" href="css/ai-lab/assistant.css">
     <link rel="stylesheet" href="css/ai-lab/voice.css">
@@ -75,6 +75,14 @@
             </div>
         </div>
         <div id="taskGuideArrow" class="task-guide-arrow hidden" aria-hidden="true"></div>
+        <div id="cameraNavigationPanel" class="camera-navigation-panel hidden" aria-live="polite" aria-label="關卡導覽提示">
+            <div id="cameraNavigationArrow" class="camera-navigation-arrow" aria-hidden="true"></div>
+            <div class="camera-navigation-copy">
+                <div id="cameraNavigationDistance" class="camera-navigation-distance">--m</div>
+                <div id="cameraNavigationDirection" class="camera-navigation-direction">等待 GPS 導航...</div>
+                <div id="cameraNavigationMeta" class="camera-navigation-meta">請允許定位與方向權限</div>
+            </div>
+        </div>
         <div id="taskTargetObj" class="task-target-obj hidden" role="button" aria-label="點擊查看任務詳情">
             <img id="taskTargetImg" src="" alt="任務封面">
             <div class="task-target-label">點擊查看詳情</div>
@@ -555,15 +563,15 @@
     <script src="/js/ai-lab/network.js?v=20260430a"></script>
     <script src="/js/ai-lab/media.js?v=20260430a"></script>
     <script src="/js/ai-lab/runtime-state.js"></script>
-    <script src="/js/ai-lab/task-rules.js?v=20260507d"></script>
+    <script src="/js/ai-lab/task-rules.js?v=20260507e"></script>
     <script src="/js/ai-lab/board-utils.js?v=20260430a"></script>
     <script src="/js/ai-lab/board-renderer.js?v=20260430a"></script>
     <script src="/js/ai-lab/board-animations.js"></script>
     <script src="/js/ai-lab/board-session.js"></script>
     <script src="/js/ai-lab/geo.js?v=20260430a"></script>
-    <script src="/js/ai-lab/geo-watch.js?v=20260507d"></script>
+    <script src="/js/ai-lab/geo-watch.js?v=20260507e"></script>
     <script src="/js/ai-lab/mini-map-ui.js?v=20260430a"></script>
-    <script src="/js/ai-lab/nearby-tasks.js?v=20260507d"></script>
+    <script src="/js/ai-lab/nearby-tasks.js?v=20260507e"></script>
     <script src="/js/ai-lab/task-utils.js"></script>
     <script src="/js/ai-lab/quest-context.js"></script>
     <script src="/js/ai-lab/tutorial-progress.js"></script>
@@ -588,6 +596,6 @@
     <script src="/js/ai-lab/analyze-flow.js?v=20260502a"></script>
     <script src="/js/ai-lab/photo-share.js?v=20260502a"></script>
     <script src="/js/ai-lab/assistant.js?v=20260502a"></script>
-    <script src="js/ai-lab.js?v=55"></script>
+    <script src="js/ai-lab.js?v=57"></script>
 </body>
 </html>

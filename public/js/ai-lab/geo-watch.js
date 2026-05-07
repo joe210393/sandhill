@@ -7,6 +7,11 @@
             taskBgm,
             taskBgmBtn,
             taskGuideArrow,
+            cameraNavigationPanel,
+            cameraNavigationArrow,
+            cameraNavigationDistance,
+            cameraNavigationDirection,
+            cameraNavigationMeta,
             taskTargetObj,
             locationBar,
             taskCoordsValue,
@@ -46,6 +51,52 @@
         let bgmAutoStarted = false;
         let orientationPermissionState = 'idle';
         let taskReached = false;
+
+        function getNavigationVerb(diff, hasHeading) {
+            if (!hasHeading) return '往目標方向前進';
+            const abs = Math.abs(diff);
+            const dir = diff < 0 ? '左' : '右';
+            if (abs < 15) return '直走';
+            if (abs < 45) return `微向${dir}`;
+            if (abs < 110) return `${dir}轉`;
+            return '迴轉';
+        }
+
+        function updateCameraNavigationPanel({
+            distanceMeters,
+            bearing,
+            diff = 0,
+            hasHeading = false,
+            reached = false,
+            message = '',
+            meta = ''
+        } = {}) {
+            if (!cameraNavigationPanel) return;
+            const currentTask = getCurrentTask();
+            const shouldShow = !isCurrentQuestTutorialMode()
+                && !isCurrentQuestDemoMode()
+                && taskHasNavigationTarget(currentTask)
+                && Number.isFinite(distanceMeters);
+            cameraNavigationPanel.classList.toggle('hidden', !shouldShow);
+            if (!shouldShow) return;
+
+            const dist = Math.max(0, Math.round(distanceMeters));
+            const verb = message || (reached ? '已抵達關卡地點' : getNavigationVerb(diff, hasHeading));
+            const defaultMeta = reached
+                ? '可以開始或完成這一關'
+                : (hasHeading ? '跟著箭頭和方向提示移動' : '開啟方向權限後會顯示左轉、右轉');
+
+            cameraNavigationPanel.classList.toggle('arrived', reached);
+            cameraNavigationPanel.classList.toggle('no-heading', !hasHeading);
+            if (cameraNavigationDistance) cameraNavigationDistance.textContent = reached ? '抵達' : `${dist}m`;
+            if (cameraNavigationDirection) {
+                cameraNavigationDirection.textContent = reached ? verb : `前方約 ${dist}m，${verb}`;
+            }
+            if (cameraNavigationMeta) cameraNavigationMeta.textContent = meta || defaultMeta;
+            if (cameraNavigationArrow) {
+                cameraNavigationArrow.style.transform = `rotate(${hasHeading && Number.isFinite(bearing) ? diff : 0}deg)`;
+            }
+        }
 
         async function ensureOrientationPermission() {
             if (orientationPermissionState === 'granted' || orientationPermissionState === 'unsupported') {
@@ -120,6 +171,9 @@
             renderTaskMetrics(distanceMeters, bearing);
 
             const hasNavTarget = taskHasNavigationTarget(currentTask);
+            const reached = hasNavTarget
+                && Number.isFinite(distanceMeters)
+                && distanceMeters <= Math.max(6, currentTask?.radius || 30);
             if (taskStatusLabel && hasNavTarget && Number.isFinite(distanceMeters) && Number.isFinite(bearing)) {
                 const dist = Math.max(0, Math.round(distanceMeters));
                 if (!hasHeading) {
@@ -142,6 +196,7 @@
                         : turnHint;
                 }
             }
+            updateCameraNavigationPanel({ distanceMeters, bearing, diff, hasHeading, reached });
 
             if (!allowFloatingTarget) {
                 taskObjectVisible = false;
@@ -233,6 +288,7 @@
             stopTaskNavigation();
             const currentTask = getCurrentTask();
             if (tutorialLikeMode) {
+                updateCameraNavigationPanel();
                 lastGpsUpdateAt = Date.now();
                 setLastLatLng(null);
                 taskReached = true;
@@ -248,6 +304,7 @@
                 return;
             }
             if (!taskHasNavigationTarget(currentTask)) {
+                updateCameraNavigationPanel();
                 taskReached = true;
                 lastTaskDistance = null;
                 lastTaskBearing = null;
@@ -276,6 +333,7 @@
                 if (taskCoordsValue) taskCoordsValue.textContent = '定位失敗';
                 if (taskDistanceValue) taskDistanceValue.textContent = '--m';
                 if (taskStatusLabel) taskStatusLabel.textContent = '定位失敗';
+                if (cameraNavigationPanel) cameraNavigationPanel.classList.add('hidden');
             }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 });
 
             // iPhone/Safari 有時 watchPosition 更新不穩，補一層定時輪詢

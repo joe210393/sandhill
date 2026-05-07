@@ -1,14 +1,31 @@
 (function (global) {
+  function normalizeBoolean(value) {
+    if (value === true || value === 1) return true;
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      return normalized === '1' || normalized === 'true' || normalized === 'yes';
+    }
+    return false;
+  }
+
+  function taskGpsEnabled(task) {
+    if (!task) return false;
+    return normalizeBoolean(task.location_required) || task.task_type === 'location';
+  }
+
   function taskHasNavigationTarget(task) {
     if (!task) return false;
-    return Number.isFinite(Number(task.lat)) && Number.isFinite(Number(task.lng));
+    const lat = Number(task.lat);
+    const lng = Number(task.lng);
+    return taskGpsEnabled(task)
+      && Number.isFinite(lat)
+      && Number.isFinite(lng)
+      && !(lat === 0 && lng === 0);
   }
 
   /** 需到點／限制距離才允許作答（報到型） */
   function taskUsesGps(task) {
-    if (!task) return false;
-    const gpsEnabled = Boolean(task.location_required || task.task_type === 'location');
-    return gpsEnabled && taskHasNavigationTarget(task);
+    return taskHasNavigationTarget(task);
   }
 
   function getRequiredShots(task) {
@@ -24,6 +41,7 @@
   }
 
   global.AiLabTaskRules = {
+    taskGpsEnabled,
     taskHasNavigationTarget,
     taskUsesGps,
     getRequiredShots
