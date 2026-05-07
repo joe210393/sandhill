@@ -68,13 +68,31 @@
                 const contentParams = new URLSearchParams();
                 if (previewMode) contentParams.set('preview', '1');
                 const contentApi = `/api/quest-chains/${questChainId}/public-content${contentParams.toString() ? `?${contentParams.toString()}` : ''}`;
-                const [contentRes, progressMap] = await Promise.all([
-                    fetch(contentApi),
-                    fetchQuestProgressMap()
-                ]);
-                const contentData = await contentRes.json();
-                if (!contentData.success) {
-                    throw new Error(contentData.message || '載入劇情失敗');
+                const contentRes = await fetch(contentApi, { credentials: 'include' });
+                let progressMap = {};
+                try {
+                    progressMap = await Promise.resolve(fetchQuestProgressMap());
+                    if (!progressMap || typeof progressMap !== 'object') progressMap = {};
+                } catch (progErr) {
+                    console.warn('取得劇情進度略過', progErr);
+                    progressMap = {};
+                }
+                let contentData;
+                try {
+                    contentData = await contentRes.json();
+                } catch (jsonErr) {
+                    throw new Error(`劇情 API 回傳無法解析（HTTP ${contentRes.status}）`);
+                }
+                if (!contentRes.ok || !contentData.success) {
+                    const code = contentData && contentData.code;
+                    const base = (contentData && contentData.message) || `載入劇情失敗（HTTP ${contentRes.status}）`;
+                    if (code === 'ENTRY_NOT_PUBLISHED') {
+                        throw new Error(`${base}\n\n請確認後台「玩法入口」已勾選發布；預覽未發布入口請用後台預覽連結並帶 preview=1。`);
+                    }
+                    if (code === 'COUPON_REQUIRED') {
+                        throw new Error(base);
+                    }
+                    throw new Error(base);
                 }
                 const currentStoryTasks = Array.isArray(contentData.tasks) ? contentData.tasks : [];
                 set('currentQuestChainId', questChainId);
@@ -117,6 +135,14 @@
                 updateGameShellProgress(activeTask);
                 renderGameShellEntries(currentStoryTasks, activeTask?.id);
                 Swal.close();
+                if (!currentStoryTasks.length) {
+                    await Swal.fire({
+                        icon: 'warning',
+                        title: '此入口尚無可玩關卡',
+                        text: '玩法入口已載入，但查無「已啟用」的關卡。請到後台確認各關是否已建立並啟用。',
+                        confirmButtonText: '知道了'
+                    });
+                }
                 if (activeTask) {
                     await focusStoryTask(activeTask);
                     if (get('currentStoryCompleted') && elements.gameShellObjective) {
@@ -232,10 +258,14 @@
         async function loadGameShellFromUrl() {
             const params = new URLSearchParams(global.location.search);
             const questChainId = params.get('questChainId');
-            const mode = params.get('mode');
+            let mode = params.get('mode');
             const boardMapId = params.get('boardMapId');
             const previewMode = params.get('preview') === '1';
-            if (!questChainId || !mode) return false;
+            if (!questChainId) return false;
+            mode = mode ? String(mode).trim().toLowerCase() : '';
+            if (!mode) mode = 'story_campaign';
+            if (mode === 'story' || mode === 'campaign' || mode === 'story-campaign') mode = 'story_campaign';
+            if (mode === 'board' || mode === 'monopoly') mode = 'board_game';
 
             if (elements.gameShellPanel && mode === 'board_game') elements.gameShellPanel.classList.remove('collapsed');
             try {
@@ -273,6 +303,13 @@
                         title: '需要專屬 Coupon',
                         text: err.message || '此入口需專屬 Coupon 才能遊玩。',
                         confirmButtonText: '我知道了'
+                    });
+                } else if (err?.message) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: '無法載入玩法',
+                        text: String(err.message),
+                        confirmButtonText: '確定'
                     });
                 }
                 return false;

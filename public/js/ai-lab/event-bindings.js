@@ -351,9 +351,7 @@
             if (elements.instructionText && !isPhotoTaskCaptureActive()) {
                 elements.instructionText.textContent = '把目標放進黃色圓框，直接點圓框中央拍照';
             }
-            loadGameShellFromUrl().then((loaded) => {
-                if (!loaded) loadTaskFromUrl();
-            });
+            // 玩法入口載入改由 ai-lab.js 初始化尾端執行（相機／狀態就緒後再載入，避免競態）
 
             if (elements.taskBgmBtn && elements.taskBgm) {
                 elements.taskBgmBtn.addEventListener('click', () => {

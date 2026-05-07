@@ -1634,6 +1634,12 @@ document.addEventListener('DOMContentLoaded', () => {
             zoomButtons: []
         });
         window.AiLabCameraManager.startCamera();
+
+        loadGameShellFromUrl().then((loaded) => {
+            if (!loaded) loadTaskFromUrl();
+        }).catch((err) => {
+            console.error('載入玩法入口失敗', err);
+        });
         
         log('初始化完成');
 

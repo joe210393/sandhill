@@ -68,7 +68,8 @@ function sanitizeQuestChainRow(row) {
     title: row.title || row.name || '',
     access_mode: normalizeAccessMode(row.access_mode),
     experience_mode: normalizeExperienceMode(row.experience_mode, row),
-    is_active: Boolean(row.is_active),
+    // NULL／缺欄位：相容舊資料，視為已發布；僅明確 false／0 為草稿
+    is_active: row.is_active == null ? true : Boolean(row.is_active),
     game_rules: parseJsonField(row.game_rules, null),
     content_blueprint: parseJsonField(row.content_blueprint, null)
   };
