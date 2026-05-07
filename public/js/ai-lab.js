@@ -323,7 +323,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // ---------- 任務情境（AR-VIEW 整合：任務封面＋景點說明＋背景音樂）----------
 
+        function resolveDisplayedEntryMode() {
+            const entryMode = runtimeState.get('currentEntryMode');
+            if (entryMode === 'story_campaign' || entryMode === 'board_game') return entryMode;
+            const chainId = runtimeState.get('currentQuestChainId');
+            const shell = runtimeState.get('isShellExperience') && Boolean(chainId);
+            if (!shell) return entryMode;
+            const boardTiles = runtimeState.get('currentBoardTiles') || [];
+            const storyTasks = runtimeState.get('currentStoryTasks') || [];
+            // 資料不同步時：有棋盤格資料優先視為大富翁殼（避免 stale 劇情任務清單遮蔽）
+            if (boardTiles.length) return 'board_game';
+            if (storyTasks.length) return 'story_campaign';
+            return entryMode;
+        }
+
         function buildHudContext() {
+            // 統一經 runtimeState 讀取，避免只靠 window/global 繫結在某些環境下取到錯誤或未更新的快照
             return {
                 featureDockMenu, featureDrawerPanel, taskStatusBox, voicePanel, answerToast,
                 hudModeValue, hudStageValue, hudPointsValue, hudBadgesValue, boardStatusCard,
@@ -331,9 +346,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 hudPanelNext, hudPanelRescue, hudPanelStages, hudPanelBadges, gameShellStartBtn,
                 taskIntroTitle, taskIntroCover, taskIntroDescription, taskIntroBtn, taskTargetImg,
                 gameShellObjective, taskIntroPanel, taskIntroVideo,
-                currentEntryMode, currentTask, currentBoardRun, playerHudStats, currentStoryCompleted, currentStoryCompletedTaskIds,
-                currentStoryTasks, useRemoteBoardSession, currentBoardSessionId, getBoardTileByIndex: window.AiLabBoardUtils ? window.AiLabBoardUtils.getBoardTileMeta : null,
-                currentBoardMap, photoCaptureModeActive, resetPhotoCaptureState,
+                currentEntryMode: resolveDisplayedEntryMode(),
+                currentTask: runtimeState.get('currentTask'),
+                currentBoardRun: runtimeState.get('currentBoardRun'),
+                playerHudStats: runtimeState.get('playerHudStats'),
+                currentStoryCompleted: runtimeState.get('currentStoryCompleted'),
+                currentStoryCompletedTaskIds: runtimeState.get('currentStoryCompletedTaskIds'),
+                currentStoryTasks: runtimeState.get('currentStoryTasks') || [],
+                useRemoteBoardSession: runtimeState.get('useRemoteBoardSession'),
+                currentBoardSessionId: runtimeState.get('currentBoardSessionId'),
+                getBoardTileByIndex: window.AiLabBoardUtils ? window.AiLabBoardUtils.getBoardTileMeta : null,
+                currentBoardMap: runtimeState.get('currentBoardMap'),
+                photoCaptureModeActive: runtimeState.get('photoCaptureModeActive'),
+                resetPhotoCaptureState,
                 loadTaskVideo: (task) => taskMediaController.loadTaskVideo(task),
                 tryAutoPlayTaskBgm: (distance, options) => geoWatch.tryAutoPlayTaskBgm(distance, options),
                 getTaskVideoUrl: window.AiLabMedia ? window.AiLabMedia.getTaskVideoUrl : null,
@@ -342,7 +367,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 isCurrentQuestTutorialMode, isCurrentQuestDemoMode, taskUsesGps: window.AiLabTaskRules ? window.AiLabTaskRules.taskUsesGps : null,
                 deviceHeading: geoWatch ? geoWatch.getDeviceHeading() : 0,
                 lastHeadingUpdateAt: geoWatch ? geoWatch.getLastHeadingUpdateAt() : 0,
-                getTutorialMockBearing, getTutorialMockDistance, lastLatLng,
+                getTutorialMockBearing, getTutorialMockDistance,
+                lastLatLng: runtimeState.get('lastLatLng'),
                 taskHudDock, taskBearingValue, taskDistanceValue, taskAngleValue, taskCoordsValue, taskStatusLabel
             };
         }
@@ -359,36 +385,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const AiLabBoardRenderer = window.AiLabBoardRenderer;
         function buildBoardRendererContext() {
-            const pendingTargetTileIndex = currentBoardRun?.pendingTargetTile;
+            const boardRunSnap = runtimeState.get('currentBoardRun');
+            const pendingTargetTileIndex = boardRunSnap?.pendingTargetTile;
+            const entryModeSnap = resolveDisplayedEntryMode();
             return {
                 elements: {
                     boardPanelAction, boardPanelTrack, floatingDiceBtn, boardFocusBtn,
                     boardMapSelector, boardMapSelectorStatus, boardMiniMap, boardMiniMapDots
                 },
-                currentEntryMode,
-                currentBoardMap,
-                currentBoardMaps,
-                currentBoardTiles,
-                currentBoardRun,
+                currentEntryMode: entryModeSnap,
+                currentBoardMap: runtimeState.get('currentBoardMap'),
+                currentBoardMaps: runtimeState.get('currentBoardMaps') || [],
+                currentBoardTiles: runtimeState.get('currentBoardTiles') || [],
+                currentBoardRun: boardRunSnap,
                 pendingTile: pendingTargetTileIndex ? getBoardTileByIndex(pendingTargetTileIndex) : null,
-                tutorialBoardMode: isCurrentQuestTutorialMode() && currentEntryMode === 'board_game',
+                tutorialBoardMode: isCurrentQuestTutorialMode() && entryModeSnap === 'board_game',
                 deps: { getBoardTileMeta, inferBoardChallengeType, getCircledStepLabel: window.AiLabBoardUtils?.getCircledStepLabel }
             };
         }
         function renderBoardPanel() { return AiLabBoardRenderer.renderBoardPanel(buildBoardRendererContext()); }
         function renderBoardMapSelector() {
             return AiLabBoardRenderer.renderBoardMapSelector({
-                boardMapSelector, boardMapSelectorStatus, currentEntryMode, currentBoardMaps, currentBoardMap
+                boardMapSelector,
+                boardMapSelectorStatus,
+                currentEntryMode: resolveDisplayedEntryMode(),
+                currentBoardMaps: runtimeState.get('currentBoardMaps') || [],
+                currentBoardMap: runtimeState.get('currentBoardMap')
             });
         }
         function updateGameShellProgress(activeEntry) {
+            if (typeof renderGameShellProgressView !== 'function') return;
+            const storyTasks = runtimeState.get('currentStoryTasks') || [];
             return renderGameShellProgressView({
                 gameShellProgress,
-                currentEntryMode,
-                currentStoryTasks,
-                currentStoryCompleted,
-                currentBoardTiles,
-                currentBoardMap,
+                currentEntryMode: resolveDisplayedEntryMode(),
+                currentStoryTasks: storyTasks,
+                currentStoryCompleted: runtimeState.get('currentStoryCompleted'),
+                currentBoardTiles: runtimeState.get('currentBoardTiles') || [],
+                currentBoardMap: runtimeState.get('currentBoardMap'),
                 activeEntry
             });
         }
@@ -397,7 +431,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 gameShellEntries,
                 entries,
                 activeId,
-                completedStoryIds: currentStoryCompletedTaskIds
+                completedStoryIds: runtimeState.get('currentStoryCompletedTaskIds')
             });
         }
 
@@ -443,7 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const tutorialProgress = window.AiLabTutorialProgress.createController({
             getCurrentBoardMap: () => currentBoardMap,
-            getCurrentEntryMode: () => currentEntryMode,
+            getCurrentEntryMode: () => runtimeState.get('currentEntryMode'),
             getCurrentQuestChainId: () => currentQuestChainId,
             getCurrentStoryTasks: () => currentStoryTasks,
             getLoginUser: () => getLoginUser(),
@@ -473,7 +507,7 @@ document.addEventListener('DOMContentLoaded', () => {
             calculateBearing,
             renderTaskMetrics: (...args) => renderTaskMetrics(...args),
             getCurrentTask: () => currentTask,
-            getCurrentEntryMode: () => currentEntryMode,
+            getCurrentEntryMode: () => runtimeState.get('currentEntryMode'),
             getLastLatLng: () => lastLatLng,
             setLastLatLng: (value) => { lastLatLng = value; },
             getTargetLat: () => targetLat,
@@ -1660,7 +1694,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 6. 初始化 (Initialization)
         // ------------------------------------------------
         const initParams = new URLSearchParams(window.location.search);
-        const hasShellLaunch = Boolean(initParams.get('questChainId') && initParams.get('mode'));
+        const hasShellLaunch = Boolean(initParams.get('questChainId'));
         resizeCanvas();
         languageController.initLanguageSelector();
         voiceChatController.initSpeechChat();
@@ -1680,7 +1714,23 @@ document.addEventListener('DOMContentLoaded', () => {
         window.AiLabCameraManager.startCamera();
 
         loadGameShellFromUrl().then((loaded) => {
-            if (!loaded) loadTaskFromUrl();
+            if (!loaded) {
+                loadTaskFromUrl();
+                return;
+            }
+            requestAnimationFrame(() => {
+                const snapEntry = resolveDisplayedEntryMode();
+                if (snapEntry === 'story_campaign') updateGameShellProgress(runtimeState.get('currentTask'));
+                else if (snapEntry === 'board_game') {
+                    const run = runtimeState.get('currentBoardRun');
+                    const pend = run?.pendingTargetTile;
+                    const tiles = runtimeState.get('currentBoardTiles') || [];
+                    const tile = pend
+                        ? tiles.find((t) => Number(t.tile_index) === Number(pend))
+                        : tiles.find((t) => String(t.id) === String(runtimeState.get('currentBoardActiveTileId'))) || tiles[0];
+                    updateGameShellProgress(tile || null);
+                }
+            });
         }).catch((err) => {
             console.error('載入玩法入口失敗', err);
         });
