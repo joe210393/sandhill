@@ -12,43 +12,61 @@
 }
 
 .floating-ui-customizable {
+    pointer-events: auto !important;
     touch-action: none;
+    transform-origin: top left;
 }
 
-.floating-ui-controls {
-    display: flex;
-    justify-content: flex-end;
-    gap: 6px;
-    pointer-events: auto;
-    user-select: none;
-    -webkit-user-select: none;
+.floating-ui-editing {
+    outline: 2px solid rgba(255, 200, 87, 0.95);
+    outline-offset: 6px;
+    border-radius: 18px;
+    pointer-events: auto !important;
+    cursor: move;
 }
 
-.floating-ui-drag-handle,
-.floating-ui-resize-btn {
-    min-height: 28px;
-    padding: 5px 9px;
+.floating-ui-resize-handle {
+    position: absolute;
+    right: -14px;
+    bottom: -14px;
+    z-index: 999;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.95);
+    background: linear-gradient(135deg, rgba(255, 214, 102, 0.98), rgba(255, 126, 58, 0.98));
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
+    display: none;
+    touch-action: none;
+    cursor: nwse-resize;
+}
+
+.floating-ui-resize-handle::before,
+.floating-ui-resize-handle::after {
+    content: '';
+    position: absolute;
+    right: 7px;
+    bottom: 8px;
+    width: 12px;
+    height: 2px;
     border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    background: rgba(7, 12, 20, 0.74);
-    color: rgba(255, 255, 255, 0.92);
-    font-size: 12px;
-    font-weight: 800;
-    line-height: 1;
-    backdrop-filter: blur(12px);
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
-    cursor: grab;
-    touch-action: none;
+    background: #211406;
+    transform: rotate(-45deg);
 }
 
-.floating-ui-resize-btn {
-    cursor: pointer;
+.floating-ui-resize-handle::after {
+    right: 6px;
+    bottom: 13px;
+    width: 8px;
 }
 
-.floating-ui-dragging .floating-ui-drag-handle {
-    cursor: grabbing;
-    background: rgba(255, 193, 80, 0.92);
-    color: #1c1204;
+.floating-ui-editing > .floating-ui-resize-handle {
+    display: block;
+}
+
+.floating-ui-dragging,
+.floating-ui-resizing {
+    transition: none !important;
 }
 
 .mini-map-toggle {

@@ -1,7 +1,9 @@
 (function(global) {
     const DEFAULT_STORAGE_KEY = 'aiLabMiniMapCollapsed';
     const FLOATING_UI_PREFIX = 'aiLabFloatingUi:';
-    const SIZE_STEPS = ['sm', 'md', 'lg'];
+    const LONG_PRESS_MS = 520;
+    const MIN_SCALE = 0.55;
+    const MAX_SCALE = 1.8;
 
     function ensureMiniMapElements({ miniMapEl, locationInfoEl, cameraContainer, log } = {}) {
         if (miniMapEl && locationInfoEl) return null;
@@ -109,48 +111,30 @@
         }
     }
 
-    function ensureFloatingControls(target, { label = '移動', showResize = true } = {}) {
-        if (!target) return {};
-        let controls = Array.from(target.children)
-            .find((child) => child.classList && child.classList.contains('floating-ui-controls'));
-        if (!controls) {
-            controls = global.document.createElement('div');
-            controls.className = 'floating-ui-controls';
-            target.insertBefore(controls, target.firstChild);
+    function ensureEditHandles(target) {
+        let resizeHandle = target.querySelector('.floating-ui-resize-handle');
+        if (!resizeHandle) {
+            resizeHandle = global.document.createElement('button');
+            resizeHandle.type = 'button';
+            resizeHandle.className = 'floating-ui-resize-handle';
+            resizeHandle.setAttribute('aria-label', '拖曳縮放 UI');
+            target.appendChild(resizeHandle);
         }
-
-        let handle = controls.querySelector('.floating-ui-drag-handle');
-        if (!handle) {
-            handle = global.document.createElement('button');
-            handle.type = 'button';
-            handle.className = 'floating-ui-drag-handle';
-            handle.textContent = label;
-            handle.setAttribute('aria-label', '拖曳移動 UI');
-            controls.appendChild(handle);
-        }
-
-        let resizeBtn = controls.querySelector('.floating-ui-resize-btn');
-        if (showResize && !resizeBtn) {
-            resizeBtn = global.document.createElement('button');
-            resizeBtn.type = 'button';
-            resizeBtn.className = 'floating-ui-resize-btn';
-            resizeBtn.textContent = '大小';
-            resizeBtn.setAttribute('aria-label', '切換 UI 大小');
-            controls.appendChild(resizeBtn);
-        }
-        return { controls, handle, resizeBtn };
+        return { resizeHandle };
     }
 
     function applyFloatingState(target, state = {}) {
         if (!target) return;
         target.classList.add('floating-ui-customizable');
-        SIZE_STEPS.forEach((size) => target.classList.toggle(`floating-ui-size-${size}`, state.size === size));
+        const scale = Number.isFinite(state.scale) ? clamp(state.scale, MIN_SCALE, MAX_SCALE) : 1;
+        target.style.setProperty('--floating-ui-scale', scale);
         if (Number.isFinite(state.x) && Number.isFinite(state.y)) {
             target.style.left = `${state.x}px`;
             target.style.top = `${state.y}px`;
             target.style.right = 'auto';
             target.style.bottom = 'auto';
-            target.style.transform = 'none';
+            target.style.transform = 'scale(var(--floating-ui-scale, 1))';
+            target.style.transformOrigin = 'top left';
         }
     }
 
@@ -163,34 +147,61 @@
         target.style.top = `${y}px`;
         target.style.right = 'auto';
         target.style.bottom = 'auto';
-        target.style.transform = 'none';
+        target.style.transform = 'scale(var(--floating-ui-scale, 1))';
+        target.style.transformOrigin = 'top left';
         return { x, y };
+    }
+
+    function activateFloatingTarget(target) {
+        global.document.querySelectorAll('.floating-ui-editing').forEach((node) => {
+            if (node !== target) node.classList.remove('floating-ui-editing');
+        });
+        target.classList.add('floating-ui-editing');
+        normalizeFloatingPosition(target);
+    }
+
+    function deactivateFloatingTarget(target) {
+        target.classList.remove('floating-ui-editing', 'floating-ui-dragging', 'floating-ui-resizing');
     }
 
     function initFloatingUiControls({
         target,
         storageKey,
-        label = '移動',
-        showResize = true,
         onChange
     } = {}) {
         if (!target || !storageKey) return null;
         const state = readFloatingState(storageKey);
-        const controls = ensureFloatingControls(target, { label, showResize });
+        const handles = ensureEditHandles(target);
         applyFloatingState(target, state);
 
         let activePointerId = null;
+        let resizePointerId = null;
+        let longPressTimer = null;
         let startX = 0;
         let startY = 0;
         let startLeft = 0;
         let startTop = 0;
+        let startScale = 1;
+        let startDistance = 1;
         let moved = false;
 
         function savePosition() {
             const nextPosition = normalizeFloatingPosition(target);
-            const nextState = { ...readFloatingState(storageKey), ...nextPosition };
+            const currentScale = Number.parseFloat(target.style.getPropertyValue('--floating-ui-scale')) || 1;
+            const nextState = {
+                ...readFloatingState(storageKey),
+                ...nextPosition,
+                scale: clamp(currentScale, MIN_SCALE, MAX_SCALE)
+            };
             writeFloatingState(storageKey, nextState);
             if (typeof onChange === 'function') onChange(nextState);
+        }
+
+        function clearLongPressTimer() {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
         }
 
         function onPointerMove(event) {
@@ -213,18 +224,18 @@
         function onPointerUp(event) {
             if (activePointerId !== event.pointerId) return;
             activePointerId = null;
-            controls.handle.releasePointerCapture?.(event.pointerId);
+            target.releasePointerCapture?.(event.pointerId);
             target.classList.remove('floating-ui-dragging');
             global.removeEventListener('pointermove', onPointerMove, { passive: false });
             global.removeEventListener('pointerup', onPointerUp);
             savePosition();
             if (moved) {
-                event.preventDefault();
+                if (event.cancelable) event.preventDefault();
                 event.stopPropagation();
             }
         }
 
-        controls.handle.addEventListener('pointerdown', (event) => {
+        function startDrag(event) {
             if (event.button != null && event.button !== 0) return;
             const rect = target.getBoundingClientRect();
             activePointerId = event.pointerId;
@@ -234,24 +245,84 @@
             startTop = rect.top;
             moved = false;
             target.classList.add('floating-ui-dragging');
-            controls.handle.setPointerCapture?.(event.pointerId);
+            try { target.setPointerCapture?.(event.pointerId); } catch (_err) {}
             normalizeFloatingPosition(target);
             global.addEventListener('pointermove', onPointerMove, { passive: false });
             global.addEventListener('pointerup', onPointerUp);
+            if (event.cancelable) event.preventDefault();
+        }
+
+        function onResizeMove(event) {
+            if (resizePointerId !== event.pointerId) return;
+            const dx = event.clientX - startX;
+            const dy = event.clientY - startY;
+            const nextDistance = Math.max(24, startDistance + Math.max(dx, dy));
+            const nextScale = clamp(startScale * (nextDistance / startDistance), MIN_SCALE, MAX_SCALE);
+            target.style.setProperty('--floating-ui-scale', nextScale);
             event.preventDefault();
+        }
+
+        function onResizeUp(event) {
+            if (resizePointerId !== event.pointerId) return;
+            resizePointerId = null;
+            handles.resizeHandle.releasePointerCapture?.(event.pointerId);
+            target.classList.remove('floating-ui-resizing');
+            global.removeEventListener('pointermove', onResizeMove, { passive: false });
+            global.removeEventListener('pointerup', onResizeUp);
+            savePosition();
+            if (event.cancelable) event.preventDefault();
+        }
+
+        target.addEventListener('pointerdown', (event) => {
+            if (event.button != null && event.button !== 0) return;
+            if (target.classList.contains('floating-ui-editing')) return;
+            if (event.target === handles.resizeHandle) return;
+            clearLongPressTimer();
+            startX = event.clientX;
+            startY = event.clientY;
+            longPressTimer = setTimeout(() => {
+                activateFloatingTarget(target);
+                startDrag(event);
+            }, LONG_PRESS_MS);
+        }, { passive: true, capture: true });
+
+        target.addEventListener('pointermove', (event) => {
+            if (!longPressTimer) return;
+            if (Math.abs(event.clientX - startX) + Math.abs(event.clientY - startY) > 10) {
+                clearLongPressTimer();
+            }
+        }, { passive: true, capture: true });
+
+        target.addEventListener('pointerup', clearLongPressTimer, { passive: true, capture: true });
+        target.addEventListener('pointercancel', clearLongPressTimer, { passive: true, capture: true });
+
+        target.addEventListener('pointerdown', (event) => {
+            if (!target.classList.contains('floating-ui-editing')) return;
+            if (event.target === handles.resizeHandle) return;
+            startDrag(event);
         });
 
-        if (controls.resizeBtn) {
-            controls.resizeBtn.addEventListener('click', () => {
-                const current = readFloatingState(storageKey);
-                const currentSize = current.size || state.size || 'md';
-                const nextSize = SIZE_STEPS[(SIZE_STEPS.indexOf(currentSize) + 1) % SIZE_STEPS.length];
-                const nextState = { ...current, size: nextSize };
-                writeFloatingState(storageKey, nextState);
-                applyFloatingState(target, nextState);
-                requestAnimationFrame(savePosition);
-            });
-        }
+        handles.resizeHandle.addEventListener('pointerdown', (event) => {
+            activateFloatingTarget(target);
+            const rect = target.getBoundingClientRect();
+            resizePointerId = event.pointerId;
+            startX = event.clientX;
+            startY = event.clientY;
+            startScale = Number.parseFloat(target.style.getPropertyValue('--floating-ui-scale')) || 1;
+            startDistance = Math.max(rect.width, rect.height, 24);
+            target.classList.add('floating-ui-resizing');
+            try { handles.resizeHandle.setPointerCapture?.(event.pointerId); } catch (_err) {}
+            global.addEventListener('pointermove', onResizeMove, { passive: false });
+            global.addEventListener('pointerup', onResizeUp);
+            if (event.cancelable) event.preventDefault();
+            event.stopPropagation();
+        });
+
+        global.document.addEventListener('pointerdown', (event) => {
+            if (!target.classList.contains('floating-ui-editing')) return;
+            if (target.contains(event.target)) return;
+            deactivateFloatingTarget(target);
+        }, { passive: true });
 
         global.addEventListener('resize', () => {
             const nextPosition = normalizeFloatingPosition(target);

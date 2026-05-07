@@ -160,6 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let miniMapRefresh = document.getElementById('miniMapRefresh');
         let miniMapTaskIndicators = document.getElementById('miniMapTaskIndicators');
         const locationBar = document.getElementById('locationBar');
+        const topControls = document.querySelector('.top-controls');
         const gameShellPanel = document.getElementById('gameShellPanel');
         const gameShellToggle = document.getElementById('gameShellToggle');
         const gameShellBtn = document.getElementById('gameShellBtn');
@@ -1323,6 +1324,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         function updateLocationText(text) { return AiLabMiniMapUi.updateLocationText(text, { locationInfoEl, locationBar }); }
+
+        function initCustomizableCameraUi() {
+            const targets = [
+                { target: miniMapWrap, storageKey: 'miniMap' },
+                { target: cameraNavigationPanel, storageKey: 'cameraNavigation' },
+                { target: gameShellPanel, storageKey: 'gameShellPanel' },
+                { target: gameHud, storageKey: 'gameHud' },
+                { target: topControls, storageKey: 'locationBar' },
+                { target: taskHudDock, storageKey: 'taskHudDock' },
+                { target: boardStatusCard, storageKey: 'boardStatusCard' },
+                { target: boardMiniMap, storageKey: 'boardMiniMap' },
+                { target: featureDock, storageKey: 'featureDock' },
+                { target: floatingMicBtn, storageKey: 'floatingMicBtn' }
+            ];
+            targets.forEach(({ target, storageKey }) => {
+                if (!target) return;
+                AiLabMiniMapUi.initFloatingUiControls({ target, storageKey });
+            });
+        }
+
         const nearbyTasks = window.AiLabNearbyTasks.createController({
             calculateBearing,
             getMiniMapTaskIndicators: () => miniMapTaskIndicators,
@@ -1389,19 +1410,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (miniMapWrap && miniMapToggle) {
                 AiLabMiniMapUi.initMiniMapToggle({ miniMapToggle, miniMapWrap, miniMapRefresh });
-                AiLabMiniMapUi.initFloatingUiControls({
-                    target: miniMapWrap,
-                    storageKey: 'miniMap',
-                    label: '移動地圖'
-                });
             }
-            if (cameraNavigationPanel) {
-                AiLabMiniMapUi.initFloatingUiControls({
-                    target: cameraNavigationPanel,
-                    storageKey: 'cameraNavigation',
-                    label: '移動導覽'
-                });
-            }
+            initCustomizableCameraUi();
             updateLocationText('定位中...');
             requestLocation();
             if (!window.L) {
