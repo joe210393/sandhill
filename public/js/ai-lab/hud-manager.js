@@ -282,7 +282,7 @@ window.AiLabHudManager = (function() {
             // 不自動彈出景點介紹：與 AR-VIEW 一致，進入後先看到相機畫面，由使用者自行點 📋 查看
         }
 
-        function renderTaskMetrics(distanceMeters = lastTaskDistance, bearing = lastTaskBearing) {
+        function renderTaskMetrics(distanceMeters = null, bearing = null) {
         const {
             featureDockMenu, featureDrawerPanel, taskStatusBox, voicePanel, answerToast,
             hudModeValue, hudStageValue, hudPointsValue, hudBadgesValue, boardStatusCard,
@@ -295,10 +295,16 @@ window.AiLabHudManager = (function() {
             currentBoardMap, photoCaptureModeActive, resetPhotoCaptureState, loadTaskVideo,
             tryAutoPlayTaskBgm, getTaskVideoUrl, exitFormalStoryIntroMode,
             isCurrentQuestTutorialMode, isCurrentQuestDemoMode, taskUsesGps, deviceHeading,
-            lastHeadingUpdateAt, getTutorialMockBearing, getTutorialMockDistance, lastLatLng,
+            lastHeadingUpdateAt, lastTaskDistance, lastTaskBearing, getTutorialMockBearing, getTutorialMockDistance, lastLatLng,
             taskHudDock, taskBearingValue, taskDistanceValue, taskAngleValue, taskCoordsValue, taskStatusLabel
         } = ctx;
 
+            if (!Number.isFinite(distanceMeters) && Number.isFinite(lastTaskDistance)) {
+                distanceMeters = lastTaskDistance;
+            }
+            if (!Number.isFinite(bearing) && Number.isFinite(lastTaskBearing)) {
+                bearing = lastTaskBearing;
+            }
             const tutorialLikeMode = isCurrentQuestTutorialMode() || isCurrentQuestDemoMode();
             const gpsRequired = taskUsesGps(currentTask);
             const angle = (Number.isFinite(bearing) && lastHeadingUpdateAt)

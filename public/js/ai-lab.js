@@ -372,6 +372,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 isCurrentQuestTutorialMode, isCurrentQuestDemoMode, taskUsesGps: window.AiLabTaskRules ? window.AiLabTaskRules.taskUsesGps : null,
                 deviceHeading: geoWatch ? geoWatch.getDeviceHeading() : 0,
                 lastHeadingUpdateAt: geoWatch ? geoWatch.getLastHeadingUpdateAt() : 0,
+                lastTaskDistance: geoWatch ? geoWatch.getLastTaskDistance() : null,
+                lastTaskBearing: geoWatch ? geoWatch.getLastTaskBearing() : null,
                 getTutorialMockBearing, getTutorialMockDistance,
                 lastLatLng: runtimeState.get('lastLatLng'),
                 taskHudDock, taskBearingValue, taskDistanceValue, taskAngleValue, taskCoordsValue, taskStatusLabel,
