@@ -41,6 +41,7 @@ const aiLabLanguageJs = fs.readFileSync(path.join(root, 'public/js/ai-lab/langua
 const aiLabThinkingJs = fs.readFileSync(path.join(root, 'public/js/ai-lab/thinking.js'), 'utf8');
 const aiLabVisionClientJs = fs.readFileSync(path.join(root, 'public/js/ai-lab/vision-client.js'), 'utf8');
 const aiLabVisionQuestionJs = fs.readFileSync(path.join(root, 'public/js/ai-lab/vision-question.js'), 'utf8');
+const aiLabDataUrlJs = fs.readFileSync(path.join(root, 'public/js/ai-lab/data-url.js'), 'utf8');
 const aiLabCameraManagerJs = fs.readFileSync(path.join(root, 'public/js/ai-lab/camera-manager.js'), 'utf8');
 const aiLabTaskMediaJs = fs.readFileSync(path.join(root, 'public/js/ai-lab/task-media.js'), 'utf8');
 const aiLabTaskSubmitJs = fs.readFileSync(path.join(root, 'public/js/ai-lab/task-submit.js'), 'utf8');
@@ -73,6 +74,7 @@ const syntaxCheckedFrontendFiles = [
   'public/js/ai-lab/tutorial-progress.js',
   'public/js/ai-lab/language.js',
   'public/js/ai-lab/photo-capture-utils.js',
+  'public/js/ai-lab/data-url.js',
   'public/js/ai-lab/vision-question.js',
   'public/js/ai-lab/task-submit.js',
   'public/js/ai-lab/hud-manager.js',
@@ -223,6 +225,7 @@ for (const forbidden of forbiddenStateDefinitions) {
 }
 
 const networkScriptIndex = aiLabHtml.indexOf('/js/ai-lab/network.js');
+const dataUrlScriptIndex = aiLabHtml.indexOf('/js/ai-lab/data-url.js');
 const mediaScriptIndex = aiLabHtml.indexOf('/js/ai-lab/media.js');
 const runtimeStateScriptIndex = aiLabHtml.indexOf('/js/ai-lab/runtime-state.js');
 const taskRulesScriptIndex = aiLabHtml.indexOf('/js/ai-lab/task-rules.js');
@@ -261,6 +264,7 @@ const tutorialProgressScriptIndex = aiLabHtml.indexOf('/js/ai-lab/tutorial-progr
 const aiLabScriptIndex = aiLabHtml.indexOf('js/ai-lab.js');
 
 assert.ok(networkScriptIndex > -1, 'ai-lab must load ai-lab/network.js');
+assert.ok(dataUrlScriptIndex > -1, 'ai-lab must load ai-lab/data-url.js');
 assert.ok(mediaScriptIndex > -1, 'ai-lab must load ai-lab/media.js');
 assert.ok(runtimeStateScriptIndex > -1, 'ai-lab must load ai-lab/runtime-state.js');
 assert.ok(taskRulesScriptIndex > -1, 'ai-lab must load ai-lab/task-rules.js');
@@ -299,6 +303,10 @@ assert.ok(questContextScriptIndex > -1, 'ai-lab must load ai-lab/quest-context.j
 assert.ok(tutorialProgressScriptIndex > -1, 'ai-lab must load ai-lab/tutorial-progress.js');
 assert.ok(aiLabScriptIndex > -1, 'ai-lab must load ai-lab.js');
 assert.ok(networkScriptIndex < aiLabScriptIndex, 'ai-lab/network.js must load before ai-lab.js');
+assert.ok(dataUrlScriptIndex < aiLabScriptIndex, 'ai-lab/data-url.js must load before ai-lab.js');
+assert.ok(networkScriptIndex < dataUrlScriptIndex, 'ai-lab/network.js must load before data-url.js');
+assert.ok(dataUrlScriptIndex < taskSubmitScriptIndex, 'ai-lab/data-url.js must load before task-submit.js');
+assert.ok(dataUrlScriptIndex < visionClientScriptIndex, 'ai-lab/data-url.js must load before vision-client.js');
 assert.ok(mediaScriptIndex < aiLabScriptIndex, 'ai-lab/media.js must load before ai-lab.js');
 assert.ok(runtimeStateScriptIndex < aiLabScriptIndex, 'ai-lab/runtime-state.js must load before ai-lab.js');
 assert.ok(mediaScriptIndex < runtimeStateScriptIndex, 'ai-lab/media.js must load before runtime-state.js');
@@ -372,6 +380,24 @@ assert.ok(aiLabLanguageJs.includes('AiLabLanguage'), 'language.js must expose Ai
 assert.ok(aiLabThinkingJs.includes('global.AiLabThinking'), 'thinking.js must expose AiLabThinking');
 assert.ok(aiLabVisionClientJs.includes('global.AiLabVisionClient'), 'vision-client.js must expose AiLabVisionClient');
 assert.ok(aiLabVisionQuestionJs.includes('AiLabVisionQuestion'), 'vision-question.js must expose AiLabVisionQuestion');
+assert.ok(aiLabDataUrlJs.includes('global.AiLabDataUrl'), 'data-url.js must expose AiLabDataUrl');
+assert.ok(aiLabDataUrlJs.includes('function dataUrlToBlob'), 'data-url.js must expose dataUrlToBlob');
+assert.ok(
+  aiLabVisionClientJs.includes('AiLabDataUrl?.dataUrlToBlob'),
+  'vision-client.js must convert canvas data URLs via AiLabDataUrl.dataUrlToBlob'
+);
+assert.ok(
+  aiLabVisionQuestionJs.includes('AiLabDataUrl?.dataUrlToBlob'),
+  'vision-question.js must convert canvas data URLs via AiLabDataUrl.dataUrlToBlob'
+);
+assert.ok(
+  !/fetch\(photoDataUrl\)/.test(aiLabVisionClientJs),
+  'vision-client.js must not fetch canvas data URLs directly'
+);
+assert.ok(
+  !/fetch\(photoDataUrl\)/.test(aiLabVisionQuestionJs),
+  'vision-question.js must not fetch canvas data URLs directly'
+);
 assert.ok(aiLabCameraManagerJs.includes('AiLabCameraManager'), 'camera-manager.js must expose AiLabCameraManager');
 assert.ok(aiLabTaskMediaJs.includes('AiLabTaskMedia'), 'task-media.js must expose AiLabTaskMedia');
 assert.ok(aiLabTaskSubmitJs.includes('AiLabTaskSubmit'), 'task-submit.js must expose AiLabTaskSubmit');
@@ -824,14 +850,18 @@ assert.ok(
   'task-submit.js must not gate showQueryTransit / hideQueryTransit behind typeof checks (they are always passed in)'
 );
 
-// dataUrlToBlob must live inside task-submit.js (its only consumer) and no longer be passed via ctx
+// dataUrlToBlob lives in data-url.js and is reused by task-submit / vision modules
 assert.ok(
-  /async\s+function\s+dataUrlToBlob\s*\(/.test(aiLabTaskSubmitSrc),
-  'task-submit.js must own dataUrlToBlob locally instead of receiving it through ctx'
+  aiLabDataUrlJs.includes('function dataUrlToBlob'),
+  'data-url.js must own dataUrlToBlob for AI image uploads'
+);
+assert.ok(
+  aiLabTaskSubmitSrc.includes('AiLabDataUrl?.dataUrlToBlob'),
+  'task-submit.js must delegate dataUrlToBlob to AiLabDataUrl'
 );
 assert.ok(
   !aiLabJs.includes('async function dataUrlToBlob'),
-  'ai-lab.js must not redeclare dataUrlToBlob (moved into task-submit.js)'
+  'ai-lab.js must not redeclare dataUrlToBlob (moved into data-url.js)'
 );
 assert.ok(
   !/buildSubmitContext[\s\S]*?dataUrlToBlob/.test(aiLabJs),

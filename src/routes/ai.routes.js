@@ -1,11 +1,26 @@
 const { fetchAIWithRetry, getAiConfig } = require('../services/ai-client');
+const { MulterError } = require('../services/uploads');
 
 function registerAiRoutes(app, { uploadTemp }) {
-  app.post('/api/vision-test', uploadTemp.single('image'), async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ success: false, message: '未上傳圖片' });
+  app.post('/api/vision-test', (req, res) => {
+    uploadTemp.single('image')(req, res, async (uploadErr) => {
+      if (uploadErr) {
+        if (uploadErr instanceof MulterError) {
+          if (uploadErr.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ success: false, message: '圖片大小超過 10MB 限制，請重新拍攝或縮小畫面' });
+          }
+          if (uploadErr.code === 'LIMIT_FILE_COUNT') {
+            return res.status(400).json({ success: false, message: '一次只能上傳一張圖片' });
+          }
+        }
+        console.error('❌ AI 圖片上傳失敗:', uploadErr);
+        return res.status(400).json({ success: false, message: '圖片無法接收，請重新拍攝後再試' });
       }
+
+      try {
+        if (!req.file || !req.file.buffer?.length) {
+          return res.status(400).json({ success: false, message: '未上傳圖片' });
+        }
 
       const base64Image = req.file.buffer.toString('base64');
       const dataUrl = `data:${req.file.mimetype};base64,${base64Image}`;
@@ -105,16 +120,17 @@ function registerAiRoutes(app, { uploadTemp }) {
       );
       const aiData = await aiResponse.json();
       return res.json({ success: true, description: aiData.choices?.[0]?.message?.content || '', skip_rag: true });
-    } catch (err) {
-      console.error('❌ AI 辨識失敗:', err);
-      if (err.stack) console.error('❌ Stack:', err.stack);
-      return res.status(500).json({
-        success: false,
-        message: 'AI 暫時無法連線，請確認後端設定',
-        error: err.message,
-        ...(process.env.NODE_ENV !== 'production' && err.stack && { stack: err.stack })
-      });
-    }
+      } catch (err) {
+        console.error('❌ AI 辨識失敗:', err);
+        if (err.stack) console.error('❌ Stack:', err.stack);
+        return res.status(500).json({
+          success: false,
+          message: 'AI 暫時無法連線，請確認後端設定',
+          error: err.message,
+          ...(process.env.NODE_ENV !== 'production' && err.stack && { stack: err.stack })
+        });
+      }
+    });
   });
 
   app.get('/api/plant-vision-prompt', (req, res) => {

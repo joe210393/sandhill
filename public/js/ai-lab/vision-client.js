@@ -62,9 +62,27 @@
     });
   }
 
+  async function readVisionErrorMessage(apiRes, fallbackMessage) {
+    try {
+      const errData = await apiRes.json();
+      return errData.message || errData.error || fallbackMessage;
+    } catch (_) {
+      try {
+        const errText = await apiRes.text();
+        return errText ? errText.slice(0, 200) : fallbackMessage;
+      } catch (readErr) {
+        return fallbackMessage;
+      }
+    }
+  }
+
   async function analyzePhotos(photoDataUrl, systemPrompt, userPrompt, gpsData, opts) {
-    const response = await fetch(photoDataUrl);
-    const blob = await response.blob();
+    const dataUrlToBlob = global.AiLabDataUrl?.dataUrlToBlob;
+    if (typeof dataUrlToBlob !== 'function') {
+      throw new Error('圖片轉換模組尚未載入，請重新整理頁面');
+    }
+
+    const blob = await dataUrlToBlob(photoDataUrl);
     const formData = new FormData();
     formData.append('image', blob, 'capture.jpg');
     formData.append('systemPrompt', systemPrompt);
@@ -85,7 +103,7 @@
     });
 
     if (!apiRes.ok) {
-      throw new Error('照片分析失敗');
+      throw new Error(await readVisionErrorMessage(apiRes, '照片分析失敗'));
     }
 
     return await apiRes.json();

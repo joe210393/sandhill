@@ -2,8 +2,11 @@
 window.AiLabTaskSubmit = (function() {
 
     async function dataUrlToBlob(dataUrl) {
-        const response = await fetch(dataUrl);
-        return response.blob();
+        const convert = window.AiLabDataUrl?.dataUrlToBlob;
+        if (typeof convert !== 'function') {
+            throw new Error('圖片轉換模組尚未載入，請重新整理頁面');
+        }
+        return convert(dataUrl);
     }
 
     function triggerShakeError() {
