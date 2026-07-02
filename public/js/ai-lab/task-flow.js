@@ -117,7 +117,7 @@
             tempCtx.fillStyle = '#ffffff';
             tempCtx.font = 'bold 56px sans-serif';
             tempCtx.textAlign = 'center';
-            tempCtx.fillText('沙丘教學模式', tempCanvas.width / 2, 420);
+            tempCtx.fillText('樂樂園教學模式', tempCanvas.width / 2, 420);
             tempCtx.font = '36px sans-serif';
             tempCtx.fillStyle = 'rgba(255,255,255,0.82)';
             tempCtx.fillText('工作室環境沒有相機，已改用教學快照。', tempCanvas.width / 2, 490);
@@ -393,7 +393,7 @@
                     await showNpcDialog({
                         speakerKey: 'host',
                         mood: '教學模式通關',
-                        text: '沙丘已替你完成這一步報到，現在直接前往下一段劇情。',
+                        text: '樂樂園已替你完成這一步報到，現在直接前往下一段劇情。',
                         buttonLabel: '前往下一關'
                     });
                     scheduleStoryReloadAfterCompletion();
@@ -407,7 +407,7 @@
                     await showNpcDialog({
                         speakerKey: 'host',
                         mood: '教學模式通關',
-                        text: '沙丘已替你完成這一步報到，現在直接前往下一段劇情。',
+                        text: '樂樂園已替你完成這一步報到，現在直接前往下一段劇情。',
                         buttonLabel: '前往下一關'
                     });
                     scheduleStoryReloadAfterCompletion();

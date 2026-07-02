@@ -87,7 +87,7 @@
                     speakerKey: get('currentStoryCompleted') ? 'host' : getStoryIntroSpeaker(task),
                     mood: get('currentStoryCompleted') ? '劇情完結' : `第 ${task.quest_order || '?'} 關`,
                     text: get('currentStoryCompleted')
-                        ? '這條劇情主線已經完整收束。你可以留在探索艙回味剛才的旅程，或回首頁切換其他玩法。'
+                        ? '這條劇情主線已經完整收束。你可以留在冒險艙回味剛才的旅程，或回首頁切換其他玩法。'
                         : buildStoryIntroDialogue(task)
                 });
             }
@@ -372,7 +372,7 @@
             if (localStorage.getItem('tutorial_helper_shown')) return;
             localStorage.setItem('tutorial_helper_shown', 'true');
             const steps = [
-                { title: '歡迎來到沙丘', text: '這是一個結合 AI 與實境的探索遊戲。讓我來為你介紹畫面上的功能吧！', icon: 'info' },
+                { title: '歡迎來到樂樂園', text: '這是一個結合 AI 與實境的探索遊戲。讓我來為你介紹畫面上的功能吧！', icon: 'info' },
                 { title: '任務面板', text: '畫面左上角的面板會顯示你當前的任務目標與進度。', icon: 'info' },
                 { title: '迷你地圖', text: '右下角的迷你地圖可以幫助你確認目前的位置與接下來的路線。', icon: 'info' },
                 { title: '功能選單', text: '點擊右側的功能按鈕，可以展開更多選項，例如切換視角、查看背包等。', icon: 'info' },

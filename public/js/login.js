@@ -26,7 +26,7 @@ if (formUser) {
         window.location.href = '/index.html';
       }
     } else {
-      document.getElementById('loginMsgUser').textContent = data.message || '進入沙丘失敗';
+      document.getElementById('loginMsgUser').textContent = data.message || '進入樂樂園失敗';
     }
   };
 }

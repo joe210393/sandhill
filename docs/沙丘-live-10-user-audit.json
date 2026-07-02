@@ -5,31 +5,31 @@
   "entries": [
     {
       "id": 66,
-      "title": "沙丘教學｜潮聲巡航線",
+      "title": "樂樂園教學｜潮聲巡航線",
       "mode_type": "story_campaign",
       "experience_mode": "tutorial"
     },
     {
       "id": 67,
-      "title": "沙丘教學｜燈塔搜查線",
+      "title": "樂樂園教學｜燈塔搜查線",
       "mode_type": "story_campaign",
       "experience_mode": "tutorial"
     },
     {
       "id": 68,
-      "title": "沙丘教學｜文具辨識線",
+      "title": "樂樂園教學｜文具辨識線",
       "mode_type": "story_campaign",
       "experience_mode": "tutorial"
     },
     {
       "id": 69,
-      "title": "沙丘教學｜濱海命運棋盤",
+      "title": "樂樂園教學｜濱海命運棋盤",
       "mode_type": "board_game",
       "experience_mode": "tutorial"
     },
     {
       "id": 70,
-      "title": "沙丘教學｜燈塔競速棋盤",
+      "title": "樂樂園教學｜燈塔競速棋盤",
       "mode_type": "board_game",
       "experience_mode": "tutorial"
     }
@@ -41,7 +41,7 @@
       "entryRuns": [
         {
           "entryId": 66,
-          "entryTitle": "沙丘教學｜潮聲巡航線",
+          "entryTitle": "樂樂園教學｜潮聲巡航線",
           "mode": "story_campaign",
           "status": "passed",
           "steps": [
@@ -86,7 +86,7 @@
         },
         {
           "entryId": 67,
-          "entryTitle": "沙丘教學｜燈塔搜查線",
+          "entryTitle": "樂樂園教學｜燈塔搜查線",
           "mode": "story_campaign",
           "status": "passed",
           "steps": [
@@ -131,7 +131,7 @@
         },
         {
           "entryId": 68,
-          "entryTitle": "沙丘教學｜文具辨識線",
+          "entryTitle": "樂樂園教學｜文具辨識線",
           "mode": "story_campaign",
           "status": "failed",
           "steps": [],
@@ -139,7 +139,7 @@
         },
         {
           "entryId": 69,
-          "entryTitle": "沙丘教學｜濱海命運棋盤",
+          "entryTitle": "樂樂園教學｜濱海命運棋盤",
           "mode": "board_game",
           "status": "passed",
           "steps": [
@@ -186,7 +186,7 @@
         },
         {
           "entryId": 70,
-          "entryTitle": "沙丘教學｜燈塔競速棋盤",
+          "entryTitle": "樂樂園教學｜燈塔競速棋盤",
           "mode": "board_game",
           "status": "passed",
           "steps": [
@@ -233,7 +233,7 @@
       "entryRuns": [
         {
           "entryId": 66,
-          "entryTitle": "沙丘教學｜潮聲巡航線",
+          "entryTitle": "樂樂園教學｜潮聲巡航線",
           "mode": "story_campaign",
           "status": "passed",
           "steps": [
@@ -278,7 +278,7 @@
         },
         {
           "entryId": 67,
-          "entryTitle": "沙丘教學｜燈塔搜查線",
+          "entryTitle": "樂樂園教學｜燈塔搜查線",
           "mode": "story_campaign",
           "status": "passed",
           "steps": [
@@ -323,7 +323,7 @@
         },
         {
           "entryId": 68,
-          "entryTitle": "沙丘教學｜文具辨識線",
+          "entryTitle": "樂樂園教學｜文具辨識線",
           "mode": "story_campaign",
           "status": "failed",
           "steps": [],
@@ -331,7 +331,7 @@
         },
         {
           "entryId": 69,
-          "entryTitle": "沙丘教學｜濱海命運棋盤",
+          "entryTitle": "樂樂園教學｜濱海命運棋盤",
           "mode": "board_game",
           "status": "passed",
           "steps": [
@@ -378,7 +378,7 @@
         },
         {
           "entryId": 70,
-          "entryTitle": "沙丘教學｜燈塔競速棋盤",
+          "entryTitle": "樂樂園教學｜燈塔競速棋盤",
           "mode": "board_game",
           "status": "passed",
           "steps": [
@@ -425,7 +425,7 @@
       "entryRuns": [
         {
           "entryId": 66,
-          "entryTitle": "沙丘教學｜潮聲巡航線",
+          "entryTitle": "樂樂園教學｜潮聲巡航線",
           "mode": "story_campaign",
           "status": "passed",
           "steps": [
@@ -470,7 +470,7 @@
         },
         {
           "entryId": 67,
-          "entryTitle": "沙丘教學｜燈塔搜查線",
+          "entryTitle": "樂樂園教學｜燈塔搜查線",
           "mode": "story_campaign",
           "status": "passed",
           "steps": [
@@ -515,7 +515,7 @@
         },
         {
           "entryId": 68,
-          "entryTitle": "沙丘教學｜文具辨識線",
+          "entryTitle": "樂樂園教學｜文具辨識線",
           "mode": "story_campaign",
           "status": "failed",
           "steps": [],
@@ -523,7 +523,7 @@
         },
         {
           "entryId": 69,
-          "entryTitle": "沙丘教學｜濱海命運棋盤",
+          "entryTitle": "樂樂園教學｜濱海命運棋盤",
           "mode": "board_game",
           "status": "passed",
           "steps": [
@@ -570,7 +570,7 @@
         },
         {
           "entryId": 70,
-          "entryTitle": "沙丘教學｜燈塔競速棋盤",
+          "entryTitle": "樂樂園教學｜燈塔競速棋盤",
           "mode": "board_game",
           "status": "passed",
           "steps": [
@@ -617,7 +617,7 @@
       "entryRuns": [
         {
           "entryId": 66,
-          "entryTitle": "沙丘教學｜潮聲巡航線",
+          "entryTitle": "樂樂園教學｜潮聲巡航線",
           "mode": "story_campaign",
           "status": "passed",
           "steps": [
@@ -662,7 +662,7 @@
         },
         {
           "entryId": 67,
-          "entryTitle": "沙丘教學｜燈塔搜查線",
+          "entryTitle": "樂樂園教學｜燈塔搜查線",
           "mode": "story_campaign",
           "status": "passed",
           "steps": [
@@ -707,7 +707,7 @@
         },
         {
           "entryId": 68,
-          "entryTitle": "沙丘教學｜文具辨識線",
+          "entryTitle": "樂樂園教學｜文具辨識線",
           "mode": "story_campaign",
           "status": "failed",
           "steps": [],
@@ -715,7 +715,7 @@
         },
         {
           "entryId": 69,
-          "entryTitle": "沙丘教學｜濱海命運棋盤",
+          "entryTitle": "樂樂園教學｜濱海命運棋盤",
           "mode": "board_game",
           "status": "passed",
           "steps": [
@@ -762,7 +762,7 @@
         },
         {
           "entryId": 70,
-          "entryTitle": "沙丘教學｜燈塔競速棋盤",
+          "entryTitle": "樂樂園教學｜燈塔競速棋盤",
           "mode": "board_game",
           "status": "passed",
           "steps": [
@@ -809,7 +809,7 @@
       "entryRuns": [
         {
           "entryId": 66,
-          "entryTitle": "沙丘教學｜潮聲巡航線",
+          "entryTitle": "樂樂園教學｜潮聲巡航線",
           "mode": "story_campaign",
           "status": "passed",
           "steps": [
@@ -854,7 +854,7 @@
         },
         {
           "entryId": 67,
-          "entryTitle": "沙丘教學｜燈塔搜查線",
+          "entryTitle": "樂樂園教學｜燈塔搜查線",
           "mode": "story_campaign",
           "status": "passed",
           "steps": [
@@ -899,7 +899,7 @@
         },
         {
           "entryId": 68,
-          "entryTitle": "沙丘教學｜文具辨識線",
+          "entryTitle": "樂樂園教學｜文具辨識線",
           "mode": "story_campaign",
           "status": "failed",
           "steps": [],
@@ -907,7 +907,7 @@
         },
         {
           "entryId": 69,
-          "entryTitle": "沙丘教學｜濱海命運棋盤",
+          "entryTitle": "樂樂園教學｜濱海命運棋盤",
           "mode": "board_game",
           "status": "passed",
           "steps": [
@@ -954,7 +954,7 @@
         },
         {
           "entryId": 70,
-          "entryTitle": "沙丘教學｜燈塔競速棋盤",
+          "entryTitle": "樂樂園教學｜燈塔競速棋盤",
           "mode": "board_game",
           "status": "passed",
           "steps": [
@@ -1001,7 +1001,7 @@
       "entryRuns": [
         {
           "entryId": 66,
-          "entryTitle": "沙丘教學｜潮聲巡航線",
+          "entryTitle": "樂樂園教學｜潮聲巡航線",
           "mode": "story_campaign",
           "status": "passed",
           "steps": [
@@ -1046,7 +1046,7 @@
         },
         {
           "entryId": 67,
-          "entryTitle": "沙丘教學｜燈塔搜查線",
+          "entryTitle": "樂樂園教學｜燈塔搜查線",
           "mode": "story_campaign",
           "status": "passed",
           "steps": [
@@ -1091,7 +1091,7 @@
         },
         {
           "entryId": 68,
-          "entryTitle": "沙丘教學｜文具辨識線",
+          "entryTitle": "樂樂園教學｜文具辨識線",
           "mode": "story_campaign",
           "status": "failed",
           "steps": [],
@@ -1099,7 +1099,7 @@
         },
         {
           "entryId": 69,
-          "entryTitle": "沙丘教學｜濱海命運棋盤",
+          "entryTitle": "樂樂園教學｜濱海命運棋盤",
           "mode": "board_game",
           "status": "passed",
           "steps": [
@@ -1146,7 +1146,7 @@
         },
         {
           "entryId": 70,
-          "entryTitle": "沙丘教學｜燈塔競速棋盤",
+          "entryTitle": "樂樂園教學｜燈塔競速棋盤",
           "mode": "board_game",
           "status": "passed",
           "steps": [
@@ -1193,7 +1193,7 @@
       "entryRuns": [
         {
           "entryId": 66,
-          "entryTitle": "沙丘教學｜潮聲巡航線",
+          "entryTitle": "樂樂園教學｜潮聲巡航線",
           "mode": "story_campaign",
           "status": "passed",
           "steps": [
@@ -1238,7 +1238,7 @@
         },
         {
           "entryId": 67,
-          "entryTitle": "沙丘教學｜燈塔搜查線",
+          "entryTitle": "樂樂園教學｜燈塔搜查線",
           "mode": "story_campaign",
           "status": "passed",
           "steps": [
@@ -1283,7 +1283,7 @@
         },
         {
           "entryId": 68,
-          "entryTitle": "沙丘教學｜文具辨識線",
+          "entryTitle": "樂樂園教學｜文具辨識線",
           "mode": "story_campaign",
           "status": "failed",
           "steps": [],
@@ -1291,7 +1291,7 @@
         },
         {
           "entryId": 69,
-          "entryTitle": "沙丘教學｜濱海命運棋盤",
+          "entryTitle": "樂樂園教學｜濱海命運棋盤",
           "mode": "board_game",
           "status": "passed",
           "steps": [
@@ -1338,7 +1338,7 @@
         },
         {
           "entryId": 70,
-          "entryTitle": "沙丘教學｜燈塔競速棋盤",
+          "entryTitle": "樂樂園教學｜燈塔競速棋盤",
           "mode": "board_game",
           "status": "passed",
           "steps": [
@@ -1385,7 +1385,7 @@
       "entryRuns": [
         {
           "entryId": 66,
-          "entryTitle": "沙丘教學｜潮聲巡航線",
+          "entryTitle": "樂樂園教學｜潮聲巡航線",
           "mode": "story_campaign",
           "status": "passed",
           "steps": [
@@ -1430,7 +1430,7 @@
         },
         {
           "entryId": 67,
-          "entryTitle": "沙丘教學｜燈塔搜查線",
+          "entryTitle": "樂樂園教學｜燈塔搜查線",
           "mode": "story_campaign",
           "status": "passed",
           "steps": [
@@ -1475,7 +1475,7 @@
         },
         {
           "entryId": 68,
-          "entryTitle": "沙丘教學｜文具辨識線",
+          "entryTitle": "樂樂園教學｜文具辨識線",
           "mode": "story_campaign",
           "status": "failed",
           "steps": [],
@@ -1483,7 +1483,7 @@
         },
         {
           "entryId": 69,
-          "entryTitle": "沙丘教學｜濱海命運棋盤",
+          "entryTitle": "樂樂園教學｜濱海命運棋盤",
           "mode": "board_game",
           "status": "passed",
           "steps": [
@@ -1530,7 +1530,7 @@
         },
         {
           "entryId": 70,
-          "entryTitle": "沙丘教學｜燈塔競速棋盤",
+          "entryTitle": "樂樂園教學｜燈塔競速棋盤",
           "mode": "board_game",
           "status": "passed",
           "steps": [
@@ -1577,7 +1577,7 @@
       "entryRuns": [
         {
           "entryId": 66,
-          "entryTitle": "沙丘教學｜潮聲巡航線",
+          "entryTitle": "樂樂園教學｜潮聲巡航線",
           "mode": "story_campaign",
           "status": "passed",
           "steps": [
@@ -1622,7 +1622,7 @@
         },
         {
           "entryId": 67,
-          "entryTitle": "沙丘教學｜燈塔搜查線",
+          "entryTitle": "樂樂園教學｜燈塔搜查線",
           "mode": "story_campaign",
           "status": "passed",
           "steps": [
@@ -1667,7 +1667,7 @@
         },
         {
           "entryId": 68,
-          "entryTitle": "沙丘教學｜文具辨識線",
+          "entryTitle": "樂樂園教學｜文具辨識線",
           "mode": "story_campaign",
           "status": "failed",
           "steps": [],
@@ -1675,7 +1675,7 @@
         },
         {
           "entryId": 69,
-          "entryTitle": "沙丘教學｜濱海命運棋盤",
+          "entryTitle": "樂樂園教學｜濱海命運棋盤",
           "mode": "board_game",
           "status": "passed",
           "steps": [
@@ -1722,7 +1722,7 @@
         },
         {
           "entryId": 70,
-          "entryTitle": "沙丘教學｜燈塔競速棋盤",
+          "entryTitle": "樂樂園教學｜燈塔競速棋盤",
           "mode": "board_game",
           "status": "passed",
           "steps": [
@@ -1769,7 +1769,7 @@
       "entryRuns": [
         {
           "entryId": 66,
-          "entryTitle": "沙丘教學｜潮聲巡航線",
+          "entryTitle": "樂樂園教學｜潮聲巡航線",
           "mode": "story_campaign",
           "status": "passed",
           "steps": [
@@ -1814,7 +1814,7 @@
         },
         {
           "entryId": 67,
-          "entryTitle": "沙丘教學｜燈塔搜查線",
+          "entryTitle": "樂樂園教學｜燈塔搜查線",
           "mode": "story_campaign",
           "status": "passed",
           "steps": [
@@ -1859,7 +1859,7 @@
         },
         {
           "entryId": 68,
-          "entryTitle": "沙丘教學｜文具辨識線",
+          "entryTitle": "樂樂園教學｜文具辨識線",
           "mode": "story_campaign",
           "status": "failed",
           "steps": [],
@@ -1867,7 +1867,7 @@
         },
         {
           "entryId": 69,
-          "entryTitle": "沙丘教學｜濱海命運棋盤",
+          "entryTitle": "樂樂園教學｜濱海命運棋盤",
           "mode": "board_game",
           "status": "passed",
           "steps": [
@@ -1914,7 +1914,7 @@
         },
         {
           "entryId": 70,
-          "entryTitle": "沙丘教學｜燈塔競速棋盤",
+          "entryTitle": "樂樂園教學｜燈塔競速棋盤",
           "mode": "board_game",
           "status": "passed",
           "steps": [
@@ -1958,23 +1958,23 @@
   ],
   "completedAt": "2026-04-09T09:32:15.137Z",
   "summary": {
-    "沙丘教學｜潮聲巡航線": {
+    "樂樂園教學｜潮聲巡航線": {
       "passedUsers": 10,
       "failedUsers": 0
     },
-    "沙丘教學｜燈塔搜查線": {
+    "樂樂園教學｜燈塔搜查線": {
       "passedUsers": 10,
       "failedUsers": 0
     },
-    "沙丘教學｜文具辨識線": {
+    "樂樂園教學｜文具辨識線": {
       "passedUsers": 0,
       "failedUsers": 10
     },
-    "沙丘教學｜濱海命運棋盤": {
+    "樂樂園教學｜濱海命運棋盤": {
       "passedUsers": 10,
       "failedUsers": 0
     },
-    "沙丘教學｜燈塔競速棋盤": {
+    "樂樂園教學｜燈塔競速棋盤": {
       "passedUsers": 10,
       "failedUsers": 0
     }

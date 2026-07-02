@@ -1,11 +1,11 @@
 {
-  "name": "沙丘",
-  "short_name": "沙丘",
-  "description": "AI 驅動的戶外實境關卡遊戲平台",
+  "name": "樂樂園",
+  "short_name": "樂樂園",
+  "description": "泰雅文化 AI 戶外實境關卡遊戲平台",
   "start_url": "/index.html#gameEntries",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#2196f3",
+  "theme_color": "#5c3d1e",
   "orientation": "portrait-primary",
   "icons": [
     {
@@ -32,9 +32,9 @@
       "icons": [{ "src": "/images/mascot.png", "sizes": "192x192" }]
     },
     {
-      "name": "海底探索艙",
-      "short_name": "探索艙",
-      "description": "直接進入沙丘的主遊戲介面",
+      "name": "冒險艙",
+      "short_name": "冒險艙",
+      "description": "直接進入樂樂園的主遊戲介面",
       "url": "/ai-lab.html",
       "icons": [{ "src": "/images/mascot.png", "sizes": "192x192" }]
     }

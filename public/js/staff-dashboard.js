@@ -1,5 +1,5 @@
 // ============================================================
-// staff-dashboard-v2.js — 沙丘內容控制台 V2
+// staff-dashboard-v2.js — 樂樂園內容控制台 V2
 // Sidebar + Drill-down + Right Drawer architecture
 // Backend API unchanged — only presentation layer refactored
 // ============================================================

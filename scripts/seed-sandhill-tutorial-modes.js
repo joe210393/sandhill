@@ -3,8 +3,8 @@ const { getDbConfig } = require('../db-config');
 
 const DB_CONFIG = getDbConfig();
 
-const STORY_TITLE = '沙丘教學模式｜手機流程導覽';
-const BOARD_TITLE = '沙丘教學模式｜大富翁流程導覽';
+const STORY_TITLE = '樂樂園教學模式｜手機流程導覽';
+const BOARD_TITLE = '樂樂園教學模式｜大富翁流程導覽';
 const BASE_LAT = 24.6782946;
 const BASE_LNG = 121.7602662;
 
@@ -92,7 +92,7 @@ async function insertBoardTutorialTasks(conn, questChainId) {
       validation_mode: 'ai_score',
       ai_config: {
         score_subject: 'tutorial_board_photo',
-        system_prompt: '你是沙丘大富翁教學線的裁判。',
+        system_prompt: '你是樂樂園大富翁教學線的裁判。',
         user_prompt: '請查看玩家上傳的教學照片。'
       },
       pass_criteria: { min_score: 1 },
@@ -111,7 +111,7 @@ async function insertBoardTutorialTasks(conn, questChainId) {
       options: ['找一個特定物件', '拍一張團體照', '直接往前衝'],
       correct_answer: '找一個特定物件',
       stage_intro: '潮聲想知道你比較偏好哪一種玩法路線，先做一個選擇。',
-      description: '任選一個你現在想玩的模式，沙丘會記住你的選擇並帶你繼續前進。',
+      description: '任選一個你現在想玩的模式，樂樂園會記住你的選擇並帶你繼續前進。',
       hint_text: '教學模式：任意選一個都會通關。',
       guide_content: '這一格是選擇題玩法示範。',
       story_context: '冒險風格可以不同，但旅程會繼續。'
@@ -137,7 +137,7 @@ async function insertBoardTutorialTasks(conn, questChainId) {
       validation_mode: 'ai_score',
       ai_config: {
         score_subject: 'tutorial_board_photo',
-        system_prompt: '你是沙丘大富翁教學線的裁判。',
+        system_prompt: '你是樂樂園大富翁教學線的裁判。',
         user_prompt: '請查看玩家上傳的教學照片。'
       },
       pass_criteria: { min_score: 1 },
@@ -155,7 +155,7 @@ async function insertBoardTutorialTasks(conn, questChainId) {
       validation_mode: 'manual',
       correct_answer: '12',
       stage_intro: '潮聲把一個小鎖箱放到你面前，請輸入任意數字體驗解鎖流程。',
-      description: '任意轉出一組數字，沙丘會把它當成這次教學解鎖結果。',
+      description: '任意轉出一組數字，樂樂園會把它當成這次教學解鎖結果。',
       hint_text: '教學模式：任意密碼都會先放行。',
       guide_content: '這一格示範數字鎖與解鎖型玩法。',
       story_context: '終點前要先解開一個象徵性的鎖。'
@@ -168,7 +168,7 @@ async function insertBoardTutorialTasks(conn, questChainId) {
       validation_mode: 'ai_score',
       ai_config: {
         score_subject: 'tutorial_board_photo',
-        system_prompt: '你是沙丘大富翁教學線的裁判。',
+        system_prompt: '你是樂樂園大富翁教學線的裁判。',
         user_prompt: '請查看玩家上傳的教學照片。'
       },
       pass_criteria: { min_score: 1 },
@@ -233,7 +233,7 @@ async function insertBoardTutorialMap(conn, questChainId, taskIds) {
      VALUES (?, ?, ?, 'tutorial_board', '/images/banner.png', ?, ?, 18, 1, 14, 1, 3, 0, FALSE, 120, TRUE, ?, 'codex')`,
     [
       questChainId,
-      '沙丘教學棋盤｜一步一步走完大富翁',
+      '樂樂園教學棋盤｜一步一步走完大富翁',
       '這是一張專門拿來做手機教學的大富翁棋盤。骰子會在 1 到 3 點之間隨機滾動，讓你能一次測到多種挑戰格、事件格與終點節奏。',
       BASE_LAT,
       BASE_LNG,

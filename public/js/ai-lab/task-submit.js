@@ -52,7 +52,7 @@ window.AiLabTaskSubmit = (function() {
             fd.append('photo', photoInput.files[0]);
         }
         ctx.answerMessage.textContent = '📤 上傳照片中...';
-        ctx.showQueryTransit('正在將照片上傳至探索艙資料庫...');
+        ctx.showQueryTransit('正在將照片上傳至冒險艙資料庫...');
         let uploadData;
         try {
             uploadData = await ctx.requestJson('/api/upload', { method: 'POST', body: fd }, '上傳照片');
@@ -93,7 +93,7 @@ window.AiLabTaskSubmit = (function() {
             await ctx.showNpcDialog({
                 speakerKey: 'rescue',
                 mood: '連線中斷',
-                text: `海羽偵測到探索艙目前沒有成功送出這張照片。\n\n${err.message}\n\n先確認網路或重新整理後再試一次。`
+                text: `海羽偵測到冒險艙目前沒有成功送出這張照片。\n\n${err.message}\n\n先確認網路或重新整理後再試一次。`
             });
             ctx.btnAnswerSubmit.disabled = false;
             return;
@@ -242,7 +242,7 @@ window.AiLabTaskSubmit = (function() {
             await ctx.completeBoardTurn(true, {
                 speakerKey: ctx.currentTask.task_type === 'number' ? 'judge' : 'lore',
                 mood: '教學模式通關',
-                text: `沙丘已記錄你的操作：「${answer || '已提交'}」。\n\n教學模式先替你通過這一步，讓你繼續往下走。`,
+                text: `樂樂園已記錄你的操作：「${answer || '已提交'}」。\n\n教學模式先替你通過這一步，讓你繼續往下走。`,
                 autoCloseMs: 2400
             });
         } else {
@@ -254,7 +254,7 @@ window.AiLabTaskSubmit = (function() {
             await ctx.showNpcDialog({
                 speakerKey: 'judge',
                 mood: '教學模式通關',
-                text: `沙丘已記錄你的操作：「${answer || '已提交'}」。\n\n教學模式先替你通過這一步，讓你繼續往下走。`,
+                text: `樂樂園已記錄你的操作：「${answer || '已提交'}」。\n\n教學模式先替你通過這一步，讓你繼續往下走。`,
                 buttonLabel: '繼續前進'
             });
             ctx.scheduleStoryReloadAfterCompletion();
@@ -287,7 +287,7 @@ window.AiLabTaskSubmit = (function() {
 
         ctx.btnAnswerSubmit.disabled = true;
         ctx.answerMessage.textContent = hasChoiceField ? '✅ 已送出答案，資料確認中...' : '⏳ 驗證中...';
-        ctx.showQueryTransit(hasChoiceField ? '已收到你的答案，正在確認是否通關...' : '正在將結果送回沙丘...');
+        ctx.showQueryTransit(hasChoiceField ? '已收到你的答案，正在確認是否通關...' : '正在將結果送回樂樂園...');
         let data;
         try {
             data = await ctx.requestJson(`/api/user-tasks/${ctx.currentUserTaskId}/answer`, {
@@ -301,7 +301,7 @@ window.AiLabTaskSubmit = (function() {
             await ctx.showNpcDialog({
                 speakerKey: 'rescue',
                 mood: '送出失敗',
-                text: `海羽沒能把這份答案成功送進探索艙。\n\n${err.message}\n\n請稍後再試一次。`
+                text: `海羽沒能把這份答案成功送進冒險艙。\n\n${err.message}\n\n請稍後再試一次。`
             });
             ctx.btnAnswerSubmit.disabled = false;
             return;
@@ -451,7 +451,7 @@ window.AiLabTaskSubmit = (function() {
                 await ctx.completeBoardTurn(true, {
                     speakerKey: 'judge',
                     mood: '教學解鎖',
-                    text: `沙丘已記錄這組密碼：「${ctx.getLockCode()}」。\n\n教學模式先替你通過這一格，讓你繼續往前。`,
+                    text: `樂樂園已記錄這組密碼：「${ctx.getLockCode()}」。\n\n教學模式先替你通過這一格，讓你繼續往前。`,
                     autoCloseMs: 2400
                 });
             } else {
@@ -463,7 +463,7 @@ window.AiLabTaskSubmit = (function() {
                 await ctx.showNpcDialog({
                     speakerKey: 'judge',
                     mood: '教學解鎖',
-                    text: `沙丘已記錄這組密碼：「${ctx.getLockCode()}」。\n\n教學模式先替你通過這一關，讓你繼續往下走。`,
+                    text: `樂樂園已記錄這組密碼：「${ctx.getLockCode()}」。\n\n教學模式先替你通過這一關，讓你繼續往下走。`,
                     buttonLabel: '繼續前進'
                 });
                 ctx.scheduleStoryReloadAfterCompletion();
@@ -481,7 +481,7 @@ window.AiLabTaskSubmit = (function() {
         }
         setLockMsg('驗證中...');
         let data;
-        ctx.showQueryTransit('正在將密碼送回沙丘...');
+        ctx.showQueryTransit('正在將密碼送回樂樂園...');
         try {
             data = await ctx.requestJson(`/api/user-tasks/${ctx.currentUserTaskId}/answer`, {
                 method: 'PATCH',
@@ -495,7 +495,7 @@ window.AiLabTaskSubmit = (function() {
             await ctx.showNpcDialog({
                 speakerKey: 'rescue',
                 mood: '送出失敗',
-                text: `海羽無法把密碼結果送回探索艙。\n\n${err.message}`
+                text: `海羽無法把密碼結果送回冒險艙。\n\n${err.message}`
             });
             return;
         }

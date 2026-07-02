@@ -3,29 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>沙丘｜海底大作戰 AI 冒險平台</title>
+  <title>樂樂園｜泰雅文化 AI 冒險平台</title>
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#0c6b86">
+  <meta name="theme-color" content="#5c3d1e">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="沙丘">
+  <meta name="apple-mobile-web-app-title" content="樂樂園">
   <link rel="apple-touch-icon" href="/images/mascot.png">
   <link rel="icon" type="image/png" href="/images/mascot.png" />
   <link rel="stylesheet" href="/css/style.css" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet">
   <style>
     :root {
-      --sea-950: #03293b;
-      --sea-900: #07425e;
-      --sea-800: #0c6b86;
-      --sea-700: #1388a3;
-      --sea-500: #52b6c8;
-      --foam: #dff8ff;
+      --sea-950: #2a1a0f;
+      --sea-900: #3d2914;
+      --sea-800: #5c3d1e;
+      --sea-700: #7a5230;
+      --sea-500: #c98b4a;
+      --foam: #f8ead0;
       --sand: #f6ecd4;
-      --sun: #ffd06f;
-      --coral: #ff8f62;
-      --ink: #0f3040;
-      --muted: #547280;
+      --sun: #ffb347;
+      --coral: #e85d3f;
+      --ink: #2b1d12;
+      --muted: #6b5a48;
       --panel: rgba(255, 255, 255, 0.9);
       --panel-strong: rgba(255, 255, 255, 0.96);
       --line: rgba(10, 76, 99, 0.12);
@@ -46,8 +46,8 @@
       font-family: "Noto Sans TC", sans-serif;
       color: var(--ink);
       background:
-        radial-gradient(circle at top left, rgba(255, 208, 111, 0.22), transparent 24%),
-        linear-gradient(180deg, #e3fbff 0%, #ccf0f5 14%, #d6efe9 38%, #f2f7eb 58%, #fbf1dc 100%);
+        radial-gradient(circle at top left, rgba(255, 179, 71, 0.22), transparent 24%),
+        linear-gradient(180deg, #f8ead0 0%, #edd9b8 14%, #d8c4a0 38%, #c9d8b8 58%, #efe2c8 100%);
     }
 
     a {
@@ -58,7 +58,7 @@
       position: sticky;
       top: 0;
       z-index: 1000;
-      background: rgba(3, 41, 59, 0.84);
+      background: rgba(45, 30, 18, 0.88);
       backdrop-filter: blur(18px);
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
@@ -189,9 +189,10 @@
       padding: 28px;
       border-radius: 34px;
       background:
-        linear-gradient(180deg, rgba(4, 46, 66, 0.12), rgba(4, 46, 66, 0.42)),
-        linear-gradient(180deg, rgba(7, 66, 94, 0.24), rgba(3, 41, 59, 0.9)),
-        url('https://images.unsplash.com/photo-1551244072-5d12893278ab?auto=format&fit=crop&q=80&w=1500') center/cover;
+        linear-gradient(180deg, rgba(62, 39, 20, 0.12), rgba(45, 30, 18, 0.42)),
+        linear-gradient(180deg, rgba(92, 61, 30, 0.28), rgba(35, 48, 28, 0.92)),
+        radial-gradient(circle at 72% 18%, rgba(255, 159, 67, 0.22), transparent 42%),
+        linear-gradient(160deg, #3d2914 0%, #5c3d1e 38%, #2f4a2a 72%, #1a2e1f 100%);
       box-shadow: var(--shadow);
       isolation: isolate;
     }
@@ -204,9 +205,9 @@
       pointer-events: none;
     }
 
-    .water-haze,
-    .water-haze::before,
-    .water-haze::after {
+    .forest-haze,
+    .forest-haze::before,
+    .forest-haze::after {
       position: absolute;
       inset: auto;
       content: "";
@@ -215,160 +216,174 @@
       filter: blur(14px);
     }
 
-    .water-haze {
+    .forest-haze {
       width: 140%;
       height: 36%;
       left: -20%;
       bottom: -8%;
-      background: linear-gradient(180deg, rgba(16, 87, 109, 0.14), rgba(34, 118, 132, 0.48), rgba(58, 81, 45, 0.52));
-      animation: toxicSwell 12s ease-in-out infinite;
+      background: linear-gradient(180deg, rgba(92, 61, 30, 0.14), rgba(120, 88, 48, 0.42), rgba(47, 74, 42, 0.52));
+      animation: forestSwell 12s ease-in-out infinite;
     }
 
-    .water-haze::before {
+    .forest-haze::before {
       width: 55%;
       height: 48%;
       left: 8%;
       top: 16%;
-      background: radial-gradient(circle, rgba(111, 188, 138, 0.32), transparent 68%);
-      animation: toxicPulse 8s ease-in-out infinite;
+      background: radial-gradient(circle, rgba(255, 179, 71, 0.28), transparent 68%);
+      animation: forestPulse 8s ease-in-out infinite;
     }
 
-    .water-haze::after {
+    .forest-haze::after {
       width: 42%;
       height: 34%;
       right: 8%;
       bottom: 24%;
-      background: radial-gradient(circle, rgba(90, 55, 24, 0.24), transparent 72%);
-      animation: toxicPulse 10s ease-in-out infinite reverse;
+      background: radial-gradient(circle, rgba(196, 65, 12, 0.2), transparent 72%);
+      animation: forestPulse 10s ease-in-out infinite reverse;
     }
 
-    .current-ribbon {
+    .totem-band {
       position: absolute;
       left: -10%;
       right: -10%;
-      height: 22%;
+      height: 18%;
       border-radius: 999px;
-      opacity: 0.38;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
-      animation: currentDrift 14s linear infinite;
+      opacity: 0.42;
+      background:
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.08) 0 12px, transparent 12px 24px),
+        repeating-linear-gradient(0deg, rgba(196,65,12,0.18) 0 8px, rgba(251,191,36,0.12) 8px 16px);
+      animation: totemDrift 14s linear infinite;
     }
 
-    .current-ribbon.r1 { top: 15%; }
-    .current-ribbon.r2 { top: 38%; animation-duration: 18s; animation-delay: -6s; }
-    .current-ribbon.r3 { top: 61%; animation-duration: 12s; animation-delay: -10s; }
+    .totem-band.r1 { top: 14%; }
+    .totem-band.r2 { top: 40%; animation-duration: 18s; animation-delay: -6s; }
+    .totem-band.r3 { top: 66%; animation-duration: 12s; animation-delay: -10s; }
 
-    .foam-line {
+    .weave-line {
       position: absolute;
       left: -12%;
       width: 124%;
-      height: 90px;
+      height: 72px;
       border-radius: 999px;
-      background: radial-gradient(circle at 20% 45%, rgba(255, 255, 255, 0.32), transparent 18%),
-                  radial-gradient(circle at 48% 55%, rgba(255, 255, 255, 0.18), transparent 15%),
-                  radial-gradient(circle at 74% 46%, rgba(255, 255, 255, 0.22), transparent 16%);
-      opacity: 0.4;
-      animation: foamDrift 16s linear infinite;
+      background:
+        repeating-linear-gradient(135deg, rgba(255,255,255,0.16) 0 10px, transparent 10px 20px),
+        radial-gradient(circle at 20% 45%, rgba(255, 179, 71, 0.24), transparent 18%),
+        radial-gradient(circle at 74% 46%, rgba(255, 255, 255, 0.16), transparent 16%);
+      opacity: 0.38;
+      animation: weaveDrift 16s linear infinite;
     }
 
-    .foam-line.f1 { top: 28%; }
-    .foam-line.f2 { top: 56%; animation-duration: 22s; animation-delay: -7s; }
+    .weave-line.f1 { top: 28%; }
+    .weave-line.f2 { top: 56%; animation-duration: 22s; animation-delay: -7s; }
 
-    .swimmer {
+    .floater {
       position: absolute;
-      opacity: 0.92;
-      font-size: 42px;
-      filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.2));
+      opacity: 0.94;
+      filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.22));
       display: flex;
       align-items: center;
       justify-content: center;
       user-select: none;
     }
 
-    /* 魚類動畫：左右擺動前進 */
-    .fish span {
-      display: inline-block;
-      animation: wiggle 2s ease-in-out infinite alternate;
-    }
-    
-    /* 海龜動畫：緩慢平穩前進 */
-    .turtle {
-      font-size: 56px;
-    }
-    .turtle span {
-      display: inline-block;
-      animation: bob 4s ease-in-out infinite alternate;
+    .atayal-totem {
+      width: 52px;
+      height: 52px;
+      clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+      background:
+        linear-gradient(135deg, #7f1d1d 0 25%, #f8fafc 25% 50%, #1c1917 50% 75%, #ea580c 75% 100%);
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      animation: totemSpin 10s linear infinite;
     }
 
-    /* 蝦子動畫：快速彈跳前進 */
-    .shrimp {
-      font-size: 36px;
-    }
-    .shrimp span {
-      display: inline-block;
-      animation: dart 1s ease-in-out infinite alternate;
-    }
-
-    /* 其他海洋生物 */
-    .jellyfish {
-      font-size: 48px;
-    }
-    .jellyfish span {
-      display: inline-block;
-      animation: bob 3s ease-in-out infinite alternate;
+    .atayal-totem.zigzag {
+      clip-path: none;
+      width: 64px;
+      height: 28px;
+      border-radius: 4px;
+      background:
+        repeating-linear-gradient(90deg, #b91c1c 0 8px, #fef3c7 8px 16px, #1c1917 16px 24px);
+      animation: totemBob 4s ease-in-out infinite alternate;
     }
 
-    /* 垃圾動畫：隨波逐流、旋轉 */
-    .trash {
-      filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.3)) grayscale(0.4) opacity(0.85);
-    }
-    .trash span {
-      display: inline-block;
-      animation: spinDrift 6s linear infinite;
-    }
-
-    .trash-fast span {
-      animation: spinDrift 4s linear infinite reverse;
+    .atayal-totem.cross {
+      width: 44px;
+      height: 44px;
+      clip-path: polygon(20% 0%, 80% 0%, 100% 20%, 100% 80%, 80% 100%, 20% 100%, 0% 80%, 0% 20%);
+      background:
+        conic-gradient(from 45deg, #7f1d1d, #fbbf24, #1c1917, #ea580c, #7f1d1d);
+      animation: totemSpin 14s linear infinite reverse;
     }
 
-    /* 各個物件的起始位置與延遲 */
-    .s1 { top: 15%; left: -100px; animation: floatAcross 18s linear infinite; animation-delay: 0s; }
-    .s2 { top: 35%; left: -150px; animation: floatAcross 28s linear infinite; animation-delay: -5s; }
-    .s3 { top: 55%; left: -80px; animation: floatAcross 14s linear infinite; animation-delay: -12s; }
-    .s4 { top: 75%; left: -200px; animation: floatAcross 22s linear infinite; animation-delay: -8s; }
-    .s5 { top: 25%; left: -120px; animation: floatAcross 16s linear infinite; animation-delay: -18s; }
-    .s6 { top: 65%; left: -90px; animation: floatAcross 20s linear infinite; animation-delay: -2s; }
-    .s7 { top: 45%; left: -180px; animation: floatAcross 25s linear infinite; animation-delay: -22s; }
-    .s8 { top: 80%; left: -130px; animation: floatAcross 30s linear infinite; animation-delay: -15s; }
-    
-    /* 垃圾的起始位置與延遲 */
-    .t1 { top: 20%; left: -60px; animation: floatAcross 25s linear infinite; animation-delay: -3s; }
-    .t2 { top: 50%; left: -110px; animation: floatAcross 22s linear infinite; animation-delay: -14s; }
-    .t3 { top: 70%; left: -80px; animation: floatAcross 28s linear infinite; animation-delay: -9s; }
-    .t4 { top: 30%; left: -150px; animation: floatAcross 16s linear infinite; animation-delay: -20s; }
-    .t5 { top: 85%; left: -90px; animation: floatAcross 32s linear infinite; animation-delay: -6s; }
-    .t6 { top: 40%; left: -200px; animation: floatAcross 18s linear infinite; animation-delay: -25s; }
+    .ip-chip img {
+      display: block;
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.28));
+      animation: ipBob 5s ease-in-out infinite alternate;
+    }
 
-    /* 海底泡泡 */
-    .bubble {
+    .ip-chip.i1 { width: 118px; }
+    .ip-chip.i2 { width: 92px; }
+    .ip-chip.i3 { width: 104px; }
+    .ip-chip.i4 { width: 86px; }
+    .ip-chip.i5 { width: 96px; }
+    .ip-chip.i6 { width: 110px; }
+
+    .s1 { top: 12%; left: -100px; animation: floatAcross 20s linear infinite; animation-delay: 0s; }
+    .s2 { top: 32%; left: -150px; animation: floatAcross 28s linear infinite; animation-delay: -5s; }
+    .s3 { top: 52%; left: -80px; animation: floatAcross 16s linear infinite; animation-delay: -12s; }
+    .s4 { top: 72%; left: -200px; animation: floatAcross 24s linear infinite; animation-delay: -8s; }
+    .s5 { top: 22%; left: -120px; animation: floatAcross 18s linear infinite; animation-delay: -18s; }
+    .s6 { top: 62%; left: -90px; animation: floatAcross 22s linear infinite; animation-delay: -2s; }
+    .s7 { top: 42%; left: -180px; animation: floatAcross 26s linear infinite; animation-delay: -22s; }
+    .s8 { top: 82%; left: -130px; animation: floatAcross 30s linear infinite; animation-delay: -15s; }
+
+    .i1 { top: 18%; left: -70px; animation: floatAcross 24s linear infinite; animation-delay: -3s; }
+    .i2 { top: 48%; left: -120px; animation: floatAcross 20s linear infinite; animation-delay: -14s; }
+    .i3 { top: 68%; left: -90px; animation: floatAcross 26s linear infinite; animation-delay: -9s; }
+    .i4 { top: 28%; left: -160px; animation: floatAcross 18s linear infinite; animation-delay: -20s; }
+    .i5 { top: 78%; left: -100px; animation: floatAcross 30s linear infinite; animation-delay: -6s; }
+    .i6 { top: 38%; left: -210px; animation: floatAcross 22s linear infinite; animation-delay: -25s; }
+
+    .ember {
       position: absolute;
       bottom: -20px;
       border-radius: 50%;
-      background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.1) 60%, transparent 100%);
-      box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.5);
+      background: radial-gradient(circle at 30% 30%, rgba(255, 179, 71, 0.9), rgba(234, 88, 12, 0.2) 60%, transparent 100%);
+      box-shadow: 0 0 12px rgba(255, 159, 67, 0.45);
       opacity: 0;
-      animation: riseUp linear infinite;
+      animation: emberRise linear infinite;
     }
 
-    .b1 { left: 10%; width: 15px; height: 15px; animation-duration: 8s; animation-delay: 0s; }
-    .b2 { left: 25%; width: 25px; height: 25px; animation-duration: 12s; animation-delay: 2s; }
+    .b1 { left: 10%; width: 14px; height: 14px; animation-duration: 8s; animation-delay: 0s; }
+    .b2 { left: 25%; width: 22px; height: 22px; animation-duration: 12s; animation-delay: 2s; }
     .b3 { left: 40%; width: 10px; height: 10px; animation-duration: 6s; animation-delay: 1s; }
-    .b4 { left: 60%; width: 30px; height: 30px; animation-duration: 15s; animation-delay: 4s; }
-    .b5 { left: 75%; width: 18px; height: 18px; animation-duration: 9s; animation-delay: 3s; }
-    .b6 { left: 90%; width: 22px; height: 22px; animation-duration: 11s; animation-delay: 5s; }
+    .b4 { left: 60%; width: 28px; height: 28px; animation-duration: 15s; animation-delay: 4s; }
+    .b5 { left: 75%; width: 16px; height: 16px; animation-duration: 9s; animation-delay: 3s; }
+    .b6 { left: 90%; width: 20px; height: 20px; animation-duration: 11s; animation-delay: 5s; }
     .b7 { left: 50%; width: 12px; height: 12px; animation-duration: 7s; animation-delay: 6s; }
-    .b8 { left: 80%; width: 28px; height: 28px; animation-duration: 14s; animation-delay: 1.5s; }
-    .b9 { left: 15%; width: 20px; height: 20px; animation-duration: 10s; animation-delay: 7s; }
-    .b10 { left: 65%; width: 14px; height: 14px; animation-duration: 8.5s; animation-delay: 4.5s; }
+    .b8 { left: 80%; width: 24px; height: 24px; animation-duration: 14s; animation-delay: 1.5s; }
+    .b9 { left: 15%; width: 18px; height: 18px; animation-duration: 10s; animation-delay: 7s; }
+    .b10 { left: 65%; width: 13px; height: 13px; animation-duration: 8.5s; animation-delay: 4.5s; }
+
+    .hero-ip-showcase {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 320px;
+      padding: 12px;
+    }
+
+    .hero-ip-main {
+      width: min(100%, 360px);
+      height: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 18px 36px rgba(0, 0, 0, 0.32));
+      animation: ipBob 6s ease-in-out infinite alternate;
+    }
 
     .hero-copy,
     .hero-side {
@@ -877,65 +892,54 @@
       100% { transform: translate3d(calc(120vw + 140px), 8px, 0) rotate(2deg); }
     }
 
-    @keyframes wiggle {
-      0% { transform: translateY(0) rotate(-5deg); }
-      100% { transform: translateY(-10px) rotate(5deg); }
-    }
-
-    @keyframes bob {
-      0% { transform: translateY(0); }
-      100% { transform: translateY(-15px); }
-    }
-
-    @keyframes dart {
-      0% { transform: translateX(0) translateY(0); }
-      100% { transform: translateX(20px) translateY(-5px); }
-    }
-
-    @keyframes spinDrift {
+    @keyframes totemSpin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
 
-    @keyframes riseUp {
+    @keyframes totemBob {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-12px); }
+    }
+
+    @keyframes ipBob {
+      0% { transform: translateY(0) rotate(-1deg); }
+      100% { transform: translateY(-14px) rotate(1deg); }
+    }
+
+    @keyframes emberRise {
       0% {
         transform: translateY(100vh) translateX(0) scale(1);
         opacity: 0;
       }
-      10% {
-        opacity: 0.8;
-      }
-      50% {
-        transform: translateY(20vh) translateX(20px) scale(1.1);
-      }
-      90% {
-        opacity: 0.8;
-      }
+      10% { opacity: 0.85; }
+      50% { transform: translateY(20vh) translateX(16px) scale(1.08); }
+      90% { opacity: 0.75; }
       100% {
-        transform: translateY(-20vh) translateX(-20px) scale(1.2);
+        transform: translateY(-20vh) translateX(-12px) scale(1.15);
         opacity: 0;
       }
     }
 
-    @keyframes currentDrift {
+    @keyframes totemDrift {
       0% { transform: translateX(-4%) translateY(0); }
       50% { transform: translateX(4%) translateY(6px); }
       100% { transform: translateX(-4%) translateY(0); }
     }
 
-    @keyframes foamDrift {
+    @keyframes weaveDrift {
       0% { transform: translateX(-2%); opacity: 0.18; }
       50% { transform: translateX(2%); opacity: 0.44; }
       100% { transform: translateX(-2%); opacity: 0.18; }
     }
 
-    @keyframes toxicSwell {
+    @keyframes forestSwell {
       0% { transform: translateY(0) scaleX(1); }
       50% { transform: translateY(-10px) scaleX(1.04); }
       100% { transform: translateY(0) scaleX(1); }
     }
 
-    @keyframes toxicPulse {
+    @keyframes forestPulse {
       0% { opacity: 0.25; transform: scale(0.96); }
       50% { opacity: 0.48; transform: scale(1.04); }
       100% { opacity: 0.25; transform: scale(0.96); }
@@ -1106,17 +1110,17 @@
       .hero-overlay .s6,
       .hero-overlay .s7,
       .hero-overlay .s8,
-      .hero-overlay .t3,
-      .hero-overlay .t5,
-      .hero-overlay .t6,
+      .hero-overlay .i3,
+      .hero-overlay .i5,
+      .hero-overlay .i6,
       .hero-overlay .b5,
       .hero-overlay .b6,
       .hero-overlay .b7,
       .hero-overlay .b8,
       .hero-overlay .b9,
       .hero-overlay .b10,
-      .hero-overlay .foam-line.f2,
-      .hero-overlay .current-ribbon.r3 {
+      .hero-overlay .weave-line.f2,
+      .hero-overlay .totem-band.r3 {
         display: none;
       }
     }
@@ -1125,7 +1129,7 @@
 <body>
   <header>
     <div class="header-content" id="headerContent">
-      <h1 id="pageTitle">沙丘</h1>
+      <h1 id="pageTitle">樂樂園</h1>
       <button id="hamburgerBtn" class="hamburger" aria-label="展開選單">&#9776;</button>
       <nav class="main-nav">
         <a href="/index.html" class="current-page">首頁</a>
@@ -1149,49 +1153,49 @@
   <main>
     <section class="hero">
       <div class="hero-overlay" aria-hidden="true">
-        <div class="water-haze"></div>
-        <div class="current-ribbon r1"></div>
-        <div class="current-ribbon r2"></div>
-        <div class="current-ribbon r3"></div>
-        <div class="foam-line f1"></div>
-        <div class="foam-line f2"></div>
-        
-        <!-- Ｑ版海洋生物 -->
-        <div class="swimmer fish s1"><span>🐠</span></div>
-        <div class="swimmer turtle s2"><span>🐢</span></div>
-        <div class="swimmer shrimp s3"><span>🦐</span></div>
-        <div class="swimmer jellyfish s4"><span>🦑</span></div>
-        <div class="swimmer fish s5"><span>🐡</span></div>
-        <div class="swimmer fish s6"><span>🐟</span></div>
-        <div class="swimmer jellyfish s7"><span>🐙</span></div>
-        <div class="swimmer turtle s8"><span>🐢</span></div>
+        <div class="forest-haze"></div>
+        <div class="totem-band r1"></div>
+        <div class="totem-band r2"></div>
+        <div class="totem-band r3"></div>
+        <div class="weave-line f1"></div>
+        <div class="weave-line f2"></div>
 
-        <!-- 漂流的海洋垃圾 -->
-        <div class="swimmer trash t1"><span>🥤</span></div>
-        <div class="swimmer trash t2"><span>🛍️</span></div>
-        <div class="swimmer trash t3"><span>🥫</span></div>
-        <div class="swimmer trash trash-fast t4"><span>🚬</span></div>
-        <div class="swimmer trash t5"><span>🛢️</span></div>
-        <div class="swimmer trash trash-fast t6"><span>🧴</span></div>
+        <!-- 泰雅族圖騰 -->
+        <div class="floater s1"><span class="atayal-totem"></span></div>
+        <div class="floater s2"><span class="atayal-totem zigzag"></span></div>
+        <div class="floater s3"><span class="atayal-totem cross"></span></div>
+        <div class="floater s4"><span class="atayal-totem"></span></div>
+        <div class="floater s5"><span class="atayal-totem zigzag"></span></div>
+        <div class="floater s6"><span class="atayal-totem cross"></span></div>
+        <div class="floater s7"><span class="atayal-totem"></span></div>
+        <div class="floater s8"><span class="atayal-totem zigzag"></span></div>
 
-        <!-- 冒升的海底泡泡 -->
-        <div class="bubble b1"></div>
-        <div class="bubble b2"></div>
-        <div class="bubble b3"></div>
-        <div class="bubble b4"></div>
-        <div class="bubble b5"></div>
-        <div class="bubble b6"></div>
-        <div class="bubble b7"></div>
-        <div class="bubble b8"></div>
-        <div class="bubble b9"></div>
-        <div class="bubble b10"></div>
+        <!-- 樂樂園 IP -->
+        <div class="floater ip-chip i1"><img src="/images/lelepark-ip.png" alt=""></div>
+        <div class="floater ip-chip i2"><img src="/images/lelepark-ip.png" alt=""></div>
+        <div class="floater ip-chip i3"><img src="/images/lelepark-ip.png" alt=""></div>
+        <div class="floater ip-chip i4"><img src="/images/lelepark-ip.png" alt=""></div>
+        <div class="floater ip-chip i5"><img src="/images/lelepark-ip.png" alt=""></div>
+        <div class="floater ip-chip i6"><img src="/images/lelepark-ip.png" alt=""></div>
+
+        <!-- 營火微光 -->
+        <div class="ember b1"></div>
+        <div class="ember b2"></div>
+        <div class="ember b3"></div>
+        <div class="ember b4"></div>
+        <div class="ember b5"></div>
+        <div class="ember b6"></div>
+        <div class="ember b7"></div>
+        <div class="ember b8"></div>
+        <div class="ember b9"></div>
+        <div class="ember b10"></div>
       </div>
 
       <div class="hero-copy">
-        <div class="eyebrow">海底大作戰 ・ 手機冒險入口</div>
-        <h2>把戶外導覽、關卡闖關與角色互動，做成孩子也能直接玩懂的海洋遊戲。</h2>
+        <div class="eyebrow">泰雅文化 ・ 手機冒險入口</div>
+        <h2>把戶外導覽、關卡闖關與角色互動，做成孩子也能直接玩懂的山林冒險遊戲。</h2>
         <p>
-          「沙丘」的首頁不是工具清單，而是一個真正的活動入口。玩家用手機就能選擇教學模式、劇情主線或大富翁玩法，進入後由史蛋、巴布、鯨老擔任關主、裁判與導覽員，陪著一路往下玩。
+          「樂樂園」的首頁不是工具清單，而是一個真正的活動入口。玩家用手機就能選擇教學模式、劇情主線或大富翁玩法，進入後由 Mnibu 夥伴們擔任關主、裁判與導覽員，陪著一路往下玩。
         </p>
         <div class="hero-actions">
           <button class="ocean-btn ocean-btn-primary" id="heroStoryPickerBtn" type="button">立即選擇劇本</button>
@@ -1200,9 +1204,12 @@
       </div>
 
       <div class="hero-side">
+        <div class="hero-ip-showcase">
+          <img src="/images/lelepark-ip.png" alt="樂樂園 Mnibu 夥伴們" class="hero-ip-main">
+        </div>
         <div class="hero-panel">
-          <span class="hero-chip">手機優先</span>
-          <strong>先選劇本，再進遊戲。</strong>
+          <span class="hero-chip">Mnibu 夥伴</span>
+          <strong>熊、鳥、山羊與飛鼠，陪你走進泰雅文化冒險。</strong>
           <span>首頁只保留最重要的入口與登入方式，讓玩家一眼就知道下一步要做什麼。</span>
         </div>
       </div>
@@ -1212,7 +1219,7 @@
       <div class="section-heading">
         <div>
           <h3>為什麼首頁要像遊戲入口</h3>
-          <p>首頁只做三件事：先建立海洋情緒、讓玩家快速登入或註冊、把人順順帶進目前開啟的劇本。</p>
+          <p>首頁只做三件事：先建立泰雅文化氛圍、讓玩家快速登入或註冊、把人順順帶進目前開啟的劇本。</p>
         </div>
       </div>
       <div class="camp-grid">
@@ -1221,12 +1228,12 @@
           <p>玩家不需要理解所有功能，只要看見劇本入口，就能直接開始第一輪體驗。</p>
         </article>
         <article class="camp-card">
-          <h4>先感受到海洋</h4>
-          <p>魚群、污染水色與垃圾漂流會持續存在，但整體節奏更偏手機也能舒服閱讀的密度。</p>
+          <h4>先感受到泰雅圖騰</h4>
+          <p>菱形圖騰、編織紋樣與 Mnibu 夥伴會持續在背景流動，整體節奏更偏手機也能舒服閱讀的密度。</p>
         </article>
         <article class="camp-card">
           <h4>先進到遊戲裡</h4>
-          <p>真正的劇情、史蛋與巴布的互動、大富翁與 RPG 對話，都留在遊戲殼裡展開，不把首頁做成說明書。</p>
+          <p>真正的劇情、Mnibu 夥伴的互動、大富翁與 RPG 對話，都留在遊戲殼裡展開，不把首頁做成說明書。</p>
         </article>
       </div>
     </section>
@@ -1266,7 +1273,7 @@
   </div>
 
   <footer>
-    &copy; 2026 沙丘 AI 冒險平台 |
+    &copy; 2026 樂樂園 AI 冒險平台 |
     <a href="https://laijiubo.zeabur.app/" target="_blank" rel="noreferrer">來就補多媒體行銷 製作</a>
   </footer>
 
@@ -1279,7 +1286,7 @@
       if (localStorage.getItem('justRegistered') === 'true') {
         localStorage.removeItem('justRegistered');
         const toast = document.createElement('div');
-        toast.textContent = '歡迎加入沙丘！';
+        toast.textContent = '歡迎加入樂樂園！';
         toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(34,197,94,0.9);color:white;padding:12px 24px;border-radius:999px;z-index:9999;font-weight:bold;box-shadow:0 4px 12px rgba(0,0,0,0.15);animation:fadeInOut 3s forwards;';
         document.body.appendChild(toast);
         if (!document.getElementById('toastStyles')) {
@@ -1326,7 +1333,7 @@
         authBtns.innerHTML = `
           <div class="auth-panel-title">第一次進入？先選一個方式開始</div>
           <div class="auth-actions">
-            <a class="ocean-btn ocean-btn-secondary" href="/login.html">登入沙丘</a>
+            <a class="ocean-btn ocean-btn-secondary" href="/login.html">登入樂樂園</a>
             <a class="ocean-btn ocean-btn-primary" href="/register.html">註冊新冒險者</a>
           </div>
         `;

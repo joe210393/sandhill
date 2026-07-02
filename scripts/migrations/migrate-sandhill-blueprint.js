@@ -17,7 +17,7 @@ async function migrate() {
   let conn;
   try {
     conn = await mysql.createConnection(dbConfig);
-    console.log('🔄 開始執行沙丘藍圖遷移...');
+    console.log('🔄 開始執行樂樂園藍圖遷移...');
 
     await ensureColumn(conn, 'quest_chains', 'title', "VARCHAR(100) NULL COMMENT '新版劇情標題'");
     await conn.execute("UPDATE quest_chains SET title = name WHERE (title IS NULL OR title = '') AND name IS NOT NULL");
@@ -124,9 +124,9 @@ async function migrate() {
       )
     `);
 
-    console.log('✅ 沙丘藍圖遷移完成');
+    console.log('✅ 樂樂園藍圖遷移完成');
   } catch (err) {
-    console.error('❌ 沙丘藍圖遷移失敗:', err);
+    console.error('❌ 樂樂園藍圖遷移失敗:', err);
     process.exit(1);
   } finally {
     if (conn) await conn.end();

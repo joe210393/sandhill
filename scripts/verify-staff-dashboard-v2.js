@@ -182,7 +182,7 @@ async function run() {
     await wait(150);
     await setValue(page, '#taskForm select[name="task_type"]', 'keyword');
     await setValue(page, '#taskForm select[name="validation_mode"]', 'keyword');
-    await setValue(page, '#taskForm input[name="correct_answer_text"]', '沙丘');
+    await setValue(page, '#taskForm input[name="correct_answer_text"]', '樂樂園');
     await clickVisibleButtonByText(page, '下一步');
     await page.waitForFunction(() => document.querySelector('[data-task-step="4"]')?.classList.contains('active'));
     await wait(150);

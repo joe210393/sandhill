@@ -169,7 +169,7 @@ async function main() {
         name: 'E2E AI文字題',
         task_type: 'qa',
         validation_mode: 'ai_text_check',
-        ai_config: { user_prompt: '判斷使用者的回答是否與「沙丘」相關。' },
+        ai_config: { user_prompt: '判斷使用者的回答是否與「樂樂園」相關。' },
         pass_criteria: { min_score: 80 },
         quest_order: 2
     });
@@ -254,8 +254,8 @@ async function main() {
     console.log('    text wrong result → isCompleted:', textWrong.body?.isCompleted, ' msg:', textWrong.body?.message);
     if (textWrong.body?.isCompleted) throw new Error('text task should NOT complete on wrong answer');
 
-    logStep('B8. PATCH /api/user-tasks/:id/answer — submit text correct (沙丘)');
-    const textCorrect = await user.request('PATCH', `/api/user-tasks/${textUtId}/answer`, { answer: '沙丘' });
+    logStep('B8. PATCH /api/user-tasks/:id/answer — submit text correct (樂樂園)');
+    const textCorrect = await user.request('PATCH', `/api/user-tasks/${textUtId}/answer`, { answer: '樂樂園' });
     console.log('    text correct result → isCompleted:', textCorrect.body?.isCompleted, ' questChainCompleted:', textCorrect.body?.questChainCompleted);
     if (!textCorrect.body?.isCompleted) throw new Error('text task should complete on correct answer');
 

@@ -98,7 +98,7 @@
         }
 
         function showNpcDialog({
-            speaker = '沙丘引導員',
+            speaker = '樂樂園引導員',
             speakerKey = null,
             mood = '提示',
             text = '',

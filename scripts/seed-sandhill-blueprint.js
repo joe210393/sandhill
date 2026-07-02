@@ -165,10 +165,10 @@ async function seed() {
   let conn;
   try {
     conn = await mysql.createConnection(dbConfig);
-    console.log('🌱 開始建立沙丘內容包...');
+    console.log('🌱 開始建立樂樂園內容包...');
 
     const storyChainId = await upsertQuestChain(conn, {
-      title: '沙丘｜海底大作戰：濱海守護線',
+      title: '樂樂園｜山林冒險：濱海守護線',
       description: '一條以濱海守護與現地觀察為主的劇情主線。',
       chain_points: 120,
       badge_name: '濱海守護員',
@@ -190,10 +190,10 @@ async function seed() {
     });
 
     const boardChainId = await upsertQuestChain(conn, {
-      title: '沙丘｜濱海大富翁：終點競走',
+      title: '樂樂園｜濱海大富翁：終點競走',
       description: '以擲骰、移動、挑戰與事件格推進的濱海棋盤玩法。',
       chain_points: 200,
-      badge_name: '沙丘探險家',
+      badge_name: '樂樂園探險家',
       badge_image: '/images/mascot.png',
       created_by: 'admin',
       mode_type: 'board_game',
@@ -300,7 +300,7 @@ async function seed() {
         },
         pass_criteria: { target_label: 'coastal_adventure_photo', min_score: 7.5 },
         failure_message: '氣氛還差一點，再拍一張更有探險感的畫面。',
-        success_message: '恭喜完成整條守護線，海底大作戰通關！'
+        success_message: '恭喜完成整條守護線，樂樂園冒險通關！'
       }
     ];
 
@@ -344,7 +344,7 @@ async function seed() {
 
     const boardMapId = await upsertBoardMap(conn, {
       quest_chain_id: boardChainId,
-      name: '沙丘濱海大富翁｜終點競走地圖',
+      name: '樂樂園濱海大富翁｜終點競走地圖',
       description: '沿著濱海路線前進，透過擲骰與任務判定一路向終點前進。',
       play_style: 'fixed_track_race',
       cover_image: '/images/banner.png',
@@ -362,7 +362,7 @@ async function seed() {
       rules_json: {
         success_move_mode: 'forward_by_roll',
         failure_move: -1,
-        finish_reward_badge: '沙丘探險家'
+        finish_reward_badge: '樂樂園探險家'
       },
       created_by: 'admin'
     });
@@ -401,9 +401,9 @@ async function seed() {
       });
     }
 
-    console.log('✅ 沙丘內容包已建置完成');
+    console.log('✅ 樂樂園內容包已建置完成');
   } catch (err) {
-    console.error('❌ 建置沙丘內容包失敗:', err);
+    console.error('❌ 建置樂樂園內容包失敗:', err);
     process.exit(1);
   } finally {
     if (conn) await conn.end();

@@ -12,7 +12,7 @@ async function migrate() {
   let conn;
   try {
     conn = await mysql.createConnection(dbConfig);
-    console.log('🔄 開始執行沙丘安全瘦身遷移...');
+    console.log('🔄 開始執行樂樂園安全瘦身遷移...');
 
     // tasks.ar_model_scale 是舊版遺留欄位。
     // 實際上前台已改用 ar_models.scale JOIN 出來的 ar_model_scale，
@@ -24,9 +24,9 @@ async function migrate() {
       console.log('ℹ️ tasks.ar_model_scale 不存在，跳過');
     }
 
-    console.log('✅ 沙丘安全瘦身遷移完成');
+    console.log('✅ 樂樂園安全瘦身遷移完成');
   } catch (err) {
-    console.error('❌ 沙丘安全瘦身遷移失敗:', err);
+    console.error('❌ 樂樂園安全瘦身遷移失敗:', err);
     process.exit(1);
   } finally {
     if (conn) await conn.end();

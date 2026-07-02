@@ -4,7 +4,7 @@ const path = require('path');
 const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:4325';
 const USER_COUNT = Number(process.env.USER_COUNT || 5);
 const SAMPLE_IMAGE_PATH = process.env.SAMPLE_IMAGE_PATH || path.resolve(__dirname, '../public/images/mascot.png');
-const OUTPUT_PATH = process.env.OUTPUT_PATH || path.resolve(__dirname, '../docs/沙丘-demo-playtest-report.json');
+const OUTPUT_PATH = process.env.OUTPUT_PATH || path.resolve(__dirname, '../docs/樂樂園-demo-playtest-report.json');
 
 function randomPhone(index) {
   return `0903${String(100000 + index).slice(-6)}`;

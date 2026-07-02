@@ -33,7 +33,7 @@ function audioAt(index) {
 
 function aiIdentifyConfig(target, prompt) {
   return {
-    system_prompt: '你是沙丘教學模式的 AI 裁判。請描述玩家照片中最主要的物件，並盡量用繁體中文回答。',
+    system_prompt: '你是樂樂園教學模式的 AI 裁判。請描述玩家照片中最主要的物件，並盡量用繁體中文回答。',
     user_prompt: prompt,
     target_label: target
   };
@@ -280,7 +280,7 @@ function buildMixedStoryTasks(itemIds, variant = 'coast') {
       guide_content: '示範 AI 判定但教學先放行。',
       rescue_content: '任意照片都會讓你繼續。',
       ai_config: variant === 'coast'
-        ? { system_prompt: '你是沙丘教學模式的 AI 裁判，請描述玩家照片氛圍。', user_prompt: '請說出你看見了什麼，並給一句簡短回饋。', score_subject: 'tutorial_story_photo' }
+        ? { system_prompt: '你是樂樂園教學模式的 AI 裁判，請描述玩家照片氛圍。', user_prompt: '請說出你看見了什麼，並給一句簡短回饋。', score_subject: 'tutorial_story_photo' }
         : aiIdentifyConfig('scene_object', '請用一句話描述玩家照片裡最主要的物件或場景。'),
       pass_criteria: variant === 'coast' ? { min_score: 1 } : { target_label: 'scene_object', min_confidence: 0.1 },
       reward_item_id: badgeId,
@@ -354,7 +354,7 @@ function buildMixedStoryTasks(itemIds, variant = 'coast') {
       story_context: '最後一關讓玩家看到完整收尾。',
       guide_content: '示範 rule check 類型。',
       rescue_content: '任意畫面都會完成主線。',
-      ai_config: { system_prompt: '你是沙丘教學模式的 AI 裁判，請描述玩家照片中的主要元素。', user_prompt: '請說出你看見了什麼，並簡單描述場景元素。', required_elements: ['主體', '背景'] },
+      ai_config: { system_prompt: '你是樂樂園教學模式的 AI 裁判，請描述玩家照片中的主要元素。', user_prompt: '請說出你看見了什麼，並簡單描述場景元素。', required_elements: ['主體', '背景'] },
       pass_criteria: { all_rules_must_pass: false, min_confidence: 0.1 },
       reward_item_id: badgeId,
       points: 24
@@ -639,7 +639,7 @@ async function main() {
     const seeded = [];
 
     seeded.push(await seedStoryCampaign(conn, itemIds, {
-      title: '沙丘教學｜潮聲巡航線',
+      title: '樂樂園教學｜潮聲巡航線',
       description: '完整示範劇情主線：報到、AI 拍照、選擇題、文字題、數字題與收尾照片。',
       short_description: '劇情教學：完整走一次主線玩法。',
       chain_points: 80,
@@ -652,7 +652,7 @@ async function main() {
     }, 1, (ids) => buildMixedStoryTasks(ids, 'coast')));
 
     seeded.push(await seedStoryCampaign(conn, itemIds, {
-      title: '沙丘教學｜燈塔搜查線',
+      title: '樂樂園教學｜燈塔搜查線',
       description: '第二條劇情主線，示範另一套節奏與 AI 互動。',
       short_description: '劇情教學：另一條劇情模板。',
       chain_points: 84,
@@ -665,7 +665,7 @@ async function main() {
     }, 2, (ids) => buildMixedStoryTasks(ids, 'lighthouse')));
 
     seeded.push(await seedStoryCampaign(conn, itemIds, {
-      title: '沙丘教學｜文具辨識線',
+      title: '樂樂園教學｜文具辨識線',
       description: '六題連續物件辨識教學，全部都會真的交給 LM 看圖，但教學模式先放行。',
       short_description: '劇情教學：文具與設備辨識 6 連關。',
       chain_points: 96,
@@ -678,7 +678,7 @@ async function main() {
     }, 3, (ids) => buildStationeryStoryTasks(ids)));
 
     seeded.push(await seedBoardCampaign(conn, itemIds, {
-      title: '沙丘教學｜濱海命運棋盤',
+      title: '樂樂園教學｜濱海命運棋盤',
       description: '混合挑戰、問題、機會、命運與事件的完整棋盤教學。',
       short_description: '大富翁教學：混合型棋盤。',
       chain_points: 120,
@@ -722,7 +722,7 @@ async function main() {
     }, 4, (ids) => buildBoardTaskDefs(ids, 'coast')));
 
     seeded.push(await seedBoardCampaign(conn, itemIds, {
-      title: '沙丘教學｜燈塔競速棋盤',
+      title: '樂樂園教學｜燈塔競速棋盤',
       description: '更快節奏的棋盤教學，示範競速、事件、命運與終點收尾。',
       short_description: '大富翁教學：快速競速版棋盤。',
       chain_points: 100,

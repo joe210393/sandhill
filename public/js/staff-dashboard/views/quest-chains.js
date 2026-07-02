@@ -1091,7 +1091,7 @@ function getPrintablePlanQuoteHtml(plans = []) {
     <html lang="zh-Hant">
     <head>
       <meta charset="UTF-8">
-      <title>沙丘平台方案報價</title>
+      <title>樂樂園平台方案報價</title>
       <style>
         body { font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
         .sheet { max-width: 960px; margin: 0 auto; background: white; min-height: 100vh; padding: 40px 48px; box-sizing: border-box; }
@@ -1124,7 +1124,7 @@ function getPrintablePlanQuoteHtml(plans = []) {
     <body>
       <div class="sheet">
         <div class="hero">
-          <h1>沙丘平台 方案介紹與報價</h1>
+          <h1>樂樂園平台 方案介紹與報價</h1>
           <p>把環境教育、食農教育與場域體驗，從被動導覽轉成主動探索。廠商可用平台建立自己的入口、關卡與 AI 互動體驗，並依實際 LM 使用量按月計費。</p>
           <div class="meta">匯出時間：${escHtml(generatedAt)}｜用途：廠商報價與方案說明</div>
         </div>
@@ -1228,7 +1228,7 @@ function renderPlanQuotePreview(plans = []) {
       </div>
       <div style="display:grid; gap:16px;">
         <div style="background:linear-gradient(135deg,#0f766e,#0f172a); color:white; border-radius:18px; padding:20px 22px;">
-          <div style="font-size:1.35rem; font-weight:800; margin-bottom:8px;">沙丘平台 方案介紹與報價</div>
+          <div style="font-size:1.35rem; font-weight:800; margin-bottom:8px;">樂樂園平台 方案介紹與報價</div>
           <div style="line-height:1.8; color:rgba(255,255,255,0.88);">把教育內容帶回場域，讓學員走出去自己找答案。平台提供入口建置、AI 關卡、使用量追蹤與月結帳務。</div>
         </div>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">

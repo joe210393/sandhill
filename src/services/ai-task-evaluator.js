@@ -101,7 +101,7 @@ function createAiTaskEvaluator({
       passed: false,
       confidence: null,
       score: null,
-      reason: `沙丘暫時無法完整理解你在「${task?.name || '這一題'}」的回答。`,
+      reason: `樂樂園暫時無法完整理解你在「${task?.name || '這一題'}」的回答。`,
       retry_advice: '請換個更清楚的說法，或補充你觀察到的重點後再試一次。'
     };
   }

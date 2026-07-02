@@ -3,7 +3,7 @@ const { getDbConfig } = require('../db-config');
 
 const DB_CONFIG = getDbConfig();
 
-const QUEST_TITLE = '沙丘教學模式｜手機流程導覽';
+const QUEST_TITLE = '樂樂園教學模式｜手機流程導覽';
 
 async function main() {
   const conn = await mysql.createConnection(DB_CONFIG);
@@ -13,7 +13,7 @@ async function main() {
     await conn.execute(
       `UPDATE quest_chains
        SET is_active = FALSE
-       WHERE play_style = 'demo_story' OR title = '沙丘體驗版｜工作室快速通關'`
+       WHERE play_style = 'demo_story' OR title = '樂樂園體驗版｜工作室快速通關'`
     );
 
     const [existingChains] = await conn.execute(
@@ -31,7 +31,7 @@ async function main() {
         [
           QUEST_TITLE,
           QUEST_TITLE,
-          '這是一條給手機教學與現場導覽使用的沙丘主線。玩家在工作室也能一路從開場走到完結，先熟悉 RPG 對話、拍照、判定與通關節奏。',
+          '這是一條給手機教學與現場導覽使用的樂樂園主線。玩家在工作室也能一路從開場走到完結，先熟悉 RPG 對話、拍照、判定與通關節奏。',
           '手機教學導覽線｜任意拍攝、任意選擇都會先通關，先把完整流程走一遍。',
           '立即體驗',
           '教學模式',
@@ -80,7 +80,7 @@ async function main() {
         [
           QUEST_TITLE,
           QUEST_TITLE,
-          '這是一條給手機教學與現場導覽使用的沙丘主線。玩家在工作室也能一路從開場走到完結，先熟悉 RPG 對話、拍照、判定與通關節奏。',
+          '這是一條給手機教學與現場導覽使用的樂樂園主線。玩家在工作室也能一路從開場走到完結，先熟悉 RPG 對話、拍照、判定與通關節奏。',
           '手機教學導覽線｜任意拍攝、任意選擇都會先通關，先把完整流程走一遍。',
           '立即體驗',
           '教學模式',
@@ -107,16 +107,16 @@ async function main() {
 
     const tasks = [
       {
-        name: '第 1 關｜啟動探索艙',
-        description: '按下開始後，沙丘會先替你完成啟動儀式。這一關的重點不是正確定位，而是感受 RPG 式開場與主線節奏。',
+        name: '第 1 關｜啟動冒險艙',
+        description: '按下開始後，樂樂園會先替你完成啟動儀式。這一關的重點不是正確定位，而是感受 RPG 式開場與主線節奏。',
         task_type: 'location',
         points: 10,
         cover_image_url: '/images/feature-map.png',
         photoUrl: '/images/feature-map.png',
         stage_template: 'story_intro',
-        stage_intro: '引路人・砂舟已在艙門前等你。先啟動探索艙，讓整場冒險正式開始。',
+        stage_intro: '引路人・砂舟已在艙門前等你。先啟動冒險艙，讓整場冒險正式開始。',
         hint_text: '教學模式：直接開始就能前進。',
-        story_context: '你剛踏入沙丘，海底艙門在眼前亮起。',
+        story_context: '你剛踏入樂樂園，海底艙門在眼前亮起。',
         guide_content: '這一關是讓玩家感受「進入遊戲」的節奏，先由 NPC 帶入氛圍。',
         rescue_content: '如果現場沒有定位，也會由體驗模式直接放行。',
         location_required: 0,
@@ -140,7 +140,7 @@ async function main() {
         stage_template: 'photo_memory',
         stage_intro: '潮汐關主・巴布要你留下第一張冒險紀錄。把眼前任何畫面拍下來，讓鯨語裁判替你蓋章。',
         hint_text: '任意拍一張就好，教學模式會先放行。',
-        story_context: '第一張照片會成為你進入沙丘的起點印記。',
+        story_context: '第一張照片會成為你進入樂樂園的起點印記。',
         guide_content: '這一關的目的，是讓玩家感受「拍照 -> AI 判定 -> 劇情推進」的節奏。',
         rescue_content: '就算畫面不是正式挑戰內容，教學模式也會讓你前進。',
         location_required: 0,
@@ -153,7 +153,7 @@ async function main() {
         correct_answer: null,
         ai_config: JSON.stringify({
           score_subject: 'demo_memory',
-          system_prompt: '你是沙丘體驗線的裁判。',
+          system_prompt: '你是樂樂園體驗線的裁判。',
           user_prompt: '請查看玩家上傳的畫面。'
         }),
         pass_criteria: JSON.stringify({
@@ -168,11 +168,11 @@ async function main() {
         cover_image_url: '/images/feature-culture.png',
         photoUrl: '/images/feature-culture.png',
         stage_template: 'choice_gate',
-        stage_intro: '潮聲把三條航線鋪在你面前。你只要做出選擇，沙丘就會替你記錄這段旅程的節奏。',
+        stage_intro: '潮聲把三條航線鋪在你面前。你只要做出選擇，樂樂園就會替你記錄這段旅程的節奏。',
         hint_text: '任選一條航線即可。',
         story_context: '真正的重點不是選對，而是讓玩家看見劇情如何繼續往下流動。',
         guide_content: '這關是用來展示選擇題、NPC 劇情框與通關回饋。',
-        rescue_content: '教學模式下，任何選擇都會被沙丘視為有效的前進決定。',
+        rescue_content: '教學模式下，任何選擇都會被樂樂園視為有效的前進決定。',
         location_required: 0,
         lat: 24.6782946,
         lng: 121.7602662,
@@ -186,7 +186,7 @@ async function main() {
       },
       {
         name: '第 4 關｜留下通關合照',
-        description: '最後再任意拍一張照片，沙丘會把它當成你的通關紀念。完成後，你就能在手機上完整感受從開場到結尾的整條流程。',
+        description: '最後再任意拍一張照片，樂樂園會把它當成你的通關紀念。完成後，你就能在手機上完整感受從開場到結尾的整條流程。',
         task_type: 'photo',
         points: 20,
         cover_image_url: '/images/feature-reward.png',
@@ -194,7 +194,7 @@ async function main() {
         stage_template: 'finale_photo',
         stage_intro: '終點就在眼前。拍下最後一張照片，讓主持人・史蛋為你的第一輪體驗蓋上結語。',
         hint_text: '任意拍一張，感受通關結尾即可。',
-        story_context: '這一張照片是旅程的收束，也是玩家第一次完整走完沙丘流程的證明。',
+        story_context: '這一張照片是旅程的收束，也是玩家第一次完整走完樂樂園流程的證明。',
         guide_content: '最終關保留拍照與裁判節奏，讓玩家感受完整收尾。',
         rescue_content: '教學模式下，任何畫面都會先算作通關紀念。',
         location_required: 0,
@@ -207,7 +207,7 @@ async function main() {
         correct_answer: null,
         ai_config: JSON.stringify({
           score_subject: 'demo_finale',
-          system_prompt: '你是沙丘體驗線的終點裁判。',
+          system_prompt: '你是樂樂園體驗線的終點裁判。',
           user_prompt: '請查看玩家最後一張旅程紀錄。'
         }),
         pass_criteria: JSON.stringify({

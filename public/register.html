@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>註冊 | 沙丘</title>
+  <title>註冊 | 樂樂園</title>
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="icon" type="image/png" href="/images/mascot.png" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -47,7 +47,7 @@
 <body class="mobile-auth-shell">
   <header id="mainHeader">
     <div class="header-content" id="headerContent">
-      <h1 id="pageTitle">加入沙丘</h1>
+      <h1 id="pageTitle">加入樂樂園</h1>
       <button id="hamburgerBtn" class="hamburger" aria-label="展開選單">&#9776;</button>
       <nav class="main-nav">
         <a href="/index.html">首頁</a>
@@ -69,7 +69,7 @@
         <span class="mobile-auth-badge">30 秒建立玩家身份</span>
         <h2 class="text-center mb-4" style="color:var(--text-primary);">成為新的玩家</h2>
         <p class="text-center mb-4" style="color:var(--text-secondary); line-height:1.7;">
-          註冊後就能選擇劇情主線或大富翁玩法，直接從海底探索艙開始遊戲。
+          註冊後就能選擇劇情主線或大富翁玩法，直接從樂樂園冒險艙開始遊戲。
         </p>
       </div>
       
@@ -79,7 +79,7 @@
           <input class="form-input" type="text" name="username" required pattern="[0-9]{10}" maxlength="10" placeholder="請輸入10碼手機號碼" />
           <small style="color: var(--text-secondary); display: block; margin-top: 5px;">我們會用這組門號當作你的玩家登入帳號</small>
         </div>
-        <button type="submit" class="btn btn-success w-100">加入沙丘</button>
+        <button type="submit" class="btn btn-success w-100">加入樂樂園</button>
         <div id="registerMsg" class="mt-2 text-center" style="min-height: 24px;"></div>
       </form>
 
@@ -91,11 +91,11 @@
   </main>
 
   <footer>
-    &copy; 2026 沙丘 AI 實境遊戲平台
+    &copy; 2026 樂樂園 AI 實境遊戲平台
   </footer>
   <script src="/js/register.js"></script>
   <script>
-    // Header 功能（命名與權限顯示會統一走沙丘語境）
+    // Header 功能（命名與權限顯示會統一走樂樂園語境）
     const loginUser = JSON.parse(localStorage.getItem('loginUser') || 'null');
 
     if (loginUser) {
@@ -129,7 +129,7 @@
 
     function getUserDisplayName(loginUser) {
         switch(loginUser.role) {
-            case 'admin': return `沙丘管理員：${loginUser.username}`;
+            case 'admin': return `樂樂園管理員：${loginUser.username}`;
             case 'shop': return `工作人員：${loginUser.username}`;
             case 'user': return `玩家：${loginUser.username}`;
             default: return loginUser.username;

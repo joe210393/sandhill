@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="description" content="沙丘・海底探索艙：劇情主線、大富翁棋盤與 AI 關卡都在同一個遊戲主介面中進行。">
+    <meta name="description" content="樂樂園冒險艙：劇情主線、大富翁棋盤與 AI 關卡都在同一個遊戲主介面中進行。">
     <meta name="theme-color" content="#000">
-    <title>沙丘｜海底探索艙</title>
+    <title>樂樂園｜冒險艙</title>
     <link rel="icon" type="image/png" href="/images/mascot.png" />
     <link rel="stylesheet" href="css/ai-lab/core.css?v=20260502c">
     <link rel="stylesheet" href="css/ai-lab/camera.css?v=20260502c">
@@ -30,7 +30,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
-    <div class="camera-container" role="main" aria-label="海底探索艙主畫面">
+    <div class="camera-container" role="main" aria-label="樂樂園冒險艙主畫面">
         <!-- Debug Console (hidden by default) -->
         <div id="debugConsole" style="display:none; position:fixed; top:20px; left:10px; z-index:9999; color:#0f0; background:rgba(0,0,0,0.5); font-size:12px; pointer-events:none; max-width:200px; word-break:break-all;">Debug Init...</div>
 
@@ -152,7 +152,7 @@
         <!-- UI 介面 -->
         <div class="ui-layer">
             <header class="header" role="banner">
-                <div class="status-pill" aria-label="海底探索艙">海底探索艙</div>
+                <div class="status-pill" aria-label="樂樂園冒險艙">樂樂園冒險艙</div>
             </header>
 
             <section class="game-hud" aria-label="玩家狀態">
@@ -196,8 +196,8 @@
             <section id="gameShellPanel" class="game-shell-panel">
                 <div class="game-shell-top">
                     <div>
-                        <div id="gameShellMode" class="game-shell-mode">沙丘啟動中</div>
-                        <h1 id="gameShellTitle" class="game-shell-title">海底探索艙</h1>
+                        <div id="gameShellMode" class="game-shell-mode">樂樂園啟動中</div>
+                        <h1 id="gameShellTitle" class="game-shell-title">樂樂園冒險艙</h1>
                     </div>
                     <button id="gameShellToggle" class="game-shell-toggle" type="button" aria-label="展開或收起玩法資訊">任務</button>
                 </div>
@@ -523,7 +523,7 @@
             <div class="board-card-shell">
                 <div id="boardCardBadge" class="board-card-badge">機會卡</div>
                 <div id="boardCardTitle" class="board-card-title">抽取結果中</div>
-                <div id="boardCardSubtitle" class="board-card-subtitle">沙丘正在替你翻開這張卡。</div>
+                <div id="boardCardSubtitle" class="board-card-subtitle">樂樂園正在替你翻開這張卡。</div>
 
                 <div id="slotMachine" class="slot-machine hidden" aria-hidden="true">
                     <div class="slot-reel"><span id="slotReelA">🌊</span></div>
@@ -545,10 +545,10 @@
             <div id="npcDialogPortrait" class="npc-dialog-portrait">🧭</div>
             <div class="npc-dialog-card">
                 <div class="npc-dialog-header">
-                    <strong id="npcDialogSpeaker">沙丘引導員</strong>
+                    <strong id="npcDialogSpeaker">樂樂園引導員</strong>
                     <span id="npcDialogMood" class="npc-dialog-mood">對話中</span>
                 </div>
-                <div id="npcDialogText" class="npc-dialog-text">歡迎進入沙丘。</div>
+                <div id="npcDialogText" class="npc-dialog-text">歡迎進入樂樂園。</div>
                 <div class="npc-dialog-actions">
                     <button id="npcDialogClose" class="npc-dialog-btn" type="button">繼續</button>
                 </div>

@@ -129,7 +129,7 @@ const JWT_EXPIRE = process.env.JWT_EXPIRE || '7d';
 
 const { webpush, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY } = configureWebPush();
 const app = express();
-console.log('🚀 沙丘遊戲伺服器（LM-only 視覺裁判）');
+console.log('🚀 樂樂園遊戲伺服器（LM-only 視覺裁判）');
 applyCoreMiddleware(app, express);
 
 const UPLOAD_DIR = resolveUploadDir();
