@@ -265,17 +265,14 @@
       opacity: 1;
       user-select: none;
       will-change: left, margin-bottom;
-      background-color: var(--animal-color, #8b4513);
-      -webkit-mask-image: var(--animal-mask);
-      mask-image: var(--animal-mask);
-      -webkit-mask-size: contain;
-      mask-size: contain;
-      -webkit-mask-repeat: no-repeat;
-      mask-repeat: no-repeat;
-      -webkit-mask-position: center;
-      mask-position: center;
       filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.22));
-      transform: scaleX(-1);
+    }
+
+    .animal img {
+      display: block;
+      width: auto;
+      height: 46px; /* 每種動物會在各自 class 裡覆寫 */
+      pointer-events: none;
     }
 
     .run-forward {
@@ -283,164 +280,116 @@
     }
 
     .boar {
-      --animal-color: #e67e22;
-      --animal-mask: url("/images/animals/boar-mask.png");
-      width: 72px;
-      height: 42px;
       animation-duration: 18s, 0.4s;
       animation-delay: 0s;
       bottom: 16%;
     }
+    .boar img { height: 52px; }
 
     .bear {
-      --animal-color: #5d4037;
-      --animal-mask: url("/images/animals/bear-mask.png");
-      width: 88px;
-      height: 50px;
       animation-duration: 28s, 0.8s;
       animation-delay: -3s;
       bottom: 15%;
     }
+    .bear img { height: 64px; }
 
     .macaque {
-      --animal-color: #c19a6b;
-      --animal-mask: url("/images/animals/macaque-mask.png");
-      width: 72px;
-      height: 88px;
       animation-duration: 15s, 0.3s;
       animation-delay: -5s;
       bottom: 22%;
     }
+    .macaque img { height: 58px; }
 
     .deer {
-      --animal-color: #f0b429;
-      --animal-mask: url("/images/animals/deer-mask.png");
-      width: 68px;
-      height: 38px;
       animation-duration: 22s, 0.5s;
       animation-delay: -2s;
       bottom: 17%;
     }
+    .deer img { height: 50px; }
 
     .squirrel {
-      --animal-color: #ff8c00;
-      --animal-mask: url("/images/animals/squirrel-mask.png");
-      width: 52px;
-      height: 46px;
       animation-duration: 12s, 0.2s;
       animation-delay: -7s;
       bottom: 16%;
     }
+    .squirrel img { height: 34px; }
 
     .ferret {
-      --animal-color: #a1887f;
-      --animal-mask: url("/images/animals/ferret-mask.png");
-      width: 58px;
-      height: 38px;
       animation-duration: 16s, 0.3s;
       animation-delay: -9s;
       bottom: 15%;
     }
+    .ferret img { height: 40px; }
 
     .owl {
-      --animal-color: #8d6e63;
-      --animal-mask: url("/images/animals/owl-flying-mask.png");
-      width: 86px;
-      height: 42px;
       animation-duration: 35s, 1.2s;
       animation-delay: -4s;
       bottom: 45%;
     }
+    .owl img { height: 44px; }
 
     .dove {
-      --animal-color: #90a4ae;
-      --animal-mask: url("/images/animals/dove-mask.png");
-      width: 50px;
-      height: 52px;
       animation-duration: 26s, 0.8s;
       animation-delay: -8s;
       bottom: 50%;
     }
+    .dove img { height: 38px; }
 
     .pheasant {
-      --animal-color: #ff6b00;
-      --animal-mask: url("/images/animals/pheasant-mask.png");
-      width: 72px;
-      height: 48px;
       animation-duration: 19s, 0.5s;
       animation-delay: -1s;
       bottom: 16%;
     }
+    .pheasant img { height: 50px; }
 
     .muntjac {
-      --animal-color: #d4883c;
-      --animal-mask: url("/images/animals/muntjac-mask.png");
-      width: 76px;
-      height: 62px;
       animation-duration: 21s, 0.4s;
       animation-delay: -4s;
       bottom: 17%;
     }
+    .muntjac img { height: 54px; }
 
     .mikado-pheasant {
-      --animal-color: #0d9488;
-      --animal-mask: url("/images/animals/mikado-pheasant-mask.png");
-      width: 68px;
-      height: 40px;
       animation-duration: 24s, 0.6s;
       animation-delay: -6s;
       bottom: 16%;
     }
+    .mikado-pheasant img { height: 48px; }
 
     .blue-magpie {
-      --animal-color: #2563eb;
-      --animal-mask: url("/images/animals/blue-magpie-mask.png");
-      width: 48px;
-      height: 52px;
       animation-duration: 20s, 0.9s;
       animation-delay: -11s;
       bottom: 38%;
     }
+    .blue-magpie img { height: 40px; }
 
     .eagle {
-      --animal-color: #6d4c41;
-      --animal-mask: url("/images/animals/eagle-mask.png");
-      width: 64px;
-      height: 70px;
       animation-duration: 15s, 1.5s;
       animation-delay: 0s;
       bottom: 60%;
     }
+    .eagle img { height: 56px; }
 
     .rabbit {
-      --animal-color: #f5c6a5;
-      --animal-mask: url("/images/animals/rabbit-mask.png");
-      width: 54px;
-      height: 44px;
       animation-duration: 13s, 0.3s;
       animation-delay: -3s;
       bottom: 15%;
     }
+    .rabbit img { height: 42px; }
 
     .weasel {
-      --animal-color: #ca8a04;
-      --animal-mask: url("/images/animals/weasel-mask.png");
-      width: 58px;
-      height: 38px;
       animation-duration: 17s, 0.4s;
       animation-delay: -10s;
       bottom: 16%;
     }
+    .weasel img { height: 40px; }
 
     .sparrow {
-      --animal-color: #fbbf24;
-      --animal-mask: url("/images/animals/sparrow-mask.png");
-      width: 44px;
-      height: 48px;
       animation-duration: 14s, 0.5s;
       animation-delay: -13s;
       bottom: 35%;
     }
+    .sparrow img { height: 34px; }
 
     .layer-fg {
       z-index: 3;
@@ -1301,22 +1250,23 @@
         </div>
 
         <div class="layer layer-md-animals">
-          <div class="animal run-forward boar" aria-hidden="true"></div>
-          <div class="animal run-forward bear" aria-hidden="true"></div>
-          <div class="animal run-forward macaque" aria-hidden="true"></div>
-          <div class="animal run-forward deer" aria-hidden="true"></div>
-          <div class="animal run-forward squirrel" aria-hidden="true"></div>
-          <div class="animal run-forward ferret" aria-hidden="true"></div>
-          <div class="animal run-forward owl" aria-hidden="true"></div>
-          <div class="animal run-forward dove" aria-hidden="true"></div>
-          <div class="animal run-forward pheasant" aria-hidden="true"></div>
-          <div class="animal run-forward muntjac" aria-hidden="true"></div>
-          <div class="animal run-forward mikado-pheasant" aria-hidden="true"></div>
-          <div class="animal run-forward blue-magpie" aria-hidden="true"></div>
-          <div class="animal run-forward eagle" aria-hidden="true"></div>
-          <div class="animal run-forward rabbit" aria-hidden="true"></div>
-          <div class="animal run-forward weasel" aria-hidden="true"></div>
-          <div class="animal run-forward sparrow" aria-hidden="true"></div>
+          <div class="animal run-forward boar" aria-hidden="true"><img src="/images/animals/boar.svg" alt="野豬"></div>
+          <div class="animal run-forward bear" aria-hidden="true"><img src="/images/animals/bear.svg" alt="臺灣黑熊"></div>
+          <div class="animal run-forward macaque" aria-hidden="true"><img src="/images/animals/macaque.svg" alt="獼猴"></div>
+          <div class="animal run-forward deer" aria-hidden="true"><img src="/images/animals/deer.svg" alt="山羌"></div>
+          <div class="animal run-forward squirrel" aria-hidden="true"><img src="/images/animals/squirrel.svg" alt="松鼠"></div>
+          <div class="animal run-forward ferret" aria-hidden="true"><img src="/images/animals/ferret.svg" alt="鼬鼠"></div>
+          <div class="animal run-forward owl" aria-hidden="true"><img src="/images/animals/owl-flying.svg" alt="貓頭鷹"></div>
+          <div class="animal run-forward dove" aria-hidden="true"><img src="/images/animals/dove.svg" alt="山鳩"></div>
+
+          <div class="animal run-forward pheasant" aria-hidden="true"><img src="/images/animals/pheasant.svg" alt="山雞"></div>
+          <div class="animal run-forward muntjac" aria-hidden="true"><img src="/images/animals/muntjac.svg" alt="水鹿"></div>
+          <div class="animal run-forward mikado-pheasant" aria-hidden="true"><img src="/images/animals/mikado-pheasant.svg" alt="帝雉"></div>
+          <div class="animal run-forward blue-magpie" aria-hidden="true"><img src="/images/animals/blue-magpie.svg" alt="藍雀"></div>
+          <div class="animal run-forward eagle" aria-hidden="true"><img src="/images/animals/eagle.svg" alt="山鷹"></div>
+          <div class="animal run-forward rabbit" aria-hidden="true"><img src="/images/animals/rabbit.svg" alt="山兔"></div>
+          <div class="animal run-forward weasel" aria-hidden="true"><img src="/images/animals/weasel.svg" alt="黃鼠狼"></div>
+          <div class="animal run-forward sparrow" aria-hidden="true"><img src="/images/animals/sparrow.svg" alt="麻雀"></div>
         </div>
 
         <div class="layer layer-fg">
