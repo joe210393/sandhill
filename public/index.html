@@ -189,10 +189,8 @@
       padding: 28px;
       border-radius: 34px;
       background:
-        linear-gradient(180deg, rgba(62, 39, 20, 0.12), rgba(45, 30, 18, 0.42)),
-        linear-gradient(180deg, rgba(92, 61, 30, 0.28), rgba(35, 48, 28, 0.92)),
-        radial-gradient(circle at 72% 18%, rgba(255, 159, 67, 0.22), transparent 42%),
-        linear-gradient(160deg, #3d2914 0%, #5c3d1e 38%, #2f4a2a 72%, #1a2e1f 100%);
+        linear-gradient(180deg, rgba(62, 39, 20, 0.06), rgba(45, 30, 18, 0.22)),
+        linear-gradient(180deg, rgba(92, 61, 30, 0.12), rgba(35, 48, 28, 0.42));
       box-shadow: var(--shadow);
       isolation: isolate;
     }
@@ -200,195 +198,306 @@
     .hero-overlay {
       position: absolute;
       inset: 0;
-      z-index: -1;
+      z-index: 0;
       overflow: hidden;
       pointer-events: none;
     }
 
-    .forest-haze,
-    .forest-haze::before,
-    .forest-haze::after {
+    .scene-sky {
       position: absolute;
-      inset: auto;
-      content: "";
-      display: block;
-      border-radius: 999px;
-      filter: blur(14px);
+      inset: 0;
+      background:
+        radial-gradient(circle at 78% 12%, rgba(255, 214, 140, 0.35), transparent 28%),
+        linear-gradient(180deg, #6f93b8 0%, #8aa8c4 18%, #a8b89a 48%, transparent 72%);
     }
 
-    .forest-haze {
-      width: 140%;
-      height: 36%;
-      left: -20%;
-      bottom: -8%;
-      background: linear-gradient(180deg, rgba(92, 61, 30, 0.14), rgba(120, 88, 48, 0.42), rgba(47, 74, 42, 0.52));
-      animation: forestSwell 12s ease-in-out infinite;
-    }
-
-    .forest-haze::before {
-      width: 55%;
-      height: 48%;
-      left: 8%;
-      top: 16%;
-      background: radial-gradient(circle, rgba(255, 179, 71, 0.28), transparent 68%);
-      animation: forestPulse 8s ease-in-out infinite;
-    }
-
-    .forest-haze::after {
-      width: 42%;
-      height: 34%;
-      right: 8%;
+    .scene-mountains {
+      position: absolute;
+      left: -8%;
+      right: -8%;
       bottom: 24%;
-      background: radial-gradient(circle, rgba(196, 65, 12, 0.2), transparent 72%);
-      animation: forestPulse 10s ease-in-out infinite reverse;
+      height: 58%;
     }
 
-    .totem-band {
+    .mountain {
+      position: absolute;
+      bottom: 0;
+      background: linear-gradient(180deg, #4a5f4a 0%, #2f3f32 55%, #1f2a20 100%);
+      opacity: 0.92;
+    }
+
+    .mountain.m1 {
+      left: -5%;
+      width: 46%;
+      height: 72%;
+      clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+      opacity: 0.55;
+    }
+
+    .mountain.m2 {
+      left: 24%;
+      width: 52%;
+      height: 88%;
+      clip-path: polygon(18% 0%, 82% 0%, 100% 100%, 0% 100%);
+    }
+
+    .mountain.m3 {
+      right: -8%;
+      width: 44%;
+      height: 68%;
+      clip-path: polygon(55% 0%, 100% 100%, 0% 100%);
+      opacity: 0.72;
+    }
+
+    .mountain.m4 {
+      left: 8%;
+      width: 34%;
+      height: 52%;
+      clip-path: polygon(50% 8%, 92% 100%, 8% 100%);
+      opacity: 0.38;
+      background: linear-gradient(180deg, #6d8268 0%, #3f4f3d 100%);
+    }
+
+    .scene-village {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 34%;
+      z-index: 2;
+    }
+
+    .village-ground {
+      position: absolute;
+      inset: auto 0 0;
+      height: 42%;
+      background: linear-gradient(180deg, rgba(74, 53, 32, 0.2), rgba(54, 38, 24, 0.88) 38%, rgba(35, 25, 16, 0.96));
+    }
+
+    .tribal-house {
+      position: absolute;
+      bottom: 12%;
+      width: 74px;
+      height: 58px;
+    }
+
+    .tribal-house .stilt {
+      position: absolute;
+      bottom: 0;
+      width: 5px;
+      height: 18px;
+      background: #5c3d1e;
+      border-radius: 2px;
+    }
+
+    .tribal-house .stilt:nth-child(1) { left: 10px; }
+    .tribal-house .stilt:nth-child(2) { right: 10px; }
+
+    .tribal-house .body {
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: 16px;
+      height: 28px;
+      border-radius: 4px;
+      background: linear-gradient(180deg, #8b5a2b, #5c3d1e);
+      border: 2px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .tribal-house .body::after {
+      content: "";
+      position: absolute;
+      inset: 5px 6px auto;
+      height: 8px;
+      background: repeating-linear-gradient(90deg, #b91c1c 0 6px, #fef3c7 6px 12px, #1c1917 12px 18px);
+      border-radius: 2px;
+      opacity: 0.85;
+    }
+
+    .tribal-house .roof {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 42px;
+      height: 24px;
+      background: linear-gradient(180deg, #3f2d1d, #24180f);
+      clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+    }
+
+    .tribal-house.h1 { left: 6%; transform: scale(0.92); }
+    .tribal-house.h2 { left: 20%; transform: scale(1.05); }
+    .tribal-house.h3 { left: 38%; transform: scale(0.88); }
+    .tribal-house.h4 { left: 56%; transform: scale(1.08); }
+    .tribal-house.h5 { left: 72%; transform: scale(0.95); }
+    .tribal-house.h6 { left: 86%; transform: scale(0.82); }
+
+    .tribal-person {
+      position: absolute;
+      bottom: 14%;
+      width: 18px;
+      height: 34px;
+    }
+
+    .tribal-person .head {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 12px;
+      height: 12px;
+      margin-left: -6px;
+      border-radius: 50%;
+      background: #d4a574;
+    }
+
+    .tribal-person .torso {
+      position: absolute;
+      top: 11px;
+      left: 50%;
+      width: 14px;
+      height: 16px;
+      margin-left: -7px;
+      border-radius: 4px 4px 2px 2px;
+      background: linear-gradient(180deg, #b91c1c, #7f1d1d);
+    }
+
+    .tribal-person .torso::before {
+      content: "";
+      position: absolute;
+      inset: 3px 2px auto;
+      height: 4px;
+      background: #fef3c7;
+      border-radius: 2px;
+    }
+
+    .tribal-person .legs {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 12px;
+      height: 10px;
+      margin-left: -6px;
+      background: #3d2914;
+      clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%);
+    }
+
+    .tribal-person.p1 { left: 14%; }
+    .tribal-person.p2 { left: 28%; }
+    .tribal-person.p3 { left: 46%; }
+    .tribal-person.p4 { left: 63%; }
+    .tribal-person.p5 { left: 80%; }
+
+    .scene-wildlife {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+    }
+
+    .wild-runner {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      opacity: 0.96;
+      filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.28));
+      user-select: none;
+      will-change: transform;
+    }
+
+    .wild-runner .animal-glyph {
+      display: block;
+      line-height: 1;
+    }
+
+    .wild-runner .animal-name {
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: rgba(255, 248, 235, 0.88);
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+      white-space: nowrap;
+    }
+
+    .wild-runner.size-sm .animal-glyph { font-size: 1.55rem; }
+    .wild-runner.size-md .animal-glyph { font-size: 2rem; }
+    .wild-runner.size-lg .animal-glyph { font-size: 2.45rem; }
+
+    .wild-runner.magpie .animal-glyph {
+      font-size: 1.85rem;
+      filter: hue-rotate(185deg) saturate(1.8) brightness(1.05);
+    }
+
+    .wild-runner.run-right { animation: wildlifeRunRight linear infinite; }
+    .wild-runner.run-left { animation: wildlifeRunLeft linear infinite; }
+
+    .wild-runner.run-right .animal-glyph {
+      animation: animalBounce 0.55s ease-in-out infinite alternate;
+    }
+
+    .wild-runner.run-left .animal-glyph {
+      animation: animalBounceLeft 0.55s ease-in-out infinite alternate;
+    }
+
+    .a1  { top: 36%; animation-duration: 19s; animation-delay: -1s; }
+    .a2  { top: 44%; animation-duration: 24s; animation-delay: -8s; }
+    .a3  { top: 52%; animation-duration: 16s; animation-delay: -4s; }
+    .a4  { top: 40%; animation-duration: 22s; animation-delay: -12s; }
+    .a5  { top: 58%; animation-duration: 27s; animation-delay: -6s; }
+    .a6  { top: 48%; animation-duration: 18s; animation-delay: -15s; }
+    .a7  { top: 62%; animation-duration: 21s; animation-delay: -3s; }
+    .a8  { top: 34%; animation-duration: 25s; animation-delay: -18s; }
+    .a9  { top: 54%; animation-duration: 17s; animation-delay: -10s; }
+    .a10 { top: 42%; animation-duration: 23s; animation-delay: -20s; }
+    .a11 { top: 60%; animation-duration: 20s; animation-delay: -7s; }
+    .a12 { top: 38%; animation-duration: 26s; animation-delay: -14s; }
+    .a13 { top: 50%; animation-duration: 15s; animation-delay: -2s; }
+    .a14 { top: 56%; animation-duration: 28s; animation-delay: -11s; }
+    .a15 { top: 46%; animation-duration: 19s; animation-delay: -16s; }
+    .a16 { top: 64%; animation-duration: 22s; animation-delay: -9s; }
+
+    .scene-mist {
       position: absolute;
       left: -10%;
       right: -10%;
-      height: 18%;
-      border-radius: 999px;
-      opacity: 0.42;
-      background:
-        repeating-linear-gradient(90deg, rgba(255,255,255,0.08) 0 12px, transparent 12px 24px),
-        repeating-linear-gradient(0deg, rgba(196,65,12,0.18) 0 8px, rgba(251,191,36,0.12) 8px 16px);
-      animation: totemDrift 14s linear infinite;
+      bottom: 28%;
+      height: 22%;
+      background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+      filter: blur(10px);
+      animation: mistDrift 18s ease-in-out infinite;
+      z-index: 1;
+      opacity: 0.55;
     }
 
-    .totem-band.r1 { top: 14%; }
-    .totem-band.r2 { top: 40%; animation-duration: 18s; animation-delay: -6s; }
-    .totem-band.r3 { top: 66%; animation-duration: 12s; animation-delay: -10s; }
-
-    .weave-line {
-      position: absolute;
-      left: -12%;
-      width: 124%;
-      height: 72px;
-      border-radius: 999px;
-      background:
-        repeating-linear-gradient(135deg, rgba(255,255,255,0.16) 0 10px, transparent 10px 20px),
-        radial-gradient(circle at 20% 45%, rgba(255, 179, 71, 0.24), transparent 18%),
-        radial-gradient(circle at 74% 46%, rgba(255, 255, 255, 0.16), transparent 16%);
-      opacity: 0.38;
-      animation: weaveDrift 16s linear infinite;
-    }
-
-    .weave-line.f1 { top: 28%; }
-    .weave-line.f2 { top: 56%; animation-duration: 22s; animation-delay: -7s; }
-
-    .floater {
-      position: absolute;
-      opacity: 0.94;
-      filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.22));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      user-select: none;
-    }
-
-    .atayal-totem {
-      width: 52px;
-      height: 52px;
-      clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
-      background:
-        linear-gradient(135deg, #7f1d1d 0 25%, #f8fafc 25% 50%, #1c1917 50% 75%, #ea580c 75% 100%);
-      border: 2px solid rgba(255, 255, 255, 0.35);
-      animation: totemSpin 10s linear infinite;
-    }
-
-    .atayal-totem.zigzag {
-      clip-path: none;
-      width: 64px;
-      height: 28px;
-      border-radius: 4px;
-      background:
-        repeating-linear-gradient(90deg, #b91c1c 0 8px, #fef3c7 8px 16px, #1c1917 16px 24px);
-      animation: totemBob 4s ease-in-out infinite alternate;
-    }
-
-    .atayal-totem.cross {
-      width: 44px;
-      height: 44px;
-      clip-path: polygon(20% 0%, 80% 0%, 100% 20%, 100% 80%, 80% 100%, 20% 100%, 0% 80%, 0% 20%);
-      background:
-        conic-gradient(from 45deg, #7f1d1d, #fbbf24, #1c1917, #ea580c, #7f1d1d);
-      animation: totemSpin 14s linear infinite reverse;
-    }
-
-    .ip-chip img {
-      display: block;
-      width: 100%;
-      height: auto;
-      object-fit: contain;
-      filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.28));
-      animation: ipBob 5s ease-in-out infinite alternate;
-    }
-
-    .ip-chip.i1 { width: 118px; }
-    .ip-chip.i2 { width: 92px; }
-    .ip-chip.i3 { width: 104px; }
-    .ip-chip.i4 { width: 86px; }
-    .ip-chip.i5 { width: 96px; }
-    .ip-chip.i6 { width: 110px; }
-
-    .s1 { top: 12%; left: -100px; animation: floatAcross 20s linear infinite; animation-delay: 0s; }
-    .s2 { top: 32%; left: -150px; animation: floatAcross 28s linear infinite; animation-delay: -5s; }
-    .s3 { top: 52%; left: -80px; animation: floatAcross 16s linear infinite; animation-delay: -12s; }
-    .s4 { top: 72%; left: -200px; animation: floatAcross 24s linear infinite; animation-delay: -8s; }
-    .s5 { top: 22%; left: -120px; animation: floatAcross 18s linear infinite; animation-delay: -18s; }
-    .s6 { top: 62%; left: -90px; animation: floatAcross 22s linear infinite; animation-delay: -2s; }
-    .s7 { top: 42%; left: -180px; animation: floatAcross 26s linear infinite; animation-delay: -22s; }
-    .s8 { top: 82%; left: -130px; animation: floatAcross 30s linear infinite; animation-delay: -15s; }
-
-    .i1 { top: 18%; left: -70px; animation: floatAcross 24s linear infinite; animation-delay: -3s; }
-    .i2 { top: 48%; left: -120px; animation: floatAcross 20s linear infinite; animation-delay: -14s; }
-    .i3 { top: 68%; left: -90px; animation: floatAcross 26s linear infinite; animation-delay: -9s; }
-    .i4 { top: 28%; left: -160px; animation: floatAcross 18s linear infinite; animation-delay: -20s; }
-    .i5 { top: 78%; left: -100px; animation: floatAcross 30s linear infinite; animation-delay: -6s; }
-    .i6 { top: 38%; left: -210px; animation: floatAcross 22s linear infinite; animation-delay: -25s; }
-
-    .ember {
-      position: absolute;
-      bottom: -20px;
-      border-radius: 50%;
-      background: radial-gradient(circle at 30% 30%, rgba(255, 179, 71, 0.9), rgba(234, 88, 12, 0.2) 60%, transparent 100%);
-      box-shadow: 0 0 12px rgba(255, 159, 67, 0.45);
-      opacity: 0;
-      animation: emberRise linear infinite;
-    }
-
-    .b1 { left: 10%; width: 14px; height: 14px; animation-duration: 8s; animation-delay: 0s; }
-    .b2 { left: 25%; width: 22px; height: 22px; animation-duration: 12s; animation-delay: 2s; }
-    .b3 { left: 40%; width: 10px; height: 10px; animation-duration: 6s; animation-delay: 1s; }
-    .b4 { left: 60%; width: 28px; height: 28px; animation-duration: 15s; animation-delay: 4s; }
-    .b5 { left: 75%; width: 16px; height: 16px; animation-duration: 9s; animation-delay: 3s; }
-    .b6 { left: 90%; width: 20px; height: 20px; animation-duration: 11s; animation-delay: 5s; }
-    .b7 { left: 50%; width: 12px; height: 12px; animation-duration: 7s; animation-delay: 6s; }
-    .b8 { left: 80%; width: 24px; height: 24px; animation-duration: 14s; animation-delay: 1.5s; }
-    .b9 { left: 15%; width: 18px; height: 18px; animation-duration: 10s; animation-delay: 7s; }
-    .b10 { left: 65%; width: 13px; height: 13px; animation-duration: 8.5s; animation-delay: 4.5s; }
-
-    .hero-ip-showcase {
+    .hero-scene-legend {
       position: relative;
-      display: grid;
-      place-items: center;
-      min-height: 320px;
-      padding: 12px;
+      min-height: 220px;
+      padding: 18px;
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      overflow: hidden;
     }
 
-    .hero-ip-main {
-      width: min(100%, 360px);
-      height: auto;
-      object-fit: contain;
-      filter: drop-shadow(0 18px 36px rgba(0, 0, 0, 0.32));
-      animation: ipBob 6s ease-in-out infinite alternate;
+    .hero-scene-legend::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(111, 147, 184, 0.35), transparent 42%),
+        linear-gradient(180deg, transparent 55%, rgba(54, 38, 24, 0.55));
+      pointer-events: none;
+    }
+
+    .hero-scene-legend strong,
+    .hero-scene-legend span {
+      position: relative;
+      z-index: 1;
     }
 
     .hero-copy,
     .hero-side {
       position: relative;
-      z-index: 2;
+      z-index: 4;
     }
 
     .hero-copy {
@@ -886,63 +995,32 @@
       text-decoration: none;
     }
 
-    @keyframes floatAcross {
-      0% { transform: translate3d(0, 0, 0) rotate(0deg); }
-      50% { transform: translate3d(calc(62vw + 80px), -12px, 0) rotate(-4deg); }
-      100% { transform: translate3d(calc(120vw + 140px), 8px, 0) rotate(2deg); }
+    @keyframes wildlifeRunRight {
+      0% { transform: translate3d(-12%, 0, 0); }
+      50% { transform: translate3d(48vw, -10px, 0); }
+      100% { transform: translate3d(112%, 0, 0); }
     }
 
-    @keyframes totemSpin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+    @keyframes wildlifeRunLeft {
+      0% { transform: translate3d(112%, 0, 0); }
+      50% { transform: translate3d(48vw, -8px, 0); }
+      100% { transform: translate3d(-12%, 0, 0); }
     }
 
-    @keyframes totemBob {
+    @keyframes animalBounce {
       0% { transform: translateY(0); }
-      100% { transform: translateY(-12px); }
+      100% { transform: translateY(-7px); }
     }
 
-    @keyframes ipBob {
-      0% { transform: translateY(0) rotate(-1deg); }
-      100% { transform: translateY(-14px) rotate(1deg); }
+    @keyframes animalBounceLeft {
+      0% { transform: scaleX(-1) translateY(0); }
+      100% { transform: scaleX(-1) translateY(-7px); }
     }
 
-    @keyframes emberRise {
-      0% {
-        transform: translateY(100vh) translateX(0) scale(1);
-        opacity: 0;
-      }
-      10% { opacity: 0.85; }
-      50% { transform: translateY(20vh) translateX(16px) scale(1.08); }
-      90% { opacity: 0.75; }
-      100% {
-        transform: translateY(-20vh) translateX(-12px) scale(1.15);
-        opacity: 0;
-      }
-    }
-
-    @keyframes totemDrift {
-      0% { transform: translateX(-4%) translateY(0); }
-      50% { transform: translateX(4%) translateY(6px); }
-      100% { transform: translateX(-4%) translateY(0); }
-    }
-
-    @keyframes weaveDrift {
-      0% { transform: translateX(-2%); opacity: 0.18; }
-      50% { transform: translateX(2%); opacity: 0.44; }
-      100% { transform: translateX(-2%); opacity: 0.18; }
-    }
-
-    @keyframes forestSwell {
-      0% { transform: translateY(0) scaleX(1); }
-      50% { transform: translateY(-10px) scaleX(1.04); }
-      100% { transform: translateY(0) scaleX(1); }
-    }
-
-    @keyframes forestPulse {
-      0% { opacity: 0.25; transform: scale(0.96); }
-      50% { opacity: 0.48; transform: scale(1.04); }
-      100% { opacity: 0.25; transform: scale(0.96); }
+    @keyframes mistDrift {
+      0% { transform: translateX(-3%); opacity: 0.42; }
+      50% { transform: translateX(3%); opacity: 0.62; }
+      100% { transform: translateX(-3%); opacity: 0.42; }
     }
 
     @media (max-width: 1080px) {
@@ -1106,21 +1184,16 @@
         display: none;
       }
 
-      .hero-overlay .s4,
-      .hero-overlay .s6,
-      .hero-overlay .s7,
-      .hero-overlay .s8,
-      .hero-overlay .i3,
-      .hero-overlay .i5,
-      .hero-overlay .i6,
-      .hero-overlay .b5,
-      .hero-overlay .b6,
-      .hero-overlay .b7,
-      .hero-overlay .b8,
-      .hero-overlay .b9,
-      .hero-overlay .b10,
-      .hero-overlay .weave-line.f2,
-      .hero-overlay .totem-band.r3 {
+      .hero-overlay .a8,
+      .hero-overlay .a10,
+      .hero-overlay .a12,
+      .hero-overlay .a14,
+      .hero-overlay .a16,
+      .hero-overlay .tribal-house.h5,
+      .hero-overlay .tribal-house.h6,
+      .hero-overlay .tribal-person.p4,
+      .hero-overlay .tribal-person.p5,
+      .wild-runner .animal-name {
         display: none;
       }
     }
@@ -1153,49 +1226,55 @@
   <main>
     <section class="hero">
       <div class="hero-overlay" aria-hidden="true">
-        <div class="forest-haze"></div>
-        <div class="totem-band r1"></div>
-        <div class="totem-band r2"></div>
-        <div class="totem-band r3"></div>
-        <div class="weave-line f1"></div>
-        <div class="weave-line f2"></div>
+        <div class="scene-sky"></div>
+        <div class="scene-mountains">
+          <div class="mountain m1"></div>
+          <div class="mountain m2"></div>
+          <div class="mountain m3"></div>
+          <div class="mountain m4"></div>
+        </div>
+        <div class="scene-mist"></div>
 
-        <!-- 泰雅族圖騰 -->
-        <div class="floater s1"><span class="atayal-totem"></span></div>
-        <div class="floater s2"><span class="atayal-totem zigzag"></span></div>
-        <div class="floater s3"><span class="atayal-totem cross"></span></div>
-        <div class="floater s4"><span class="atayal-totem"></span></div>
-        <div class="floater s5"><span class="atayal-totem zigzag"></span></div>
-        <div class="floater s6"><span class="atayal-totem cross"></span></div>
-        <div class="floater s7"><span class="atayal-totem"></span></div>
-        <div class="floater s8"><span class="atayal-totem zigzag"></span></div>
+        <div class="scene-village">
+          <div class="village-ground"></div>
+          <div class="tribal-house h1"><div class="stilt"></div><div class="stilt"></div><div class="roof"></div><div class="body"></div></div>
+          <div class="tribal-house h2"><div class="stilt"></div><div class="stilt"></div><div class="roof"></div><div class="body"></div></div>
+          <div class="tribal-house h3"><div class="stilt"></div><div class="stilt"></div><div class="roof"></div><div class="body"></div></div>
+          <div class="tribal-house h4"><div class="stilt"></div><div class="stilt"></div><div class="roof"></div><div class="body"></div></div>
+          <div class="tribal-house h5"><div class="stilt"></div><div class="stilt"></div><div class="roof"></div><div class="body"></div></div>
+          <div class="tribal-house h6"><div class="stilt"></div><div class="stilt"></div><div class="roof"></div><div class="body"></div></div>
+          <div class="tribal-person p1"><div class="head"></div><div class="torso"></div><div class="legs"></div></div>
+          <div class="tribal-person p2"><div class="head"></div><div class="torso"></div><div class="legs"></div></div>
+          <div class="tribal-person p3"><div class="head"></div><div class="torso"></div><div class="legs"></div></div>
+          <div class="tribal-person p4"><div class="head"></div><div class="torso"></div><div class="legs"></div></div>
+          <div class="tribal-person p5"><div class="head"></div><div class="torso"></div><div class="legs"></div></div>
+        </div>
 
-        <!-- 樂樂園 IP -->
-        <div class="floater ip-chip i1"><img src="/images/lelepark-ip.png" alt=""></div>
-        <div class="floater ip-chip i2"><img src="/images/lelepark-ip.png" alt=""></div>
-        <div class="floater ip-chip i3"><img src="/images/lelepark-ip.png" alt=""></div>
-        <div class="floater ip-chip i4"><img src="/images/lelepark-ip.png" alt=""></div>
-        <div class="floater ip-chip i5"><img src="/images/lelepark-ip.png" alt=""></div>
-        <div class="floater ip-chip i6"><img src="/images/lelepark-ip.png" alt=""></div>
-
-        <!-- 營火微光 -->
-        <div class="ember b1"></div>
-        <div class="ember b2"></div>
-        <div class="ember b3"></div>
-        <div class="ember b4"></div>
-        <div class="ember b5"></div>
-        <div class="ember b6"></div>
-        <div class="ember b7"></div>
-        <div class="ember b8"></div>
-        <div class="ember b9"></div>
-        <div class="ember b10"></div>
+        <div class="scene-wildlife">
+          <div class="wild-runner run-right size-lg a1"><span class="animal-glyph">🐗</span><span class="animal-name">野豬</span></div>
+          <div class="wild-runner run-left size-md a2"><span class="animal-glyph">🐻</span><span class="animal-name">臺灣黑熊</span></div>
+          <div class="wild-runner run-right size-md a3"><span class="animal-glyph">🐓</span><span class="animal-name">山雞</span></div>
+          <div class="wild-runner run-left size-lg a4"><span class="animal-glyph">🦌</span><span class="animal-name">山羌</span></div>
+          <div class="wild-runner run-right size-md a5 magpie"><span class="animal-glyph">🐦</span><span class="animal-name">藍雀</span></div>
+          <div class="wild-runner run-left size-lg a6"><span class="animal-glyph">🦚</span><span class="animal-name">帝雉</span></div>
+          <div class="wild-runner run-right size-sm a7"><span class="animal-glyph">🐿️</span><span class="animal-name">松鼠</span></div>
+          <div class="wild-runner run-left size-md a8"><span class="animal-glyph">🐒</span><span class="animal-name">獼猴</span></div>
+          <div class="wild-runner run-right size-md a9"><span class="animal-glyph">🦅</span><span class="animal-name">山鷹</span></div>
+          <div class="wild-runner run-left size-sm a10"><span class="animal-glyph">🐰</span><span class="animal-name">山兔</span></div>
+          <div class="wild-runner run-right size-lg a11"><span class="animal-glyph">🦌</span><span class="animal-name">水鹿</span></div>
+          <div class="wild-runner run-left size-md a12"><span class="animal-glyph">🦡</span><span class="animal-name">鼬鼠</span></div>
+          <div class="wild-runner run-right size-sm a13"><span class="animal-glyph">🕊️</span><span class="animal-name">山鳩</span></div>
+          <div class="wild-runner run-left size-md a14"><span class="animal-glyph">🦉</span><span class="animal-name">貓頭鷹</span></div>
+          <div class="wild-runner run-right size-md a15"><span class="animal-glyph">🐗</span><span class="animal-name">山豬</span></div>
+          <div class="wild-runner run-left size-lg a16"><span class="animal-glyph">🐻</span><span class="animal-name">熊</span></div>
+        </div>
       </div>
 
       <div class="hero-copy">
         <div class="eyebrow">泰雅文化 ・ 手機冒險入口</div>
         <h2>把戶外導覽、關卡闖關與角色互動，做成孩子也能直接玩懂的山林冒險遊戲。</h2>
         <p>
-          「樂樂園」的首頁不是工具清單，而是一個真正的活動入口。玩家用手機就能選擇教學模式、劇情主線或大富翁玩法，進入後由 Mnibu 夥伴們擔任關主、裁判與導覽員，陪著一路往下玩。
+          「樂樂園」的首頁不是工具清單，而是一個真正的活動入口。玩家用手機就能選擇教學模式、劇情主線或大富翁玩法，從山林部落出發，走進泰雅文化冒險。
         </p>
         <div class="hero-actions">
           <button class="ocean-btn ocean-btn-primary" id="heroStoryPickerBtn" type="button">立即選擇劇本</button>
@@ -1204,12 +1283,14 @@
       </div>
 
       <div class="hero-side">
-        <div class="hero-ip-showcase">
-          <img src="/images/lelepark-ip.png" alt="樂樂園 Mnibu 夥伴們" class="hero-ip-main">
+        <div class="hero-scene-legend">
+          <span class="hero-chip">山林部落</span>
+          <strong>遠方是山，腳下是部落，中間則有野生動物奔跑。</strong>
+          <span>野豬、山雞、黑熊、山羌、帝雉、藍雀與更多山林夥伴，會持續在畫面中來回穿梭。</span>
         </div>
         <div class="hero-panel">
-          <span class="hero-chip">Mnibu 夥伴</span>
-          <strong>熊、鳥、山羊與飛鼠，陪你走進泰雅文化冒險。</strong>
+          <span class="hero-chip">泰雅風貌</span>
+          <strong>高腳屋、族人與編織紋樣，襯托樂樂園的山林冒險。</strong>
           <span>首頁只保留最重要的入口與登入方式，讓玩家一眼就知道下一步要做什麼。</span>
         </div>
       </div>
@@ -1228,12 +1309,12 @@
           <p>玩家不需要理解所有功能，只要看見劇本入口，就能直接開始第一輪體驗。</p>
         </article>
         <article class="camp-card">
-          <h4>先感受到泰雅圖騰</h4>
-          <p>菱形圖騰、編織紋樣與 Mnibu 夥伴會持續在背景流動，整體節奏更偏手機也能舒服閱讀的密度。</p>
+          <h4>先感受到山林生態</h4>
+          <p>遠方山脈、部落高腳屋與奔跑的野生動物會持續存在，整體節奏仍適合手機閱讀。</p>
         </article>
         <article class="camp-card">
           <h4>先進到遊戲裡</h4>
-          <p>真正的劇情、Mnibu 夥伴的互動、大富翁與 RPG 對話，都留在遊戲殼裡展開，不把首頁做成說明書。</p>
+          <p>真正的劇情、族人與動物的互動、大富翁與 RPG 對話，都留在遊戲殼裡展開，不把首頁做成說明書。</p>
         </article>
       </div>
     </section>
