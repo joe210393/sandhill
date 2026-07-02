@@ -187,6 +187,10 @@ function buildDemoAiResult(task, submissionUrl = null) {
   };
 }
 
+function normalizeLabel(value) {
+  return normalizeNullableString(value)?.toLowerCase().trim() || '';
+}
+
 function tutorialIdentifyAliases(targetLabel) {
   const key = normalizeLabel(targetLabel);
   if (!key) return [];
