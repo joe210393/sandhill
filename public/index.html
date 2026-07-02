@@ -256,7 +256,8 @@
     }
 
     .layer-md-animals {
-      z-index: 2;
+      z-index: 5;
+      pointer-events: none;
     }
 
     .animal {
@@ -273,6 +274,7 @@
       width: auto;
       height: 46px; /* 每種動物會在各自 class 裡覆寫 */
       pointer-events: none;
+      transform: scaleX(-1);
     }
 
     .run-forward {
@@ -392,7 +394,8 @@
     .sparrow img { height: 34px; }
 
     .layer-fg {
-      z-index: 3;
+      z-index: 2;
+      pointer-events: none;
     }
 
     .tribal-ground {
@@ -1195,19 +1198,15 @@
         display: none;
       }
 
-      .hero-overlay .bear,
-      .hero-overlay .macaque,
-      .hero-overlay .squirrel,
-      .hero-overlay .ferret,
-      .hero-overlay .owl,
-      .hero-overlay .mikado-pheasant,
-      .hero-overlay .weasel,
-      .hero-overlay .sparrow,
-      .hero-overlay .house-4,
-      .hero-overlay .house-5,
-      .hero-overlay .house-6,
-      .hero-overlay .v-4,
-      .hero-overlay .v-5,
+      .layer-fg .house-4,
+      .layer-fg .house-5,
+      .layer-fg .house-6,
+      .layer-fg .v-4,
+      .layer-fg .v-5,
+      .layer-md-animals .macaque,
+      .layer-md-animals .ferret,
+      .layer-md-animals .weasel,
+      .layer-md-animals .sparrow,
       .hero-info-card p {
         display: none;
       }
@@ -1248,44 +1247,44 @@
           <div class="mist mist-2"></div>
           <div class="mountain-range"></div>
         </div>
+      </div>
 
-        <div class="layer layer-md-animals">
-          <div class="animal run-forward boar" aria-hidden="true"><img src="/images/animals/boar.svg" alt="野豬"></div>
-          <div class="animal run-forward bear" aria-hidden="true"><img src="/images/animals/bear.svg" alt="臺灣黑熊"></div>
-          <div class="animal run-forward macaque" aria-hidden="true"><img src="/images/animals/macaque.svg" alt="獼猴"></div>
-          <div class="animal run-forward deer" aria-hidden="true"><img src="/images/animals/deer.svg" alt="山羌"></div>
-          <div class="animal run-forward squirrel" aria-hidden="true"><img src="/images/animals/squirrel.svg" alt="松鼠"></div>
-          <div class="animal run-forward ferret" aria-hidden="true"><img src="/images/animals/ferret.svg" alt="鼬鼠"></div>
-          <div class="animal run-forward owl" aria-hidden="true"><img src="/images/animals/owl-flying.svg" alt="貓頭鷹"></div>
-          <div class="animal run-forward dove" aria-hidden="true"><img src="/images/animals/dove.svg" alt="山鳩"></div>
+      <div class="layer layer-md-animals" aria-hidden="true">
+        <div class="animal run-forward boar"><img src="/images/animals/boar.svg?v=4" alt="野豬"></div>
+        <div class="animal run-forward bear"><img src="/images/animals/bear.svg?v=4" alt="臺灣黑熊"></div>
+        <div class="animal run-forward macaque"><img src="/images/animals/macaque.svg?v=4" alt="獼猴"></div>
+        <div class="animal run-forward deer"><img src="/images/animals/deer.svg?v=4" alt="山羌"></div>
+        <div class="animal run-forward squirrel"><img src="/images/animals/squirrel.svg?v=4" alt="松鼠"></div>
+        <div class="animal run-forward ferret"><img src="/images/animals/ferret.svg?v=4" alt="鼬鼠"></div>
+        <div class="animal run-forward owl"><img src="/images/animals/owl-flying.svg?v=4" alt="貓頭鷹"></div>
+        <div class="animal run-forward dove"><img src="/images/animals/dove.svg?v=4" alt="山鳩"></div>
 
-          <div class="animal run-forward pheasant" aria-hidden="true"><img src="/images/animals/pheasant.svg" alt="山雞"></div>
-          <div class="animal run-forward muntjac" aria-hidden="true"><img src="/images/animals/muntjac.svg" alt="水鹿"></div>
-          <div class="animal run-forward mikado-pheasant" aria-hidden="true"><img src="/images/animals/mikado-pheasant.svg" alt="帝雉"></div>
-          <div class="animal run-forward blue-magpie" aria-hidden="true"><img src="/images/animals/blue-magpie.svg" alt="藍雀"></div>
-          <div class="animal run-forward eagle" aria-hidden="true"><img src="/images/animals/eagle.svg" alt="山鷹"></div>
-          <div class="animal run-forward rabbit" aria-hidden="true"><img src="/images/animals/rabbit.svg" alt="山兔"></div>
-          <div class="animal run-forward weasel" aria-hidden="true"><img src="/images/animals/weasel.svg" alt="黃鼠狼"></div>
-          <div class="animal run-forward sparrow" aria-hidden="true"><img src="/images/animals/sparrow.svg" alt="麻雀"></div>
+        <div class="animal run-forward pheasant"><img src="/images/animals/pheasant.svg?v=4" alt="山雞"></div>
+        <div class="animal run-forward muntjac"><img src="/images/animals/muntjac.svg?v=4" alt="水鹿"></div>
+        <div class="animal run-forward mikado-pheasant"><img src="/images/animals/mikado-pheasant.svg?v=4" alt="帝雉"></div>
+        <div class="animal run-forward blue-magpie"><img src="/images/animals/blue-magpie.svg?v=4" alt="藍雀"></div>
+        <div class="animal run-forward eagle"><img src="/images/animals/eagle.svg?v=4" alt="山鷹"></div>
+        <div class="animal run-forward rabbit"><img src="/images/animals/rabbit.svg?v=4" alt="山兔"></div>
+        <div class="animal run-forward weasel"><img src="/images/animals/weasel.svg?v=4" alt="黃鼠狼"></div>
+        <div class="animal run-forward sparrow"><img src="/images/animals/sparrow.svg?v=4" alt="麻雀"></div>
+      </div>
+
+      <div class="layer layer-fg" aria-hidden="true">
+        <div class="tribal-ground"></div>
+        <div class="stilt-houses">
+          <div class="house house-1"><div class="roof"></div><div class="body"></div></div>
+          <div class="house house-2"><div class="roof"></div><div class="body"></div></div>
+          <div class="house house-3"><div class="roof"></div><div class="body"></div></div>
+          <div class="house house-4"><div class="roof"></div><div class="body"></div></div>
+          <div class="house house-5"><div class="roof"></div><div class="body"></div></div>
+          <div class="house house-6"><div class="roof"></div><div class="body"></div></div>
         </div>
-
-        <div class="layer layer-fg">
-          <div class="tribal-ground"></div>
-          <div class="stilt-houses">
-            <div class="house house-1"><div class="roof"></div><div class="body"></div></div>
-            <div class="house house-2"><div class="roof"></div><div class="body"></div></div>
-            <div class="house house-3"><div class="roof"></div><div class="body"></div></div>
-            <div class="house house-4"><div class="roof"></div><div class="body"></div></div>
-            <div class="house house-5"><div class="roof"></div><div class="body"></div></div>
-            <div class="house house-6"><div class="roof"></div><div class="body"></div></div>
-          </div>
-          <div class="villager-silhouettes">
-            <div class="villager v-1"></div>
-            <div class="villager v-2"></div>
-            <div class="villager v-3"></div>
-            <div class="villager v-4"></div>
-            <div class="villager v-5"></div>
-          </div>
+        <div class="villager-silhouettes">
+          <div class="villager v-1"></div>
+          <div class="villager v-2"></div>
+          <div class="villager v-3"></div>
+          <div class="villager v-4"></div>
+          <div class="villager v-5"></div>
         </div>
       </div>
 
