@@ -263,10 +263,24 @@ window.AiLabTaskSubmit = (function() {
         if (ctx.btnAnswerSubmit) ctx.btnAnswerSubmit.disabled = false;
     }
 
+    async function resolveUserTaskId(ctx) {
+        if (ctx.currentUserTaskId) return ctx.currentUserTaskId;
+        let id = await ctx.fetchCurrentUserTaskId();
+        if (id) {
+            ctx.currentUserTaskId = id;
+            return id;
+        }
+        id = await ctx.createCurrentUserTaskRecord();
+        if (id) {
+            ctx.currentUserTaskId = id;
+            return id;
+        }
+        return null;
+    }
+
     async function ensureUserTaskIdOrFail(ctx) {
         try {
-            if (!ctx.currentUserTaskId) await ctx.fetchCurrentUserTaskId();
-            if (!ctx.currentUserTaskId) await ctx.createCurrentUserTaskRecord();
+            await resolveUserTaskId(ctx);
         } catch (err) {
             const message = err?.message || '無法建立關卡紀錄，請稍後再試';
             ctx.answerMessage.textContent = `❌ ${message}`;
@@ -472,8 +486,13 @@ window.AiLabTaskSubmit = (function() {
             return;
         }
 
-        if (!ctx.currentUserTaskId) await ctx.fetchCurrentUserTaskId();
-        if (!ctx.currentUserTaskId) await ctx.createCurrentUserTaskRecord();
+        try {
+            await resolveUserTaskId(ctx);
+        } catch (err) {
+            const setLockMsg = (text) => { if (ctx.lockMsg) ctx.lockMsg.textContent = text; };
+            setLockMsg(err?.message || '無法建立關卡紀錄');
+            return;
+        }
         const setLockMsg = (text) => { if (ctx.lockMsg) ctx.lockMsg.textContent = text; };
         if (!ctx.currentUserTaskId) {
             setLockMsg('無法建立關卡紀錄');
