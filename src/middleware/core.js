@@ -49,18 +49,24 @@ function applyCoreMiddleware(app, express) {
     referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
   }));
 
-  const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 4000,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { success: false, message: '請求過於頻繁，請稍後再試' }
-  });
-  app.use('/api/', apiLimiter);
+  // 同一 WiFi / 同一出口 IP 下，現場會有數十人同時載入與作答；全站 API 限流會誤傷整批玩家。
+  // 預設關閉一般 API 限流；若需開啟可設 API_RATE_LIMIT_MAX（每 15 分鐘、每 IP）。
+  const apiRateLimitMax = Number.parseInt(process.env.API_RATE_LIMIT_MAX || '0', 10);
+  if (Number.isFinite(apiRateLimitMax) && apiRateLimitMax > 0) {
+    const apiLimiter = rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: apiRateLimitMax,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { success: false, message: '請求過於頻繁，請稍後再試' }
+    });
+    app.use('/api/', apiLimiter);
+  }
 
+  const authRateLimitMax = Number.parseInt(process.env.AUTH_RATE_LIMIT_MAX || '500', 10);
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 50,
+    max: Number.isFinite(authRateLimitMax) && authRateLimitMax > 0 ? authRateLimitMax : 500,
     message: { success: false, message: '嘗試次數過多，請 15 分鐘後再試' }
   });
   app.use('/api/login', authLimiter);
