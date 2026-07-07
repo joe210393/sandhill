@@ -701,8 +701,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function exitFormalStoryIntroMode() {
-            if (!formalStoryIntroMode) return;
-            formalStoryIntroMode = false;
+            if (formalStoryIntroMode) {
+                formalStoryIntroMode = false;
+            }
+            gameShellPanel?.classList.remove('collapsed');
             renderTutorialModeUi();
         }
 
@@ -1147,6 +1149,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function scheduleStoryReloadAfterCompletion() {
             pendingStoryReloadAfterCompletion = Boolean(currentEntryMode === 'story_campaign' && currentQuestChainId);
+            runtimeState.set('questProgressCache', null);
+            runtimeState.set('questProgressCacheAt', 0);
         }
 
         const createTutorialFallbackCapture = () => taskFlow.createTutorialFallbackCapture();

@@ -497,6 +497,7 @@ body.formal-story-capture-clean #taskIntroPanel {
     z-index: var(--z-confirm);
     display: flex;
     flex-direction: column;
+    min-height: 0;
     pointer-events: auto;
     animation: slideUpPanel 0.3s ease-out;
 }
@@ -545,8 +546,12 @@ body.formal-story-capture-clean #taskIntroPanel {
 
 .task-intro-body {
     padding: 16px;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
 }
 
 .task-intro-body.has-video {

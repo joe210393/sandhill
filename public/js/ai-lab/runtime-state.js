@@ -46,7 +46,9 @@
             tutorialFlowStarted: false,
             tutorialIntroTaskId: null,
             targetLat: null,
-            targetLng: null
+            targetLng: null,
+            questProgressCache: null,
+            questProgressCacheAt: 0
         };
     }
 

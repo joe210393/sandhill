@@ -428,6 +428,11 @@
         align-items: stretch;
         gap: 8px;
         padding: calc(6px + env(safe-area-inset-top, 0px)) 10px calc(152px + env(safe-area-inset-bottom, 0px));
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        touch-action: pan-y;
     }
 
     body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .header,
@@ -481,6 +486,15 @@
         background: rgba(7, 12, 20, 0.78);
         border: 1px solid rgba(255, 255, 255, 0.14);
         box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3);
+        flex-shrink: 0;
+    }
+
+    body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-shell-panel.has-video:not(.collapsed) {
+        max-height: min(78vh, calc(100dvh - 168px));
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        touch-action: pan-y;
     }
 
     body:not(.immersive-camera-mode):not(.tutorial-board-clean):not(.tutorial-story-clean) .game-shell-top {

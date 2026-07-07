@@ -82,11 +82,18 @@
         async function fetchQuestProgressMap() {
             try {
                 if (!getLoginUser()) return {};
+                const cachedAt = get('questProgressCacheAt');
+                const cached = get('questProgressCache');
+                if (cachedAt && cached && Date.now() - cachedAt < 5000) {
+                    return cached;
+                }
                 const res = await fetch('/api/user/quest-progress', { credentials: 'include' });
                 if (res.status === 401 || res.status === 403) return {};
                 if (!res.ok) return {};
                 const data = await res.json();
                 if (!data.success || !data.progress || typeof data.progress !== 'object') return {};
+                set('questProgressCache', data.progress);
+                set('questProgressCacheAt', Date.now());
                 return data.progress;
             } catch (err) {
                 console.warn('取得劇情進度失敗', err);

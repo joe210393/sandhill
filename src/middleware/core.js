@@ -13,7 +13,8 @@ function buildAllowedOrigins(env = process.env) {
         'http://127.0.0.1:3000',
         'http://127.0.0.1:3001',
         'http://127.0.0.1:4015',
-        'https://sandhill.zeabur.app'
+        'https://sandhill.zeabur.app',
+        'https://leleland.zeabur.app'
       ];
 }
 
@@ -48,12 +49,14 @@ function applyCoreMiddleware(app, express) {
     referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
   }));
 
-  app.use(rateLimit({
+  const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 1000,
+    max: 4000,
     standardHeaders: true,
-    legacyHeaders: false
-  }));
+    legacyHeaders: false,
+    message: { success: false, message: '請求過於頻繁，請稍後再試' }
+  });
+  app.use('/api/', apiLimiter);
 
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,

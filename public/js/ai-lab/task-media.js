@@ -58,6 +58,7 @@ window.AiLabTaskMedia = (function() {
                 }
             }
             ctx.closeTaskIntroPanel({ pauseVideo: false });
+            ctx.gameShellPanel?.classList.remove('collapsed');
             try {
                 taskIntroVideo.pause();
                 taskIntroVideo.currentTime = 0;

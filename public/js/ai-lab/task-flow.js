@@ -88,7 +88,8 @@
                 if (!data.success || !Array.isArray(data.tasks)) return null;
                 let taskRecord = data.tasks.find((item) => String(item.id) === String(currentTaskId));
                 if (!taskRecord) {
-                    await createCurrentUserTaskRecord();
+                    const createdId = await createCurrentUserTaskRecord();
+                    if (createdId) return createdId;
                     data = await loadTasks();
                     if (!data.success || !Array.isArray(data.tasks)) return null;
                     taskRecord = data.tasks.find((item) => String(item.id) === String(currentTaskId));
@@ -356,6 +357,9 @@
             set('tutorialFlowStarted', true);
             set('tutorialBoardPhotoCaptureArmed', false);
             renderTutorialModeUi();
+            if (getLoginUser() && !get('currentUserTaskId')) {
+                fetchCurrentUserTaskId().catch(() => {});
+            }
             if (tutorialMode && get('tutorialIntroTaskId') !== currentTask.id) {
                 set('tutorialIntroTaskId', currentTask.id);
                 await showNpcDialog({
