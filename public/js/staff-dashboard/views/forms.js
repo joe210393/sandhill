@@ -147,8 +147,13 @@ function syncQuestChainCommercialFields() {
   const isPublicGood = billingPolicy === 'public_good';
   const shopSearchInput = document.getElementById('questChainShopSearchInput');
 
-  if (loginUser?.role === 'admin' && shopSelect && !shopSelect.value) {
+  const allowShopAssignment = loginUser?.role === 'admin' && isEditing && !editingChain?.shop_id;
+
+  if (loginUser?.role === 'admin' && shopSelect && !shopSelect.value && !allowShopAssignment) {
     shopSelect.value = ADMIN_SHARED_SHOP_VALUE;
+  }
+  if (allowShopAssignment && shopSelect && shopSelect.value === ADMIN_SHARED_SHOP_VALUE) {
+    shopSelect.value = '';
   }
 
   if (selectedPlan) {
@@ -164,10 +169,10 @@ function syncQuestChainCommercialFields() {
     shopSelect.value = String(loginUser.shop_id);
   }
 
-  const lockCommercialFields = isEditing;
-  shopSelect.disabled = loginUser.role !== 'admin' || lockCommercialFields;
+  const lockCommercialFields = isEditing && Boolean(editingChain?.shop_id);
+  shopSelect.disabled = loginUser.role !== 'admin' || (isEditing && !allowShopAssignment);
   if (shopSearchInput) {
-    shopSearchInput.disabled = loginUser.role !== 'admin' || lockCommercialFields;
+    shopSearchInput.disabled = loginUser.role !== 'admin' || (isEditing && !allowShopAssignment);
     if (shopSearchInput.disabled) {
       shopSearchInput.value = getQuestChainShopDisplayName(shopSelect.value || '');
     }
@@ -191,7 +196,9 @@ function syncQuestChainCommercialFields() {
 
   if (shopHint) {
     shopHint.textContent = loginUser.role === 'admin'
-      ? (lockCommercialFields ? '入口建立後商家歸屬會固定保留；若要搬移，建議以資料遷移方式處理。' : 'admin 可指定入口要歸屬到哪個建置商家；由 admin 建立時，會自動視為公益入口。')
+      ? (allowShopAssignment
+        ? '此入口尚未指定商家，請在此補選一次；儲存後商家歸屬會固定，之後若要搬移需由資料遷移處理。'
+        : (lockCommercialFields ? '入口建立後商家歸屬會固定保留；若要搬移，建議以資料遷移方式處理。' : 'admin 可指定入口要歸屬到哪個建置商家；由 admin 建立時，會自動視為公益入口。'))
       : '這個入口會自動歸屬在你目前登入的商家底下。';
   }
   if (planHint) {

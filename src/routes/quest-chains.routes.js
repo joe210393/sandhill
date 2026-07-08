@@ -176,7 +176,8 @@ function registerQuestChainRoutes(app, {
       title, description, chain_points, badge_name,
       mode_type, is_active, cover_image_url, short_description,
       entry_order, entry_button_text, entry_scene_label, play_style, experience_mode, access_mode,
-      game_rules, content_blueprint
+      game_rules, content_blueprint,
+      shop_id
     } = req.body;
     if (!title) return res.status(400).json({ success: false, message: '缺少標題' });
 
@@ -198,6 +199,10 @@ function registerQuestChainRoutes(app, {
       const questChainColumns = await getTableColumnSet(conn, 'quest_chains');
       const resolvedStructureLockedAt = chain.structure_locked_at || (shouldAutoLock ? new Date() : null);
       const normalizedBillingPolicy = normalizeBillingPolicy(chain.billing_policy, chain.created_by);
+      let resolvedShopId = chain.shop_id || null;
+      if (req.user?.role === 'admin' && !resolvedShopId && shop_id != null && String(shop_id).trim() !== '') {
+        resolvedShopId = await resolveActorShopId(conn, req.user, shop_id);
+      }
       const questChainRecord = {
         title,
         name: title,
@@ -205,7 +210,7 @@ function registerQuestChainRoutes(app, {
         chain_points: chain_points || 0,
         badge_name: badge_name || null,
         badge_image: badge_image || null,
-        shop_id: chain.shop_id || null,
+        shop_id: resolvedShopId,
         plan_id: chain.plan_id || null,
         task_limit: chain.task_limit || null,
         setup_fee: chain.setup_fee || 0,
@@ -241,6 +246,16 @@ function registerQuestChainRoutes(app, {
         }
       }
       await updateDynamicRecord(conn, 'quest_chains', id, filteredRecord);
+      if (!chain.shop_id && resolvedShopId) {
+        await conn.execute(
+          'UPDATE tasks SET shop_id = ? WHERE quest_chain_id = ? AND (shop_id IS NULL OR shop_id = 0)',
+          [resolvedShopId, Number(id)]
+        );
+        await conn.execute(
+          'UPDATE llm_usage_logs SET shop_id = ? WHERE quest_chain_id = ? AND shop_id IS NULL',
+          [resolvedShopId, Number(id)]
+        );
+      }
       if (shouldAutoLock) {
         const taskColumns = await getTableColumnSet(conn, 'tasks');
         const taskAssignments = [];
