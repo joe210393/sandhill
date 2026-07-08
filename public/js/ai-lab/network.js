@@ -4,11 +4,24 @@
   }
 
   async function requestJson(url, options = {}, actionLabel = '請求資料') {
+    const timeoutMs = Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : 25000;
+    const { timeoutMs: _ignored, ...fetchOptions } = options;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     let res;
     try {
-      res = await fetch(url, options);
+      res = await fetch(url, {
+        credentials: 'include',
+        ...fetchOptions,
+        signal: controller.signal
+      });
     } catch (err) {
+      if (err?.name === 'AbortError') {
+        throw new Error(`冒險艙在「${actionLabel}」時等待過久，請確認網路後再試。`);
+      }
       throw buildFriendlyNetworkError(actionLabel);
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     let data = null;

@@ -41,11 +41,16 @@ window.AiLabPhotoWorkflow = (function() {
             if (ctx.getSelectionMode() === 'reticle') {
                 if (ctx.isGuidedReticleLockMode()) return;
                 const tapStart = ctx.getTapStart();
-                if (tapStart) {
-                    const pos = getPos(event);
-                    const dx = pos.x - tapStart.x;
-                    const dy = pos.y - tapStart.y;
-                    if (Math.sqrt(dx * dx + dy * dy) > 15) ctx.setTapStart(null);
+                if (!tapStart) return;
+                const pos = getPos(event);
+                const dx = pos.x - tapStart.x;
+                const dy = pos.y - tapStart.y;
+                if (Math.sqrt(dx * dx + dy * dy) > 6) {
+                    const radius = ctx.getReticleRadius();
+                    const center = ctx.getReticleCenter();
+                    center.x = Math.max(radius, Math.min(ctx.canvas.width - radius, pos.x));
+                    center.y = Math.max(radius, Math.min(ctx.canvas.height - radius, pos.y));
+                    ctx.updateReticlePosition();
                 }
                 return;
             }

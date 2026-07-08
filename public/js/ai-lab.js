@@ -800,7 +800,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (canvas) {
-                canvas.style.pointerEvents = isGuidedReticleLockMode() || isPhotoTaskCaptureActive() ? 'none' : '';
+                canvas.style.pointerEvents = isGuidedReticleLockMode() ? 'none' : 'auto';
             }
 
             if (gameShellProgressBlock) {

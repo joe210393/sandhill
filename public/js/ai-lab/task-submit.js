@@ -301,30 +301,34 @@ window.AiLabTaskSubmit = (function() {
 
         ctx.btnAnswerSubmit.disabled = true;
         ctx.answerMessage.textContent = hasChoiceField ? '✅ 已送出答案，資料確認中...' : '⏳ 驗證中...';
-        ctx.showQueryTransit(hasChoiceField ? '已收到你的答案，正在確認是否通關...' : '正在將結果送回樂樂園...');
+        if (!hasChoiceField) {
+            ctx.showQueryTransit('正在將結果送回樂樂園...');
+        }
         let data;
         try {
             data = await ctx.requestJson(`/api/user-tasks/${ctx.currentUserTaskId}/answer`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ answer })
             }, '送出答案');
         } catch (err) {
-            ctx.hideQueryTransit();
+            if (!hasChoiceField) ctx.hideQueryTransit();
             ctx.answerMessage.textContent = `❌ ${err.message}`;
             await ctx.showNpcDialog({
                 speakerKey: 'rescue',
                 mood: '送出失敗',
-                text: `海羽沒能把這份答案成功送進冒險艙。\n\n${err.message}\n\n請稍後再試一次。`
+                text: `海羽沒能把這份答案成功送進冒險艙。\n\n${err.message}\n\n請稍後再試一次。`,
+                blocking: false
             });
             ctx.btnAnswerSubmit.disabled = false;
             return;
         }
-        ctx.hideQueryTransit();
+        if (!hasChoiceField) ctx.hideQueryTransit();
 
         if (data.success && (data.isCompleted || (data.message && data.message.includes('已完成')))) {
-            if (ctx.currentTask.task_type === 'photo') ctx.resetPhotoCaptureState();
             ctx.answerModal.classList.add('hidden');
+            if (ctx.currentTask.task_type === 'photo') ctx.resetPhotoCaptureState();
             if (ctx.setTutorialFlowStarted) ctx.setTutorialFlowStarted(false);
             ctx.renderTutorialModeUi();
             const judgeText = ctx.normalizeUiText(data.message, '這一關已完成，下一段劇情正在展開。');
@@ -335,12 +339,20 @@ window.AiLabTaskSubmit = (function() {
                     text: judgeText,
                     autoCloseMs: 2200
                 });
-            } else {
+            } else if (!hasChoiceField) {
                 await ctx.showNpcDialog({
                     speakerKey: 'judge',
                     mood: ctx.isCurrentQuestTutorialMode() ? '教學模式通關' : (ctx.isCurrentQuestDemoMode() ? '體驗模式通關' : '規則通關'),
                     text: judgeText,
                     autoCloseMs: 2200
+                });
+            } else {
+                ctx.showNpcDialog({
+                    speakerKey: 'judge',
+                    mood: '規則通關',
+                    text: judgeText,
+                    autoCloseMs: 1800,
+                    blocking: false
                 });
             }
             ctx.scheduleStoryReloadAfterCompletion();

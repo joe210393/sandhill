@@ -231,6 +231,14 @@
                     refreshAnswerPhotoFromReticle
                 }
             });
+            if (
+                task.task_type === 'multiple_choice'
+                && getLoginUser()
+                && !get('currentUserTaskId')
+                && !(renderOptions && renderOptions.readOnly)
+            ) {
+                fetchCurrentUserTaskId().catch(() => {});
+            }
         }
 
         function buildSubmitContext() {
