@@ -26,7 +26,10 @@ function registerAiTaskRoutes(app, {
     try {
       conn = await pool.getConnection();
       const [tasks] = await conn.execute(
-        `SELECT t.*, qc.name AS quest_chain_name, qc.game_rules, qc.content_blueprint, qc.experience_mode, qc.play_style
+        `SELECT t.*,
+                COALESCE(t.shop_id, qc.shop_id) AS shop_id,
+                qc.shop_id AS quest_chain_shop_id,
+                qc.name AS quest_chain_name, qc.game_rules, qc.content_blueprint, qc.experience_mode, qc.play_style
          FROM tasks t
          LEFT JOIN quest_chains qc ON t.quest_chain_id = qc.id
          WHERE t.id = ?`,
@@ -151,7 +154,10 @@ function registerAiTaskRoutes(app, {
       }
 
       const [tasks] = await conn.execute(
-        `SELECT t.*, qc.name AS quest_chain_name, qc.game_rules, qc.content_blueprint, qc.experience_mode, qc.play_style
+        `SELECT t.*,
+                COALESCE(t.shop_id, qc.shop_id) AS shop_id,
+                qc.shop_id AS quest_chain_shop_id,
+                qc.name AS quest_chain_name, qc.game_rules, qc.content_blueprint, qc.experience_mode, qc.play_style
          FROM tasks t
          LEFT JOIN quest_chains qc ON t.quest_chain_id = qc.id
          WHERE t.id = ?`,

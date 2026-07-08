@@ -11,7 +11,8 @@ function registerBillingRoutes(app, {
   authenticateToken,
   requireRole,
   resolveActorShopId,
-  normalizeBoolean
+  normalizeBoolean,
+  reconcileLlmUsageMonthlySummary
 }) {
   app.get('/api/billing/shops', authenticateToken, requireRole('admin', 'shop', 'staff'), async (req, res) => {
     let conn;
@@ -258,6 +259,13 @@ function registerBillingRoutes(app, {
     try {
       conn = await pool.getConnection();
       const billingMonth = normalizeBillingMonth(req.query.billing_month);
+      if (typeof reconcileLlmUsageMonthlySummary === 'function') {
+        try {
+          await reconcileLlmUsageMonthlySummary(conn, billingMonth);
+        } catch (reconcileErr) {
+          console.warn('LM 用量月報補齊失敗，改以現有資料顯示:', reconcileErr?.message || reconcileErr);
+        }
+      }
       const resolvedShopId = await resolveActorShopId(conn, req.user, req.query.shop_id);
       const queryParams = [billingMonth];
       let whereClause = '';

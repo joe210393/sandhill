@@ -365,6 +365,7 @@ app.patch('/api/user-tasks/:id/answer', authenticateToken, async (req, res) => {
     // 1. 取得任務資訊
     const [rows] = await conn.execute(`
       SELECT ut.*, t.task_type, t.options, t.correct_answer, t.points, t.name as task_name, ut.user_id, ut.task_id, t.quest_chain_id, t.quest_order,
+             COALESCE(t.shop_id, qc.shop_id) AS shop_id,
              t.validation_mode, t.ai_config, t.pass_criteria, t.failure_message, t.success_message,
              qc.game_rules, qc.content_blueprint
       FROM user_tasks ut

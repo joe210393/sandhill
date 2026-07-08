@@ -55,6 +55,7 @@ const { fetchAIWithRetry, getAiConfig } = require('./services/ai-client');
 const { createAiTaskEvaluator } = require('./services/ai-task-evaluator');
 const {
   recordLlmUsage,
+  reconcileLlmUsageMonthlySummary,
   resolveUserFromRequest,
   getOrCreateUserTask,
   completeUserTask
@@ -355,7 +356,8 @@ registerBillingRoutes(app, {
   authenticateToken,
   requireRole,
   resolveActorShopId,
-  normalizeBoolean
+  normalizeBoolean,
+  reconcileLlmUsageMonthlySummary
 });
 registerAssetRoutes(app, {
   pool,
