@@ -55,7 +55,11 @@ window.AiLabTaskSubmit = (function() {
         ctx.showQueryTransit('正在將照片上傳至冒險艙資料庫...');
         let uploadData;
         try {
-            uploadData = await ctx.requestJson('/api/upload', { method: 'POST', body: fd }, '上傳照片');
+            uploadData = await ctx.requestJson('/api/upload', {
+                method: 'POST',
+                body: fd,
+                timeoutMs: window.AiLabNetwork?.UPLOAD_TIMEOUT_MS || 90000
+            }, '上傳照片');
         } catch (err) {
             ctx.hideQueryTransit();
             ctx.answerMessage.textContent = `❌ ${err.message}`;
@@ -79,14 +83,18 @@ window.AiLabTaskSubmit = (function() {
         } else {
             fd.append('image', photoInput.files[0]);
         }
-        ctx.answerMessage.textContent = tutorialPassMode ? '⏳ 正在整理教學判定...' : '⏳ AI 判定中...';
-        ctx.showQueryTransit(tutorialPassMode ? '教學模式判定中，請稍候...' : '潮汐裁判・鯨語正在仔細檢查你的照片...');
+        ctx.answerMessage.textContent = tutorialPassMode ? '⏳ 正在整理教學判定...' : '⏳ AI 判定中，約需 30～90 秒...';
+        ctx.showQueryTransit(tutorialPassMode ? '教學模式判定中，請稍候...' : '潮汐裁判・鯨語正在仔細檢查你的照片，請稍候...');
         const endpoint = tutorialPassMode
             ? `/api/tutorial/ai-tasks/${ctx.currentTask.id}/submit`
             : `/api/ai-tasks/${ctx.currentTask.id}/submit`;
         let aiData;
         try {
-            aiData = await ctx.requestJson(endpoint, { method: 'POST', body: fd }, '送出 AI 圖片判定');
+            aiData = await ctx.requestJson(endpoint, {
+                method: 'POST',
+                body: fd,
+                timeoutMs: window.AiLabNetwork?.AI_SUBMIT_TIMEOUT_MS || 180000
+            }, '送出 AI 圖片判定');
         } catch (err) {
             ctx.hideQueryTransit();
             ctx.answerMessage.textContent = `❌ ${err.message}`;
